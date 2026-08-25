@@ -1,0 +1,43 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap");
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+/* Enhanced prose styling for markdown content */
+.prose-white {
+  --tw-prose-body: rgba(255, 255, 255, 0.9);
+  --tw-prose-headings: rgba(255, 255, 255, 1);
+  --tw-prose-links: rgba(56, 189, 248, 1);
+  --tw-prose-bold: rgba(255, 255, 255, 1);
+  --tw-prose-counters: rgba(255, 255, 255, 0.7);
+  --tw-prose-bullets: rgba(255, 255, 255, 0.5);
+  --tw-prose-hr: rgba(255, 255, 255, 0.3);
+  --tw-prose-quotes: rgba(255, 255, 255, 0.9);
+  --tw-prose-quote-borders: rgba(255, 255, 255, 0.3);
+  --tw-prose-captions: rgba(255, 255, 255, 0.7);
+  --tw-prose-code: rgba(255, 255, 255, 0.9);
+  --tw-prose-pre-code: rgba(255, 255, 255, 0.9);
+  --tw-prose-pre-bg: rgba(0, 0, 0, 0.3);
+  --tw-prose-th-borders: rgba(255, 255, 255, 0.3);
+  --tw-prose-td-borders: rgba(255, 255, 255, 0.2);
+}
+
+/* Custom animation classes */
+.animate-in {
+  animation-duration: 0.3s;
+  animation-fill-mode: both;
+}
+
+.slide-in-from-bottom {
+  animation-name: slideInFromBottom;
+}
+
+@keyframes slideInFromBottom {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

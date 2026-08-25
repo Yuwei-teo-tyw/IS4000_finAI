@@ -1,0 +1,16 @@
+fastapi
+uvicorn[standard]
+websockets
+python-multipart
+requests
+langchain
+langchain-core
+langchain-groq
+langgraph
+langgraph-checkpoint-postgres==2.0.25
+psycopg[binary,pool]
+langfuse
+pyyaml
+pydantic
+pydantic-settings
+python-dotenv
