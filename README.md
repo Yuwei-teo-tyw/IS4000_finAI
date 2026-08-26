@@ -31,22 +31,45 @@ Several more pieces are in as functional placeholders, ready to harden before th
 
 > **Prompt versioning**: every prompt in this project lives in `app/prompts/prompts.yaml`, loaded through `app/prompts/prompt_builder.py` (`get_prompt("agent.key")`) instead of being hardcoded in each node file. Each key keeps every version it's ever had plus a `latest` pointer; pin a specific key to an older/newer version without a code change via `PROMPT_VERSION_OVERRIDES='{"finance.system": "v2"}'` - useful for rollback or an A/B test tied to `get_prompt_version(key)` in your eval/tracing metadata.
 
-Graph shape:
-```
-START --> pii_guard --> context_manager --(resume with current specialist, or triage if none)--> triage | technical | finance | general
-triage --(routing decision)--> technical | finance | general | END (canned response)
-technical --(tool call?)--> technical_tools --> back to technical
-technical --(now out of scope)--> triage
-technical --(final answer)--> eval
-finance --(tool call?)--> finance_tools --> back to finance
-finance --(money-moving action proposed)--> human_approval --> back to finance
-finance --(now out of scope)--> triage
-finance --(final answer)--> eval
-general --(tool call?)--> general_tools --> back to general
-general --(now out of scope)--> triage
-general --(final answer)--> eval
-eval --(regenerate)--> technical | finance | general | triage
-eval --(approve/flag)--> END
+Graph shape (built with LangGraph's `StateGraph` - see `agents/graph.py`):
+
+```mermaid
+flowchart TD
+    START([START]) --> pii_guard[🔒 pii_guard]
+    pii_guard --> context_manager[🧹 context_manager]
+
+    context_manager -->|new session| triage[🧠 triage]
+    context_manager -->|resuming| technical[💻 technical]
+    context_manager -->|resuming| finance[💰 finance]
+    context_manager -->|resuming| general[🤖 general]
+
+    triage -->|technical| technical
+    triage -->|finance| finance
+    triage -->|general| general
+    triage -->|meta / canned reply| END1([END])
+
+    technical -->|tool call| technical_tools[technical_tools]
+    technical -->|now out of scope| triage
+    technical -->|final answer| eval[✅ eval]
+    technical_tools --> technical
+
+    finance -->|tool call| finance_tools[finance_tools]
+    finance -->|money-moving action| human_approval[🛑 human_approval]
+    finance -->|now out of scope| triage
+    finance -->|final answer| eval
+    finance_tools --> finance
+    human_approval -->|resume with decision| finance
+
+    general -->|tool call| general_tools[general_tools]
+    general -->|now out of scope| triage
+    general -->|final answer| eval
+    general_tools --> general
+
+    eval -->|regenerate| technical
+    eval -->|regenerate| finance
+    eval -->|regenerate| general
+    eval -->|regenerate| triage
+    eval -->|approve / flag| END2([END])
 ```
 
 ## 🗄️ Postgres Schema

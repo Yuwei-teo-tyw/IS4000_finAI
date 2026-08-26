@@ -6,6 +6,8 @@ requests
 langchain
 langchain-core
 langchain-groq
+langchain-openai
+langchain-text-splitters
 langgraph
 langgraph-checkpoint-postgres==2.0.25
 psycopg[binary,pool]
