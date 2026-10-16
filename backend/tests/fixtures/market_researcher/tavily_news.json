@@ -1,0 +1,46 @@
+{
+ "query": "Treasury yields OR bond yields",
+ "follow_up_questions": null,
+ "answer": null,
+ "images": [],
+ "results": [
+  {
+   "url": "https://www.cnbc.com/2026/10/15/us-treasury-yields-investors-economic-data-.html",
+   "title": "U.S. Treasury yields: investors await more economic data",
+   "content": "U.S. Treasury yields declined on Thursday as investors awaited more economic data, after September's consumer price inflation reading came in stronger than expected in the previous session.\n\nThe benchmark 10-year Treasury yield last fell 9 basis points to 5.099%, while the 30-year Treasury bond yield was down over 8 basis points to 5.439%. The 2-year Treasury note yield was 6 basis points lower to 4.74%.\n\nOne basis point is equal to 0.01%, and yields and prices move in opposite directions. [...] Core inflation, which excludes volatile food and energy prices, rose 0.3% monthly and 2.6% annually, compared with estimates of 0.2% and 2.5%.\n\nThe print was already expected to be strong due to soaring energy prices, with gasoline costs up 9.1% and accounting for half of the gain in headline CPI. The energy index also jumped 5.2%.\n\nInvestors will now await the producer price index, retail sales data for September and weekly initial jobless claims figures, all due later in the session.",
+   "score": 0.83093774,
+   "published_date": "Thu, 15 Oct 2026 07:52:47 GMT",
+   "raw_content": null,
+   "id": "56bfea-00"
+  },
+  {
+   "url": "https://www.cnbc.com/2026/10/09/us-treasurys-bond-yields-midterms.html",
+   "title": "Treasury yields steady, Trump takes diplomatic tone on Iran",
+   "content": "Bond yields largely steadied Friday morning as investors digested the latest Treasury auction and President Donald Trump's pledge not to attack Iran until after the midterm elections.\n\nYields on 10-year U.S. Treasurys \u2014 the main benchmark for mortgages, auto loans and credit card debt \u2014 were last seen flat at 5.2399%.\n\nThe yield on longer-dated 30-year U.S. Treasury notes \u2014 which tend to move on geopolitical events \u2014 was also unchanged at 5.6150%. [...] The yield on the 2-year Treasury note, which more closely follows short-term Federal Reserve rate decisions, was more than 2 basis points higher at 4.7827%.\n\nOne basis point equals 0.01%, or 1/100th of 1%, and yields and prices move inversely to one another.\n\nThe moves come after Treasury yields fell during the previous session, having hit their highest level since 2002 earlier in the week.",
+   "score": 0.77405477,
+   "published_date": "Fri, 09 Oct 2026 08:24:50 GMT",
+   "raw_content": null,
+   "id": "b4fb58-01"
+  },
+  {
+   "url": "https://www.wsj.com/finance/investing/treasury-eurozone-bond-yields-fall-to-multiweek-lows-as-u-s-inflation-shock-fades-29c7b1c1",
+   "title": "Treasury Yields Slide to Three-Week Lows as Oil Prices Fall - WSJ",
+   "content": "Ten-year Treasury and German Bund yields slid to multiweek lows in early European trade on Thursday as bond investors absorbed higher-than-expected U.S. inflation data that had prompted a temporary but sharp bond selloff on Wednesday.\n\nTen- and 30-year U.S. Treasury yields fell to three-week lows of 5.087% and 5.431%, respectively, while the 10-year German Bund yield hit a two-week low of 3.382%, according to Tradeweb data.",
+   "score": 0.6877354,
+   "published_date": "Thu, 15 Oct 2026 09:07:00 GMT",
+   "raw_content": null,
+   "id": "3c9736-02"
+  },
+  {
+   "url": "https://www.investors.com/news/treasury-yields-dive-for-wrong-reason-neocloud-borrowing-costs-blow-up-crwv-orcl",
+   "title": "Treasury Yields Dive For Wrong Reason As Neocloud Bonds Blow Up | Investor's Business Daily",
+   "content": "Treasury yields continued sliding as on Thursday morning, giving markets relief from a central concern in recent months \u2014 but for the wrong reason. Instead of lower government bond yields feeding through to lower corporate and household borrowing rates, Treasury yields are falling because borrowing costs are blowing out for CoreWeave (CRWV) and other young AI data-center companies known as\u2026\n\nCopyright \u00a92026 Investor's Business Daily, LLC. All rights reserved. 87990cbe856818d5eddac44c7b1cdeb8",
+   "score": 0.5553635,
+   "published_date": "Thu, 15 Oct 2026 12:42:40 GMT",
+   "raw_content": null,
+   "id": "dbfb7f-03"
+  }
+ ],
+ "response_time": 2.81,
+ "request_id": "79b19369-617a-452a-80d3-158b091642d7"
+}
