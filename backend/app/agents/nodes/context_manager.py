@@ -1,7 +1,7 @@
 """
 Context Manager subagent - keeps the conversation window from growing
 unbounded. Runs once at the start of every graph invocation (before
-routing to triage/technical/finance); if the accumulated history is over
+routing to triage/finance/general); if the accumulated history is over
 budget, it summarizes the older portion and drops those messages from
 state, keeping a fixed window of the most recent messages verbatim.
 

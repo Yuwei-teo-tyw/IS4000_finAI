@@ -239,7 +239,7 @@ PHASES = ("early_expansion", "late_expansion", "recession", "late_recession")
 @dataclass(frozen=True)
 class RegimeConfig:
     zscore_years: int = 10
-    momentum_months: int = 3
+    momentum_months: int = 6  # backtest: 3m momentum produced 5 false recession calls vs 2 at 6m
 
     # Growth level G: component -> weight. Signs are applied in regime.py
     # (unemployment gap and claims trend are inverted).

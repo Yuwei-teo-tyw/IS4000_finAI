@@ -1,18 +1,18 @@
 """
 General Assistant Agent - handles general knowledge, conversation, and
-creative requests that don't need the Technical or Finance specialists.
+creative requests that don't need the Finance or Market Researcher specialists.
 
-Mirrors technical.py's/finance.py's pattern in two ways:
+Mirrors finance.py's pattern in two ways:
 1. Real tool-calling for search (`tavily_search`) instead of answering from
    static knowledge alone, so time-sensitive questions (weather, current
    events, scores, recent releases) get an actual answer instead of a stale
    or hallucinated one.
 2. A structured scope check, run once per new user message. Sessions resume
    directly on "general" turn after turn (see entry_router in graph.py) once
-   triage first routes here, so if the topic then shifts to a technical or
-   financial question mid-conversation, this is what hands back to triage
-   to re-route - without it the conversation would get stuck narrating a
-   handoff ("I'll connect you with our Technical Specialist...") that never
+   triage first routes here, so if the topic then shifts to a financial
+   question mid-conversation, this is what hands back to triage to
+   re-route - without it the conversation would get stuck narrating a
+   handoff ("I'll connect you with our Finance Expert...") that never
    actually happens.
 
 All prompt text lives in app/prompts/prompts.yaml, loaded via prompt_builder.
@@ -27,11 +27,10 @@ from app.prompts.prompt_builder import get_prompt
 
 
 class ScopeCheck(BaseModel):
-    destination: Literal["technical", "finance", "general"] = Field(
+    destination: Literal["finance", "general"] = Field(
         description=(
-            "'technical' if this message is actually a programming/coding/debugging/software question, "
             "'finance' if this message is actually an investment/market/budgeting/financial question, "
-            "'general' if it genuinely belongs here (general knowledge, conversation, creative requests, "
+            "'general' if it genuinely belongs here (general knowledge, programming, conversation, creative requests, "
             "current events/weather/real-time info)."
         )
     )
@@ -66,7 +65,7 @@ class GeneralAssistant:
                 print(f"GENERAL: scope check failed: {e}")
                 destination = "general"
 
-            if destination in ("technical", "finance"):
+            if destination == "finance":
                 return {
                     "current_agent": "triage",
                     "next_agent": "triage",

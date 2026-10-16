@@ -75,7 +75,7 @@ class PostgresCache:
             await conn.execute(
                 """
                 INSERT INTO market_cache (key, value, expires_at)
-                VALUES (%s, %s, now() + make_interval(secs => %s))
+                VALUES (%s, %s, now() + %s * interval '1 second')
                 ON CONFLICT (key) DO UPDATE
                     SET value = EXCLUDED.value, expires_at = EXCLUDED.expires_at
                 """,
@@ -141,3 +141,19 @@ async def init_market_tables(pool) -> None:
             """
         )
         await conn.execute("DELETE FROM market_cache WHERE expires_at < now()")
+
+
+_memory_cache: Optional[InMemoryCache] = None
+
+
+def default_cache() -> Cache:
+    """Postgres when the app's pool is open (the FastAPI app), otherwise a
+    process-wide in-memory cache (CLI, tests, scripts)."""
+    global _memory_cache
+    from app.core import db
+
+    if db._pool is not None:
+        return PostgresCache(db.get_pool())
+    if _memory_cache is None:
+        _memory_cache = InMemoryCache()
+    return _memory_cache

@@ -18,6 +18,10 @@ import httpx
 
 logger = logging.getLogger("market_researcher")
 
+# httpx logs every request URL at INFO, and FRED only accepts its API key
+# as a query parameter - keep those lines out of the logs entirely.
+logging.getLogger("httpx").setLevel(logging.WARNING)
+
 RETRYABLE_STATUS = {429, 500, 502, 503, 504}
 
 

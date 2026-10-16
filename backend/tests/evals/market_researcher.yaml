@@ -1,0 +1,41 @@
+# Eval set: main-agent-style requests for the market researcher.
+# Run: cd backend && python tests/evals/run_market_researcher_evals.py [--narrative-only]
+# Live (real APIs + Groq). Checks per case are in the runner's docstring;
+# `expect_news_terms` (any-of) checks the news is relevant to the request.
+cases:
+  - id: recession_risk
+    request: {query: "Are recession risks rising?", focus: ["recession", "labor market"], include_narrative: true}
+    expect_news_terms: [recession, jobs, labor, payroll, unemployment, economy]
+  - id: yields_driver
+    request: {query: "What is driving Treasury yields higher?", focus: ["treasury yields"]}
+    expect_news_terms: [yield, treasury, bond]
+  - id: oil_inflation
+    request: {query: "Impact of oil on the inflation outlook?", focus: ["oil prices", "inflation"], include_narrative: true}
+    expect_news_terms: [oil, crude, opec, inflation]
+  - id: fed_path
+    request: {query: "What is the Fed likely to do next?", focus: ["Federal Reserve"]}
+    expect_news_terms: [fed, federal reserve, fomc, rate]
+  - id: credit_conditions
+    request: {query: "Are credit conditions tightening?", focus: ["credit spreads", "high yield"]}
+    expect_news_terms: [credit, spread, bond, debt, yield]
+  - id: labor_market
+    request: {query: "How strong is the labor market?", focus: ["jobs report"]}
+    expect_news_terms: [jobs, payroll, labor, unemployment, hiring]
+  - id: equity_rotation
+    request: {query: "Which sectors are leading and what does that say about the cycle?", focus: ["sector rotation"]}
+    expect_news_terms: [stock, sector, s&p, nasdaq, equities, shares]
+  - id: dollar
+    request: {query: "Why is the dollar moving?", focus: ["US dollar"]}
+    expect_news_terms: [dollar, currency, fx, yen, euro]
+  - id: china_spillover
+    request: {query: "Is China's economy a risk to US markets?", focus: ["China economy"]}
+    expect_news_terms: [china, chinese, beijing]
+  - id: volatility
+    request: {query: "Is market volatility elevated?", focus: ["VIX volatility"]}
+    expect_news_terms: [volatility, vix, stocks, selloff, market]
+  - id: housing
+    request: {query: "What is the housing market signalling?", focus: ["housing starts", "mortgage rates"]}
+    expect_news_terms: [housing, home, mortgage, builder]
+  - id: cycle_summary
+    request: {query: "Summarize where we are in the economic cycle.", include_narrative: true}
+    expect_news_terms: []

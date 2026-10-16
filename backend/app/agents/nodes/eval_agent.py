@@ -116,7 +116,7 @@ class EvalAgent:
         # Compliance pass - finance responses only. Can only make things stricter
         # than the quality verdict (approve -> flag/regenerate), never looser.
         compliance = None
-        if state.get("current_agent") == "finance" and verdict != "regenerate":
+        if state.get("current_agent") in ("finance", "market_researcher") and verdict != "regenerate":
             compliance = await self._check_compliance(latest_response.content)
 
         if compliance and compliance.severity == "needs_rewrite":

@@ -7,7 +7,7 @@ changing a prompt is a reviewable YAML diff rather than a code diff.
 Usage:
     from app.prompts.prompt_builder import get_prompt
 
-    system_text = get_prompt("technical.system")
+    system_text = get_prompt("finance.system")
     note = get_prompt("shared.regenerate_note", feedback="too vague")
 
 Version pinning: each key's YAML entry has a `latest` pointer used by

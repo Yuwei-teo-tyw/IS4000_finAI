@@ -186,12 +186,15 @@ def zscore(points: list[SeriesPoint], years: Optional[int] = 10, min_points: int
 
 
 def percentile(points: list[SeriesPoint], years: Optional[int] = 10, min_points: int = 8) -> Optional[float]:
-    """Share (0-100) of trailing-window observations at or below the latest."""
+    """Mid-rank percentile (0-100) of the latest value within the trailing
+    window - ties count half, so a flat series sits at the 50th."""
     values = trailing_values(points, years)
     if len(values) < min_points:
         return None
     latest = values[-1]
-    return 100.0 * sum(1 for v in values if v <= latest) / len(values)
+    below = sum(1 for v in values if v < latest)
+    equal = sum(1 for v in values if v == latest)
+    return 100.0 * (below + 0.5 * equal) / len(values)
 
 
 @dataclass(frozen=True)

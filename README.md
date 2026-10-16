@@ -1,14 +1,15 @@
 # Multi-Agent Triage System
 
-A sophisticated multi-agent conversational AI system built with FastAPI backend and React frontend. The system intelligently routes user queries to specialized agents based on intent analysis, providing expert responses for technical and financial questions, and a general-purpose assistant for everything else - all through a central triage agent.
+A sophisticated multi-agent conversational AI system built with FastAPI backend and React frontend. The system intelligently routes user queries to specialized agents based on intent analysis, providing expert responses for financial questions and live macro/market research, and a general-purpose assistant for everything else - all through a central triage agent.
 
 ## 🏗️ Architecture
 
 The system is built on a real **LangGraph `StateGraph`** with conditional edges and a checkpointer - not a hand-rolled loop:
 
 - **🧠 Triage Agent**: routes requests using structured output (`with_structured_output`), not string-matching
-- **💻 Technical Specialist** / **💰 Finance Expert** / **🤖 General Assistant**: specialists with a bound `tavily_search` tool - the model itself decides when to search based on its system prompt, executed via LangGraph's `ToolNode`. Each also runs its own structured scope check per new message, so a topic drift mid-conversation hands back to triage instead of getting stuck answering out-of-lane questions.
+- **💰 Finance Expert** / **🤖 General Assistant**: specialists with a bound `tavily_search` tool - the model itself decides when to search based on its system prompt, executed via LangGraph's `ToolNode`. Each also runs its own structured scope check per new message, so a topic drift mid-conversation hands back to triage instead of getting stuck answering out-of-lane questions.
   - **Finance** additionally has two tools: `propose_financial_action` (any money-moving action, gated by human approval - see below) and `generate_client_report` (a currently-placeholder tool for producing a client-ready document; see Functional Placeholders below).
+  - Programming questions go to the General Assistant; there is no separate technical specialist.
   - Finance also runs incoming queries through a small glossary (`agents/finance_glossary.py`) that expands common shorthand/acronyms (P/E, YoY, EBITDA, etc.) before scope-checking, so jargon-heavy questions still classify correctly.
 - **🔄 State Management & Persistence**: session state (including full message history) persisted via LangGraph's `AsyncPostgresSaver`, keyed by session ID (LangGraph's `thread_id`) - conversations survive backend restarts, not just reconnects. A separate lightweight `sessions` table drives a ChatGPT-style sidebar without needing to decode LangGraph's own storage format - see the "Postgres Schema" section below.
 - **🗂️ Session Sidebar**: `components/Sidebar/Sidebar.tsx` lists past conversations (title, last-active time), sorted most-recent-first - new chat, switch between sessions, delete. The active session id is kept in `localStorage` so a page reload resumes the same chat instead of starting fresh.
@@ -27,7 +28,7 @@ Several more pieces are in as functional placeholders, ready to harden before th
 - **🛑 Human-in-the-loop approval**: any money-moving action (trade, transfer, rebalance) goes through a `propose_financial_action` tool that's gated by a hard `interrupt()` - the graph pauses mid-turn and won't proceed until the user explicitly confirms. The tool itself is currently inert (it returns a description, it doesn't touch any real account); the approval gate is real and should stay in front of an actual brokerage/banking integration later, not be removed. See `nodes/human_approval.py`. The WebSocket protocol pauses with `requires_confirmation: true` + a `pending_action` payload; the frontend swaps the normal message box for an explicit Approve/Decline prompt (`components/Chat/ApprovalPrompt.tsx`) rather than leaving free text open - typing a plain reply while paused here wouldn't work anyway, since LangGraph just re-triggers the same interrupt on anything that isn't the exact `{"action": "confirm_financial_action", "approved": true|false}` payload.
 - **📄 Client-ready report generation**: `generate_client_report`, bound only to the Finance Expert, is meant to turn a conversation's findings/recommendations into a formatted, downloadable document (PDF, Markdown, etc.). The output format and generation logic are undecided, so calling it today just returns a stub string. See `agents/report_generator.py`.
 
-> **Observability**: Langfuse tracing is wired in (`app/core/tracing.py`) - every turn is traced as one tree per session (triage/technical/finance/general/eval/context-manager LLM calls all nest under it automatically via LangGraph's callback propagation, no per-node code needed). Configure via the standard env vars (`LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_HOST`); with them unset, tracing silently no-ops rather than breaking anything.
+> **Observability**: Langfuse tracing is wired in (`app/core/tracing.py`) - every turn is traced as one tree per session (triage/finance/general/market-researcher/eval/context-manager LLM calls all nest under it automatically via LangGraph's callback propagation, no per-node code needed). Configure via the standard env vars (`LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_HOST`); with them unset, tracing silently no-ops rather than breaking anything.
 
 > **Prompt versioning**: every prompt in this project lives in `app/prompts/prompts.yaml`, loaded through `app/prompts/prompt_builder.py` (`get_prompt("agent.key")`) instead of being hardcoded in each node file. Each key keeps every version it's ever had plus a `latest` pointer; pin a specific key to an older/newer version without a code change via `PROMPT_VERSION_OVERRIDES='{"finance.system": "v2"}'` - useful for rollback or an A/B test tied to `get_prompt_version(key)` in your eval/tracing metadata.
 
@@ -39,24 +40,19 @@ flowchart TD
     pii_guard --> context_manager[🧹 context_manager]
 
     context_manager -->|new session| triage[🧠 triage]
-    context_manager -->|resuming| technical[💻 technical]
     context_manager -->|resuming| finance[💰 finance]
     context_manager -->|resuming| general[🤖 general]
+    context_manager -->|resuming| market_researcher[📈 market_researcher]
 
-    triage -->|technical| technical
     triage -->|finance| finance
     triage -->|general| general
+    triage -->|market| market_researcher
     triage -->|meta / canned reply| END1([END])
-
-    technical -->|tool call| technical_tools[technical_tools]
-    technical -->|now out of scope| triage
-    technical -->|final answer| eval[✅ eval]
-    technical_tools --> technical
 
     finance -->|tool call| finance_tools[finance_tools]
     finance -->|money-moving action| human_approval[🛑 human_approval]
     finance -->|now out of scope| triage
-    finance -->|final answer| eval
+    finance -->|final answer| eval[✅ eval]
     finance_tools --> finance
     human_approval -->|resume with decision| finance
 
@@ -65,9 +61,12 @@ flowchart TD
     general -->|final answer| eval
     general_tools --> general
 
-    eval -->|regenerate| technical
+    market_researcher -->|now out of scope| triage
+    market_researcher -->|rendered result| eval
+
     eval -->|regenerate| finance
     eval -->|regenerate| general
+    eval -->|regenerate| market_researcher
     eval -->|regenerate| triage
     eval -->|approve / flag| END2([END])
 ```
@@ -99,6 +98,74 @@ These four tables are created and fully managed by LangGraph (`checkpointer.setu
 `MultiAgentGraph.get_history()` (`agents/graph.py`) never queries these tables directly - it calls LangGraph's own `graph.aget_state(config)`, which reconstructs the latest `AgentState` from the blobs for you.
 
 Deleting a session (`DELETE /sessions/{id}`) has to clean up both halves separately: `db.delete_session()` for the `sessions` row, plus `checkpointer.adelete_thread()` for everything across the four LangGraph tables.
+
+## 📈 Market Researcher Agent
+
+A data agent for a **main agent (orchestrator)** to call over HTTP. It is separate from the chat flow above. Each run does the following:
+
+1. Pulls current macro, rates, credit and financial-conditions series from **FRED**, prices for about 25 ETFs, indices and futures from **yfinance**, and macro news from **Tavily**.
+2. Detects notable events, such as "10Y at multi-year high", a curve un-inversion, a Sahm rule trigger, or credit stress.
+3. Classifies the **economic cycle phase** (`early_expansion` / `late_expansion` / `recession` / `late_recession`), with probabilities, confidence, drivers and conflicting signals. It also reports the NY Fed yield-curve recession probability.
+4. Writes everything to a **JSON file** that the main agent synthesizes later.
+
+**Numbers come from code, not the LLM.** The only LLM call on the default path tags news. An optional narrative (`include_narrative: true`) is checked so that every number in it appears in the data; it falls back to a deterministic template if not. Full documentation (data sources, parsing, analytics, output format) is in [`backend/app/agents/market_researcher/market_research_explain.md`](backend/app/agents/market_researcher/market_research_explain.md); design notes and deviations from the original spec (`market_researcher_agent.md`) are in `NOTES.md` next to it.
+
+### Endpoints
+
+| Method & path | Purpose |
+|---|---|
+| `POST /agents/market-researcher/runs` | Start a run. The body is a `MarketResearchRequest` (`query`, `region`, `focus`, `lookback_days_news`, `as_of`, `include_narrative`). Returns **202** with `run_id`, `status_url` and `output_url`. `?wait=true` blocks and returns the output (**200**) |
+| `GET /agents/market-researcher/runs/{run_id}` | Status: `queued` / `running` / `succeeded` / `partial` (some sources failed, output still produced) / `failed` |
+| `GET /agents/market-researcher/runs/{run_id}/output` | The run's JSON output (409 while still running) |
+| `GET /agents/market-researcher/latest?region=US&max_age_minutes=60` | Freshest finished output, so a new run can be skipped |
+| `GET /agents/market-researcher/schema` | JSON Schema of the output (the contract; also committed as `market_research_output.schema.json`) |
+| `GET /agents/market-researcher/health` | Configured keys and storage reachability |
+
+```bash
+curl -X POST localhost:8000/agents/market-researcher/runs \
+  -H 'content-type: application/json' -d '{"region": "US", "focus": ["rates", "energy"]}'
+# -> {"run_id": "mr_20261016T063145Z_0aa2fb", "status": "queued", "status_url": "...", "output_url": "..."}
+curl localhost:8000/agents/market-researcher/runs/mr_20261016T063145Z_0aa2fb/output
+```
+
+Operational details:
+
+- **Cold runs** take about 30s, mostly the FRED fan-out of 34 series. **Warm runs** take about 5s, served from cache.
+- **Caches:**
+
+  | Data | Cache TTL |
+  |---|---|
+  | Daily series | 1h |
+  | Monthly series | 12h |
+  | Prices | 5 min |
+  | News | 15 min |
+
+- **Postgres tables:** the cache, the last regime (used for hysteresis) and the run registry live in three tables: `market_cache`, `market_regime_state` and `market_research_runs`.
+- **Output files:** written to `backend/data/market_research/` (gitignored).
+- **Limits:** concurrency is capped (`MARKET_RESEARCH_MAX_CONCURRENT_RUNS`, default 2). Identical in-flight requests share one run.
+- **Regions:** only `US` is supported for now; other regions return 422.
+
+### Chat access (optional)
+
+The same pipeline is also reachable from the chat:
+
+- **Triage** has a `market` route. Questions about current macro or market conditions go to a **📈 Market Researcher** node. The node runs the pipeline with the validated narrative and renders the result as Markdown: the phase, events, a headline table, sources and a disclaimer. The answer still passes through `eval`, including the compliance pass.
+- **Source links open a side panel.** Clicking a news link in a Market Researcher reply opens a reader view of the article (extracted text, plus the agent's summary and tags) instead of leaving the chat. Sites that block this fall back to the summary and an "Open original" button.
+- **The Finance Expert is separate.** It has no access to the market researcher's tools or data. Its scope check hands questions about current macro or market conditions back to triage, which routes them to the Market Researcher.
+
+### Dev tools
+
+```bash
+cd backend
+python -m app.agents.market_researcher --focus rates --narrative      # one run from the CLI, prints the JSON path
+python -m app.agents.market_researcher.backtest                       # regime backtest vs NBER dates -> backtest_report.md
+python -m app.agents.market_researcher.schemas                        # regenerate the committed JSON Schema
+python tests/evals/run_market_researcher_evals.py                     # 12-case live eval set
+RUN_LIVE_MARKET_TESTS=1 pytest -m live                                # live smoke test (real APIs)
+RUN_BACKTEST=1 pytest -m slow                                         # backtest acceptance test
+```
+
+The regime classifier is score-based and transparent. Every weight and threshold lives in `market_researcher/config.py`, so tune it there and re-run the backtest. The current backtest covers 1980 to the present. It catches **6/6** NBER recessions and makes 2 sustained false recession calls: the 2003 jobless recovery and the 2024 Sahm-rule trigger. See `backtest_report.md`.
 
 ## 🔧 Technology Stack
 
@@ -140,9 +207,16 @@ Deleting a session (`DELETE /sessions/{id}`) has to clean up both halves separat
 │   │   │   ├── tools.py                 # Agent tools (search, propose action, generate report)
 │   │   │   ├── report_generator.py      # Placeholder client-report generation logic
 │   │   │   ├── finance_glossary.py      # Financial shorthand/acronym -> full term mapping
+│   │   │   ├── market_researcher/       # Market researcher agent (HTTP-orchestrated; see its NOTES.md)
+│   │   │   │   ├── service.py           # Pipeline: fetch -> features -> events -> regime -> JSON file
+│   │   │   │   ├── adapters/            # FRED, yfinance, Tavily news (retry/backoff/rate limits)
+│   │   │   │   ├── features.py / events.py / regime.py   # Deterministic analytics
+│   │   │   │   ├── news_tagging.py / synthesis.py         # LLM tagging + optional validated narrative
+│   │   │   │   ├── runs.py              # Run registry + background runner behind the endpoint
+│   │   │   │   ├── config.py            # Series, watchlist, thresholds, regime weights, TTLs
+│   │   │   │   └── backtest.py          # Regime backtest vs NBER -> backtest_report.md
 │   │   │   └── nodes/
 │   │   │       ├── triage.py            # Main routing agent
-│   │   │       ├── technical.py         # Technical specialist
 │   │   │       ├── finance.py           # Finance expert
 │   │   │       ├── general.py           # General-purpose assistant
 │   │   │       ├── context_manager.py   # Conversation compaction
@@ -158,7 +232,8 @@ Deleting a session (`DELETE /sessions/{id}`) has to clean up both halves separat
 │   │   │   ├── prompts.yaml             # Versioned prompt text for every agent
 │   │   │   └── prompt_builder.py        # get_prompt()/get_prompt_version() loader
 │   │   └── endpoints/
-│   │       └── __init__.py              # WebSocket route + /sessions REST routes
+│   │       ├── __init__.py              # WebSocket route + /sessions REST routes
+│   │       └── market_researcher.py     # /agents/market-researcher/* (runs, latest, schema, health)
 │   └── requirements.txt                 # Python dependencies
 ├── frontend/
 │   ├── Dockerfile
@@ -208,6 +283,14 @@ Deleting a session (`DELETE /sessions/{id}`) has to clean up both halves separat
    # only read outside Docker - docker-compose.yml overrides this to point
    # at the `postgres` service instead of localhost
    DATABASE_URL=postgresql://postgres:postgres@localhost:5432/fin_ai_agents
+
+   # market researcher agent (see "Market Researcher Agent" below)
+   FRED_API_KEY=your_fred_key_here          # free: https://fred.stlouisfed.org/docs/api/api_key.html
+   # optional
+   MARKET_RESEARCH_API_TOKEN=               # if set, its endpoints require "Authorization: Bearer <token>"
+   MARKET_RESEARCH_OUTPUT_DIR=              # default: backend/data/market_research
+   MARKET_DATA_PROVIDER=yfinance
+   NEWS_PROVIDER=tavily                     # reuses TAVILY_API_KEY
    ```
 
 ### Option A: Docker Compose (recommended)
@@ -256,20 +339,16 @@ npm run dev
 
 ### How search actually gets triggered
 
-Each specialist (Technical, Finance, General) has `tavily_search` bound as a real tool via `bind_tools()` - **the model decides for itself**, per its system prompt, whether a question depends on information that could have changed recently (current prices, versions, news, recent releases) versus stable, well-known facts it can just answer directly. There's no keyword list or regex gating this - it's a genuine LLM tool-calling decision, and the frontend's search indicator reflects whether a search actually happened that turn, not a client-side guess.
+The Finance Expert and General Assistant each have `tavily_search` bound as a real tool via `bind_tools()` - **the model decides for itself**, per its system prompt, whether a question depends on information that could have changed recently (current prices, versions, news, recent releases) versus stable, well-known facts it can just answer directly. There's no keyword list or regex gating this - it's a genuine LLM tool-calling decision, and the frontend's search indicator reflects whether a search actually happened that turn, not a client-side guess.
 
 ### Example Interactions
 
-#### 🔧 Technical Questions
+#### 📈 Market Research Questions
 
 ```
-User: "How do I fix a Python memory leak?"
-Technical Specialist: Provides debugging steps and memory profiling techniques (answered directly, no search needed)
-```
-
-```
-User: "What are the latest Python 3.14 features?"
-Technical Specialist: 🌐 Searches for current release notes/docs, then answers with up-to-date info
+User: "Are recession risks rising?"
+Market Researcher: Pulls live FRED, market and news data, then replies with the cycle phase and confidence,
+the yield-curve recession probability, notable events, a headline indicator table, and source links
 ```
 
 #### 💰 Financial Questions

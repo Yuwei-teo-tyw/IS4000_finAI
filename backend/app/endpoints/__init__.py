@@ -57,8 +57,8 @@ async def langgraph_websocket(websocket: WebSocket):
             await websocket.send_text(json.dumps({
                 "message": get_prompt("triage.introduction"),
                 "agent_name": "Triage Agent",
-                "technical_response": {"message_result": "", "data": {}},
                 "finance_response": {"message_result": "", "data": {}},
+                "market_research_response": {"message_result": "", "data": {}},
             }, ensure_ascii=False))
         except Exception as e:
             print(f"Error sending welcome message: {e}")
@@ -187,8 +187,8 @@ async def langgraph_websocket(websocket: WebSocket):
                     response_data = {
                         "message": str(result.get("message", "No response generated")),
                         "agent_name": str(result.get("agent_name", "System")),
-                        "technical_response": result.get("technical_response", {"message_result": "", "data": {}}),
                         "finance_response": result.get("finance_response", {"message_result": "", "data": {}}),
+                        "market_research_response": result.get("market_research_response", {"message_result": "", "data": {}}),
                         "requires_confirmation": bool(result.get("requires_confirmation", False)),
                         "pending_action": result.get("pending_action"),
                     }
@@ -205,8 +205,7 @@ async def langgraph_websocket(websocket: WebSocket):
                         simple_response = {
                             "message": "Response generated but couldn't be sent properly",
                             "agent_name": "System",
-                            "technical_response": {"message_result": "", "data": {}},
-                            "finance_response": {"message_result": "", "data": {}}
+                                        "finance_response": {"message_result": "", "data": {}}
                         }
                         await websocket.send_text(json.dumps(simple_response))
 
@@ -215,10 +214,9 @@ async def langgraph_websocket(websocket: WebSocket):
                     import traceback
                     traceback.print_exc()
                     error_response = {
-                        "message": f"I apologize, but I encountered an error processing your request.",
+                        "message": "I apologize, but I encountered an error processing your request.",
                         "agent_name": "System",
-                        "technical_response": {"message_result": "", "data": {}},
-                        "finance_response": {"message_result": "", "data": {}}
+                                "finance_response": {"message_result": "", "data": {}}
                     }
                     try:
                         await websocket.send_text(json.dumps(error_response))

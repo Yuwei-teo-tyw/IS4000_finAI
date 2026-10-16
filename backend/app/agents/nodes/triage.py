@@ -2,7 +2,7 @@
 Triage Agent - Routes requests to appropriate specialists or provides general assistance.
 
 Routing uses `with_structured_output` (a real LangChain/Groq feature) instead
-of asking the model to emit a magic string like "ROUTE_TO_TECHNICAL" and then
+of asking the model to emit a magic string like "ROUTE_TO_FINANCE" and then
 substring-matching it - that's brittle since a normal answer could coincidentally
 contain the substring, and there's no schema validation.
 
@@ -19,14 +19,16 @@ from app.prompts.prompt_builder import get_prompt
 
 class RoutingDecision(BaseModel):
     """Routing decision for an incoming user message."""
-    destination: Literal["technical", "finance", "general", "meta"] = Field(
+    destination: Literal["finance", "market", "general", "meta"] = Field(
         description=(
-            "'technical' for programming/coding/debugging/software questions, "
-            "'finance' for investment/market/budgeting/financial questions, "
+            "'market' for questions about current macro/economic conditions - interest rates and "
+            "Treasury yields, inflation, jobs data, the economic cycle or recession risk, or overall "
+            "market conditions right now, "
+            "'finance' for other investment/budgeting/personal-finance questions, "
             "'meta' if the user is asking what this assistant/platform can do, which specialists or "
             "agents are available, or for help/options about the platform itself rather than asking "
             "an actual question, "
-            "'general' for everything else (general knowledge, conversation, creative requests, "
+            "'general' for everything else (general knowledge, programming, conversation, creative requests, "
             "current events/weather/real-time info)."
         )
     )
@@ -35,7 +37,7 @@ class RoutingDecision(BaseModel):
 class TriageAgent:
     """
     AI-powered triage agent that intelligently routes requests to the
-    Technical, Finance, or General specialist.
+    Finance, Market Researcher, or General specialist.
     """
 
     def __init__(self):
@@ -78,12 +80,12 @@ class TriageAgent:
                 "skip_eval": True,
             }
 
-        if destination == "technical":
+        if destination == "market":
             return {
-                "current_agent": "technical",
-                "next_agent": "technical",
+                "current_agent": "market_researcher",
+                "next_agent": "market_researcher",
                 "conversation_ended": False,
-                "handoff_message": "I'll connect you with our Technical Specialist to help with your programming question.",
+                "handoff_message": "I'll connect you with our Market Researcher, which pulls live macro and market data.",
             }
 
         if destination == "finance":

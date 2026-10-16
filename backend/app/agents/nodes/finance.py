@@ -1,8 +1,8 @@
 """
 Finance Expert Agent - handles financial questions and market analysis.
 
-Mirrors technical.py's pattern: real tool-calling for search, structured
-scope classification for handoff instead of a magic-string marker.
+Real tool-calling for search, structured scope classification for handoff
+instead of a magic-string marker.
 
 All prompt text lives in app/prompts/prompts.yaml, loaded via prompt_builder.
 """

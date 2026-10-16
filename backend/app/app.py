@@ -14,6 +14,11 @@ from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver  # noqa: E402
 from app.core import db  # noqa: E402
 from app.agents.graph import MultiAgentGraph  # noqa: E402
 from app.endpoints import router as endpoints_router  # noqa: E402
+from app.endpoints.market_researcher import router as market_researcher_router  # noqa: E402
+from app.endpoints.market_researcher import ui_router as market_researcher_ui_router  # noqa: E402
+from app.agents.market_researcher.cache import PostgresCache, init_market_tables  # noqa: E402
+from app.agents.market_researcher.runs import MarketResearchRunner, PostgresRunRegistry  # noqa: E402
+from app.agents.market_researcher.service import MarketResearchService  # noqa: E402
 
 
 @asynccontextmanager
@@ -24,12 +29,21 @@ async def lifespan(app: FastAPI):
     # this `async with` exits.
     async with AsyncPostgresSaver.from_conn_string(db.DATABASE_URL) as checkpointer:
         await checkpointer.setup()
-        await db.init_pool()
+        pool = await db.init_pool()
 
         app.state.agent_graph = MultiAgentGraph(checkpointer)
 
+        # Market researcher: Postgres-backed cache, regime state and run
+        # registry; any run a previous process left mid-flight is marked failed.
+        await init_market_tables(pool)
+        app.state.market_research = MarketResearchRunner(
+            PostgresRunRegistry(pool), MarketResearchService(cache=PostgresCache(pool))
+        )
+        await app.state.market_research.registry.mark_interrupted()
+
         yield
 
+        await app.state.market_research.shutdown()
         await db.close_pool()
 
 
@@ -44,8 +58,14 @@ app.add_middleware(
 )
 
 app.include_router(endpoints_router)
+app.include_router(market_researcher_router)
+app.include_router(market_researcher_ui_router)
 
 
 @app.get("/")
 async def root():
-    return {"message": "Multi-Agent Triage System", "websocket": "/agents/langgraph"}
+    return {
+        "message": "Multi-Agent Triage System",
+        "websocket": "/agents/langgraph",
+        "market_researcher": "/agents/market-researcher",
+    }

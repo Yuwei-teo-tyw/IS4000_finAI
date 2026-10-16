@@ -22,8 +22,8 @@ class AgentState(TypedDict):
     messages: Annotated[List[BaseMessage], add_messages]
     current_agent: Optional[str]
     next_agent: Optional[str]
-    technical_response: Optional[Dict[str, Any]]
     finance_response: Optional[Dict[str, Any]]
+    market_research_response: Optional[Dict[str, Any]]
     conversation_ended: bool
     handoff_message: Optional[str]
 
@@ -35,18 +35,12 @@ class AgentState(TypedDict):
     pii_redacted: bool                 # True if PIIGuard scrubbed something from the latest message
 
 
-class TechnicalResponseData(TypedDict):
-    message_result: str
-    data: Dict[str, Any]
-
-
 class FinanceResponseData(TypedDict):
     message_result: str
     data: Dict[str, Any]
 
 
 class SystemResponse(TypedDict):
-    technical_response: TechnicalResponseData
     finance_response: FinanceResponseData
     message: str
     agent_name: Optional[str]
