@@ -1,4 +1,4 @@
-import type { Message, Session, SystemResponse } from "../types";
+import type { ArticleView, Message, Session, SystemResponse } from "../types";
 
 const API_BASE = "http://localhost:8000";
 
@@ -41,6 +41,23 @@ export async function fetchSessionMessages(
     `${API_BASE}/sessions/${encodeURIComponent(sessionId)}/messages`,
   );
   if (!res.ok) throw new Error(`Failed to fetch session messages: ${res.status}`);
+  return res.json();
+}
+
+// Reader view of a news article a Market Researcher run cited - the backend
+// only serves URLs recorded in that run, and extracts the article text when
+// the site allows it (status "ok"), otherwise returns the agent's summary.
+export async function fetchArticle(
+  runId: string,
+  url: string,
+  signal?: AbortSignal,
+): Promise<ArticleView> {
+  const params = new URLSearchParams({ run_id: runId, url });
+  const res = await fetch(
+    `${API_BASE}/agents/market-researcher/articles?${params}`,
+    { signal },
+  );
+  if (!res.ok) throw new Error(`Failed to load article: ${res.status}`);
   return res.json();
 }
 

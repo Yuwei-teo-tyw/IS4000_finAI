@@ -7,15 +7,13 @@ export function AgentBadge({ agentName, enhanced }: AgentBadgeProps) {
   if (!agentName) return null;
 
   const getAgentColor = (name: string) => {
-    if (name.toLowerCase().includes("technical")) {
-      return enhanced
-        ? "bg-gradient-to-r from-cyan-400/90 to-blue-500/90 text-white shadow-lg shadow-cyan-500/25"
-        : "bg-gradient-to-r from-blue-400/80 to-cyan-500/80 text-white shadow-md";
-    }
     if (name.toLowerCase().includes("finance")) {
       return enhanced
         ? "bg-gradient-to-r from-emerald-400/90 to-teal-500/90 text-white shadow-lg shadow-emerald-500/25"
         : "bg-gradient-to-r from-green-400/80 to-emerald-500/80 text-white shadow-md";
+    }
+    if (name.toLowerCase().includes("market")) {
+      return "bg-gradient-to-r from-amber-400/90 to-orange-500/90 text-white shadow-md";
     }
     return enhanced
       ? "bg-gradient-to-r from-purple-400/90 to-pink-500/90 text-white shadow-lg shadow-purple-500/25"
@@ -23,11 +21,11 @@ export function AgentBadge({ agentName, enhanced }: AgentBadgeProps) {
   };
 
   const getIcon = (name: string) => {
-    if (name.toLowerCase().includes("technical")) {
-      return enhanced ? "🔧🌐" : "🔧";
-    }
     if (name.toLowerCase().includes("finance")) {
       return enhanced ? "💰🌐" : "💰";
+    }
+    if (name.toLowerCase().includes("market")) {
+      return "📈";
     }
     return enhanced ? "🤖🌐" : "🤖";
   };

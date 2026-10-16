@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import type { Message, Session, SystemResponse, PendingAction } from "../../types";
+import { useState, useEffect, useCallback } from "react";
+import type { ArticleRef, Message, Session, SystemResponse, PendingAction } from "../../types";
 import {
   wsService,
   fetchSessions,
@@ -9,6 +9,7 @@ import {
 import { MessageList } from "./MessageList";
 import { MessageInput } from "./MessageInput";
 import { ApprovalPrompt } from "./ApprovalPrompt";
+import { ArticlePanel } from "./ArticlePanel";
 import { Sidebar } from "../Sidebar/Sidebar";
 
 // Persisted so the sidebar's "current chat" survives a page reload/app
@@ -38,6 +39,8 @@ export function ChatContainer() {
     null,
   );
   const [awaitingApproval, setAwaitingApproval] = useState(false);
+  const [openArticle, setOpenArticle] = useState<ArticleRef | null>(null);
+  const closeArticle = useCallback(() => setOpenArticle(null), []);
 
   const refreshSessions = () => {
     fetchSessions()
@@ -98,11 +101,6 @@ export function ChatContainer() {
         // Determine if search was used based on the agent type and response data
         let searchUsed = false;
         if (
-          data.agent_name?.toLowerCase().includes("technical") &&
-          data.technical_response?.data?.search_used
-        ) {
-          searchUsed = true;
-        } else if (
           data.agent_name?.toLowerCase().includes("finance") &&
           data.finance_response?.data?.search_used
         ) {
@@ -150,6 +148,7 @@ export function ChatContainer() {
     localStorage.setItem(SESSION_STORAGE_KEY, id);
     setSessionId(id);
     setMessages([]);
+    setOpenArticle(null);
     setPendingAction(null);
     setAwaitingApproval(false);
     setIsTyping(false);
@@ -284,6 +283,7 @@ export function ChatContainer() {
           messages={messages}
           isTyping={isTyping}
           isSearching={isSearching}
+          onOpenArticle={setOpenArticle}
         />
         {awaitingApproval ? (
           <ApprovalPrompt
@@ -295,6 +295,8 @@ export function ChatContainer() {
           <MessageInput onSend={handleSend} disabled={!connected} />
         )}
       </div>
+
+      <ArticlePanel article={openArticle} onClose={closeArticle} />
     </div>
   );
 }

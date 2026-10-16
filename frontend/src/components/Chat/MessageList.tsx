@@ -1,4 +1,5 @@
-import type { Message } from "../../types";
+import type { ReactNode } from "react";
+import type { ArticleRef, Message } from "../../types";
 import { AgentBadge } from "./AgentBadge";
 import { SearchIndicator } from "./SearchIndicator";
 import { TypingIndicator } from "./TypingIndicator";
@@ -9,12 +10,24 @@ interface MessageListProps {
   messages: Message[];
   isTyping?: boolean;
   isSearching?: boolean;
+  onOpenArticle?: (article: ArticleRef) => void;
+}
+
+// Market Researcher replies end with "Run `mr_...`" - the run that cited
+// their source links, which the article reader needs to look them up.
+const RUN_ID_PATTERN = /mr_\d{8}T\d{6}Z_[0-9a-f]{6}/;
+
+function textOf(node: ReactNode): string {
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(textOf).join("");
+  return "";
 }
 
 export function MessageList({
   messages,
   isTyping,
   isSearching,
+  onOpenArticle,
 }: MessageListProps) {
   return (
     <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-gradient-to-b from-transparent to-black/5">
@@ -28,14 +41,19 @@ export function MessageList({
               Welcome to AI Assistant
             </h3>
             <p className="text-white/70 text-sm leading-relaxed">
-              Start a conversation below. I can help with technical questions,
-              financial advice, or general chat!
+              Start a conversation below. I can help with financial questions,
+              current market conditions, or general chat!
             </p>
           </div>
         </div>
       ) : (
         <>
-          {messages.map((msg, idx) => (
+          {messages.map((msg, idx) => {
+            const runId =
+              msg.role === "assistant"
+                ? msg.content.match(RUN_ID_PATTERN)?.[0]
+                : undefined;
+            return (
             <div
               key={idx}
               className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"} animate-in slide-in-from-bottom duration-300`}
@@ -71,6 +89,24 @@ export function MessageList({
                           <table>{children}</table>
                         </div>
                       ),
+                      // Source links in a Market Researcher reply open the
+                      // article side panel; modified clicks (cmd/ctrl/shift,
+                      // middle button) still open the original page.
+                      a: ({ href, children }) =>
+                        runId && onOpenArticle && href?.startsWith("http") ? (
+                          <a
+                            href={href}
+                            onClick={(e) => {
+                              if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+                              e.preventDefault();
+                              onOpenArticle({ runId, url: href, title: textOf(children) });
+                            }}
+                          >
+                            {children}
+                          </a>
+                        ) : (
+                          <a href={href}>{children}</a>
+                        ),
                     }}
                   >
                     {msg.content}
@@ -78,7 +114,8 @@ export function MessageList({
                 </div>
               </div>
             </div>
-          ))}
+            );
+          })}
           {isTyping && <TypingIndicator isSearching={isSearching} />}
         </>
       )}
