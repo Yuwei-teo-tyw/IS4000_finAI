@@ -20,7 +20,7 @@ services:
     build:
       context: ./backend
     restart: unless-stopped
-    # .env supplies GROQ_API_KEY/TAVILY_API_KEY/LANGFUSE_* - DATABASE_URL is
+    # .env supplies GROQ_API_KEY/TAVILY_API_KEY/FRED_API_KEY/LANGFUSE_* - DATABASE_URL is
     # overridden below since "localhost" means something different inside
     # the container network (it'd point at the backend container itself,
     # not the postgres one).
@@ -31,6 +31,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
+      # also persists market researcher run outputs (backend/data/market_research)
       - ./backend:/app
     depends_on:
       postgres:
