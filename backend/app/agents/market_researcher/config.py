@@ -111,7 +111,7 @@ HISTORY_YEARS: dict[str, int] = {"D": 25, "W": 35, "M": 50, "Q": 50}
 
 # A series is stale if its last observation is older than one period plus
 # this grace (calendar days) - monthly data routinely lands 2-6 weeks late.
-STALENESS_GRACE_DAYS: dict[str, int] = {"D": 5, "W": 12, "M": 45, "Q": 75}
+STALENESS_GRACE_DAYS: dict[str, int] = {"D": 5, "W": 12, "M": 60, "Q": 120}
 PERIOD_DAYS: dict[str, int] = {"D": 1, "W": 7, "M": 31, "Q": 92}
 
 # Which changes to report per frequency (label -> calendar days back).
