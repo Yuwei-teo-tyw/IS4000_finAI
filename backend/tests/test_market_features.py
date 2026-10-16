@@ -59,7 +59,8 @@ def test_zscore_and_percentile():
     pts = daily([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0])
     # mean 5.5, population stdev sqrt(8.25)
     assert f.zscore(pts, None) == pytest.approx((10 - 5.5) / 8.25 ** 0.5)
-    assert f.percentile(pts, None) == pytest.approx(100.0)
+    assert f.percentile(pts, None) == pytest.approx(95.0)  # mid-rank: 9 below + half of itself
+    assert f.percentile(daily([2.0] * 10), None) == pytest.approx(50.0)
     assert f.zscore(pts[:5], None) is None  # below min_points
 
 

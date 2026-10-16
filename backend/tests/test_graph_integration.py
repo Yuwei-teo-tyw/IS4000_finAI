@@ -1,7 +1,7 @@
 """
 End-to-end tests through the real compiled graph (`build_graph`), backed by
 an in-memory checkpointer instead of Postgres. Every LLM-backed node
-(triage/technical/finance/general/eval) is monkeypatched to a `FakeLLM`
+(triage/finance/general/market_researcher/eval) is monkeypatched to a `FakeLLM`
 queued with the exact sequence of structured/tool-call responses that
 scenario needs - everything else (pii_guard, routing, tool execution,
 human_approval) runs for real.
@@ -12,7 +12,7 @@ network call - the tool-calling loop only cares that the graph round-trips
 through ToolNode and back, not what the search actually returned.
 
 Together these four tests cover the graph's main regression surface: the
-technical tool-calling loop, the finance compliance-driven regenerate
+general assistant's tool-calling loop, the finance compliance-driven regenerate
 loop, the human-approval interrupt/resume loop, and PII redaction running
 before any specialist ever sees the raw message.
 """
@@ -24,13 +24,12 @@ import app.agents.nodes.context_manager as context_manager_module
 import app.agents.nodes.eval_agent as eval_module
 import app.agents.nodes.finance as finance_module
 import app.agents.nodes.general as general_module
-import app.agents.nodes.technical as technical_module
+import app.agents.nodes.market_researcher as market_researcher_module
 import app.agents.nodes.triage as triage_module
 from app.agents.graph import build_graph
 from app.agents.nodes.eval_agent import ComplianceCheck, EvalVerdict
 from app.agents.nodes.finance import ScopeCheck as FinanceScopeCheck
 from app.agents.nodes.general import ScopeCheck as GeneralScopeCheck
-from app.agents.nodes.technical import ScopeCheck as TechnicalScopeCheck
 from app.agents.nodes.triage import RoutingDecision
 
 from conftest import FakeLLM, run_async
@@ -41,9 +40,9 @@ def _patch_all_llms(monkeypatch):
     keyed by node name, so each test fills in only the queues it needs."""
     fakes = {
         "triage": FakeLLM(),
-        "technical": FakeLLM(),
         "finance": FakeLLM(),
         "general": FakeLLM(),
+        "market_researcher": FakeLLM(),
         "eval": FakeLLM(),
         # never queued in these short-conversation tests - context_manager
         # only calls the LLM once history is long enough to need compaction -
@@ -51,9 +50,9 @@ def _patch_all_llms(monkeypatch):
         "context_manager": FakeLLM(),
     }
     monkeypatch.setattr(triage_module, "get_groq_model", lambda: fakes["triage"])
-    monkeypatch.setattr(technical_module, "get_groq_model", lambda: fakes["technical"])
     monkeypatch.setattr(finance_module, "get_groq_model", lambda: fakes["finance"])
     monkeypatch.setattr(general_module, "get_groq_model", lambda: fakes["general"])
+    monkeypatch.setattr(market_researcher_module, "get_groq_model", lambda: fakes["market_researcher"])
     monkeypatch.setattr(eval_module, "get_groq_model", lambda: fakes["eval"])
     monkeypatch.setattr(context_manager_module, "get_groq_model", lambda: fakes["context_manager"])
     return fakes
@@ -63,25 +62,25 @@ def _graph():
     return build_graph(InMemorySaver())
 
 
-def test_technical_tool_calling_loop_end_to_end(monkeypatch):
+def test_general_tool_calling_loop_end_to_end(monkeypatch):
     monkeypatch.delenv("TAVILY_API_KEY", raising=False)
     fakes = _patch_all_llms(monkeypatch)
 
-    fakes["triage"].queue(RoutingDecision(destination="technical"))
-    fakes["technical"].queue(
-        TechnicalScopeCheck(in_scope=True),
+    fakes["triage"].queue(RoutingDecision(destination="general"))
+    fakes["general"].queue(
+        GeneralScopeCheck(destination="general"),
         AIMessage(content="", tool_calls=[{"name": "tavily_search", "args": {"query": "python 3.13"}, "id": "c1"}]),
         AIMessage(content="Python 3.13 shipped a JIT compiler."),
     )
     fakes["eval"].queue(EvalVerdict(verdict="approve", feedback=""))
 
     app = _graph()
-    config = {"configurable": {"thread_id": "tech-loop"}}
+    config = {"configurable": {"thread_id": "general-tool-loop"}}
     result = run_async(app.ainvoke({"messages": [HumanMessage(content="what's new in python 3.13?")]}, config=config))
 
     final_ai = [m for m in result["messages"] if m.type == "ai" and m.content][-1]
     assert final_ai.content == "Python 3.13 shipped a JIT compiler."
-    assert result["technical_response"]["data"]["search_used"] is True
+    assert result["current_agent"] == "general"
     tool_messages = [m for m in result["messages"] if m.type == "tool"]
     assert len(tool_messages) == 1
     assert "TAVILY_API_KEY" in tool_messages[0].content  # real tool ran, no key configured

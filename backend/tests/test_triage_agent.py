@@ -1,6 +1,6 @@
 """
 TriageAgent routing decisions - the structured `RoutingDecision` output
-drives handoff to technical/finance/general, a canned intro for 'meta'
+drives handoff to finance/market_researcher/general, a canned intro for 'meta'
 questions, and a safe 'general' fallback if the routing call itself fails.
 """
 from langchain_core.messages import HumanMessage
@@ -14,18 +14,6 @@ from conftest import FakeLLM, run_async
 def _make_agent(monkeypatch, fake_llm):
     monkeypatch.setattr(triage_module, "get_groq_model", lambda: fake_llm)
     return TriageAgent()
-
-
-def test_routes_to_technical(monkeypatch):
-    fake_llm = FakeLLM(RoutingDecision(destination="technical"))
-    agent = _make_agent(monkeypatch, fake_llm)
-    state = {"messages": [HumanMessage(content="why is my python script crashing?")]}
-
-    result = run_async(agent.run(state))
-
-    assert result["current_agent"] == "technical"
-    assert result["next_agent"] == "technical"
-    assert result["handoff_message"]
 
 
 def test_routes_to_finance(monkeypatch):
@@ -73,3 +61,15 @@ def test_routing_error_falls_back_to_general(monkeypatch):
 
     assert result["current_agent"] == "general"
     assert result["next_agent"] == "general"
+
+
+def test_routes_to_market_researcher(monkeypatch):
+    fake_llm = FakeLLM(RoutingDecision(destination="market"))
+    agent = _make_agent(monkeypatch, fake_llm)
+    state = {"messages": [HumanMessage(content="are recession risks rising?")]}
+
+    result = run_async(agent.run(state))
+
+    assert result["current_agent"] == "market_researcher"
+    assert result["next_agent"] == "market_researcher"
+    assert "Market Researcher" in result["handoff_message"]

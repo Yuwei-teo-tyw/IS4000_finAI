@@ -19,7 +19,7 @@ def _make_agent(monkeypatch, fake_llm):
     return EvalAgent()
 
 
-def _state(current_agent="technical", **overrides):
+def _state(current_agent="general", **overrides):
     base = {
         "messages": [
             HumanMessage(content="what's a good ETF?"),
@@ -36,7 +36,7 @@ def test_approve_non_finance_skips_compliance_pass(monkeypatch):
     fake_llm = FakeLLM(EvalVerdict(verdict="approve", feedback=""))
     agent = _make_agent(monkeypatch, fake_llm)
 
-    result = run_async(agent.run(_state(current_agent="technical")))
+    result = run_async(agent.run(_state(current_agent="general")))
 
     assert result["eval_verdict"] == "approve"
     assert result["eval_retry_count"] == 0
@@ -144,7 +144,7 @@ def test_evaluator_failure_approves_by_default(monkeypatch):
     fake_llm = FakeLLM(RuntimeError("groq down"))
     agent = _make_agent(monkeypatch, fake_llm)
 
-    result = run_async(agent.run(_state(current_agent="technical")))
+    result = run_async(agent.run(_state(current_agent="general")))
 
     assert result["eval_verdict"] == "approve"
 
