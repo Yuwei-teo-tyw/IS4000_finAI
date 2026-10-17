@@ -1,0 +1,58 @@
+/* Mirrored from the IS4000 UBS design system "Lux" (https://claude.ai/artifact/K7hLmtKJ8MtAxWGjbrgV1U). */
+@import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;500;600&display=swap');
+
+:root, [data-theme="light"] {
+  color-scheme: light;
+  --surface-100: #ffffff; --surface-200: #f9f9f7; --surface-300: #f3f2ee; --surface-inverse: #1c1c1c;
+  --hairline: #dcdad3; --hairline-strong: #858279;
+  --ink: #1c1c1c; --ink-muted: #5c5a55; --ink-inverse: #ffffff;
+  --brand: #e60000; --brand-hover: #b80000; --on-brand: #ffffff; --link: #c20000;
+  --positive: #00638a; --negative: #b3001b; --focus: #1c1c1c;
+  --chart-equities: #a06a50; --chart-bonds: #d5c4b0; --chart-alternatives: #e3cd85; --chart-liquidity: #5a5249;
+  --scale-fill: #7d7a74; --scale-track: #d0cec5;
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 24px; --space-6: 32px; --space-7: 48px; --space-8: 64px; --space-9: 96px;
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.16); --shadow-overlay: 0 8px 24px rgba(0, 0, 0, 0.14);
+  --font-body: 'Source Sans 3', 'Frutiger', 'Segoe UI', system-ui, sans-serif;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --surface-100: #141414; --surface-200: #1c1c1c; --surface-300: #262626; --surface-inverse: #ece9e2;
+  --hairline: #3a3936; --hairline-strong: #7a776f;
+  --ink: #f2f2f0; --ink-muted: #b0aea8; --ink-inverse: #141414;
+  --brand: #e60000; --brand-hover: #ff3b3b; --on-brand: #ffffff; --link: #ff7a7a;
+  --positive: #5cb8e0; --negative: #ff6b7f; --focus: #f2f2f0;
+  --chart-equities: #c98d6f; --chart-bonds: #b7a58f; --chart-alternatives: #d9bf6a; --chart-liquidity: #8f867b;
+  --scale-fill: #9a968e; --scale-track: #3a3936;
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.6); --shadow-overlay: 0 8px 24px rgba(0, 0, 0, 0.6);
+}
+
+@theme inline {
+  --color-surface-100: var(--surface-100); --color-surface-200: var(--surface-200); --color-surface-300: var(--surface-300);
+  --color-surface-inverse: var(--surface-inverse);
+  --color-hairline: var(--hairline); --color-hairline-strong: var(--hairline-strong);
+  --color-ink: var(--ink); --color-ink-muted: var(--ink-muted); --color-ink-inverse: var(--ink-inverse);
+  --color-brand: var(--brand); --color-brand-hover: var(--brand-hover); --color-on-brand: var(--on-brand); --color-link: var(--link);
+  --color-positive: var(--positive); --color-negative: var(--negative);
+  --color-chart-equities: var(--chart-equities); --color-chart-bonds: var(--chart-bonds);
+  --color-chart-alternatives: var(--chart-alternatives); --color-chart-liquidity: var(--chart-liquidity);
+  --color-scale-fill: var(--scale-fill); --color-scale-track: var(--scale-track);
+  /* aliases so older class names (ink-200..900) resolve to Lux values */
+  --color-ink-900: var(--ink); --color-ink-700: var(--ink); --color-ink-500: var(--ink-muted);
+  --color-ink-300: var(--hairline-strong); --color-ink-200: var(--hairline);
+  --font-sans: 'Source Sans 3', 'Frutiger', 'Segoe UI', system-ui, sans-serif;
+  /* Lux corners are nearly square */
+  --radius-sm: 2px; --radius-md: 2px; --radius-lg: 4px; --radius-xl: 4px;
+}
+
+.arc { background: var(--surface-100); color: var(--ink); font-family: var(--font-body); font-size: 16px; line-height: 26px; }
+.arc h1, .arc h2, .arc h3 { font-family: var(--font-body); color: var(--ink); font-weight: 300; letter-spacing: -0.01em; }
+.arc :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* Lux: Source Sans 3 everywhere, including the legacy chat route */
+body { font-family: var(--font-body); }
+button, input, textarea, select { font-family: inherit; }
+
+/* UBS logo has dark keys: invert to white in dark mode */
+[data-theme="dark"] .ubs-logo { filter: brightness(0) invert(1); }
+body { background: var(--surface-100); color: var(--ink); }

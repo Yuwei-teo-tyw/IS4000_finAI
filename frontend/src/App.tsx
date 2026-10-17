@@ -1,7 +1,8 @@
-import { ChatContainer } from "./components/Chat/ChatContainer";
+import { RouterProvider } from "react-router-dom";
+import { router } from "./routes/router";
 
 function App() {
-  return <ChatContainer />;
+  return <RouterProvider router={router} />;
 }
 
 export default App;

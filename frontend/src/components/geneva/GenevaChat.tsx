@@ -1,0 +1,269 @@
+import { useEffect, useRef, useState } from "react";
+import { Check, ArrowDown, ArrowRight, ArrowUp, ArrowUpRight, MessageSquarePlus, Search, Trash2 } from "lucide-react";
+import { arcApi } from "../../services/arcApi";
+import type { MacroView, MarketAnswer, MarketRow, Role } from "../../types/arc";
+import { Badge, Button, CitationTag, Table } from "../ui";
+import { loadSystemPrompt } from "../settings/SettingsDialog";
+import { loadSelection, saveSelection } from "../../pages/ps/psShared";
+
+const SEEDED: Record<Role, string[]> = {
+  ps: [
+    "Tell me if PIMCO Balanced Income & Growth Fund suits the client's profile, explain why, and whether it fits the current macroeconomic status",
+    "For fixed income, I want PIMCO Balanced Income & Growth, BlackRock iShares, and an equity-linked note on DBS",
+    "What is the current economic cycle and the CIO view per asset class?",
+    "What is the top 5 ranking for equities and why?",
+  ],
+  rm: ["Summarise the client's IPS", "What are the client's goals?", "Review the IPS", "Summarise the meeting notes", "What did the client say in the last meeting?"],
+  ic: ["Summarise the client's IPS", "What are the client's goals?", "Explain the TAA changes"],
+};
+const HEADING: Record<Role, string> = { ps: "What would you like to research?", rm: "How can I help with this client?", ic: "How can I help with this portfolio?" };
+const PLACEHOLDER: Record<Role, string> = { ps: "Ask about markets or products", rm: "Ask about the IPS, goals or meetings", ic: "Ask about the portfolio or TAA" };
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const viewTone = { Buy: "green", Hold: "amber", Sell: "red" } as const;
+const label = "text-xs font-semibold uppercase tracking-[0.12em] text-ink-muted";
+
+interface Msg { from: "user" | "agent"; text: string; answer?: MarketAnswer }
+interface Chat { id: number; title: string; messages: Msg[] }
+
+function Direction({ d }: { d: MacroView["direction"] }) {
+  const Icon = d === "Up" ? ArrowUpRight : d === "Down" ? ArrowDown : ArrowRight;
+  return <span className="inline-flex items-center gap-1.5 text-ink-700"><Icon size={16} />{d}</span>;
+}
+
+function AnswerView({ a, picked, onToggle }: { a: MarketAnswer; picked: string[]; onToggle: (r: MarketRow) => void }) {
+  return (
+    <div className="min-w-0 space-y-10 font-light">
+      <p className="whitespace-pre-line text-[22px] leading-9 tracking-tight text-ink">{a.summary}</p>
+
+      {a.market && (
+        <section>
+          <div className="flex flex-wrap items-center gap-3">
+            <h4 className="text-[26px] font-light tracking-tight">Economic cycle: {a.market.phase}</h4>
+            <span className="text-sm text-ink-muted">As of {a.market.asOf}</span>
+          </div>
+          <p className={`${label} mt-5`}>Macroeconomic events found online</p>
+          <ul className="mt-3 list-disc space-y-2 pl-5 text-[17px] leading-7 text-ink-700">{a.market.events.map((e) => <li key={e}>{e}</li>)}</ul>
+          <p className={`${label} mb-3 mt-6`}>CIO view per asset class</p>
+          <Table
+            head={["Asset class", "View", "Industry focus", "Direction", "Why"]}
+            rows={a.market.views.map((v) => [
+              <span className="font-semibold">{v.assetClass}</span>,
+              <Badge tone={viewTone[v.view]}>{v.view}</Badge>,
+              v.industry,
+              <Direction d={v.direction} />,
+              <span className="block max-w-56 text-ink-700">{v.note}</span>,
+            ])}
+          />
+        </section>
+      )}
+
+      {a.rows.length > 0 && (
+        <section>
+          <p className={`${label} mb-3`}>Products</p>
+          <Table
+            head={["Select", "Asset class", "Product", "Industry focus", "Top 5 holdings", "Confidence"]}
+            rows={a.rows.map((r) => [
+              <input type="checkbox" className="h-5 w-5 cursor-pointer" checked={picked.includes(r.product)} onChange={() => onToggle(r)} aria-label={`Select ${r.product}`} />,
+              <span className="font-semibold">{r.assetClass}</span>,
+              <span className="block max-w-48 font-semibold">{r.product}</span>,
+              <span className="block max-w-40">{r.industryFocus}</span>,
+              <ol className="list-decimal pl-5">{r.top5.map((h) => <li key={h}>{h}</li>)}</ol>,
+              `${r.confidencePct}%`,
+            ])}
+          />
+          <h4 className="mt-10 text-[26px] font-light tracking-tight">Why they are ranked this way</h4>
+          <div className="mt-4 grid gap-5 md:grid-cols-2">
+            {a.rows.map((r) => (
+              <div key={r.product} className="rounded-sm border border-hairline p-5">
+                <p className="text-lg font-normal">{r.product}</p>
+                <ul className="mt-3 list-disc space-y-2 pl-5 text-[16px] leading-6 text-ink-700">{r.ranking.map((x) => <li key={x}>{x}</li>)}</ul>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <p>{a.tags.map((t) => <CitationTag key={t} tag={t} />)}</p>
+    </div>
+  );
+}
+
+/** The one Geneva chat. Used full-page (AI Assistant) and inside the floating launcher (compact). Style rules: AGENTS.md "Chatbot style". */
+export function GenevaChat({ role, clientId, compact = false }: { role: Role; clientId: string; compact?: boolean }) {
+  const [chats, setChats] = useState<Chat[]>([{ id: 1, title: "New chat", messages: [] }]);
+  const [activeId, setActiveId] = useState(1);
+  const [draft, setDraft] = useState("");
+  const [working, setWorking] = useState<{ chatId: number; steps: string[]; shown: number } | null>(null);
+  const [picked, setPicked] = useState<MarketRow[]>(() => loadSelection(clientId));
+  const pickedNames = picked.map((r) => r.product);
+  const toggle = (r: MarketRow) => setPicked((cur) => {
+    const next = cur.some((x) => x.product === r.product) ? cur.filter((x) => x.product !== r.product) : [...cur, r];
+    saveSelection(clientId, next);
+    return next;
+  });
+  const nextId = useRef(2);
+  const chat = chats.find((c) => c.id === activeId) ?? chats[0];
+  const busy = working?.chatId === chat.id;
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const nearBottom = useRef(true);
+  const onScroll = () => {
+    const el = scrollRef.current;
+    if (el) nearBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 160;
+  };
+  /** Follow new content only while the reader is already at the bottom; never yank them back. */
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el && nearBottom.current) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+  }, [chat.messages.length, working?.shown]);
+
+  const patch = (id: number, fn: (c: Chat) => Chat) => setChats((cs) => cs.map((c) => (c.id === id ? fn(c) : c)));
+  const newChat = () => {
+    const id = nextId.current++;
+    setChats((cs) => [...cs, { id, title: "New chat", messages: [] }]);
+    setActiveId(id);
+  };
+  const removeChat = (id: number) => {
+    const left = chats.filter((c) => c.id !== id);
+    if (left.length === 0) { const nid = nextId.current++; setChats([{ id: nid, title: "New chat", messages: [] }]); setActiveId(nid); return; }
+    setChats(left);
+    if (activeId === id) setActiveId(left[0].id);
+  };
+
+  const send = async (raw: string) => {
+    const text = raw.trim();
+    if (!text || busy) return;
+    const id = chat.id;
+    nearBottom.current = true;
+    setDraft("");
+    patch(id, (c) => ({ ...c, title: c.messages.length === 0 ? text.slice(0, 40) : c.title, messages: [...c.messages, { from: "user", text }] }));
+    setWorking({ chatId: id, steps: [], shown: 0 });
+    try {
+      const a = role === "ps"
+        ? await arcApi.askMarketResearch(clientId, text, loadSystemPrompt(role))
+        : await arcApi.askAgent(role, clientId, text).then((r): MarketAnswer => ({
+            summary: r.reply, market: null, rows: [], autoTick: false, tags: r.tags,
+            steps: ["Intent parser is reading your request…", `${r.agent} fired`, ...r.steps, "Consolidating…"],
+          }));
+      setWorking({ chatId: id, steps: a.steps, shown: 0 });
+      for (let i = 1; i <= a.steps.length; i++) { setWorking({ chatId: id, steps: a.steps, shown: i }); await sleep(i === 2 ? 2200 : 1700); }
+      await sleep(600);
+      if (a.autoTick) setPicked((cur) => {
+        const next = [...cur, ...a.rows.filter((r) => !cur.some((x) => x.product === r.product))];
+        saveSelection(clientId, next);
+        return next;
+      });
+      patch(id, (c) => ({ ...c, messages: [...c.messages, { from: "agent", text: a.summary, answer: a }] }));
+    } finally {
+      setWorking((w) => (w?.chatId === id ? null : w));
+    }
+  };
+
+  const composer = (
+    <form className="mx-auto flex w-full max-w-4xl items-center gap-3 rounded-full border border-hairline-strong bg-surface-100 py-2 pl-6 pr-2" onSubmit={(e) => { e.preventDefault(); send(draft); }}>
+      <input value={draft} onChange={(e) => setDraft(e.target.value)} aria-label="Message Geneva" placeholder={PLACEHOLDER[role]}
+        className="min-h-10 min-w-0 flex-1 bg-transparent text-[15px] text-ink outline-none placeholder:text-ink-muted" />
+      <button type="submit" disabled={busy || !draft.trim()} aria-label="Send" title="Send"
+        className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-brand text-white disabled:opacity-40"><ArrowUp size={18} /></button>
+    </form>
+  );
+
+  return (
+    <div className={`geneva-light ${compact ? "flex h-full min-h-0 flex-col overflow-hidden bg-surface-200" : "flex min-h-[640px] flex-col overflow-hidden rounded-lg border border-hairline bg-surface-200 lg:h-[calc(100vh-18rem)] lg:min-h-[640px] lg:flex-row"}`}>
+      {compact && (
+        <div className="flex items-center gap-3 border-b border-hairline px-6 py-3">
+          <select value={chat.id} onChange={(e) => setActiveId(Number(e.target.value))} aria-label="Chats" className="min-w-0 flex-1 truncate rounded-sm border border-hairline bg-surface-100 px-3 py-2 text-[14px] text-ink">
+            {chats.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
+          </select>
+          <button type="button" onClick={newChat} aria-label="New chat" title="New chat" className="inline-flex size-9 items-center justify-center rounded-sm border border-hairline-strong text-ink hover:bg-surface-300"><MessageSquarePlus size={16} /></button>
+          <button type="button" onClick={() => removeChat(chat.id)} aria-label="Delete chat" title="Delete chat" className="inline-flex size-9 items-center justify-center rounded-sm border border-hairline text-ink-muted hover:text-negative"><Trash2 size={16} /></button>
+        </div>
+      )}
+      <aside className={`${compact ? "hidden" : "flex"} w-full shrink-0 flex-col border-b border-hairline p-4 lg:w-80 lg:border-b-0 lg:border-r`}>
+        <button type="button" onClick={newChat} className="flex w-full items-center gap-3 rounded-sm px-3 py-2.5 text-left text-[15px] hover:bg-surface-300">
+          <MessageSquarePlus size={18} /> New chat
+        </button>
+        <p className="mt-5 px-3 text-[13px] text-ink-muted">Chats</p>
+        <ul className="mt-2 flex-1 space-y-1 overflow-y-auto">
+          {chats.map((c) => (
+            <li key={c.id} className={`group flex items-center gap-2 rounded-sm px-3 py-2.5 ${c.id === chat.id ? "bg-surface-300" : "hover:bg-surface-300"}`}>
+              <button type="button" onClick={() => setActiveId(c.id)} className="min-w-0 flex-1 truncate text-left text-[15px]">{c.title}</button>
+              <button type="button" onClick={() => removeChat(c.id)} aria-label="Delete chat" title="Delete chat" className="text-ink-muted opacity-0 hover:text-negative focus:opacity-100 group-hover:opacity-100"><Trash2 size={15} /></button>
+            </li>
+          ))}
+        </ul>
+      </aside>
+
+      <section className="flex min-w-0 flex-1 flex-col">
+        {chat.messages.length === 0 && !busy ? (
+          <div className="flex flex-1 flex-col items-center justify-center overflow-y-auto px-8 py-10">
+            <img src="/ubs-logo.png" alt="Geneva" className="ubs-logo mb-5 h-10 w-auto" />
+            <h2 className="mb-8 text-center text-3xl font-light">{HEADING[role]}</h2>
+            {composer}
+            <ul className="mt-6 w-full max-w-4xl">
+              {SEEDED[role].map((q) => (
+                <li key={q}>
+                  <button type="button" onClick={() => send(q)} className="flex w-full items-start gap-4 rounded-sm px-4 py-3 text-left text-[15px] leading-6 text-ink-700 hover:bg-surface-300 hover:text-ink">
+                    <Search size={18} className="mt-0.5 shrink-0 text-ink-muted" /> {q}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : (
+          <>
+            <div ref={scrollRef} onScroll={onScroll} role="log" aria-live="polite" className="flex flex-1 flex-col gap-8 overflow-y-auto [&>*]:shrink-0 overflow-x-hidden px-6 py-8 text-[15px] leading-6 sm:px-10 sm:py-10">
+              {chat.messages.map((m, i) => m.from === "user" ? (
+                <div key={i} className="max-w-[80%] self-end rounded-sm bg-surface-300 px-5 py-3.5">{m.text}</div>
+              ) : (
+                <div key={i} className="animate-geneva-in w-full rounded-sm border border-hairline bg-surface-100 px-8 py-7">
+                  <p className="mb-4 flex items-center gap-2 text-[13px] font-medium text-ink-muted"><img src="/ubs-logo.png" alt="" className="ubs-logo h-4 w-auto" />Geneva</p>
+                  {m.answer && <AnswerView a={m.answer} picked={pickedNames} onToggle={toggle} />}
+                </div>
+              ))}
+              {busy && working && (
+                <div className="animate-geneva-in min-h-[320px] rounded-sm border border-hairline bg-surface-100 px-10 py-9">
+                  <p className="flex items-center gap-2 text-[13px] font-medium"><img src="/ubs-logo.png" alt="" className="ubs-logo h-4 w-auto" /><span className="animate-geneva-flow">Geneva</span></p>
+                  <p className="mt-6 text-[26px] font-light tracking-tight text-ink"><span className="animate-geneva-flow">Preparing your analysis</span></p>
+                  <div className="mt-6 h-px bg-hairline-strong" />
+                  <ol className="mt-8 space-y-0">
+                    {working.steps.slice(0, working.shown).map((st, i) => {
+                      const current = i === working.shown - 1;
+                      const fired = / fired$/.test(st) ? st.replace(/ fired$/, "").split(" and ") : null;
+                      return (
+                        <li key={i} className="animate-geneva-in flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-hairline py-4 first:border-t-0">
+                          <span className="animate-geneva-flow w-7 text-xs tabular-nums tracking-[0.12em]">{String(i + 1).padStart(2, "0")}</span>
+                          {fired ? (
+                            <>
+                              {fired.map((n) => (
+                                <span key={n} className="inline-flex items-center gap-2.5 border border-hairline-strong px-3.5 py-1.5 text-[12px] font-medium uppercase tracking-[0.14em] text-ink">
+                                  <span className="size-1 rounded-full bg-ink-muted" /><span className="animate-geneva-flow">{n}</span>
+                                </span>
+                              ))}
+                              <span className="animate-geneva-flow text-[15px] font-light">engaged</span>
+                            </>
+                          ) : <span className="animate-geneva-flow text-[16px] font-light">{st}</span>}
+                          {!current && <Check size={14} strokeWidth={1.5} className="ml-auto text-ink-muted" />}
+                        </li>
+                      );
+                    })}
+                  </ol>
+                </div>
+              )}
+              
+            </div>
+            <div className="px-10 pb-8 pt-2">
+              {role === "ps" && picked.length > 0 && (
+                <div className="mx-auto mb-4 flex max-w-4xl flex-wrap items-center justify-between gap-4 rounded-sm border border-hairline-strong bg-surface-100 px-5 py-3">
+                  <p className="text-sm text-ink-700">{picked.length} product{picked.length === 1 ? "" : "s"} ticked for consideration.</p>
+                  <Button variant="gold" size="sm" to={`/ps/cases/${clientId}/finalise`}>Finalise list</Button>
+                </div>
+              )}
+              {composer}
+            </div>
+          </>
+        )}
+      </section>
+    </div>
+  );
+}

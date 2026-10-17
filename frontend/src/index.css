@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap");
+@import "./styles/tokens.css";
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
@@ -41,3 +41,46 @@
     transform: translateY(0);
   }
 }
+
+/* Print: only page content, always light */
+@page { margin: 18mm; }
+@media print {
+  :root, [data-theme="dark"] {
+    color-scheme: light;
+    --surface-100: #ffffff; --surface-200: #f9f9f7; --surface-300: #f3f2ee; --surface-inverse: #1c1c1c;
+    --hairline: #dcdad3; --hairline-strong: #858279;
+    --ink: #1c1c1c; --ink-muted: #5c5a55; --ink-inverse: #ffffff;
+    --brand: #e60000; --brand-hover: #b80000; --on-brand: #ffffff; --link: #c20000;
+    --positive: #00638a; --negative: #b3001b; --focus: #1c1c1c;
+    --chart-equities: #a06a50; --chart-bonds: #d5c4b0; --chart-alternatives: #e3cd85; --chart-liquidity: #5a5249;
+    --scale-fill: #7d7a74; --scale-track: #d0cec5;
+    --shadow-card: none; --shadow-overlay: none;
+  }
+  html, body, .arc { background: #fff !important; color: #000 !important; }
+  .no-print { display: none !important; }
+  a { text-decoration: none; }
+  .print-page-break { break-before: page; }
+  .avoid-break { break-inside: avoid; }
+  [data-theme="dark"] .ubs-logo { filter: none; }
+}
+
+@keyframes geneva-in { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: none; } }
+@keyframes geneva-bar { 0% { transform: translateX(-100%); } 100% { transform: translateX(350%); } }
+@keyframes geneva-flow { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
+/* Red light sweeping through the text while Geneva thinks. */
+.animate-geneva-flow {
+  background-image: linear-gradient(100deg, var(--ink) 0%, var(--ink) 38%, var(--brand) 50%, var(--ink) 62%, var(--ink) 100%);
+  background-size: 250% 100%;
+  -webkit-background-clip: text; background-clip: text;
+  color: transparent; -webkit-text-fill-color: transparent;
+  animation: geneva-flow 3.4s linear infinite;
+}
+@keyframes geneva-breathe { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
+.animate-geneva-in { animation: geneva-in 1.1s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.animate-geneva-breathe { animation: geneva-breathe 4.5s ease-in-out infinite; }
+.animate-geneva-bar { animation: geneva-bar 2.6s cubic-bezier(0.45, 0, 0.55, 1) infinite; }
+@media (prefers-reduced-motion: reduce) { .animate-geneva-in, .animate-geneva-bar, .animate-geneva-breathe, .animate-geneva-flow { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .animate-geneva-flow { background-image: none; color: var(--ink); -webkit-text-fill-color: var(--ink); } }
+
+/* Geneva chat: one light weight everywhere, matching the page titles. */
+.geneva-light, .geneva-light * { font-weight: 300 !important; }
