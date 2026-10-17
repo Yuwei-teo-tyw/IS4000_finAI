@@ -1,4 +1,4 @@
-# Browser MVP release candidate
+# Browser MVP: READY for bounded personal mock testing
 
 Bounded frontend source/security and journey reviews: READY, no unresolved P0-P2.
 Offline HTML/CSS/JavaScript, existing Python 3.12 FastAPI/Pydantic/httpx/uvicorn;
@@ -23,3 +23,5 @@ Limitations: scripted Clarifier is not LLM accuracy; POLICY_ONLY deterministic;
 MOCK results only; no real Market Researcher; Product NOT_IMPLEMENTED; no financial
 recommendations; historical Gate B/C findings remain open. Not standalone: requires
 existing project Python environment and verified isolated v5 demo runtime.
+
+Integration: current C2.2 frontend-only SAFE; fetched main CONDITIONAL. See MERGE_IMPACT.md for exact tree/commit identities and semantic exclusions. No push, PR or active-target integration occurred.

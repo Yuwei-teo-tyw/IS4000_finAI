@@ -3,29 +3,33 @@
   "standalone": false,
   "requires": "Existing project Python 3.12 and isolated frozen v5 runtime",
   "files": {
+    ".gitattributes": {
+      "sha256": "8b9c3028d6467ff3be7c793141927841d70f47f52d0590677438f488ca154992",
+      "bytes": 9
+    },
     ".gitignore": {
       "sha256": "df49228743dbc877462ac7ff21bea22795f0bf4f7d90b5952a5a89a1718cc6df",
       "bytes": 111
     },
     "CHECKPOINT.md": {
-      "sha256": "a0a520be782888f9e56610d22c0af8bc387308ce1210eccab76b7362b2fa9ad8",
-      "bytes": 477
+      "sha256": "0d0ccb2f88390026d8e829d8034a42400f7fa8700e7e508fcd757a7b82d29be3",
+      "bytes": 698
     },
     "CHECK_ADVISORY_DEMO.cmd": {
       "sha256": "dce43f603c324ab7f7ec5af02ddc1930b47e90fa6076fb9d4286a8df2082583d",
       "bytes": 560
     },
     "MERGE_IMPACT.md": {
-      "sha256": "d2bc7d9eff699e23df13c6eebeab71b208bdb2934333a81a63d928c0c57847c4",
-      "bytes": 839
+      "sha256": "09b3ec449921b1ed635df176330a952f54c19782d887623bf3fb1af4f229c1c2",
+      "bytes": 5931
     },
     "PLAN.md": {
       "sha256": "8ac2e756c32652e844a17f4e188fcfff9be86f4795507da5eb26878783a88235",
       "bytes": 3528
     },
     "RELEASE_NOTES.md": {
-      "sha256": "4cb27e76bda3d7f4ce2c03e0d79469621ebe45b3e8ec28df13faa2df47392509",
-      "bytes": 1798
+      "sha256": "7037475dbcbfa9b3e04e568e192cd5b4eada0b335ccb93e809bad62a65ede991",
+      "bytes": 2025
     },
     "START_ADVISORY_DEMO.cmd": {
       "sha256": "32758e9b303e7ba4ebaf1eb4a9da988618140563525014e24f88aeb1de1a10bc",
@@ -112,8 +116,20 @@
       "bytes": 8395
     },
     "evidence/independent-review.md": {
-      "sha256": "34b8b7c1e389a0fc7945635a6cea82319f6716a4df4301a2c9013994a8399c45",
-      "bytes": 2543
+      "sha256": "842ca300cf0cd891d606b81cafe6c668ac936bf8b9432734f4ca5b0baa184e22",
+      "bytes": 2865
+    },
+    "evidence/integration-attempt-1.md": {
+      "sha256": "1c6aec9ea4aec8776a3a677c858f93b6e3fd713359cf2098b66ce36465bcca59",
+      "bytes": 535
+    },
+    "evidence/integration-paths.json": {
+      "sha256": "94f2447f77efd0c06bdee4e8f2b9224f925e8d60a7a470d935d0f248fca96320",
+      "bytes": 7898
+    },
+    "evidence/integration-rehearsal.json": {
+      "sha256": "ce7a8d4a7ab51fb948d037865c0777d18c9d43fbd80f039987fa429e523eafd7",
+      "bytes": 1537
     },
     "evidence/laptop-results.png": {
       "sha256": "16b496735ff826ca6cb9bdf8770c30044be7f8cc5d6cf3fa20533250d5b3ccc7",
@@ -132,8 +148,8 @@
       "bytes": 180289
     },
     "evidence/preservation.json": {
-      "sha256": "8192d6b54e8f199440f541c3d87ac9a205f8142cf6cb7c083f82b489d6442ddc",
-      "bytes": 579
+      "sha256": "ee50ee33750813daac7bdb11fe076f1ad2f413f54d47a0797ef715bca64c0b86",
+      "bytes": 622
     },
     "evidence/prior-pass-browser-qa.json": {
       "sha256": "041beea385880729618b2d683dbe887d36964facbe73bb8cb76859e82ee77bd0",
@@ -160,8 +176,8 @@
       "bytes": 10909
     },
     "package.py": {
-      "sha256": "0df0fe5c90da597a79cb8a8e20bc12b1870acca3ef657f0c62a5a634464d1a23",
-      "bytes": 4657
+      "sha256": "40f5f6cd8ba387c782a6301bce9b2569caf5531f78352bccd1dfe0f20264cda7",
+      "bytes": 4680
     },
     "runtime.py": {
       "sha256": "3741bbc21d3c29ec4519558c55290685b0e711996ad042c857cfba4de3379546",

@@ -36,3 +36,8 @@ verdict READY, no unresolved P0-P2; package.py SHA-256
 Coordinator final 30 adapter/lifecycle/package tests and 13 canonical contracts pass.
 Extracted candidate start/check/stop passed; final runtime bytes match exactly.
 Final archive must still be rebuilt and independently read back after docs updates.
+
+Final byte-preservation adjustment independently rechecked: scoped .gitattributes
+is exactly `* -text`, now required in package allowlist. app.js unchanged. Final
+packaging source remains READY with no unresolved P0-P2. Updated package.py SHA-256:
+`40f5f6cd8ba387c782a6301bce9b2569caf5531f78352bccd1dfe0f20264cda7`.

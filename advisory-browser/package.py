@@ -10,6 +10,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 TOP = {
     ".gitignore",
+    ".gitattributes",
     "demo-config.json",
     "runtime.py",
     "server.py",

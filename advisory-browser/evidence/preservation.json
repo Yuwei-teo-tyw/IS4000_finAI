@@ -13,5 +13,6 @@
     "mode": "POLICY_ONLY",
     "provider": "scripted",
     "specialists": "MOCK_HTTP"
-  }
+  },
+  "rechecked_before_final_release": true
 }
