@@ -59,6 +59,24 @@ def test_find_news_item_only_allows_cited_urls(run_dir):
         ar.find_news_item(run_dir, "../../etc/passwd", URL)
 
 
+def test_explanation_sources_are_allowed(tmp_path):
+    """'Why: ... [source]' links come from the explainer's own searches, not `news`."""
+    src = "https://wire.example/2026/10/14/auction"
+    (tmp_path / f"{RUN_ID}.json").write_text(json.dumps({"news": [], "event_explanations": [{
+        "event_id": "dgs10_sharp_move_up", "status": "explained", "explanation": "Reports cite a weak auction.",
+        "cited_urls": [src, "https://old-run.example/no-sources"],
+        "cited_sources": [{"url": src, "title": "Weak auction lifts yields", "source": "wire.example",
+                           "published_at": "2026-10-14T09:00:00Z"}],
+    }]}))
+    item = ar.find_news_item(tmp_path, RUN_ID, src)
+    assert item["title"] == "Weak auction lifts yields" and item["summary"] == "Reports cite a weak auction."
+    assert item["source"] == "wire.example" and item["topics"] == []
+    # files written before cited_sources existed: allowed via cited_urls, minimal metadata
+    assert ar.find_news_item(tmp_path, RUN_ID, "https://old-run.example/no-sources")["source"] == "old-run.example"
+    with pytest.raises(ar.ArticleNotFoundError):
+        ar.find_news_item(tmp_path, RUN_ID, "https://evil.example/x")
+
+
 # --- fetching / extraction ----------------------------------------------------
 
 def test_fetch_article_extracts_text():
@@ -80,6 +98,9 @@ def test_fetch_article_respects_robots_txt():
 @pytest.mark.parametrize("response,reason", [
     (httpx.Response(403), "subscription"),
     (httpx.Response(500), "HTTP 500"),
+    (httpx.Response(429), "limits automated readers"),
+    (httpx.Response(404), "moved or been removed"),
+    (httpx.Response(410), "moved or been removed"),
     (httpx.Response(200, text="<html><body><p>Watch the video.</p></body></html>", headers={"content-type": "text/html"}),
      "No readable article text"),
     (httpx.Response(200, content=b"%PDF", headers={"content-type": "application/pdf"}), "not an HTML"),
@@ -145,3 +166,25 @@ def test_articles_endpoint(run_dir, monkeypatch):
         assert ok.status_code == 200 and ok.json()["paragraphs"] == ["Body."]
         missing = client.get("/agents/market-researcher/articles", params={"run_id": RUN_ID, "url": "https://other.example/"})
         assert missing.status_code == 404
+
+
+def test_rate_limited_result_cached_briefly(run_dir, monkeypatch):
+    ttls = []
+
+    class RecordingCache(InMemoryCache):
+        async def set(self, key, value, ttl):
+            ttls.append(ttl)
+            await super().set(key, value, ttl)
+
+    async def throttled(url):
+        return {"status": "unavailable", "http_status": 429, "reason": "limits automated readers"}
+
+    async def gone(url):
+        return {"status": "unavailable", "http_status": 404, "reason": "moved or been removed"}
+
+    monkeypatch.setattr(ar, "fetch_article", throttled)
+    result = run_async(ar.read_article(run_dir, RUN_ID, URL, RecordingCache()))
+    assert result["status"] == "unavailable" and "limits automated readers" in result["reason"]
+    monkeypatch.setattr(ar, "fetch_article", gone)
+    run_async(ar.read_article(run_dir, RUN_ID, URL, RecordingCache()))
+    assert ttls == [ar.RATE_LIMITED_TTL_SECONDS, ar.UNAVAILABLE_TTL_SECONDS]

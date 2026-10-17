@@ -13,13 +13,14 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 import app.agents.market_researcher.news_tagging as tagging_module
+from app.agents.market_researcher.config import SCHEMA_VERSION
 from app.agents.market_researcher.news_tagging import NewsTagBatch
 from app.agents.market_researcher.runs import InMemoryRunRegistry, MarketResearchRunner
 from app.agents.market_researcher.schemas import MarketResearchOutput, output_json_schema
 from app.endpoints.market_researcher import router
 
 from conftest import FakeLLM
-from test_market_service import make_service
+from test_market_service import make_service, quiet_planner_and_explainer
 
 BASE = "/agents/market-researcher"
 
@@ -28,6 +29,7 @@ BASE = "/agents/market-researcher"
 def fake_tagger(monkeypatch):
     monkeypatch.setattr(tagging_module, "get_groq_model", lambda: FakeLLM(NewsTagBatch(items=[])))
     monkeypatch.delenv("MARKET_RESEARCH_API_TOKEN", raising=False)
+    quiet_planner_and_explainer(monkeypatch)
 
 
 def build_client(tmp_path, service=None, **runner_kw):
@@ -88,6 +90,7 @@ def test_validation_and_unsupported_region(tmp_path):
     with build_client(tmp_path) as client:
         assert client.post(f"{BASE}/runs", json={"lookback_days_news": 99}).status_code == 422
         assert client.post(f"{BASE}/runs", json={"region": "MARS"}).status_code == 422
+        assert client.post(f"{BASE}/runs", json={"planning": "maybe"}).status_code == 422
         resp = client.post(f"{BASE}/runs", json={"region": "EU"})
         assert resp.status_code == 422 and "not supported" in resp.json()["detail"]
 
@@ -161,3 +164,11 @@ def test_health(tmp_path):
         body = client.get(f"{BASE}/health").json()
         assert body["keys"]["fred"] is True and body["registry"] == "InMemoryRunRegistry"
         assert body["storage_reachable"] is True
+
+
+def test_new_request_fields_round_trip(tmp_path):
+    with build_client(tmp_path) as client:
+        body = {"focus": ["oil"], "planning": "off", "explain_events": False}
+        out = client.post(f"{BASE}/runs?wait=true", json=body).json()
+        assert out["request"]["planning"] == "off" and out["request"]["explain_events"] is False
+        assert out["plan"] is None and out["event_explanations"] == [] and out["schema_version"] == SCHEMA_VERSION

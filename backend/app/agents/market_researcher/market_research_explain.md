@@ -52,25 +52,32 @@ flowchart LR
         F --> R[Regime classifier<br/>+ NY Fed probit]
     end
     subgraph LLM - Groq
+        P[Query planner<br/>catalog-only]
         T[News tagging]
+        X[Event explanations<br/>cited + validated]
         N[Optional narrative<br/>+ number validator]
     end
     FRED --> A
     YF --> A
     TAV --> A
+    P -->|extra series / symbols / news queries| A
     A --> T
+    E --> X
+    TAV -->|targeted searches| X
     E --> OUT
     R --> OUT
     T --> OUT
+    X --> OUT
+    A -->|planned extras| OUT
     OUT[MarketResearchOutput] --> N --> J[(JSON file<br/>data/market_research/run_id.json)]
     OUT --> J
 ```
 
 | | |
 |---|---|
-| **Data per run** | 35 FRED series, 25 market symbols, about 50 news results reduced to the top 15 |
-| **Typical latency** | about 30s cold (mostly the FRED fan-out); about 5–10s warm (cache) |
-| **LLM calls per run** | 1 (news tagging), plus 1–2 when a narrative is requested |
+| **Data per run** | 35 FRED series, 25 market symbols, about 50 news results reduced to the top 15; plus up to 8 planned series, 8 planned symbols and 4 planned news queries (§2.4) |
+| **Typical latency** | about 35s cold (mostly the FRED fan-out); about 20–25s warm with the planner and explanations on (about 5–10s with `planning: "off"`, `explain_events: false`) |
+| **LLM calls per run** | Planner 1, news tagging 1, event explanations 1 (+1 retry), plus 1–2 when a narrative is requested |
 | **Output** | One JSON file per run, also served over HTTP |
 | **Region** | US only (v1). Other regions return HTTP 422 |
 | **Model** | Groq `openai/gpt-oss-120b` via the repo's shared `get_groq_model()` |
@@ -78,12 +85,14 @@ flowchart LR
 **Execution flow for one run** (`service.py → MarketResearchService.run`):
 
 1. Validate the request (`region` must be `US`).
-2. Fetch from FRED, Yahoo Finance and Tavily **in parallel**, each under its own timeout. A failing source is recorded and the run continues.
-3. Compute features for each FRED series, building indicators and a market snapshot.
-4. Run the event rules, then the regime classifier (reading and updating the stored last regime).
-5. Tag the news with one batched LLM call, falling back to keyword tagging.
-6. *(Optional)* Generate the narrative, which has to pass the number validator.
-7. Write `MarketResearchOutput` atomically to `<output_dir>/<run_id>.json`.
+2. Fetch from FRED, Yahoo Finance and Tavily **in parallel**, each under its own timeout. A failing source is recorded and the run continues. **At the same time** the query planner (§2.4) picks extras from the catalogs; as soon as its plan is ready, the extra series, symbols and news queries are fetched.
+3. Rank the core and planned news together (§7.1).
+4. Compute features for each FRED series, building indicators and a market snapshot. Planned extras are featurized the same way into `planned_indicators` / `planned_market`.
+5. Run the event rules, then the regime classifier (reading and updating the stored last regime). **Both see core data only**; this is asserted in code.
+6. Concurrently: tag the news with one batched LLM call (keyword fallback), and explain the notable events (§5.1).
+7. *(Optional)* Generate the narrative, which has to pass the number validator.
+8. Run the **quality gate** (§8.1): screen LLM-written text for advice wording, then check consistency, completeness, freshness and sources, and record `output.quality`.
+9. Write `MarketResearchOutput` atomically to `<output_dir>/<run_id>.json`.
 
 ---
 
@@ -169,6 +178,28 @@ stock market today
 ```
 
 Each query asks for up to 6 results (`NEWS_RESULTS_PER_QUERY`). After filtering and de-duplication, the top 15 (`NEWS_TOP_N`) are kept (§7).
+
+With `planning: "auto"` (the default), the caller-specific queries come from the query planner instead (§2.4). With `planning: "off"`, they are the focus-term and question queries above.
+
+### 2.4 Planned extras: the query planner (`planner.py`)
+
+When the request has a `query` or `focus` and `planning` is `"auto"`, one LLM call (8s budget, run **in parallel with the core fetch**) reads the request and chooses what else to pull. It can choose **only from curated allowlists** in `config.py`:
+
+- `EXTRA_SERIES_CATALOG`: 35 FRED series, all verified to exist on FRED (by `test_catalog_ids_exist_on_fred`). They are grouped as energy (WTI, Brent, gasoline, energy CPI, PPI), inflation detail (shelter, core services, food, UMich expectations), labor detail (JOLTS openings, wages, participation, U-6), housing and consumer (30Y mortgage rate, Case-Shiller, new home sales, consumer credit, card delinquencies), output (capacity utilization, durable goods, inventories), rates detail (5Y, 1Y, SOFR, Fed balance sheet, reverse repo), global/FX (broad dollar, USD/JPY, USD/CNY, EUR/USD, German and Japanese 10Y) and credit detail (CCC and BBB OAS, SLOOS lending standards).
+- `EXTRA_SYMBOL_CATALOG`: 26 symbols. These are industry ETFs (semis, regional banks, homebuilders, E&P, retail, transports, airlines), factors, single-country ETFs, short Treasuries, TIPS, loans, EM debt, Brent, natural gas, silver, yen and bitcoin.
+
+Each entry is a full `SeriesSpec` / `SymbolSpec` with a `description` and `tags`; the planner sees `ID | name | tags | description`. Extras are therefore fetched, cached (same keys, same ALFRED vintage logic) and featurized by the same code as the core set.
+
+**Validation** (everything rejected is listed in `plan.dropped` with the reason):
+- ids must be in the catalog (case-normalized), not in the core set and not repeated;
+- caps: 8 series, 8 symbols, 4 news queries (`PLANNER_MAX_*`);
+- news queries must be 3–12 words and ≤ 120 characters, with no URLs and no operators other than quotes and `OR`, and must not repeat a core query.
+
+**Fallback.** On an LLM error or timeout, or a plan where every item fails validation, a keyword heuristic is used instead (`plan_source: "heuristic"`, with a note). It maps the request's words to catalog tags via `PLANNER_TAG_KEYWORDS`, picks up to 3 series and 3 symbols with those tags, and uses the `planning: "off"` news queries. A plan that validly chooses nothing is fine.
+
+**Isolation.** Extras go only to `plan`, `planned_indicators` and `planned_market`, and planned news into the normal news pool (ranked with the +0.4 caller boost). They never reach the regime classifier or the event rules, so `regime`, `events`, `indicators` and `market_snapshot` are identical with or without the planner for the same fetched data. A failed extra is recorded as `planned:FRED:<id>` (or `planned:Market data` / `planned:News`) and does **not** make the run `partial`.
+
+**To add a catalog entry:** append a spec with an accurate `transform`, `unit`, `description` and `tags` to the catalog, then run `RUN_LIVE_MARKET_TESTS=1 pytest -m live -k catalog` to confirm it exists on FRED.
 
 ---
 
@@ -309,7 +340,7 @@ In the chat, clicking a source link in a Market Researcher reply opens a **side 
 
 **How one article is read:**
 
-1. **Allowlist check.** `run_id` must match `mr_YYYYMMDDTHHMMSSZ_xxxxxx`, its JSON file must exist, and `url` must be **exactly one of that run's `news[].url` values**. Anything else returns HTTP 404. The endpoint therefore can't be used as an open proxy.
+1. **Allowlist check.** `run_id` must match `mr_YYYYMMDDTHHMMSSZ_xxxxxx`, its JSON file must exist, and `url` must be **exactly one of that run's `news[].url` values or a URL cited by one of its event explanations** (`event_explanations[].cited_urls`; their title, domain and date come from `cited_sources`, and the panel's summary is the explanation). Anything else returns HTTP 404. Explanation sources used to be missing from this list, so "Why: … [source]" links returned 404. The endpoint therefore can't be used as an open proxy.
 2. **Cache.** Results are cached by URL hash (`article:<sha256>`): extracted articles for 24h, failures for 1h.
 3. **robots.txt.** The site's `/robots.txt` is fetched and checked with `urllib.robotparser` for the reader's user agent (`MarketResearcherReader/1.0`). If a site disallows it (e.g. WSJ), the result is "unavailable". Per RFC 9309, a missing robots.txt (4xx) means no restrictions.
 4. **Fetch.** The page is fetched with `httpx`:
@@ -411,6 +442,26 @@ Moves inside the threshold are labelled `neutral`.
 
 Events are sorted `major → notable → info`.
 
+### 5.1 Event explanations (`event_explainer.py`, `decompositions.py`)
+
+The top 4 `major`/`notable` events (`EXPLAIN_MAX_EVENTS`) get a short, cited "why it happened". `info` events are not explained. Explanations are on by default for live runs and off for a past `as_of`, because news search can't be replayed. Set `explain_events` to override; forcing it on for a replay adds a note that the news reflects today's index.
+
+1. **Context (code).** For each event, `EVENT_EXPLAIN_SPECS` (keyed by event-id prefix, longest prefix wins) lists context series and symbols. The explainer gathers their value, date and 1w/1m change, plus the event's evidence.
+2. **Decomposition (code).** Some events have a decomposition: pure functions over the core series that return rounded numbers and a code-built sentence.
+
+   | Decomposition | Events | What it computes |
+   |---|---|---|
+   | `yield_real_vs_breakeven` | `dgs10_*`, `dgs30_*` | ΔDGS10 ≈ ΔDFII10 (real) + ΔT10YIE (breakeven) in bp, the residual, and the real share. The window is 1w for a sharp weekly move, else 1m. All three series are read at one common end date and one past date |
+   | `curve_front_vs_back` | `t10y3m_*`, `t10y2y_*` | Δ front (3M or 2Y) vs Δ 10Y over 30 days, labelled bear/bull steepening/flattening, or twist steepening/flattening when they move in opposite directions |
+   | `core_cpi_momentum` | `core_inflation_*` | Last 3 core CPI m/m prints, 3m annualized vs YoY, and the latest m/m vs its 12-month average |
+
+3. **Targeted search.** The spec's 1–2 query templates are filled with `{direction}` (from the sign of the evidence's 1m change) and `{month_year}` (from its latest observation). They are run concurrently through the same cached, rate-limited Tavily adapter over a per-event lookback (7–60 days). Already-fetched news whose keyword topics match the event is added. The pool is ranked with the normal scorer, with the event description words as keywords, and the top 5 are kept.
+4. **One batched LLM call** for all events. Articles are given by number (title, domain, date, snippet ≤ 300 chars). The model cites numbers and indicator ids; **code maps numbers to URLs**, so it cannot invent a source. It may answer `insufficient_evidence`. Events with no articles skip the LLM and are `insufficient_evidence`.
+5. **Validation.** Citations outside the provided set are dropped, and an explanation must cite at least one article. Every number must pass the narrative's number/label validator (§8) against an allowed set of the event description, context, decomposition and **only the cited** articles' titles and snippets. Explanations are capped at 70 words.
+6. **Retry.** Failing events get one retry with their drafts and problems. If they still fail, they become `unavailable`, keeping the decomposition, and a note is added. An LLM error or timeout makes them all `unavailable`. If less than `EXPLAIN_MIN_BUDGET_S` (8s) of the run budget is left, all are `skipped`.
+
+Output: `event_explanations[]`, linked to `events` by `event_id`. The fields are `status` (`explained` / `insufficient_evidence` / `unavailable` / `skipped`), `explanation`, `likely_drivers`, `decomposition`, `cited_urls`, `cited_indicators`, `confidence` and `queries_run`. The chat renders `Why: … [source]` and the decomposition line under each event.
+
 ---
 
 ## 6. Economic cycle classifier and recession probability
@@ -487,9 +538,9 @@ If fewer than two growth components are available, `phase` is `null`, `confidenc
 
 ## 7. News processing: ranking, de-duplication, tagging
 
-### 7.1 Filtering and ranking (`collect_news`)
+### 7.1 Filtering and ranking (`search_queries` + `rank_news`)
 
-1. **Fan-out:** run all queries concurrently: the 8 fixed queries plus the request's focus terms and question. Individual query failures are counted; the source fails only if **all** queries fail.
+1. **Fan-out:** run all queries concurrently. These are the 8 fixed queries plus the caller's own queries: the plan's `news_queries` with `planning: "auto"`, or the focus terms and question with `"off"`. The core queries start immediately and the planned ones as soon as the plan is ready; ranking waits for both. Individual query failures are counted; the source fails only if **all** queries fail.
 2. **Recency filter:** drop items published before `now − lookback_days_news`, because Tavily's own `days` filter is loose. Items with no date are kept.
 3. **Score** each item:
    ```
@@ -497,7 +548,7 @@ If fewer than two growth components are available, `phase` is `null`, `confidenc
    keyword_score = |words in title+snippet ∩ words in all queries/focus| / min(#keywords, 8)
    recency       = 1 − age_hours / (lookback_days × 24)        (0.25 if undated)
    ```
-   The +0.4 boost exists because without it, the generic macro queries crowded out results for a request's own topic (e.g. "China economy").
+   The +0.4 boost (for planned queries too) exists because without it, the generic macro queries crowded out results for a request's own topic (e.g. "China economy").
 4. **De-duplicate**, highest relevance first:
    - **by URL:** scheme and host lowercased, `www.` removed, trailing `/` removed, query string and fragment dropped;
    - **by title:** any title at least 85% similar (`difflib.SequenceMatcher`) to one already kept is dropped. This catches the same wire story syndicated across outlets.
@@ -533,6 +584,7 @@ Off by default, because the main agent normally writes the synthesis. Turn it on
 - every indicator (value, date, changes, percentile, signal, stale flag);
 - market prices, with keys spelled out as `trailing_1y_pct`, etc.;
 - tagged news;
+- `event_explanations` (explanation, drivers, decomposition, URLs) and the planner's `planned_indicators` / `planned_market`;
 - `data_quality`.
 
 **Prompt rules** (`prompts.yaml → market_researcher.synthesis_system`):
@@ -554,11 +606,31 @@ Off by default, because the main agent normally writes the synthesis. Turn it on
    - tenors and periods (`10Y`, `3-month`, `52 weeks`);
    - ordinals (`80th`);
    - URLs and index names (`S&P 500`).
-2. Build the **allowed set** from every number in the payload. Each value is also included **× 100**, so a probability of 0.1281 can appear as "12.8%" and a 0.22pp change as "22bp". Numbers that appear inside payload strings (event descriptions, titles) count too.
+2. Build the **allowed set** from every number in the payload. Each value is also included **× 100**, so a probability of 0.1281 can appear as "12.8%" and a 0.22pp change as "22bp". Numbers that appear inside payload strings (event descriptions, titles, validated event explanations, decomposition sentences) count too.
 3. A number in the text passes if it matches an allowed number **within the rounding the text used**: "5.2" matches 5.19 (±0.05), "13%" matches 12.81 (±0.5).
 4. A separate label check rejects **"YTD/year-to-date"** and **"record/all-time/near-record"** unless the payload itself uses those words.
 
-**On failure,** the model gets **one retry**. It sees its rejected draft and the list of problems. If the retry also fails, or the LLM errors, a **deterministic template narrative** built from the regime, probabilities, probit, events and conflicts is used instead. `data_quality.notes` records why.
+**On failure,** the model gets **one retry**. It sees its rejected draft and the list of problems. If the retry also fails, or the LLM errors, a **deterministic template narrative** built from the regime, probabilities, probit, events, decomposition sentences and conflicts is used instead. `data_quality.notes` records why.
+
+### 8.1 Final quality gate (`quality.py`)
+
+The last stage before the JSON is written. Because it runs inside the pipeline, the HTTP orchestrator and the chat get the **same verdict**. The orchestrator path never goes through the chat's eval agent. It is all code, with no LLM call.
+
+**1. Advice-language screen.** The number validators check figures, not tone. Every LLM-written text is matched against narrow patterns: direct instructions ("you should…"), recommendations ("we recommend…"), trade suggestions ("consider rotating into…"), positioning calls ("overweight"), buy/sell calls, and guarantees ("guaranteed", "risk-free" except the risk-free *rate*). Descriptive words like "selloff" or "buyers" are not flagged.
+- A flagged **event explanation** becomes `unavailable`, keeping its decomposition. Explanations are screened *before* the narrative is written, so the narrative never builds on a flagged one.
+- A flagged **narrative** (including themes, risks and implications) is replaced by the deterministic template.
+
+**2. Assessment** → `output.quality = {status, checks, issues}`:
+
+| Check | Fails when |
+|---|---|
+| `consistency` | Regime probabilities don't sum to 1 (±0.01); an event cites evidence not in `indicators` / `market_snapshot`; an explanation links to an unknown event; an `explained` item's `cited_urls` don't match its `cited_sources` |
+| `completeness` | A key series is missing (`QUALITY_KEY_INDICATORS`: DGS10, T10Y3M, UNRATE, CPILFESL, PAYEMS; `QUALITY_KEY_SYMBOLS`: SPY); no regime phase; no news when news was expected (not for replays) |
+| `freshness` | A key indicator is stale |
+| `sources` | A core source failed (`planned:` extras don't count) |
+| `advice_language` | The screen above withheld or replaced anything |
+
+`status` is `unusable` when there are no FRED indicators or no regime phase, `degraded` when any check failed, and otherwise `ok`. **Consumers should read `quality.status` first.** On `unusable`, don't quote the regime or the indicators; on `degraded`, use the output but caveat it with `quality.issues`.
 
 ---
 
@@ -575,7 +647,7 @@ Each run writes **one file**: `backend/data/market_research/<run_id>.json` (fold
 
 | Field | Type | Meaning |
 |---|---|---|
-| `schema_version` | `"1.1"` | Contract version (1.1 added `Indicator.stats_window_years`) |
+| `schema_version` | `"1.4"` | Contract version (1.1 added `Indicator.stats_window_years`; 1.2 `Regime.in_recession_prob`, `Regime.scores`; 1.3 the optional `plan`, `planned_indicators`, `planned_market`, `event_explanations`; 1.4 `quality`, `EventExplanation.cited_sources`) |
 | `agent` | `"market_researcher"` | Constant |
 | `run_id`, `generated_at`, `as_of`, `region` | | Identity and timing |
 | `request` | object | Echo of the request |
@@ -584,8 +656,12 @@ Each run writes **one file**: `backend/data/market_research/<run_id>.json` (fold
 | `indicators` | list | §4, one per FRED series: `id`, `name`, `category`, `value`, `unit`, `observation_date`, `changes`, `percentile_10y`, `zscore_10y`, `stats_window_years`, `signal`, `stale`, `source`, `source_url` |
 | `market_snapshot` | list | Same shape, one per symbol; `changes` are **% returns** |
 | `news` | list | §7: `title`, `source`, `url`, `published_at`, `summary`, `topics`, `sentiment`, `market_impact` |
+| `plan` | object or `null` | §2.4: `plan` (`intent`, `areas`, `extra_series`, `extra_symbols`, `news_queries`, `rationale`), `plan_source` (`llm` / `heuristic` / `skipped` / `failed`), `dropped`, `latency_ms`. `null` with `planning: "off"` |
+| `planned_indicators`, `planned_market` | list | §2.4: same shape as `indicators` / `market_snapshot`, for catalog extras. Never used by the regime or events |
+| `event_explanations` | list | §5.1: one per explained event, linked by `event_id`. `cited_sources` gives the title, domain and date of each cited article |
 | `key_themes`, `risks`, `implications`, `narrative` | | §8, `null` unless `include_narrative` |
-| `data_quality` | object | `failed_sources`, `stale_series`, `notes`. **Check this first**: if all three are empty the run is complete |
+| `quality` | object | §8.1: `status` (`ok` / `degraded` / `unusable`), `checks`, `issues`. **Read this first** |
+| `data_quality` | object | `failed_sources`, `stale_series`, `notes`: the detail behind `quality`. If all three are empty, every source answered |
 
 ### Example (abridged real output)
 
@@ -656,22 +732,24 @@ The router is in `app/endpoints/market_researcher.py`, mounted under `/agents/ma
 | `GET /latest?region=US&max_age_minutes=60` | Most recent successful output within the age limit, so the caller can skip a run | 200 / 404 |
 | `GET /schema` | JSON Schema of the output | 200 |
 | `GET /health` | Which keys are configured, provider names, storage reachability, whether auth is required | 200 |
-| `GET /articles?run_id=&url=` | Reader view of one article that run cited (§3.4). Used by the chat side panel; **no token required** | 200 (`status` ok or unavailable) / 404 (not a cited URL) |
+| `GET /articles?run_id=&url=` | Reader view of one article that run cited (§3.4). Used by the chat side panel; **no token required** | 200 (`status` ok or unavailable) / 404 (not a news or explanation source of that run) |
 
 **Request body** (`MarketResearchRequest`):
 
 | Field | Default | Notes |
 |---|---|---|
-| `query` | `null` | The caller's question. Also used as a news query |
+| `query` | `null` | The caller's question. Drives the query planner (or, with `planning: "off"`, is used as a news query) |
 | `region` | `"US"` | `US` only for now; `EU`, `SG` and `GLOBAL` return 422 |
-| `focus` | `[]` | Focus terms, e.g. `["rates", "energy"]`. Each adds a news query and a ranking boost |
+| `focus` | `[]` | Focus terms, e.g. `["rates", "energy"]`. Inputs to the planner and ranking keywords; with `planning: "off"` each adds a news query with a ranking boost |
 | `lookback_days_news` | `3` | 1–14 |
 | `as_of` | `null` (today) | Replay a past date: ALFRED vintages, no hysteresis state, news omitted beyond the lookback |
 | `include_narrative` | `false` | Adds the validated narrative |
+| `planning` | `"auto"` | `"auto"`: the query planner adds catalog extras when there is a `query` or `focus` (§2.4). `"off"`: core set only. Other values return 422 |
+| `explain_events` | `null` | Event explanations (§5.1). `null` = on for live runs, off for a past `as_of` |
 
 **Behavior:**
 - **Concurrency:** at most `MARKET_RESEARCH_MAX_CONCURRENT_RUNS` (default 2) runs execute at once, with up to `MARKET_RESEARCH_MAX_QUEUED_RUNS` (default 8) more waiting. Beyond that the API returns **429** with `Retry-After: 30`.
-- **Coalescing:** an identical request sent while one is already in flight returns the **same `run_id`**.
+- **Coalescing:** an identical request sent while one is already in flight returns the **same `run_id`**. The key is the whole request, so `planning` and `explain_events` are part of it.
 - **Missing key:** with no `FRED_API_KEY` configured, `POST /runs` returns **503**.
 - **Auth:** if `MARKET_RESEARCH_API_TOKEN` is set, every route requires `Authorization: Bearer <token>` (constant-time comparison). Unset means open, for local dev.
 - **Restarts:** runs left `queued`/`running` by a previous process are marked `failed` ("interrupted by restart") on startup.
@@ -727,10 +805,10 @@ The **Finance Expert is deliberately separate**: it has no tool access to this a
 | **Cache TTLs** | Daily series 1h; weekly 6h; monthly and quarterly 12h; prices 5 min; news 15 min; anything for a past `as_of` 7 days (it can't change) |
 | **Retries** (`adapters/base.py`) | Up to 3 retries (4 attempts) with exponential backoff (0.5s, 1s, 2s) plus random jitter. **Only** on HTTP 429/500/502/503/504, timeouts and connection errors. Other 4xx errors (bad key, unknown series) fail immediately |
 | **Rate limiting** | Async token buckets: FRED 2 req/s (burst 10), Tavily 4 req/s (burst 4) |
-| **Timeouts** | Per HTTP request 10s; per source (FRED / prices / news) 45s; overall run budget 60s. News tagging gets whatever budget remains (at least 10s) |
-| **Graceful degradation** | News fails: macro data, prices and the regime are still produced. Prices fail: macro, regime and news are produced. FRED fails: prices and news are produced, with `regime.phase = null` and `confidence = "low"`. Every failure is listed in `data_quality.failed_sources`, and the API status becomes `partial` |
+| **Timeouts** | Per HTTP request 10s; per source (FRED / prices / news) 45s; planner 8s (in parallel with the core fetch); overall run budget 90s. News tagging (at least 10s) and event explanations (min(20s, remaining), skipped below 8s) share whatever budget remains, running concurrently |
+| **Graceful degradation** | News fails: macro data, prices and the regime are still produced. Prices fail: macro, regime and news are produced. FRED fails: prices and news are produced, with `regime.phase = null` and `confidence = "low"`. Every failure is listed in `data_quality.failed_sources`, and the API status becomes `partial`, except failures prefixed `planned:` (planner extras), which only add a note |
 | **Staleness** | Per-frequency grace periods (§4.3). Stale series are listed in `data_quality.stale_series` and flagged on the indicator |
-| **Logging** | `market_researcher` logger: per-source attempt, status, latency and stage timings. No API keys, no request params |
+| **Logging** | `market_researcher` logger: per-source attempt, status, latency and stage timings (`planner_ms`, `extra_fetch_ms`, `explain_search_ms`, `explain_llm_ms`). No API keys, no request params |
 
 ---
 
@@ -764,7 +842,7 @@ The tables are created by `cache.init_market_tables()` from the FastAPI lifespan
 | `MARKET_RESEARCH_MAX_QUEUED_RUNS` | no | `8` | Queue size before 429 |
 | `MARKET_RESEARCH_SOURCE_TIMEOUT` | no | `45` | Seconds per source |
 | `MARKET_RESEARCH_REQUEST_TIMEOUT` | no | `10` | Seconds per HTTP request |
-| `MARKET_RESEARCH_RUN_BUDGET` | no | `60` | Seconds per run |
+| `MARKET_RESEARCH_RUN_BUDGET` | no | `90` | Seconds per run |
 | `DATABASE_URL` | app only | local compose Postgres | Postgres connection |
 
 ### Tunables (`config.py`)
@@ -778,14 +856,19 @@ Everything analytical lives in `config.py`, never hard-coded in logic:
 - TTLs;
 - every event threshold (`EventThresholds`);
 - the probit coefficients;
-- every regime weight, anchor and threshold, plus temperature, confidence bands and the hysteresis margin (`RegimeConfig`).
+- every regime weight, anchor and threshold, plus temperature, confidence bands and the hysteresis margin (`RegimeConfig`);
+- the planner catalogs and limits (`EXTRA_SERIES_CATALOG`, `EXTRA_SYMBOL_CATALOG`, `PLANNER_MAX_EXTRA_SERIES` = 8, `PLANNER_MAX_EXTRA_SYMBOLS` = 8, `PLANNER_MAX_NEWS_QUERIES` = 4, `PLANNER_TIMEOUT_S` = 8, `PLANNER_TAG_KEYWORDS`);
+- the event-explanation specs and limits (`EVENT_EXPLAIN_SPECS`, `EXPLAIN_MAX_EVENTS` = 4, `EXPLAIN_MAX_ARTICLES` = 5, `EXPLAIN_TIMEOUT_S` = 20, `EXPLAIN_MIN_BUDGET_S` = 8, `EXPLAIN_MAX_WORDS` = 70).
 
 Prompts are versioned in `app/prompts/prompts.yaml` under `market_researcher:`:
 - `scope_check_system` (chat node);
 - `disclaimer`;
 - `news_tagging_system`;
-- `synthesis_system`;
-- `synthesis_retry_note`.
+- `synthesis_system` (v3 uses event explanations and planned extras);
+- `synthesis_retry_note`;
+- `planner_system`;
+- `event_explainer_system`;
+- `event_explainer_retry_note`.
 
 You can pin a version without a code change: `PROMPT_VERSION_OVERRIDES='{"market_researcher.synthesis_system": "v1"}'`.
 
@@ -884,7 +967,7 @@ cd backend
 pytest tests/test_market_*.py                                   # offline unit, contract and endpoint tests (no network)
 RUN_LIVE_MARKET_TESTS=1 pytest -m live                          # real FRED / Yahoo / Tavily / Groq smoke test
 RUN_BACKTEST=1 pytest -m slow                                   # backtest acceptance (~30s, needs FRED key)
-python tests/evals/run_market_researcher_evals.py               # 12-case live eval set (~3 min)
+python tests/evals/run_market_researcher_evals.py               # 17-case live eval set (12 core + 5 planner cases)
 ```
 
 | File | Covers |
@@ -897,11 +980,15 @@ python tests/evals/run_market_researcher_evals.py               # 12-case live e
 | `test_market_cache.py` | TTL expiry, regime state |
 | `test_market_news_tagging.py` | Batched LLM tagging, partial output, keyword fallback |
 | `test_market_synthesis.py` | Number and label validator, retry with draft, template fallback |
-| `test_market_service.py` | **Contract test**: stubbed providers produce a valid JSON file; partial and total source failures; past `as_of`; cache hits; committed schema matches the model |
+| `test_market_service.py` | **Contract test**: stubbed providers produce a valid JSON file; partial and total source failures; past `as_of`; cache hits; committed schema matches the model. **Isolation test**: identical `regime`/`events`/`indicators`/`market_snapshot` with and without the planner and explainer; planned-extra failure keeps the run `succeeded`; coalescing key includes `planning`/`explain_events` |
+| `test_market_planner.py` | Catalog-only validation, core duplicates, caps, query hygiene, `dropped` reasons, heuristic fallback on error/timeout/all-invalid, skip without query/focus, prompt contents |
+| `test_market_decompositions.py` | Hand-computed yield split (with residual and 1w/1m window), all curve labels, core CPI momentum, missing data → `None` |
+| `test_market_event_explainer.py` | Query templating, per-event lookback, news reuse, number → URL mapping, invented citations dropped, cited vs uncited snippet numbers, retry → `unavailable`, `insufficient_evidence`, budget skip, replay default off |
 | `test_market_endpoints.py` | Full HTTP lifecycle, `wait=true`, `/latest`, 404/409/422/429/502/503, bearer auth, health |
 | `test_market_chat.py` | Chat node, triage → market researcher → eval end-to-end, renderer, Finance having no access |
 | `test_market_article_reader.py` | Article reader: cited-URL allowlist and run-id validation, robots.txt, extraction, unavailable cases (403/500/video/non-HTML), SSRF guard, caching, `/articles` endpoint without token |
-| `test_market_live.py` | Opt-in live smoke test |
+| `test_market_quality.py` | Advice patterns (flagged and not flagged), withheld explanations keep their decomposition, narrative replaced by the template, every check and status (`ok` / `degraded` / `unusable`) |
+| `test_market_live.py` | Opt-in live smoke tests, plus a planned run with explanations and a check that every catalog id exists on FRED |
 
 ---
 
@@ -924,7 +1011,11 @@ backend/app/agents/market_researcher/
 ├── events.py              12 notable-event rules
 ├── regime.py              composites, quadrant, adjustments, softmax, hysteresis, probit
 ├── news_tagging.py        batched LLM tagging + keyword fallback
+├── planner.py             query planner: catalog-only extras, validation, heuristic fallback
+├── event_explainer.py     targeted news + one cited, validated LLM call per run for notable events
+├── decompositions.py      code-derived "why" facts (yield real vs breakeven, curve shape, core CPI momentum)
 ├── synthesis.py           optional narrative, number/label validator, template
+├── quality.py             final quality gate: advice-language screen + consistency/completeness checks
 ├── service.py             the pipeline + atomic JSON writer
 ├── runs.py                run registry + background runner (HTTP)
 ├── render.py              Markdown rendering for chat
@@ -957,6 +1048,8 @@ backend/app/agents/nodes/market_researcher.py chat graph node
 |---|---|
 | A FRED series | Add a `SeriesSpec` to `US_SERIES` in `config.py`. It is fetched, cached, featurized and reported automatically |
 | A market symbol | Add a `SymbolSpec` to `WATCHLIST` |
+| An optional extra the planner can choose | Add a spec with `description` and `tags` to `EXTRA_SERIES_CATALOG` / `EXTRA_SYMBOL_CATALOG` (§2.4) |
+| An explanation for an event | Add an `EventExplainSpec` to `EVENT_EXPLAIN_SPECS` keyed by the event-id prefix; for a decomposition, add a function to `decompositions.DECOMPOSITIONS` with a hand-computed test |
 | A region | Add a series map (e.g. `EU_SERIES`) to `SERIES_BY_REGION`, add the region to `SUPPORTED_REGIONS`, and add adapters for its sources (ECB, Eurostat, SingStat…) behind the same normalized types |
 | A price or news provider | Implement `MarketDataProvider.get_histories()` or `NewsProvider.search()`, then select it in `get_market_data_provider()` (`adapters/market_data.py`) or `MarketResearchService._news_provider()` (`service.py`) |
 | An event | Write a rule function in `events.py` (series, prices, as_of, thresholds → `list[Event]`), add it to `RULES`, put its thresholds in `EventThresholds`, and add a test |

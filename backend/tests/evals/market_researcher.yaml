@@ -1,7 +1,8 @@
 # Eval set: main-agent-style requests for the market researcher.
 # Run: cd backend && python tests/evals/run_market_researcher_evals.py [--narrative-only]
 # Live (real APIs + Groq). Checks per case are in the runner's docstring;
-# `expect_news_terms` (any-of) checks the news is relevant to the request.
+# `expect_news_terms` (any-of) checks the news is relevant to the request;
+# `expect_extras_any` (any-of) checks the query planner picked a relevant catalog extra.
 cases:
   - id: recession_risk
     request: {query: "Are recession risks rising?", focus: ["recession", "labor market"], include_narrative: true}
@@ -39,3 +40,24 @@ cases:
   - id: cycle_summary
     request: {query: "Summarize where we are in the economic cycle.", include_narrative: true}
     expect_news_terms: []
+  # --- cases that need the query planner ---
+  - id: planned_housing
+    request: {query: "How are mortgage rates and housing holding up?", include_narrative: true}
+    expect_news_terms: [housing, home, mortgage, builder]
+    expect_extras_any: [MORTGAGE30US, CSUSHPINSA, HSN1F, CUSR0000SAH1, XHB, ITB]
+  - id: planned_labor
+    request: {query: "Is the labor market cooling?"}
+    expect_news_terms: [jobs, payroll, labor, unemployment, hiring, layoffs]
+    expect_extras_any: [JTSJOL, U6RATE, CIVPART, CES0500000003]
+  - id: planned_yields
+    request: {query: "What's driving yields higher?"}
+    expect_news_terms: [yield, treasury, bond]
+    expect_extras_any: [DGS5, DGS1, SOFR, WALCL, RRPONTSYD, IRLTLT01DEM156N, IRLTLT01JPM156N, TIP, SHY, MORTGAGE30US]
+  - id: planned_yen
+    request: {query: "Impact of a stronger yen on US markets?"}
+    expect_news_terms: [yen, japan, boj, currency, dollar]
+    expect_extras_any: [DEXJPUS, IRLTLT01JPM156N, FXY, EWJ, DTWEXBGS]
+  - id: planned_oil
+    request: {query: "How is oil affecting the inflation outlook?", include_narrative: true}
+    expect_news_terms: [oil, crude, opec, inflation, energy]
+    expect_extras_any: [DCOILWTICO, DCOILBRENTEU, GASREGW, CPIENGSL, XOP, BZ=F, NG=F]

@@ -13,6 +13,12 @@ Checks per case:
   relevance   at least one news item mentions an expected term (if given)
   numbers     narrative passes the number/label validator and is not the
               template fallback (narrative cases only)
+  extras      the plan picked at least one expected catalog extra (if
+              `expect_extras_any` is given)
+  catalog     the planner proposed nothing outside the catalogs
+  explained   every `explained` event cites URLs, and no explanation was
+              rejected by the validator (no "unavailable: draft ..." note)
+  quality     the final quality gate did not mark the run `unusable`
 """
 import asyncio
 import sys
@@ -46,13 +52,30 @@ async def run_case(service, case: dict) -> dict:
         text = " ".join(f"{n.title} {n.summary}".lower() for n in out.news)
         checks["relevance"] = any(t in text for t in terms)
 
+    if out.plan is not None:
+        checks["catalog"] = not any("not in catalog" in d for d in out.plan.dropped)
+    expected_extras = set(case.get("expect_extras_any") or [])
+    if expected_extras:
+        picked = {i.id for i in out.planned_indicators} | {m.id for m in out.planned_market}
+        checks["extras"] = bool(picked & expected_extras)
+    if out.event_explanations:
+        checks["explained"] = (
+            all(x.cited_urls for x in out.event_explanations if x.status == "explained")
+            and not any("unavailable: draft" in n for n in out.data_quality.notes)
+        )
+
+    checks["quality"] = out.quality is not None and out.quality.status != "unusable"
+
     if case["request"].get("include_narrative"):
         payload = build_payload(out)
         texts = [out.narrative or "", *(out.key_themes or []), *(out.risks or []), *(out.implications or {}).values()]
         is_template = any("deterministic template" in n for n in out.data_quality.notes)
         checks["numbers"] = not problems(texts, allowed_numbers(payload), payload) and not is_template
+    plan = out.plan.plan.extra_series + out.plan.plan.extra_symbols if out.plan and out.plan.plan else []
     return {"id": case["id"], "checks": checks, "phase": out.regime.phase, "news": len(out.news),
-            "failed_sources": out.data_quality.failed_sources}
+            "failed_sources": out.data_quality.failed_sources, "plan": plan,
+            "explanations": [f"{x.event_id}:{x.status}" for x in out.event_explanations],
+            "quality": out.quality.status if out.quality else None}
 
 
 async def main() -> int:
@@ -81,6 +104,7 @@ async def main() -> int:
         marks = " ".join(f"{k}={'ok' if v else 'FAIL'}" for k, v in r["checks"].items())
         extra = f" failed_sources={r['failed_sources']}" if r["failed_sources"] else ""
         print(f"{'PASS' if ok else 'FAIL'} {r['id']:<18} phase={r['phase']} news={r['news']} {marks}{extra}")
+        print(f"     quality={r['quality']} plan={r['plan']} explanations={r['explanations']}")
     print(f"\n{len(cases) - failures}/{len(cases)} cases passed")
     return 1 if failures else 0
 

@@ -19,20 +19,21 @@ import app.agents.tools as tools_module
 from app.agents.graph import build_graph
 from app.agents.market_researcher.news_tagging import NewsTagBatch
 from app.agents.market_researcher.render import render_markdown
-from app.agents.market_researcher.schemas import MarketResearchRequest
+from app.agents.market_researcher.schemas import Event, EventExplanation, MarketResearchRequest
 from app.agents.nodes.eval_agent import ComplianceCheck, EvalVerdict
 from app.agents.nodes.market_researcher import MarketResearcher, MarketScope
 from app.agents.nodes.triage import RoutingDecision
 
 from conftest import FakeLLM, run_async
 from test_graph_integration import _patch_all_llms
-from test_market_service import make_service
+from test_market_service import make_service, quiet_planner_and_explainer
 
 
 def _quiet_pipeline_llms(monkeypatch):
     monkeypatch.setattr(tagging_module, "get_groq_model", lambda: FakeLLM(NewsTagBatch(items=[])))
     # synthesis LLM unavailable -> deterministic template narrative
     monkeypatch.setattr(synthesis_module, "get_groq_model", lambda: FakeLLM(RuntimeError("no LLM in tests")))
+    quiet_planner_and_explainer(monkeypatch)
 
 
 def test_node_out_of_scope_hands_back_to_triage(monkeypatch, tmp_path):
@@ -115,3 +116,25 @@ def test_renderer_uses_only_output_values(monkeypatch, tmp_path):
     out = run_async(make_service(tmp_path).run(MarketResearchRequest())).output
     md = render_markdown(out, "Not advice.")
     assert out.run_id in md and "10-Year Treasury Yield" in md
+
+
+def test_renderer_shows_explanations_and_decompositions(monkeypatch, tmp_path):
+    _quiet_pipeline_llms(monkeypatch)
+    out = run_async(make_service(tmp_path).run(MarketResearchRequest())).output
+    out.events = [
+        Event(id="dgs10_sharp_move_up", severity="notable", description="10Y moved sharply up.", evidence=["DGS10"]),
+        Event(id="credit_stress", severity="notable", description="Credit stress.", evidence=["BAA10Y"]),
+        Event(id="oil_shock", severity="notable", description="Oil shock.", evidence=["CL=F"]),
+    ]
+    out.event_explanations = [
+        EventExplanation(event_id="dgs10_sharp_move_up", status="explained", explanation="Reports cite heavy supply.",
+                         cited_urls=["https://news.example/supply"],
+                         decomposition={"description": "Of the +31bp rise, +24bp came from real yields."}),
+        EventExplanation(event_id="credit_stress", status="insufficient_evidence"),
+        EventExplanation(event_id="oil_shock", status="unavailable"),
+    ]
+    md = render_markdown(out, "Not advice.")
+    assert "  - Why: Reports cite heavy supply. [source](https://news.example/supply)" in md
+    assert "  - Of the +31bp rise, +24bp came from real yields." in md
+    assert "  - Why: Cause unclear from recent coverage." in md
+    assert md.count("Why:") == 2                                    # unavailable shows nothing

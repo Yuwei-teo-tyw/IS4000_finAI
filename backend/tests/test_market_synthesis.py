@@ -5,6 +5,7 @@ from datetime import date, datetime, timezone
 import app.agents.market_researcher.synthesis as synthesis_module
 from app.agents.market_researcher.schemas import (
     Event,
+    EventExplanation,
     Indicator,
     MarketResearchOutput,
     MarketResearchRequest,
@@ -17,7 +18,9 @@ from app.agents.market_researcher.synthesis import (
     build_payload,
     extract_numbers,
     invalid_numbers,
+    problems,
     synthesize,
+    template_synthesis,
 )
 
 from conftest import FakeLLM, run_async
@@ -113,3 +116,29 @@ def test_retry_includes_rejected_draft(monkeypatch):
     run_async(synthesize(make_output()))
     retry_messages = fake.calls[1]
     assert retry_messages[-2].type == "ai" and "6.75" in retry_messages[-2].content
+
+
+DECOMP = {"name": "core_cpi_momentum", "annualized_3m_pct": 3.41, "avg_mom_12m_pct": 0.24,
+          "description": "Core CPI m/m: +0.31%, +0.25% and +0.30%; the latest is above its 12-month average of 0.24%."}
+
+
+def with_explanation():
+    out = make_output()
+    out.event_explanations = [EventExplanation(
+        event_id="core_inflation_reaccelerating", status="explained",
+        explanation="Reports attribute it to shelter costs, which rose 0.4% in the month.",
+        likely_drivers=["shelter costs"], decomposition=DECOMP,
+        cited_urls=["https://news.example/cpi"], cited_indicators=["CPILFESL"])]
+    return out
+
+
+def test_validator_accepts_explanation_and_decomposition_numbers():
+    payload = build_payload(with_explanation())
+    text = ["Coverage ties core inflation to shelter, up 0.4% on the month, with m/m prints of 0.31% and 0.30% "
+            "against a 0.24% average [https://news.example/cpi]."]
+    assert problems(text, allowed_numbers(payload), payload) == []
+    assert problems(text, allowed_numbers(build_payload(make_output())), build_payload(make_output()))
+
+
+def test_template_includes_decomposition_lines():
+    assert DECOMP["description"] in template_synthesis(with_explanation()).narrative

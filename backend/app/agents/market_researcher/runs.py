@@ -198,7 +198,9 @@ class MarketResearchRunner:
                     await self.registry.update(run_id, status="failed", error=f"{type(e).__name__}: {e}",
                                                finished_at=datetime.now(timezone.utc))
                     return
-                status = "partial" if result.output.data_quality.failed_sources else "succeeded"
+                # Failures confined to planner extras (`planned:`) don't degrade the core output.
+                core_failed = [s for s in result.output.data_quality.failed_sources if not s.startswith("planned:")]
+                status = "partial" if core_failed else "succeeded"
                 await self.registry.update(run_id, status=status, json_path=str(result.json_path),
                                            finished_at=datetime.now(timezone.utc))
         finally:

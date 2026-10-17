@@ -164,6 +164,53 @@ def score(item: RawNewsItem, keywords: set[str], now: datetime, lookback_days: i
     return 0.5 * keyword_score + 0.3 * recency + 0.2 * item.provider_score
 
 
+async def search_queries(
+    provider: NewsProvider, queries: list[str], lookback_days: int, per_query: int,
+) -> tuple[list[RawNewsItem], list[str]]:
+    """Run every query concurrently; return (raw items, failed query labels).
+    Raises only if every query failed."""
+    results = await asyncio.gather(
+        *(provider.search(q, lookback_days, per_query) for q in queries), return_exceptions=True
+    )
+    items: list[RawNewsItem] = []
+    failures: list[str] = []
+    for q, res in zip(queries, results):
+        if isinstance(res, Exception):
+            failures.append(f"{provider.name}: {q}")
+            continue
+        items.extend(res)
+    if failures and len(failures) == len(queries):
+        raise SourceError(f"{provider.name}: all {len(queries)} news queries failed")
+    return items, failures
+
+
+def rank_news(
+    items: list[RawNewsItem],
+    queries: list[str],
+    lookback_days: int,
+    top_n: int,
+    title_similarity: float,
+    focus_terms: Optional[list[str]] = None,
+    now: Optional[datetime] = None,
+    priority_queries: Optional[list[str]] = None,
+) -> list[RawNewsItem]:
+    """Filter to the lookback window, score by keyword relevance + recency
+    (+ a boost for `priority_queries`, the caller's own focus), de-duplicate
+    and keep the top N."""
+    now = now or datetime.now(timezone.utc)
+    cutoff = now - timedelta(days=lookback_days)
+    items = [i for i in items if i.published_at is None or i.published_at >= cutoff]
+
+    keywords: set[str] = set()
+    for q in queries + list(focus_terms or []):
+        keywords |= _terms(q)
+    priority = set(priority_queries or [])
+    for item in items:
+        item.relevance = score(item, keywords, now, lookback_days) + (PRIORITY_BOOST if item.query in priority else 0.0)
+    items = sorted(items, key=lambda i: i.relevance, reverse=True)
+    return dedupe(items, title_similarity)[:top_n]
+
+
 async def collect_news(
     provider: NewsProvider,
     queries: list[str],
@@ -177,28 +224,6 @@ async def collect_news(
 ) -> tuple[list[RawNewsItem], list[str]]:
     """Run every query; return (top items, failed query labels). Results
     from `priority_queries` (the caller's own focus) get a ranking boost."""
-    now = now or datetime.now(timezone.utc)
-    results = await asyncio.gather(
-        *(provider.search(q, lookback_days, per_query) for q in queries), return_exceptions=True
-    )
-    items: list[RawNewsItem] = []
-    failures: list[str] = []
-    for q, res in zip(queries, results):
-        if isinstance(res, Exception):
-            failures.append(f"{provider.name}: {q}")
-            continue
-        items.extend(res)
-    if failures and len(failures) == len(queries):
-        raise SourceError(f"{provider.name}: all {len(queries)} news queries failed")
-
-    cutoff = now - timedelta(days=lookback_days)
-    items = [i for i in items if i.published_at is None or i.published_at >= cutoff]
-
-    keywords: set[str] = set()
-    for q in queries + list(focus_terms or []):
-        keywords |= _terms(q)
-    priority = set(priority_queries or [])
-    for item in items:
-        item.relevance = score(item, keywords, now, lookback_days) + (PRIORITY_BOOST if item.query in priority else 0.0)
-    items.sort(key=lambda i: i.relevance, reverse=True)
-    return dedupe(items, title_similarity)[:top_n], failures
+    items, failures = await search_queries(provider, queries, lookback_days, per_query)
+    ranked = rank_news(items, queries, lookback_days, top_n, title_similarity, focus_terms, now, priority_queries)
+    return ranked, failures

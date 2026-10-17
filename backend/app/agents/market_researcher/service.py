@@ -2,13 +2,19 @@
 The market researcher pipeline (guide §2 execution flow):
 
     fetch FRED / prices / news in parallel (per-source timeouts, partial data OK)
-      -> features -> notable events -> regime (with hysteresis)
+      || query planner (LLM, catalog-only) -> extra series / symbols / news queries
+      -> features -> notable events -> regime (with hysteresis)  [core data only]
       -> news tagging (one LLM call, keyword fallback)
+         || event explanations (targeted news + decompositions + one cited LLM call)
       -> optional narrative (synthesis.py, number-validated)
+      -> quality gate (quality.py): advice-language screen + consistency /
+         completeness / freshness checks -> output.quality
       -> MarketResearchOutput, written atomically to <output_dir>/<run_id>.json
 
-Everything except the news tags and the optional narrative is
-deterministic for a given `as_of` and fetched data. Any source failing is
+Everything except the plan, news tags, event explanations and the optional
+narrative is deterministic for a given `as_of` and fetched data; planned
+extras go to planned_indicators / planned_market and never reach the regime
+or event rules. Any source failing is
 recorded in `data_quality` instead of failing the run.
 """
 import asyncio
@@ -24,6 +30,7 @@ from typing import Optional
 
 from app.agents.market_researcher import config as cfg
 from app.agents.market_researcher import features as f
+from app.agents.market_researcher import quality
 from app.agents.market_researcher.adapters.base import SeriesPoint, SourceError
 from app.agents.market_researcher.adapters.fred import FredClient
 from app.agents.market_researcher.adapters.market_data import MarketDataProvider, get_market_data_provider
@@ -31,14 +38,18 @@ from app.agents.market_researcher.adapters.news import (
     NewsProvider,
     RawNewsItem,
     TavilyNewsProvider,
-    collect_news,
+    rank_news,
+    search_queries,
 )
 from app.agents.market_researcher.cache import Cache, default_cache, points_from_json, points_to_json
+from app.agents.market_researcher.event_explainer import explain_events
 from app.agents.market_researcher.events import detect_events
 from app.agents.market_researcher.news_tagging import keyword_tag, tag_news
+from app.agents.market_researcher.planner import default_news_queries, make_plan
 from app.agents.market_researcher.regime import classify_regime
 from app.agents.market_researcher.schemas import (
     DataQuality,
+    EventExplanation,
     Indicator,
     MarketResearchOutput,
     MarketResearchRequest,
@@ -46,6 +57,10 @@ from app.agents.market_researcher.schemas import (
 )
 
 logger = logging.getLogger("market_researcher")
+
+PLANNED_PREFIX = "planned:"
+_CATALOG_SERIES = {s.id: s for s in cfg.EXTRA_SERIES_CATALOG}
+_CATALOG_SYMBOLS = {s.symbol: s for s in cfg.EXTRA_SYMBOL_CATALOG}
 
 
 class UnsupportedRegionError(ValueError):
@@ -172,7 +187,7 @@ class MarketResearchService:
         return points
 
     async def _fetch_fred(self, specs: tuple[cfg.SeriesSpec, ...], as_of: date, live: bool,
-                          dq: DataQuality) -> dict[str, list[SeriesPoint]]:
+                          dq: DataQuality, prefix: str = "") -> dict[str, list[SeriesPoint]]:
         self._fred_client()  # fail fast on a missing key
         wanted = [s for s in specs if not s.backtest_only]
         results = await asyncio.gather(
@@ -187,12 +202,11 @@ class MarketResearchService:
                 series[spec.id] = res
         if not series:
             raise SourceError(f"all {len(wanted)} FRED series failed")
-        dq.failed_sources.extend(f"FRED:{sid}" for sid in failed)
+        dq.failed_sources.extend(f"{prefix}FRED:{sid}" for sid in failed)
         return series
 
-    async def _fetch_prices(self, as_of: date, live: bool) -> dict[str, list[SeriesPoint]]:
+    async def _fetch_prices(self, symbols: list[str], as_of: date, live: bool) -> dict[str, list[SeriesPoint]]:
         provider = self._market_provider()
-        symbols = [s.symbol for s in cfg.WATCHLIST]
         tag = "latest" if live else as_of.isoformat()
         prices: dict[str, list[SeriesPoint]] = {}
         missing = []
@@ -212,13 +226,53 @@ class MarketResearchService:
             raise SourceError(f"{provider.name}: no prices returned")
         return prices
 
-    async def _fetch_news(self, request: MarketResearchRequest) -> tuple[list[RawNewsItem], list[str]]:
-        provider = _CachedNewsProvider(self._news_provider(), self.cache)
-        own = [f"{term} market news" for term in request.focus] + ([request.query] if request.query else [])
-        return await collect_news(
-            provider, list(cfg.NEWS_QUERIES) + own, request.lookback_days_news, cfg.NEWS_RESULTS_PER_QUERY,
-            cfg.NEWS_TOP_N, cfg.NEWS_TITLE_SIMILARITY, focus_terms=request.focus, priority_queries=own,
+    def _cached_news(self) -> NewsProvider:
+        return _CachedNewsProvider(self._news_provider(), self.cache)
+
+    async def _search_news(self, queries: list[str], days: int) -> tuple[list[RawNewsItem], list[str]]:
+        """Raw search only - ranking happens once core and planned results are both in."""
+        return await search_queries(self._cached_news(), queries, days, cfg.NEWS_RESULTS_PER_QUERY)
+
+    async def _planned(self, request: MarketResearchRequest, as_of: date, live: bool, news_ok: bool,
+                       dq: DataQuality):
+        """Planner, then the extra fetches it asks for. Runs alongside the core
+        fetch; every failure here is labelled `planned:` and never touches core data."""
+        started = time.monotonic()
+        record, notes = await make_plan(request, budget_s=cfg.PLANNER_TIMEOUT_S)
+        dq.notes.extend(notes)
+        logger.info("stage=planner source=%s planner_ms=%d", record.plan_source, int((time.monotonic() - started) * 1000))
+        plan = record.plan
+        if plan is None:
+            return record, {}, {}, ([], [])
+
+        started = time.monotonic()
+        specs = tuple(_CATALOG_SERIES[i] for i in plan.extra_series)
+        p = PLANNED_PREFIX
+        series, prices, news = await asyncio.gather(
+            self._guarded(f"{p}FRED", self._fetch_fred(specs, as_of, live, dq, prefix=p), dq, {})
+            if specs else _const({}),
+            self._guarded(f"{p}Market data", self._fetch_prices(plan.extra_symbols, as_of, live), dq, {})
+            if plan.extra_symbols else _const({}),
+            self._guarded(f"{p}News", self._search_news(plan.news_queries, request.lookback_days_news), dq, ([], []))
+            if plan.news_queries and news_ok else _const(([], [])),
         )
+        logger.info("stage=extra_fetch extra_fetch_ms=%d", int((time.monotonic() - started) * 1000))
+        return record, series, prices, news
+
+    async def _explain(self, explain: bool, events, series, prices, raw_news, as_of: date,
+                       budget_s: float) -> tuple[list[EventExplanation], list[str]]:
+        if not explain:
+            return [], []
+        try:
+            provider = self._cached_news()
+        except SourceError:
+            provider = None  # explain from already-fetched news only
+        try:
+            return await explain_events(events, series, prices, raw_news, as_of,
+                                        min(cfg.EXPLAIN_TIMEOUT_S, budget_s), provider)
+        except Exception as e:
+            logger.info("stage=explain failed: %s", e)
+            return [], [f"Event explanations unavailable ({type(e).__name__})."]
 
     async def _guarded(self, label: str, coro, dq: DataQuality, default):
         """Run one source under its timeout; record failure and return `default`."""
@@ -266,9 +320,9 @@ class MarketResearchService:
         return out
 
     @staticmethod
-    def _snapshot(prices: dict[str, list[SeriesPoint]], as_of: date, provider_name: str) -> list[Indicator]:
+    def _snapshot(symbols, prices: dict[str, list[SeriesPoint]], as_of: date, provider_name: str) -> list[Indicator]:
         out = []
-        for sym in cfg.WATCHLIST:
+        for sym in symbols:
             pts = f.truncate(prices.get(sym.symbol) or [], as_of)
             if not pts:
                 continue
@@ -298,24 +352,59 @@ class MarketResearchService:
         specs = cfg.SERIES_BY_REGION[request.region]
         dq = DataQuality()
 
+        explain = request.explain_events if request.explain_events is not None else live
+        if explain and not live:
+            dq.notes.append("Event explanations for a past as_of search today's news index, not the news as of then.")
+
+        news_ok = live or as_of >= today - timedelta(days=request.lookback_days_news)
+        plan_wanted = request.planning == "auto"
+        # planning="off": today's behavior - focus terms / query searched with the core
+        # queries. "auto": the plan supplies the caller-specific queries.
+        own = [] if plan_wanted else default_news_queries(request)
         news_task = None
-        if not live and as_of < today - timedelta(days=request.lookback_days_news):
+        if not news_ok:
             dq.notes.append("News search cannot be replayed for a past as_of; news omitted.")
         else:
-            news_task = self._guarded("News", self._fetch_news(request), dq, ([], []))
-        series, prices, news_result = await asyncio.gather(
+            news_task = self._guarded(
+                "News", self._search_news(list(cfg.NEWS_QUERIES) + own, request.lookback_days_news), dq, ([], []))
+        series, prices, news_result, planned = await asyncio.gather(
             self._guarded("FRED", self._fetch_fred(specs, as_of, live, dq), dq, {}),
-            self._guarded("Market data", self._fetch_prices(as_of, live), dq, {}),
+            self._guarded("Market data", self._fetch_prices([s.symbol for s in cfg.WATCHLIST], as_of, live), dq, {}),
             news_task if news_task is not None else _const(([], [])),
+            self._planned(request, as_of, live, news_ok, dq) if plan_wanted else _const((None, {}, {}, ([], []))),
         )
-        raw_news, news_failures = news_result
+        plan_record, planned_series, planned_prices, (planned_raw, planned_failures) = planned
+        core_raw, news_failures = news_result
+        news_failures = news_failures + planned_failures
         if news_failures:
             dq.notes.append(f"{len(news_failures)} news queries failed.")
 
+        if plan_wanted and plan_record is not None and plan_record.plan is not None:
+            own = plan_record.plan.news_queries
+        news_pool = core_raw + planned_raw
+        raw_news = rank_news(
+            news_pool, list(cfg.NEWS_QUERIES) + own, request.lookback_days_news, cfg.NEWS_TOP_N,
+            cfg.NEWS_TITLE_SIMILARITY, focus_terms=request.focus, priority_queries=own,
+        ) if news_pool else []
+
+        # Isolation: the regime classifier and event rules see core data only.
+        assert set(series) <= {s.id for s in specs} and set(prices) <= {s.symbol for s in cfg.WATCHLIST}, \
+            "planned extras must never reach the regime or event rules"
         indicators = self._indicators(specs, series, as_of, dq)
         market_name = self._market.name if self._market is not None else self.settings.market_data_provider
-        snapshot = self._snapshot(prices, as_of, market_name)
+        snapshot = self._snapshot(cfg.WATCHLIST, prices, as_of, market_name)
         events = detect_events(series, prices, as_of)
+
+        planned_indicators: list[Indicator] = []
+        planned_market: list[Indicator] = []
+        if plan_record is not None and plan_record.plan is not None:
+            plan = plan_record.plan
+            planned_indicators = self._indicators(
+                tuple(_CATALOG_SERIES[i] for i in plan.extra_series), planned_series, as_of, dq)
+            planned_market = self._snapshot(
+                [_CATALOG_SYMBOLS[s] for s in plan.extra_symbols], planned_prices, as_of, market_name)
+        if any(s.startswith(PLANNED_PREFIX) for s in dq.failed_sources):
+            dq.notes.append("Some planned extras failed to fetch; core data is unaffected.")
 
         previous = await self.cache.get_regime(request.region) if live else None
         regime = classify_regime(series, as_of, previous=previous, prices=prices)
@@ -331,17 +420,19 @@ class MarketResearchService:
                 "as_of": as_of.isoformat(),
             })
 
-        news: list[NewsItem] = []
-        if raw_news:
-            # Tagging is the one LLM call on the default path - keep it inside
-            # the run budget, falling back to keyword tags if it runs long.
-            remaining = self.settings.run_budget_seconds - (time.monotonic() - started)
-            try:
-                news, notes = await asyncio.wait_for(tag_news(raw_news), timeout=max(10.0, remaining))
-            except asyncio.TimeoutError:
-                news = [keyword_tag(item) for item in raw_news]
-                notes = ["News tags are keyword-based (LLM tagging exceeded the run budget)."]
-            dq.notes.extend(notes)
+        # News tagging and event explanations both run on the LLM after events are
+        # known - concurrently, each inside the remaining run budget.
+        remaining = self.settings.run_budget_seconds - (time.monotonic() - started)
+        news, explanations = await asyncio.gather(
+            self._tag(raw_news, remaining),
+            self._explain(explain, events, series, prices, news_pool, as_of, remaining),
+        )
+        news, tag_notes = news
+        event_explanations, explain_notes = explanations
+        # Quality gate, part 1: screen explanations for advice wording before
+        # the narrative can build on them.
+        event_explanations, screen_notes = quality.screen_explanations(event_explanations)
+        dq.notes.extend(tag_notes + explain_notes + screen_notes)
 
         output = MarketResearchOutput(
             run_id=run_id or new_run_id(now),
@@ -354,6 +445,10 @@ class MarketResearchService:
             indicators=indicators,
             market_snapshot=snapshot,
             news=news,
+            plan=plan_record,
+            planned_indicators=planned_indicators,
+            planned_market=planned_market,
+            event_explanations=event_explanations,
             data_quality=dq,
         )
 
@@ -362,9 +457,29 @@ class MarketResearchService:
 
             await synthesize(output)
 
+        # Quality gate, part 2: screen the narrative, then the final verdict both
+        # consumers (HTTP orchestrator and chat) read before using the output.
+        narrative_flags = quality.screen_narrative(output)
+        screened = list(screen_notes) + (
+            [f"narrative replaced by the template (advice-like wording: {', '.join(narrative_flags)})"]
+            if narrative_flags else [])
+        output.quality = quality.assess(output, news_expected=news_ok, screened=screened)
+        logger.info("stage=quality status=%s issues=%d", output.quality.status, len(output.quality.issues))
+
         path = write_json_atomic(output, self.out_dir)
         logger.info("run=%s done in %.1fs -> %s", output.run_id, time.monotonic() - started, path)
         return MarketResearchResult(output=output, json_path=path)
+
+
+    async def _tag(self, raw_news: list[RawNewsItem], remaining: float) -> tuple[list[NewsItem], list[str]]:
+        if not raw_news:
+            return [], []
+        # Keep tagging inside the run budget, falling back to keyword tags if it runs long.
+        try:
+            return await asyncio.wait_for(tag_news(raw_news), timeout=max(10.0, remaining))
+        except asyncio.TimeoutError:
+            return ([keyword_tag(item) for item in raw_news],
+                    ["News tags are keyword-based (LLM tagging exceeded the run budget)."])
 
 
 async def _const(value):

@@ -39,6 +39,16 @@ class MarketResearchRequest(BaseModel):
     lookback_days_news: int = Field(default=3, ge=1, le=14)
     as_of: Optional[date] = Field(default=None, description="None = now; set for replays/backtests.")
     include_narrative: bool = Field(default=False, description="Also produce an LLM narrative (validated against the data).")
+    planning: Literal["auto", "off"] = Field(
+        default="auto",
+        description="'auto': an LLM picks extra series/symbols/news queries from curated catalogs when there is a "
+                    "query or focus. 'off': fixed core set only (focus terms become news queries).",
+    )
+    explain_events: Optional[bool] = Field(
+        default=None,
+        description="Investigate notable events (targeted news + decompositions + cited explanation). "
+                    "None = on for live runs, off for a past as_of.",
+    )
 
 
 class Indicator(BaseModel):
@@ -109,6 +119,57 @@ class Regime(BaseModel):
     changed: bool = False
 
 
+PlanArea = Literal["rates", "inflation", "labor", "growth", "housing", "credit",
+                   "energy", "equities", "fx", "global", "fed", "consumer"]
+
+
+class QueryPlan(BaseModel):
+    intent: str = Field(description="One sentence: what the caller wants to know.")
+    areas: list[PlanArea] = Field(default_factory=list)
+    extra_series: list[str] = Field(default_factory=list, description="Catalog FRED ids only.")
+    extra_symbols: list[str] = Field(default_factory=list, description="Catalog symbols only.")
+    news_queries: list[str] = Field(default_factory=list, description="Each 3-12 words; no operators beyond quotes/OR.")
+    rationale: str = Field(default="", description="<= 60 words: why these choices.")
+
+
+class PlanRecord(BaseModel):
+    plan: Optional[QueryPlan] = None
+    plan_source: Literal["llm", "heuristic", "skipped", "failed"]
+    dropped: list[str] = Field(default_factory=list, description="Ids/queries rejected by validation, with the reason.")
+    latency_ms: Optional[int] = None
+
+
+class CitedSource(BaseModel):
+    url: str
+    title: str
+    source: str
+    published_at: Optional[datetime] = None
+
+
+class EventExplanation(BaseModel):
+    event_id: str
+    status: Literal["explained", "insufficient_evidence", "unavailable", "skipped"]
+    explanation: Optional[str] = Field(default=None, description="<= 70 words, own words; numbers validated.")
+    likely_drivers: list[str] = Field(default_factory=list, description="1-3 short phrases.")
+    decomposition: Optional[dict] = Field(default=None, description="Code-derived facts (decompositions.py).")
+    cited_urls: list[str] = Field(default_factory=list)
+    cited_sources: list[CitedSource] = Field(
+        default_factory=list, description="Title/source/date of each cited article (same order as cited_urls).")
+    cited_indicators: list[str] = Field(default_factory=list)
+    confidence: Optional[Literal["low", "medium", "high"]] = None
+    queries_run: list[str] = Field(default_factory=list, description="Searches actually run for this event.")
+
+
+class QualityReport(BaseModel):
+    """Final self-check of the run (quality.py). Consumers should read `status`
+    before using the output: `unusable` = do not quote the regime or indicators."""
+    status: Literal["ok", "degraded", "unusable"]
+    checks: dict[str, bool] = Field(
+        default_factory=dict,
+        description="consistency, completeness, freshness, sources, advice_language: True = passed.")
+    issues: list[str] = Field(default_factory=list, description="Why a check failed, one line each.")
+
+
 class DataQuality(BaseModel):
     failed_sources: list[str] = Field(default_factory=list)
     stale_series: list[str] = Field(default_factory=list)
@@ -128,11 +189,20 @@ class MarketResearchOutput(BaseModel):
     indicators: list[Indicator] = Field(default_factory=list)
     market_snapshot: list[Indicator] = Field(default_factory=list)
     news: list[NewsItem] = Field(default_factory=list)
+    plan: Optional[PlanRecord] = None
+    planned_indicators: list[Indicator] = Field(
+        default_factory=list, description="Planner extras from EXTRA_SERIES_CATALOG; never used by regime/events.")
+    planned_market: list[Indicator] = Field(
+        default_factory=list, description="Planner extras from EXTRA_SYMBOL_CATALOG; never used by regime/events.")
+    event_explanations: list[EventExplanation] = Field(
+        default_factory=list, description="Linked to `events` by event_id.")
     key_themes: Optional[list[str]] = None
     risks: Optional[list[str]] = None
     implications: Optional[dict[str, str]] = Field(default=None, description="Descriptive, not advice.")
     narrative: Optional[str] = None
     data_quality: DataQuality = Field(default_factory=DataQuality)
+    quality: Optional[QualityReport] = Field(
+        default=None, description="Overall verdict from the final quality gate; read this first.")
 
 
 def output_json_schema() -> dict:

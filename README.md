@@ -103,18 +103,18 @@ Deleting a session (`DELETE /sessions/{id}`) has to clean up both halves separat
 
 A data agent for a **main agent (orchestrator)** to call over HTTP. It is separate from the chat flow above. Each run does the following:
 
-1. Pulls current macro, rates, credit and financial-conditions series from **FRED**, prices for about 25 ETFs, indices and futures from **yfinance**, and macro news from **Tavily**.
-2. Detects notable events, such as "10Y at multi-year high", a curve un-inversion, a Sahm rule trigger, or credit stress.
+1. Pulls current macro, rates, credit and financial-conditions series from **FRED**, prices for about 25 ETFs, indices and futures from **yfinance**, and macro news from **Tavily**. In parallel, a **query planner** picks extra series, symbols and news queries for the caller's question, choosing only from curated catalogs.
+2. Detects notable events, such as "10Y at multi-year high", a curve un-inversion, a Sahm rule trigger, or credit stress. It then **explains** the notable ones with targeted news searches and code-computed decompositions (e.g. how much of a yield move came from real yields vs breakevens), producing short explanations with cited sources.
 3. Classifies the **economic cycle phase** (`early_expansion` / `late_expansion` / `recession` / `late_recession`), with probabilities, confidence, drivers and conflicting signals. It also reports the NY Fed yield-curve recession probability.
 4. Writes everything to a **JSON file** that the main agent synthesizes later.
 
-**Numbers come from code, not the LLM.** The only LLM call on the default path tags news. An optional narrative (`include_narrative: true`) is checked so that every number in it appears in the data; it falls back to a deterministic template if not. Full documentation (data sources, parsing, analytics, output format) is in [`backend/app/agents/market_researcher/market_research_explain.md`](backend/app/agents/market_researcher/market_research_explain.md); design notes and deviations from the original spec (`market_researcher_agent.md`) are in `NOTES.md` next to it.
+**Numbers come from code or cited sources, not the LLM.** The LLM chooses extras only from allowlists, tags news, and writes event explanations. Every number in an explanation must appear in the event's data, its decomposition or the articles it cites; code maps article numbers to URLs, so sources can't be invented. An optional narrative (`include_narrative: true`) is checked so that every number in it appears in the data; it falls back to a deterministic template if not. The regime, events, indicators, market snapshot and backtest are unaffected by the planner and explainer: planned extras go to separate fields (`planned_indicators`, `planned_market`) and never feed the regime or event rules. Full documentation (data sources, parsing, analytics, output format) is in [`backend/app/agents/market_researcher/market_research_explain.md`](backend/app/agents/market_researcher/market_research_explain.md); design notes and deviations from the original spec (`market_researcher_agent.md`) are in `NOTES.md` next to it.
 
 ### Endpoints
 
 | Method & path | Purpose |
 |---|---|
-| `POST /agents/market-researcher/runs` | Start a run. The body is a `MarketResearchRequest` (`query`, `region`, `focus`, `lookback_days_news`, `as_of`, `include_narrative`). Returns **202** with `run_id`, `status_url` and `output_url`. `?wait=true` blocks and returns the output (**200**) |
+| `POST /agents/market-researcher/runs` | Start a run. The body is a `MarketResearchRequest` (`query`, `region`, `focus`, `lookback_days_news`, `as_of`, `include_narrative`, `planning` = `"auto"`/`"off"`, `explain_events` = `null`/`true`/`false`). Returns **202** with `run_id`, `status_url` and `output_url`. `?wait=true` blocks and returns the output (**200**) |
 | `GET /agents/market-researcher/runs/{run_id}` | Status: `queued` / `running` / `succeeded` / `partial` (some sources failed, output still produced) / `failed` |
 | `GET /agents/market-researcher/runs/{run_id}/output` | The run's JSON output (409 while still running) |
 | `GET /agents/market-researcher/latest?region=US&max_age_minutes=60` | Freshest finished output, so a new run can be skipped |
@@ -130,7 +130,10 @@ curl localhost:8000/agents/market-researcher/runs/mr_20261016T063145Z_0aa2fb/out
 
 Operational details:
 
-- **Cold runs** take about 30s, mostly the FRED fan-out of 34 series. **Warm runs** take about 5s, served from cache.
+- **Cold runs** take about 35s, mostly the FRED fan-out of 35 series. **Warm runs** take about 20–25s with the planner and explanations (LLM calls: planner 1, tagging 1, explanations 1 + 1 retry, narrative 1–2 if requested), or about 5s with `planning: "off"` and `explain_events: false`. The run budget is 90s (`MARKET_RESEARCH_RUN_BUDGET`).
+- **Query planner:** extras come only from `EXTRA_SERIES_CATALOG` (35 FRED series) and `EXTRA_SYMBOL_CATALOG` (26 symbols) in `config.py`. Anything else is dropped and listed in `plan.dropped`. Caps are 8 series, 8 symbols and 4 news queries. If the LLM fails, a keyword heuristic takes over. To add an option, append a spec with a `description` and `tags`. A failed extra (`planned:...`) does not make the run `partial`.
+- **Quality gate:** every output carries `quality.status` (`ok` / `degraded` / `unusable`), with `checks` and `issues`. It comes from a final code-only stage (`quality.py`) that screens LLM-written text for advice wording and checks consistency, completeness, freshness and sources. Callers should read it first. It runs inside the pipeline, so the HTTP orchestrator gets the same verdict as the chat.
+- **Event explanations:** the top 4 major/notable events get `event_explanations` (`explained` / `insufficient_evidence` / `unavailable` / `skipped`) with `cited_urls` and an optional code-derived `decomposition`. They are on by default for live runs and off for a past `as_of`. Per-event context, search templates and lookbacks are in `EVENT_EXPLAIN_SPECS`.
 - **Caches:**
 
   | Data | Cache TTL |
@@ -149,7 +152,7 @@ Operational details:
 
 The same pipeline is also reachable from the chat:
 
-- **Triage** has a `market` route. Questions about current macro or market conditions go to a **📈 Market Researcher** node. The node runs the pipeline with the validated narrative and renders the result as Markdown: the phase, events, a headline table, sources and a disclaimer. The answer still passes through `eval`, including the compliance pass.
+- **Triage** has a `market` route. Questions about current macro or market conditions go to a **📈 Market Researcher** node. The node runs the pipeline with the validated narrative and renders the result as Markdown: the phase, events (each with a cited "Why:" line and decomposition when available), a headline table, sources and a disclaimer. The answer still passes through `eval`, including the compliance pass.
 - **Source links open a side panel.** Clicking a news link in a Market Researcher reply opens a reader view of the article (extracted text, plus the agent's summary and tags) instead of leaving the chat. Sites that block this fall back to the summary and an "Open original" button.
 - **The Finance Expert is separate.** It has no access to the market researcher's tools or data. Its scope check hands questions about current macro or market conditions back to triage, which routes them to the Market Researcher.
 
@@ -160,7 +163,7 @@ cd backend
 python -m app.agents.market_researcher --focus rates --narrative      # one run from the CLI, prints the JSON path
 python -m app.agents.market_researcher.backtest                       # regime backtest vs NBER dates -> backtest_report.md
 python -m app.agents.market_researcher.schemas                        # regenerate the committed JSON Schema
-python tests/evals/run_market_researcher_evals.py                     # 12-case live eval set
+python tests/evals/run_market_researcher_evals.py                     # 17-case live eval set (incl. 5 planner cases)
 RUN_LIVE_MARKET_TESTS=1 pytest -m live                                # live smoke test (real APIs)
 RUN_BACKTEST=1 pytest -m slow                                         # backtest acceptance test
 ```

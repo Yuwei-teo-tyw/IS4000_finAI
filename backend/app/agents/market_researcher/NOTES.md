@@ -45,3 +45,38 @@ This note goes with `market_researcher_agent.md` at the repo root. It records wh
 - **The backtest now runs the live model's exact inputs:** `BAA10Y` credit (spliced to `BAA − GS10` before 1986) and S&P 500 for the equity rule. Before this, credit was absent pre-2023 and equities were absent entirely, so those parts of the live model were untested. With matched inputs it is still 6/6 caught with 2 sustained false calls.
 - **New metrics show where the model is weak:** Brier skill is −0.47 (the phase "probabilities" are uncalibrated), and it makes 84 phase changes vs 14 for the Sahm rule. It does call earlier, with far fewer false-call months than Sahm (14 vs 38).
 - **Walk-forward:** a config tuned only on 1980–2005 (`momentum_months=9, hysteresis_margin=0.1, temperature=1.0, adjustment_weight=0.5, strong_adjustment_weight=0.5`) beats the current defaults on 2006+ (0 vs 1 sustained false calls, 2 vs 5 false-call months, 12 vs 18 phase changes). The defaults are unchanged pending a decision.
+
+## Query planner and event explanations
+
+These notes cover the planner and explanations feature (spec: "Market Researcher: Query Planner + Event Explanations"). Where the spec and the code differ, the code wins:
+
+| Spec | Here | Why |
+|---|---|---|
+| Bump `SCHEMA_VERSION` to `1.1` | Bumped to `1.3` | It was already `1.2` (`stats_window_years`, `in_recession_prob`, `scores`) |
+| "The number validator" | `synthesis.allowed_numbers` / `problems` are reused by the explainer | One validator, same ×100 and rounding rules |
+| Coalescing key must include `planning` / `explain_events` | No change needed | `runs.py` keys on `request.model_dump_json()`, so the new fields are included automatically |
+| A planned-extra failure must not make the run `partial` | `runs.py` ignores `failed_sources` entries prefixed `planned:` | The prefix marks failures in planned extras, which don't affect the core |
+| Merge planned news before ranking | `collect_news` is split into `search_queries` + `rank_news`; `collect_news` stays as a wrapper | Core searches start immediately; ranking waits for the planned searches |
+| Event-ID keys in the spec table | `EVENT_EXPLAIN_SPECS` is keyed by the real ID prefixes (`dgs10_`, `dgs30_`, `t10y3m_`, `t10y2y_`, `sahm_rule`, `jobless_claims`, `credit_stress`, `financial_conditions`, `core_inflation`, `spy_`, `volatility_spike`, `oil_shock`, `fed_`); the longest prefix wins | Matches `events.py` |
+| Inflation context `CPIAUCSL, PCEPILFE` | `CPILFESL, CPIAUCSL, PCEPILFE, T5YIE`; `core_cpi_momentum` uses `CPILFESL` | The re-acceleration event is defined on core CPI |
+| Reuse fetched news "whose topics match" | Matches on `keyword_tag(item).topics` against `EventExplainSpec.topics` | Explanations run concurrently with LLM tagging, so LLM topics don't exist yet |
+| Four curve-shape labels | Adds `twist steepening` / `twist flattening` | The front and back ends can move in opposite directions |
+| Yield decomposition window "matching the triggering change" | Sharp move: 1w if the 1w change crossed `yield_move_1w`, else 1m. Multi-year highs: 1m. DGS30 events decompose the 10Y and say so | `yield_highs` has no window, and there is no 30Y TIPS series in the core set |
+| `description` / `tags` on catalog entries | Trailing defaulted fields on `SeriesSpec` / `SymbolSpec` | Core entries and positional construction are unchanged |
+| Planned extras in the narrative | `planned_indicators` / `planned_market` are added to the synthesis payload | They are code-derived, and the narrative needs them to answer the planned topic |
+
+Findings from the live runs (2026-10-17):
+
+- **Latency.** A cold run with the planner and explanations took 33.6s; a warm-ish run took 22.7s. The targets are ≤ 50s cold and ≤ 25s warm. The planner (about 3s warm) overlaps the core fetch, and the extra FRED fetch (about 12s) overlaps FRED's own tail. Explanation search took about 1–2s and the explanation LLM call about 1.8s.
+- **The planner's timeout can overrun on a cold process.** One cold run logged `planner_ms=13371` against an 8s budget, because building the Groq client and parsing large FRED responses run synchronously on the event loop and delay the `wait_for` check. The planner is still not the slowest step (FRED took about 23s), so this was left as is.
+- **Catalog check.** All 35 `EXTRA_SERIES_CATALOG` ids return recent data on FRED (`test_catalog_ids_exist_on_fred`).
+- **Sample plan.** For "How is oil affecting the inflation outlook?" the planner chose DCOILWTICO, DCOILBRENTEU, CPIENGSL and BZ=F, with nothing dropped. Both detected events (`core_inflation_reaccelerating`, `fed_raised`) were explained with two cited URLs each and passed the number validator on the first try.
+- **Evals: 17/17 pass**, but the first run showed a gap. In 3 cases both explanations were `unavailable` because Groq returned 400 (`tool_use_failed` / `output_parse_failed`). The model had answered with a bare JSON list or with prose reasoning instead of the structured tool call. Two fixes: `event_explainer_system` v2 names the `{"items": [...]}` wrapper and forbids prose or bare lists, and `_invoke` re-asks once when the provider rejects the output. With the fix, all three cases were explained on the first attempt.
+
+## Quality gate and explanation-source fix (schema 1.4)
+
+- **Quality gate (`quality.py`).** Added because the chat's eval agent never sees HTTP/orchestrator runs, so the pipeline has to judge itself. It is code-only:
+  - **Advice-language screen:** a narrow set of regex patterns, chosen so descriptive words like "selloff" or "risk-free rate" pass. A flagged explanation becomes `unavailable`; a flagged narrative is replaced by the template.
+  - **Assessment:** `output.quality.status` is `ok` / `degraded` / `unusable`, with per-check booleans and issues. `planned:` failures and replays without news don't degrade the status.
+- **"Why: … [source]" links returned 404 in the chat's side panel.** `article_reader.find_news_item` allowed only `news[].url`, but explanation sources come from the explainer's own searches. `EventExplanation.cited_sources` now records each cited article's title, domain and date, and the reader accepts those URLs. For older run files it falls back to `cited_urls`.
+- **Live check (2026-10-17):** "What's driving yields higher?" gave `quality.status = ok`. All 4 explanation sources resolved through the reader: 2 returned extracted text, and 2 were `unavailable` because the sites block bots or are paywalled, which falls back to the summary.

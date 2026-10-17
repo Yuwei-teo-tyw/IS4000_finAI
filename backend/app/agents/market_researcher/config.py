@@ -20,7 +20,9 @@ Signal = Literal[
     "tightening", "easing", "neutral",
 ]
 
-SCHEMA_VERSION = "1.2"  # 1.1: Indicator.stats_window_years; 1.2: Regime.in_recession_prob, Regime.scores
+SCHEMA_VERSION = "1.4"  # 1.1: Indicator.stats_window_years; 1.2: Regime.in_recession_prob, Regime.scores;
+# 1.3: plan, planned_indicators, planned_market, event_explanations (all optional);
+# 1.4: quality, EventExplanation.cited_sources (optional)
 SUPPORTED_REGIONS = ("US",)
 
 
@@ -45,6 +47,9 @@ class SeriesSpec:
     signal_change: str = "1m"
     signal_threshold: float = 0.0
     backtest_only: bool = False
+    # Shown to the query planner for catalog entries (EXTRA_SERIES_CATALOG).
+    description: str = ""
+    tags: tuple[str, ...] = ()
 
 
 # --- US series map (guide §3.1) -------------------------------------------
@@ -137,6 +142,8 @@ class SymbolSpec:
     name: str
     category: str
     unit: str = "USD"
+    description: str = ""
+    tags: tuple[str, ...] = ()
 
 
 WATCHLIST: tuple[SymbolSpec, ...] = (
@@ -187,6 +194,212 @@ NEWS_QUERIES: tuple[str, ...] = (
 NEWS_RESULTS_PER_QUERY = 6
 NEWS_TOP_N = 15
 NEWS_TITLE_SIMILARITY = 0.85  # titles at least this similar are duplicates
+
+
+# --- Query planner catalogs ------------------------------------------------
+# The planner (planner.py) may add extras from these allowlists only - it
+# never invents ids. Each entry is a full spec, so extras are fetched, cached
+# and featurized by the same code as the core set. Extras are reported in
+# planned_indicators / planned_market and never read by the regime or event
+# rules. To add one: append a spec with a description and tags (tags are the
+# planner's areas: rates, inflation, labor, growth, housing, credit, energy,
+# equities, fx, global, fed, consumer).
+
+
+def _extra(sid: str, name: str, unit: str, freq: Frequency, category: str, transform: Transform,
+           tags: tuple[str, ...], description: str) -> SeriesSpec:
+    return SeriesSpec(sid, name, unit, freq, category, transform, description=description, tags=tags)
+
+
+EXTRA_SERIES_CATALOG: tuple[SeriesSpec, ...] = (
+    # Energy & commodities
+    _extra("DCOILWTICO", "WTI Crude Oil Spot", "USD/bbl", "D", "energy", "level", ("energy", "inflation"), "Daily WTI crude spot price"),
+    _extra("DCOILBRENTEU", "Brent Crude Oil Spot", "USD/bbl", "D", "energy", "level", ("energy", "global"), "Daily Brent crude spot price"),
+    _extra("GASREGW", "US Regular Gasoline Retail Price", "USD/gal", "W", "energy", "level", ("energy", "consumer", "inflation"), "Weekly average retail gasoline price"),
+    _extra("CPIENGSL", "Energy CPI (YoY)", "%", "M", "inflation", "yoy", ("energy", "inflation"), "Energy component of CPI, year-over-year"),
+    _extra("PPIACO", "PPI All Commodities (YoY)", "%", "M", "inflation", "yoy", ("inflation", "energy", "growth"), "Producer prices for all commodities, year-over-year"),
+    # Inflation detail
+    _extra("CUSR0000SAH1", "Shelter CPI (YoY)", "%", "M", "inflation", "yoy", ("inflation", "housing"), "Shelter component of CPI, year-over-year"),
+    _extra("CUSR0000SASLE", "CPI Services less Energy (YoY)", "%", "M", "inflation", "yoy", ("inflation",), "Core services CPI, year-over-year"),
+    _extra("CPIUFDSL", "Food CPI (YoY)", "%", "M", "inflation", "yoy", ("inflation", "consumer"), "Food component of CPI, year-over-year"),
+    _extra("MICH", "UMich 1-Year Inflation Expectations", "%", "M", "inflation", "level", ("inflation", "consumer"), "Median expected inflation over the next year (survey)"),
+    # Labor detail
+    _extra("JTSJOL", "JOLTS Job Openings", "thousands", "M", "labor", "level", ("labor",), "Total nonfarm job openings"),
+    _extra("CES0500000003", "Average Hourly Earnings (YoY)", "%", "M", "labor", "yoy", ("labor", "inflation"), "Private average hourly earnings, year-over-year"),
+    _extra("CIVPART", "Labor Force Participation Rate", "%", "M", "labor", "level", ("labor",), "Civilian labor force participation"),
+    _extra("U6RATE", "U-6 Unemployment Rate", "%", "M", "labor", "level", ("labor",), "Broad unemployment incl. part-time for economic reasons"),
+    # Housing & consumer
+    _extra("MORTGAGE30US", "30-Year Fixed Mortgage Rate", "%", "W", "housing", "level", ("housing", "rates", "consumer"), "Freddie Mac weekly 30-year mortgage rate"),
+    _extra("CSUSHPINSA", "Case-Shiller US Home Price Index (YoY)", "%", "M", "housing", "yoy", ("housing",), "National home prices, year-over-year"),
+    _extra("HSN1F", "New Home Sales", "thousands (SAAR)", "M", "housing", "level", ("housing", "growth"), "New single-family homes sold"),
+    _extra("TOTALSL", "Consumer Credit Outstanding (YoY)", "%", "M", "consumer", "yoy", ("consumer", "credit"), "Total consumer credit, year-over-year"),
+    _extra("DRCCLACBS", "Credit Card Delinquency Rate", "%", "Q", "consumer", "level", ("consumer", "credit"), "Delinquency rate on credit card loans, all banks"),
+    # Business / output
+    _extra("TCU", "Capacity Utilization", "%", "M", "growth", "level", ("growth",), "Total industry capacity utilization"),
+    _extra("DGORDER", "Durable Goods Orders (YoY)", "%", "M", "growth", "yoy", ("growth",), "Manufacturers' new orders for durable goods, year-over-year"),
+    _extra("BUSINV", "Business Inventories (YoY)", "%", "M", "growth", "yoy", ("growth",), "Total business inventories, year-over-year"),
+    # Rates detail
+    _extra("DGS5", "5-Year Treasury Yield", "%", "D", "rates", "level", ("rates",), "5-year constant-maturity Treasury yield"),
+    _extra("DGS1", "1-Year Treasury Yield", "%", "D", "rates", "level", ("rates", "fed"), "1-year constant-maturity Treasury yield"),
+    _extra("SOFR", "Secured Overnight Financing Rate", "%", "D", "policy", "level", ("rates", "fed"), "Overnight repo funding rate"),
+    _extra("WALCL", "Fed Balance Sheet Total Assets (YoY)", "%", "W", "policy", "yoy", ("fed", "rates"), "Federal Reserve total assets, year-over-year (QT/QE)"),
+    _extra("RRPONTSYD", "Fed Overnight Reverse Repo", "USD bn", "D", "policy", "level", ("fed", "rates"), "Overnight reverse repurchase agreements (liquidity)"),
+    # Global / FX
+    _extra("DTWEXBGS", "Broad Trade-Weighted Dollar Index", "index", "D", "fx", "level", ("fx", "global"), "Nominal broad US dollar index"),
+    _extra("DEXJPUS", "Japanese Yen per US Dollar", "JPY/USD", "D", "fx", "level", ("fx", "global"), "USD/JPY exchange rate"),
+    _extra("DEXCHUS", "Chinese Yuan per US Dollar", "CNY/USD", "D", "fx", "level", ("fx", "global"), "USD/CNY exchange rate"),
+    _extra("DEXUSEU", "US Dollars per Euro", "USD/EUR", "D", "fx", "level", ("fx", "global"), "EUR/USD exchange rate"),
+    _extra("IRLTLT01DEM156N", "Germany 10-Year Government Bond Yield", "%", "M", "global", "level", ("global", "rates"), "German long-term government bond yield (monthly)"),
+    _extra("IRLTLT01JPM156N", "Japan 10-Year Government Bond Yield", "%", "M", "global", "level", ("global", "rates"), "Japanese long-term government bond yield (monthly)"),
+    # Credit detail
+    _extra("BAMLH0A3HYC", "US CCC & Lower High Yield OAS", "%", "D", "credit", "level", ("credit",), "ICE BofA CCC-and-lower option-adjusted spread"),
+    _extra("BAMLC0A4CBBB", "US BBB Corporate OAS", "%", "D", "credit", "level", ("credit",), "ICE BofA BBB option-adjusted spread"),
+    _extra("DRTSCILM", "SLOOS: Banks Tightening C&I Loan Standards", "% net", "Q", "credit", "level", ("credit", "growth"), "Net share of banks tightening lending standards for large/mid firms"),
+)
+
+EXTRA_SYMBOL_CATALOG: tuple[SymbolSpec, ...] = (
+    # Industry ETFs
+    SymbolSpec("SMH", "Semiconductor ETF", "industry", description="US-listed semiconductor stocks", tags=("equities", "growth")),
+    SymbolSpec("KRE", "Regional Banks ETF", "industry", description="US regional bank stocks", tags=("equities", "credit")),
+    SymbolSpec("XHB", "Homebuilders ETF (SPDR)", "industry", description="Homebuilders and building products", tags=("housing", "equities")),
+    SymbolSpec("ITB", "Home Construction ETF (iShares)", "industry", description="US home construction stocks", tags=("housing", "equities")),
+    SymbolSpec("XOP", "Oil & Gas E&P ETF", "industry", description="Oil and gas exploration and production stocks", tags=("energy", "equities")),
+    SymbolSpec("XRT", "Retail ETF", "industry", description="US retail stocks", tags=("consumer", "equities")),
+    SymbolSpec("IYT", "Transportation ETF", "industry", description="US transportation stocks (cyclical bellwether)", tags=("growth", "equities")),
+    SymbolSpec("JETS", "Airlines ETF", "industry", description="Global airline stocks (fuel-cost sensitive)", tags=("energy", "consumer", "equities")),
+    # Factors / style
+    SymbolSpec("MTUM", "Momentum Factor ETF", "factor", description="US momentum factor", tags=("equities",)),
+    SymbolSpec("QUAL", "Quality Factor ETF", "factor", description="US quality factor", tags=("equities",)),
+    SymbolSpec("USMV", "Min Volatility ETF", "factor", description="US minimum-volatility stocks (defensive)", tags=("equities",)),
+    SymbolSpec("RSP", "Equal-Weight S&P 500 ETF", "factor", description="Equal-weight S&P 500 (market breadth)", tags=("equities",)),
+    # International
+    SymbolSpec("FXI", "China Large-Cap ETF", "international", description="Chinese large-cap stocks", tags=("global", "equities")),
+    SymbolSpec("EWJ", "Japan ETF", "international", description="Japanese stocks", tags=("global", "equities", "fx")),
+    SymbolSpec("EWG", "Germany ETF", "international", description="German stocks", tags=("global", "equities")),
+    SymbolSpec("EWS", "Singapore ETF", "international", description="Singapore stocks", tags=("global", "equities")),
+    SymbolSpec("INDA", "India ETF", "international", description="Indian stocks", tags=("global", "equities")),
+    # Rates / credit
+    SymbolSpec("SHY", "1-3 Year Treasury ETF", "rates_credit", description="Short-dated Treasuries (Fed-path sensitive)", tags=("rates", "fed")),
+    SymbolSpec("TIP", "TIPS ETF", "rates_credit", description="Inflation-protected Treasuries", tags=("inflation", "rates")),
+    SymbolSpec("BKLN", "Senior Loan ETF", "rates_credit", description="Leveraged loans", tags=("credit",)),
+    SymbolSpec("EMB", "EM USD Bond ETF", "rates_credit", description="Emerging-market dollar sovereign bonds", tags=("credit", "global")),
+    # Commodities / FX
+    SymbolSpec("BZ=F", "Brent Crude Futures", "macro_asset", "USD/bbl", description="Front-month Brent crude futures", tags=("energy", "global")),
+    SymbolSpec("NG=F", "Natural Gas Futures", "macro_asset", "USD/MMBtu", description="Front-month Henry Hub natural gas futures", tags=("energy",)),
+    SymbolSpec("SLV", "Silver ETF", "macro_asset", description="Silver bullion", tags=("inflation",)),
+    SymbolSpec("FXY", "Japanese Yen ETF", "macro_asset", description="Yen vs US dollar", tags=("fx", "global")),
+    SymbolSpec("BTC-USD", "Bitcoin", "macro_asset", description="Bitcoin in US dollars (risk appetite)", tags=("equities",)),
+)
+
+PLANNER_MAX_EXTRA_SERIES = 8
+PLANNER_MAX_EXTRA_SYMBOLS = 8
+PLANNER_MAX_NEWS_QUERIES = 4
+PLANNER_TIMEOUT_S = 8.0
+PLANNER_HEURISTIC_PICKS = 3
+
+# Heuristic fallback: keyword (word-prefix match on query + focus) -> catalog tag.
+PLANNER_TAG_KEYWORDS: dict[str, tuple[str, ...]] = {
+    "energy": ("oil", "crude", "opec", "brent", "wti", "gasoline", "energy", "natural gas", "natgas"),
+    "housing": ("housing", "mortgage", "home", "homebuilder", "real estate", "rent"),
+    "labor": ("labor", "labour", "job", "employment", "unemployment", "payroll", "wage", "hiring", "layoff"),
+    "inflation": ("inflation", "cpi", "pce", "prices", "shelter"),
+    "rates": ("yield", "treasury", "treasuries", "rates", "bond", "duration", "curve"),
+    "fed": ("fed", "federal reserve", "fomc", "powell", "balance sheet", "repo"),
+    "credit": ("credit", "spread", "high yield", "junk", "default", "loan", "bank"),
+    "fx": ("dollar", "yen", "euro", "currency", "fx", "yuan"),
+    "global": ("china", "japan", "europe", "germany", "emerging", "global", "india", "singapore"),
+    "equities": ("stock", "equity", "equities", "s&p", "nasdaq", "sector", "semiconductor", "tech"),
+    "consumer": ("consumer", "retail", "spending", "delinquen"),
+    "growth": ("growth", "gdp", "recession", "manufacturing", "industrial", "output"),
+}
+
+
+# --- Event explanations -----------------------------------------------------
+
+@dataclass(frozen=True)
+class EventExplainSpec:
+    """How event_explainer.py investigates one kind of event.
+
+    `query_templates` may use {direction} (from the sign of the first evidence
+    series' change, worded by `direction_words` = (positive, negative)) and
+    {month_year} (the evidence's latest observation month). `topics` are
+    news_tagging keyword topics used to reuse already-fetched news.
+    """
+    context_series: tuple[str, ...]
+    context_symbols: tuple[str, ...]
+    query_templates: tuple[str, ...]
+    lookback_days: int
+    decomposition: Optional[str] = None
+    topics: tuple[str, ...] = ()
+    direction_words: tuple[str, str] = ("rises", "falls")
+
+
+_YIELD_EXPLAIN = EventExplainSpec(
+    ("DGS2", "DGS30", "DFII10", "T10YIE", "DFF", "T10Y2Y"), ("TLT",),
+    ('"10-year Treasury yield" {direction} why', "Treasury selloff term premium supply"),
+    10, "yield_real_vs_breakeven", ("rates", "fed"),
+)
+_CURVE_EXPLAIN = EventExplainSpec(
+    ("DGS3MO", "DGS2", "DGS10", "DFF"), (),
+    ("yield curve {direction} Treasury", "bear steepening OR bull steepening"),
+    14, "curve_front_vs_back", ("rates", "fed"), ("steepens", "inverts"),
+)
+_LABOR_EXPLAIN = EventExplainSpec(
+    ("UNRATE", "PAYEMS", "ICSA", "CCSA"), (),
+    ("jobless claims layoffs", "unemployment rate rises"),
+    21, None, ("labor",),
+)
+_EQUITY_EXPLAIN = EventExplainSpec(
+    ("VIXCLS", "BAMLH0A0HYM2", "DGS10"), ("SPY", "QQQ", "^VIX"),
+    ("stock market selloff why", "S&P 500 correction"),
+    7, None, ("equities",),
+)
+
+# Keyed by event-id prefix (events.py); the longest matching prefix wins.
+EVENT_EXPLAIN_SPECS: dict[str, EventExplainSpec] = {
+    "dgs10_": _YIELD_EXPLAIN,
+    "dgs30_": _YIELD_EXPLAIN,
+    "t10y3m_": _CURVE_EXPLAIN,
+    "t10y2y_": _CURVE_EXPLAIN,
+    "sahm_rule": _LABOR_EXPLAIN,
+    "jobless_claims": _LABOR_EXPLAIN,
+    "credit_stress": EventExplainSpec(
+        ("BAMLH0A0HYM2", "BAMLC0A0CM", "VIXCLS"), ("HYG", "LQD"),
+        ("high yield spreads widen", "corporate bond selloff defaults"), 14, None, ("credit",),
+    ),
+    "financial_conditions": EventExplainSpec(
+        ("NFCI", "STLFSI4", "VIXCLS", "BAMLH0A0HYM2"), (),
+        ("financial conditions tighten markets",), 14, None, ("credit", "equities"),
+    ),
+    "core_inflation": EventExplainSpec(
+        ("CPILFESL", "CPIAUCSL", "PCEPILFE", "T5YIE"), (),
+        ("core inflation CPI {month_year} shelter services", "CPI report hotter than expected"),
+        30, "core_cpi_momentum", ("inflation",),
+    ),
+    "spy_": _EQUITY_EXPLAIN,
+    "volatility_spike": _EQUITY_EXPLAIN,
+    "oil_shock": EventExplainSpec(
+        ("T5YIE",), ("CL=F", "XLE"), ("oil prices surge OPEC supply", "crude oil rally"), 14, None, ("energy",),
+    ),
+    "fed_": EventExplainSpec(
+        ("DFF", "DGS2", "T10Y2Y"), (), ("Fed raises OR cuts rates FOMC statement",), 60, None, ("fed",),
+    ),
+}
+
+EXPLAIN_MAX_EVENTS = 4
+EXPLAIN_MAX_ARTICLES = 5
+EXPLAIN_TIMEOUT_S = 20.0
+EXPLAIN_MIN_BUDGET_S = 8.0
+EXPLAIN_SNIPPET_CHARS = 300
+EXPLAIN_MAX_WORDS = 70
+
+
+# --- Output quality gate (quality.py) --------------------------------------
+# A run is "degraded" if any of these is missing or stale, "unusable" if there
+# are no FRED indicators or no regime phase at all.
+QUALITY_KEY_INDICATORS: tuple[str, ...] = ("DGS10", "T10Y3M", "UNRATE", "CPILFESL", "PAYEMS")
+QUALITY_KEY_SYMBOLS: tuple[str, ...] = ("SPY",)
+QUALITY_PROBABILITY_TOLERANCE = 0.01
 
 
 # --- Cache TTLs (seconds) -------------------------------------------------
@@ -369,5 +582,5 @@ def load_settings() -> Settings:
         max_queued_runs=int(os.getenv("MARKET_RESEARCH_MAX_QUEUED_RUNS", "8")),
         source_timeout_seconds=float(os.getenv("MARKET_RESEARCH_SOURCE_TIMEOUT", "45")),
         request_timeout_seconds=float(os.getenv("MARKET_RESEARCH_REQUEST_TIMEOUT", "10")),
-        run_budget_seconds=float(os.getenv("MARKET_RESEARCH_RUN_BUDGET", "60")),
+        run_budget_seconds=float(os.getenv("MARKET_RESEARCH_RUN_BUDGET", "90")),
     )

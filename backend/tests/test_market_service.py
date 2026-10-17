@@ -3,25 +3,35 @@ Contract test for the market researcher pipeline: stubbed FRED / prices /
 news / LLM in, a valid MarketResearchOutput JSON file out - including the
 partial-failure paths the main agent relies on `data_quality` to report.
 """
+import dataclasses
 import json
 from datetime import date, timedelta
 
 import pytest
 
+import app.agents.market_researcher.event_explainer as explainer_module
 import app.agents.market_researcher.news_tagging as tagging_module
+import app.agents.market_researcher.planner as planner_module
 from app.agents.market_researcher import config as cfg
 from app.agents.market_researcher.adapters.base import SeriesPoint, SourceError
 from app.agents.market_researcher.adapters.news import RawNewsItem
 from app.agents.market_researcher.cache import InMemoryCache
 from app.agents.market_researcher.features import shift_months
 from app.agents.market_researcher.news_tagging import NewsTagBatch
-from app.agents.market_researcher.schemas import SCHEMA_PATH, MarketResearchOutput, MarketResearchRequest, output_json_schema
+from app.agents.market_researcher.runs import InMemoryRunRegistry, MarketResearchRunner
+from app.agents.market_researcher.schemas import (
+    SCHEMA_PATH,
+    MarketResearchOutput,
+    MarketResearchRequest,
+    QueryPlan,
+    output_json_schema,
+)
 from app.agents.market_researcher.service import MarketResearchService, UnsupportedRegionError
 
 from conftest import FakeLLM, run_async
 
 TODAY = date.today()
-FREQ = {s.id: s.frequency for s in cfg.US_SERIES}
+FREQ = {s.id: s.frequency for s in cfg.US_SERIES + cfg.EXTRA_SERIES_CATALOG}
 
 
 def synthetic_series(series_id: str, end: date) -> list[SeriesPoint]:
@@ -91,9 +101,22 @@ def make_service(tmp_path, **kw):
     )
 
 
+def quiet_planner_and_explainer(monkeypatch, planner=None, explainer=None):
+    """No real LLM for the planner / explainer: by default both fail, which
+    exercises their fallbacks (heuristic plan, `unavailable` explanations).
+    Each module gets its own FakeLLM so concurrent calls can't steal each
+    other's queued responses."""
+    planner = planner or FakeLLM(RuntimeError("no LLM in tests"))
+    explainer = explainer or FakeLLM(RuntimeError("no LLM in tests"))
+    monkeypatch.setattr(planner_module, "get_groq_model", lambda: planner)
+    monkeypatch.setattr(explainer_module, "get_groq_model", lambda: explainer)
+    return planner, explainer
+
+
 @pytest.fixture(autouse=True)
 def fake_tagger(monkeypatch):
     monkeypatch.setattr(tagging_module, "get_groq_model", lambda: FakeLLM(NewsTagBatch(items=[])))
+    quiet_planner_and_explainer(monkeypatch)
 
 
 def test_run_writes_valid_json_file(tmp_path):
@@ -188,3 +211,85 @@ def test_second_run_hits_cache_and_persists_regime(tmp_path):
     assert len(fred.calls) == calls_after_first and market.calls == 1    # all served from cache
     assert run_async(cache.get_regime("US"))["phase"] == first.regime.phase
     assert second.regime.previous_phase == first.regime.phase
+
+
+# --- query planner / event explanations ---------------------------------------
+
+OIL_PLAN = QueryPlan(intent="Oil's effect on inflation", areas=["energy", "inflation"],
+                     extra_series=["DCOILWTICO", "JTSJOL"], extra_symbols=["XOP"],
+                     news_queries=["oil supply cuts and gasoline prices"], rationale="test")
+
+
+def test_planner_and_explainer_leave_core_outputs_identical(monkeypatch, tmp_path):
+    quiet_planner_and_explainer(monkeypatch, planner=FakeLLM(OIL_PLAN))
+    base = dict(query="How is oil affecting the inflation outlook?", focus=["oil"])
+    off = run_async(make_service(tmp_path).run(MarketResearchRequest(**base, planning="off", explain_events=False))).output
+    on = run_async(make_service(tmp_path).run(MarketResearchRequest(**base))).output
+
+    for name in ("regime", "events", "indicators", "market_snapshot"):
+        assert _dump(getattr(off, name)) == _dump(getattr(on, name)), name
+    assert off.plan is None and off.planned_indicators == [] and off.event_explanations == []
+    assert on.plan.plan_source == "llm"
+    assert {i.id for i in on.planned_indicators} == {"DCOILWTICO", "JTSJOL"}
+    assert [m.id for m in on.planned_market] == ["XOP"]
+    assert any("oil supply cuts and gasoline prices" in n.title for n in on.news)   # planned query merged + ranked
+
+
+def _dump(value):
+    if isinstance(value, list):
+        return [v.model_dump(mode="json") for v in value]
+    return value.model_dump(mode="json")
+
+
+def test_planned_extra_failure_does_not_make_run_partial(monkeypatch, tmp_path):
+    quiet_planner_and_explainer(monkeypatch, planner=FakeLLM(OIL_PLAN))
+    service = make_service(tmp_path, fred=StubFred(fail={"JTSJOL"}))
+    service.settings = dataclasses.replace(service.settings, fred_api_key="test-key")
+
+    async def scenario():
+        runner = MarketResearchRunner(InMemoryRunRegistry(), service)
+        record = await runner.submit(MarketResearchRequest(query="oil and inflation"))
+        return await runner.wait(record.run_id, timeout=30)
+
+    record = run_async(scenario())
+    out = MarketResearchOutput.model_validate_json(open(record.json_path).read())
+    assert "planned:FRED:JTSJOL" in out.data_quality.failed_sources
+    assert record.status == "succeeded"
+    assert any("planned extras failed" in n for n in out.data_quality.notes)
+    assert [i.id for i in out.planned_indicators] == ["DCOILWTICO"]
+
+
+def test_coalescing_key_includes_planning_and_explain(tmp_path):
+    service = make_service(tmp_path)
+    service.settings = dataclasses.replace(service.settings, fred_api_key="test-key")
+
+    async def scenario():
+        runner = MarketResearchRunner(InMemoryRunRegistry(), service)
+        a = await runner.submit(MarketResearchRequest(focus=["oil"]))
+        b = await runner.submit(MarketResearchRequest(focus=["oil"]))
+        c = await runner.submit(MarketResearchRequest(focus=["oil"], planning="off"))
+        d = await runner.submit(MarketResearchRequest(focus=["oil"], explain_events=False))
+        for r in (a, c, d):
+            await runner.wait(r.run_id, timeout=30)
+        return a, b, c, d
+
+    a, b, c, d = run_async(scenario())
+    assert a.run_id == b.run_id and len({a.run_id, c.run_id, d.run_id}) == 3
+
+
+def test_heuristic_plan_when_planner_llm_fails(tmp_path):
+    out = run_async(make_service(tmp_path).run(MarketResearchRequest(focus=["housing"]))).output
+    assert out.plan.plan_source == "heuristic" and "MORTGAGE30US" in {i.id for i in out.planned_indicators}
+    assert any("keyword heuristic" in n for n in out.data_quality.notes)
+
+
+def test_quality_report_written(tmp_path):
+    out = run_async(make_service(tmp_path).run(MarketResearchRequest())).output
+    assert out.quality is not None and out.quality.status in ("ok", "degraded")
+    assert set(out.quality.checks) == {"consistency", "completeness", "freshness", "sources", "advice_language"}
+    assert out.quality.checks["consistency"] and out.quality.checks["advice_language"]
+
+
+def test_quality_unusable_without_fred(tmp_path):
+    out = run_async(make_service(tmp_path, fred=StubFred(fail_all=True)).run(MarketResearchRequest())).output
+    assert out.quality.status == "unusable" and not out.quality.checks["sources"]

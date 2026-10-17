@@ -9,8 +9,8 @@ page. This is the narrow fallback the design guide allows (§3.4): only
 URLs the agent already cited, robots.txt respected, short timeouts,
 paywalled/blocked pages fail gracefully back to the summary.
 
-Safety: the URL must be one of the news URLs recorded in that run's JSON
-file, so this can't be used as an open proxy. Every request (including
+Safety: the URL must be one of the news URLs or event-explanation sources
+recorded in that run's JSON file, so this can't be used as an open proxy. Every request (including
 redirects) is also checked to resolve to a public IP address.
 """
 import asyncio
@@ -34,11 +34,12 @@ MAX_HTML_BYTES = 3_000_000
 MIN_ARTICLE_CHARS = 400          # below this it's a video page, consent wall or paywall teaser
 ARTICLE_TTL_SECONDS = 24 * 3600
 UNAVAILABLE_TTL_SECONDS = 3600   # retry blocked/failed pages after an hour
+RATE_LIMITED_TTL_SECONDS = 600   # a 429 is often a temporary throttle - retry sooner
 RUN_ID_PATTERN = re.compile(r"^mr_\d{8}T\d{6}Z_[0-9a-f]{6}$")
 
 
 class ArticleNotFoundError(LookupError):
-    """The run doesn't exist, or the URL isn't one of its news items."""
+    """The run doesn't exist, or the URL isn't one of its news / explanation sources."""
 
 
 class BlockedAddressError(RuntimeError):
@@ -46,17 +47,29 @@ class BlockedAddressError(RuntimeError):
 
 
 def find_news_item(output_dir: Path, run_id: str, url: str) -> dict:
-    """The run's recorded news item for `url` (raises ArticleNotFoundError)."""
+    """The run's recorded news item - or event-explanation source - for `url`
+    (raises ArticleNotFoundError)."""
     if not RUN_ID_PATTERN.match(run_id):
         raise ArticleNotFoundError(f"invalid run id {run_id!r}")
     path = output_dir / f"{run_id}.json"
     if not path.is_file():
         raise ArticleNotFoundError(f"unknown run {run_id}")
-    news = json.loads(path.read_text(encoding="utf-8")).get("news") or []
-    for item in news:
+    output = json.loads(path.read_text(encoding="utf-8"))
+    for item in output.get("news") or []:
         if item.get("url") == url:
             return item
-    raise ArticleNotFoundError("URL is not one of this run's news sources")
+    # Sources cited by event explanations come from the explainer's own targeted
+    # searches, so they are usually not in `news`.
+    for x in output.get("event_explanations") or []:
+        sources = {s.get("url"): s for s in x.get("cited_sources") or []}
+        if url in sources or url in (x.get("cited_urls") or []):
+            src = sources.get(url, {})
+            return {
+                "url": url, "title": src.get("title"), "source": src.get("source") or urlsplit(url).netloc,
+                "published_at": src.get("published_at"), "summary": x.get("explanation"), "topics": [],
+                "sentiment": None, "market_impact": None,
+            }
+    raise ArticleNotFoundError("URL is not one of this run's news or explanation sources")
 
 
 async def _ensure_public_host(host: str) -> None:
@@ -129,6 +142,13 @@ async def fetch_article(url: str, client: Optional[httpx.AsyncClient] = None) ->
         resp = await client.get(url)
         if resp.status_code in (401, 402, 403):
             return {"status": "unavailable", "reason": "The site blocks automated access or requires a subscription."}
+        # Anti-bot systems often answer the first automated request with 429.
+        if resp.status_code == 429:
+            return {"status": "unavailable", "http_status": 429,
+                    "reason": "The site limits automated readers right now; open the original to read it."}
+        if resp.status_code in (404, 410):
+            return {"status": "unavailable", "http_status": resp.status_code,
+                    "reason": "The site says this page has moved or been removed."}
         if resp.status_code >= 400:
             return {"status": "unavailable", "reason": f"The site returned HTTP {resp.status_code}."}
         if "html" not in resp.headers.get("content-type", "html"):
@@ -159,7 +179,12 @@ async def read_article(output_dir: Path, run_id: str, url: str, cache: Cache) ->
     article = await cache.get(key)
     if article is None:
         article = await fetch_article(url)
-        ttl = ARTICLE_TTL_SECONDS if article["status"] == "ok" else UNAVAILABLE_TTL_SECONDS
+        if article["status"] == "ok":
+            ttl = ARTICLE_TTL_SECONDS
+        elif article.get("http_status") == 429:
+            ttl = RATE_LIMITED_TTL_SECONDS
+        else:
+            ttl = UNAVAILABLE_TTL_SECONDS
         await cache.set(key, article, ttl)
     return {
         "url": url,

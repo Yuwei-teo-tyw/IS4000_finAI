@@ -3,7 +3,9 @@ Deterministic Markdown rendering of a MarketResearchOutput for the chat UI
 (used by the optional chat trigger, nodes/market_researcher.py). Every
 number shown comes straight from the output; nothing here calls an LLM.
 """
-from app.agents.market_researcher.schemas import Indicator, MarketResearchOutput
+from typing import Optional
+
+from app.agents.market_researcher.schemas import EventExplanation, Indicator, MarketResearchOutput
 
 # Headline rows shown in chat; the full set stays in the JSON file.
 HEADLINE_INDICATORS = ("DGS10", "DGS2", "T10Y3M", "DFF", "CPILFESL", "UNRATE", "PAYEMS", "BAMLH0A0HYM2", "NFCI")
@@ -27,6 +29,20 @@ def _change(i: Indicator, key: str) -> str:
     return f"{v:+.2f}%" if i.source != "FRED" else f"{v:+.2f}"
 
 
+def _explanation_lines(x: Optional[EventExplanation]) -> list[str]:
+    if x is None:
+        return []
+    out = []
+    if x.status == "explained" and x.explanation:
+        source = f" [source]({x.cited_urls[0]})" if x.cited_urls else ""
+        out.append(f"  - Why: {x.explanation}{source}")
+    elif x.status == "insufficient_evidence":
+        out.append("  - Why: Cause unclear from recent coverage.")
+    if x.decomposition and x.decomposition.get("description"):
+        out.append(f"  - {x.decomposition['description']}")
+    return out
+
+
 def render_markdown(output: MarketResearchOutput, disclaimer: str) -> str:
     r = output.regime
     lines = [f"**Market research - {output.region}, as of {output.as_of}**", ""]
@@ -45,7 +61,11 @@ def render_markdown(output: MarketResearchOutput, disclaimer: str) -> str:
 
     if output.events:
         lines += ["", "**Notable events**"]
-        lines += [f"- {e.description}" for e in output.events if e.severity != "info"][:6] or [f"- {output.events[0].description}"]
+        shown = [e for e in output.events if e.severity != "info"][:6] or output.events[:1]
+        explained = {x.event_id: x for x in output.event_explanations}
+        for e in shown:
+            lines.append(f"- {e.description}")
+            lines += _explanation_lines(explained.get(e.id))
 
     by_id = {i.id: i for i in output.indicators}
     rows = [by_id[i] for i in HEADLINE_INDICATORS if i in by_id]

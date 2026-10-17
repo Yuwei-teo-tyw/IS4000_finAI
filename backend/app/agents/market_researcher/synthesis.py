@@ -8,7 +8,8 @@ numbers present in it. A number validator enforces that: every number in
 the narrative/themes/risks/implications must match - within the rounding
 the text used - a value in the payload (also as x100, for probabilities
 written as % and pp changes written as bp). Dates, years, tenors ("10Y",
-"3 months") and indicator ids are ignored. It also rejects wording the
+"3 months") and indicator ids are ignored. The payload includes the validated
+event explanations and decompositions, so their numbers are allowed too. It also rejects wording the
 data can't back ("YTD", "record high"). On failure the model gets one
 retry with the problems listed; if that fails too, a
 deterministic template narrative is used and `data_quality.notes` says so.
@@ -74,6 +75,25 @@ def build_payload(output: MarketResearchOutput) -> dict:
              # explicit keys - with bare "1y" the model kept calling trailing returns "YTD"
              **{f"trailing_{k}_pct": v for k, v in m.changes.items()}}
             for m in output.market_snapshot
+        ],
+        "event_explanations": [
+            {"event_id": x.event_id, "status": x.status, "explanation": x.explanation,
+             "likely_drivers": x.likely_drivers, "decomposition": x.decomposition, "cited_urls": x.cited_urls,
+             "cited_indicators": x.cited_indicators}
+            for x in output.event_explanations
+            if x.status in ("explained", "insufficient_evidence") or x.decomposition
+        ],
+        # Extras the query planner pulled for this request (code-derived numbers).
+        "planned_indicators": [
+            {"id": i.id, "name": i.name, "value": i.value, "unit": i.unit,
+             "observation_date": i.observation_date.isoformat(), "changes": i.changes,
+             "percentile_10y": i.percentile_10y, "stale": i.stale}
+            for i in output.planned_indicators
+        ],
+        "planned_market": [
+            {"id": m.id, "name": m.name, "value": m.value, "unit": m.unit, "date": m.observation_date.isoformat(),
+             **{f"trailing_{k}_pct": v for k, v in m.changes.items()}}
+            for m in output.planned_market
         ],
         "news": [
             {"title": n.title, "url": n.url, "summary": n.summary, "topics": n.topics,
@@ -199,6 +219,10 @@ def template_synthesis(output: MarketResearchOutput) -> SynthesisOut:
                      "recession within 12 months [T10Y3M] (a model estimate).")
     if output.events:
         parts.append(" Notable: " + " ".join(e.description for e in output.events[:4]))
+    decompositions = [x.decomposition["description"] for x in output.event_explanations
+                      if x.decomposition and x.decomposition.get("description")]
+    if decompositions:
+        parts.append(" " + " ".join(decompositions))
     if r.conflicting_signals:
         parts.append(f" Main conflicting signal: {r.conflicting_signals[0]}.")
     dq = output.data_quality
@@ -244,5 +268,10 @@ async def synthesize(output: MarketResearchOutput) -> None:
         reason = "had " + "; ".join(found)
     except Exception as e:
         reason = f"LLM call failed ({type(e).__name__})"
+    use_template(output, f"the LLM draft {reason}")
+
+
+def use_template(output: MarketResearchOutput, reason: str) -> None:
+    """Replace the narrative fields with the deterministic template and say why."""
     _apply(output, template_synthesis(output), None)
-    output.data_quality.notes.append(f"Narrative is a deterministic template: the LLM draft {reason}.")
+    output.data_quality.notes.append(f"Narrative is a deterministic template: {reason}.")
