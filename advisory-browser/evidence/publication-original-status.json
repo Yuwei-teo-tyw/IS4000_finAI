@@ -1,0 +1,7 @@
+{
+  "original_cached_status": "READY",
+  "original_owned_pid_count_present": 0,
+  "old_stop_attempt": "HOLD_SHUTDOWN_UNVERIFIED_NO_FORCED_TERMINATION",
+  "new_candidate_started_only_after_its_own_port_availability_check": true,
+  "original_source_and_local_configuration_untouched": true
+}

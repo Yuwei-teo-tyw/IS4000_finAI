@@ -1,0 +1,7 @@
+{
+  "status": "PASS",
+  "archive_has_portable_example": true,
+  "archive_has_local_config": false,
+  "unconfigured_extracted_start_rejected_actionably": true,
+  "configured_only_after_explicit_ignored_local_file_copy": true
+}

@@ -2,7 +2,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const assert = require("node:assert/strict");
-const {chromium} = require(process.env.FINAI_PLAYWRIGHT_MODULE || "C:/Users/shane/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright");
+const {chromium} = require(process.env.FINAI_PLAYWRIGHT_MODULE || "playwright");
 const evidence = path.join(__dirname,"../evidence");
 const base = "http://127.0.0.1:8820";
 const sleep = ms => new Promise(r=>setTimeout(r,ms));

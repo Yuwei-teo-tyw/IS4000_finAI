@@ -1,0 +1,19 @@
+{
+  "status": "PASS",
+  "fixture": "owned adapter only; all three actual backend listeners stopped",
+  "health": {
+    "instance": "adapter-only-qa",
+    "services": {
+      "clarifier": "UNAVAILABLE",
+      "orchestrator": "UNAVAILABLE",
+      "mocks": "UNAVAILABLE"
+    },
+    "mode": "POLICY_ONLY",
+    "clarifier": "scripted",
+    "specialists": "MOCK_HTTP",
+    "source_tree": "1a196f3645d26cfaaeddf4952bf79a1a0175c7d398fb6a1277cfb856b4de8995",
+    "status": "UNAVAILABLE"
+  },
+  "execution_disabled": true,
+  "error_visible": true
+}

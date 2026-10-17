@@ -4,3 +4,4 @@ __pycache__/
 *.zip
 evidence/archive-verification.json
 evidence/git-receipt.json
+demo-config.local.json

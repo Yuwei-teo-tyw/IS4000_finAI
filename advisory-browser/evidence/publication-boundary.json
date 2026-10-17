@@ -1,0 +1,23 @@
+{
+  "integration": "optional frontend-only sidecar",
+  "base_main": "cae7c8e16d466baa3ab514bcd2939d8675aa08d5",
+  "reviewed_source": "8e8116affbdf021c024bf59d5086f3b945952432",
+  "existing_main_paths_changed": 0,
+  "legacy_react_changed": false,
+  "market_researcher_changed": false,
+  "backend_startup_or_dependencies_changed": false,
+  "external_v5_required": true,
+  "frozen": {
+    "authority": "engineering-authority-v5",
+    "pins": 559,
+    "source_tree": "1a196f3645d26cfaaeddf4952bf79a1a0175c7d398fb6a1277cfb856b4de8995",
+    "manifest_sha256": "20d3c77640a9a0e973246acae346d5bdb0865b1fb2a79394e02fc59a86e6d33c",
+    "mode": "POLICY_ONLY",
+    "provider": "scripted",
+    "specialists": "MOCK_HTTP"
+  },
+  "local_configuration_ignored": true,
+  "tracked_example": {
+    "project_root": ""
+  }
+}

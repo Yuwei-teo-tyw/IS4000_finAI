@@ -25,3 +25,14 @@ recommendations; historical Gate B/C findings remain open. Not standalone: requi
 existing project Python environment and verified isolated v5 demo runtime.
 
 Integration: current C2.2 frontend-only SAFE; fetched main CONDITIONAL. See MERGE_IMPACT.md for exact tree/commit identities and semantic exclusions. No push, PR or active-target integration occurred.
+
+## Latest-main optional integration
+The tracked developer-specific demo-config.json is replaced by a blank
+`demo-config.example.json`; each teammate creates ignored `demo-config.local.json`.
+Launch wrappers and Python validate explicit local setup and give actionable HOLD
+errors. Test tooling defaults no longer reference a developer's home directory.
+The original reviewed local demo/config is preserved in its original worktree.
+This remains an optional, non-standalone external-v5 sidecar. It does not replace
+or alter upstream React, Market Researcher, backend/database startup/dependencies.
+Fresh publication tests and independent reviews supersede historical evidence only
+for the changed setup/release boundary; older failed/passing receipts are retained.

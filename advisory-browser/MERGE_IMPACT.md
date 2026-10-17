@@ -1,3 +1,5 @@
+> Historical local rehearsal from the original MVP assignment. The current optional latest-main publication is assessed in PUBLICATION.md and evidence/publication-*.
+
 # Frontend-only integration assessment
 
 Target A verdict: **SAFE TO INTEGRATE FRONTEND-ONLY** into an independently

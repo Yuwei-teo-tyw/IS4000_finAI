@@ -20,12 +20,29 @@ def sha(path: Path) -> str:
 
 
 def configuration() -> tuple[Path, Path, Path]:
-    config = json.loads((PACKAGE / "demo-config.json").read_text())
-    if set(config) != {"project_root"}:
-        raise ValueError("CONFIG_SCHEMA_INVALID")
-    project = Path(config["project_root"]).resolve(strict=True)
+    local = PACKAGE / "demo-config.local.json"
+    if not local.is_file():
+        raise ValueError("LOCAL_CONFIG_REQUIRED_COPY_DEMO_CONFIG_EXAMPLE")
+    try:
+        raw = local.read_bytes()
+        if len(raw) > 4096:
+            raise ValueError
+        config = json.loads(raw)
+        if not isinstance(config, dict) or set(config) != {"project_root"}:
+            raise ValueError
+        project_root = config["project_root"]
+        if not isinstance(project_root, str) or not project_root.strip():
+            raise ValueError
+    except (OSError, ValueError, TypeError):
+        raise ValueError("LOCAL_CONFIG_INVALID_SET_PROJECT_ROOT") from None
+    if not Path(project_root).is_absolute():
+        raise ValueError("LOCAL_CONFIG_PROJECT_ROOT_MUST_BE_ABSOLUTE")
+    try:
+        project = Path(project_root).resolve(strict=True)
+    except OSError:
+        raise ValueError("V5_PROJECT_UNAVAILABLE_CHECK_LOCAL_CONFIG") from None
     if not (project / "demo-readiness/session.json").is_file():
-        raise ValueError("PROJECT_NOT_DEMO_READY")
+        raise ValueError("PROJECT_NOT_DEMO_READY_EXTERNAL_V5_REQUIRED")
     session = json.loads((project / "demo-readiness/session.json").read_text())
     root = Path(session["runtime_root"]).resolve(strict=True)
     expected = (project / "backend/.lab-data/demo-readiness").resolve(strict=True)

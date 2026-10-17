@@ -2,11 +2,13 @@
 
 This local demonstration depends on the existing project Python 3.12 virtual
 environment and its verified isolated frozen v5 runtime. **It is not standalone.**
-No installation, Docker, model download, real credentials or cloud account is needed.
+This package installs nothing. The external runtime and its approved dependencies must already be provisioned; a main checkout alone cannot run the demo.
 
 1. Extract the ZIP into a normal writable local folder (or use this worktree folder).
-2. Check `demo-config.json`: `project_root` must point to the existing IS4000_finAI
-   project containing `demo-readiness/session.json` and `backend/.venv`.
+2. Copy `demo-config.example.json` to ignored `demo-config.local.json`. Set its sole
+   `project_root` field to the absolute path of your approved external v5 project
+   containing `demo-readiness/session.json` and `backend/.venv`. The example is
+   intentionally blank. See README.md for the required separately provisioned runtime.
 3. Close old manually started demo services with Ctrl+C in their own terminals.
 4. Double-click **START_ADVISORY_DEMO.cmd**. Wait for READY and the browser window.
 5. When finished, double-click **STOP_ADVISORY_DEMO.cmd**. Use

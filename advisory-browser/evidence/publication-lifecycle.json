@@ -1,0 +1,23 @@
+{
+  "status": "PASS",
+  "instance": "81168521-5790-4d96-b304-26e52c854dbe",
+  "startup": "READY",
+  "check": "all four services READY, exact owned instance",
+  "shutdown": "STOPPED",
+  "owned_service_exit_codes": [
+    0,
+    0,
+    0,
+    0
+  ],
+  "frozen": {
+    "authority": "engineering-authority-v5",
+    "pins": 559,
+    "source_tree": "1a196f3645d26cfaaeddf4952bf79a1a0175c7d398fb6a1277cfb856b4de8995",
+    "manifest_sha256": "20d3c77640a9a0e973246acae346d5bdb0865b1fb2a79394e02fc59a86e6d33c",
+    "mode": "POLICY_ONLY",
+    "provider": "scripted",
+    "specialists": "MOCK_HTTP"
+  },
+  "backend_source_distributed": false
+}

@@ -1,5 +1,5 @@
 const fs=require("node:fs"),path=require("node:path"),assert=require("node:assert/strict");
-const {chromium}=require(process.env.FINAI_PLAYWRIGHT_MODULE||"C:/Users/shane/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright");
+const {chromium}=require(process.env.FINAI_PLAYWRIGHT_MODULE||"playwright");
 const root=path.join(__dirname,"../evidence"),goal=JSON.parse(fs.readFileSync(path.join(root,"goal-http-evidence.json")));
 (async()=>{const browser=await chromium.launch({headless:true,executablePath:process.env.FINAI_CHROME||"C:/Program Files/Google/Chrome/Application/chrome.exe"});const checks=[];try{const context=await browser.newContext();const page=await context.newPage();const saved={owner:goal.objective.owner_id,trace:goal.attempt.trace_id,chat:[],objective:goal.objective,attempt:goal.attempt,planningRequest:goal.attempt.request_id,executionSubmitted:true,executionKey:"browser-"+goal.run.plan_id,run:goal.run};await page.addInitScript(s=>{if(!localStorage.getItem("finai-browser-mvp-v1"))localStorage.setItem("finai-browser-mvp-v1",JSON.stringify(s));},saved);
 let status="RUNNING",cancelled=false,dispatched=0,allowExecute=false,fixtureExecutes=0;
