@@ -1,0 +1,271 @@
+{
+  "objective": {
+    "schema_version": "1.0",
+    "session_id": "d24760ba-a699-4609-bdd6-879315a11e26",
+    "owner_id": "synthetic-browser-e2e939a5-8149-4113-9cde-f8fbee2ec0b5",
+    "objective_id": "f5392ec4-bc5b-424c-943f-1ddc749df5e3",
+    "revision": 1,
+    "context_revision": 1,
+    "fields": {
+      "family": "goal",
+      "target_amount": "200000",
+      "current_amount": "50000",
+      "currency": "SGD",
+      "horizon_months": 120,
+      "monthly_contribution": "1000",
+      "comparison": null,
+      "constraints": null
+    },
+    "provenance": {
+      "target_amount": "c93009bc-e872-465c-bc21-164601dea488",
+      "family": "c93009bc-e872-465c-bc21-164601dea488",
+      "current_amount": "c93009bc-e872-465c-bc21-164601dea488",
+      "monthly_contribution": "c93009bc-e872-465c-bc21-164601dea488",
+      "currency": "c93009bc-e872-465c-bc21-164601dea488",
+      "horizon_months": "c93009bc-e872-465c-bc21-164601dea488"
+    },
+    "turn_ids": [
+      "c93009bc-e872-465c-bc21-164601dea488"
+    ],
+    "missing": [],
+    "contradictions": [],
+    "readiness": "CONFIRMED",
+    "content_digest": "2a3147c56123813d8e0bbce6b435892dd6d70c107fe2d04494850dedd59841ba",
+    "confirmed_digest": "2a3147c56123813d8e0bbce6b435892dd6d70c107fe2d04494850dedd59841ba",
+    "confirmed_revision": 1,
+    "response": "Review this candidate and explicitly confirm its revision and digest to plan."
+  },
+  "attempt": {
+    "schema_version": "planning-attempt.v1",
+    "owner_id": "synthetic-browser-e2e939a5-8149-4113-9cde-f8fbee2ec0b5",
+    "request_id": "be01b510-0f52-47ac-8363-136c8f3bdd84",
+    "trace_id": "daa9649d-15a7-4202-b8ee-066aa66301e6",
+    "request_fingerprint": "2da99041db7eda86d870c4800b9cc72b6dd38233ddfe0785f711ea1507859f66",
+    "mode": "POLICY_ONLY",
+    "scenario": null,
+    "priority": null,
+    "status": "ADMITTED",
+    "code": "OK",
+    "plan_id": "7f576229-7a13-49c5-84a9-98e94b2166b5",
+    "runtime": {
+      "schema_version": "runtime-receipt.v1",
+      "plan_hash": "7d3e8262d1b21e0d1dd46431eb8e76826905af30fcf408a82535b0a1fc2d9484",
+      "admission": {
+        "schema_version": "runtime-admission.v1",
+        "mode": "POLICY_ONLY",
+        "authority_revision": "engineering-authority-v5",
+        "source_tree": "1a196f3645d26cfaaeddf4952bf79a1a0175c7d398fb6a1277cfb856b4de8995",
+        "contract_source": "sha256:b47c3801e09182b9e5f7855c59d8246c7a9d2bfc21b60ff1008be8308101d300",
+        "policy_source": "sha256:924fd2ec8a06dcb2938f5d002854c341aba536bb3b92b273059ac258ef1db904",
+        "catalog_fingerprint": "sha256:b481086b04fe6257c56aae7b8bf630adee7a8a55af271cf30f305d618f667f47",
+        "binding": {
+          "owner_id": "synthetic-browser-e2e939a5-8149-4113-9cde-f8fbee2ec0b5",
+          "session_id": "d24760ba-a699-4609-bdd6-879315a11e26",
+          "objective_id": "f5392ec4-bc5b-424c-943f-1ddc749df5e3",
+          "revision": 1,
+          "context_revision": 1,
+          "content_digest": "2a3147c56123813d8e0bbce6b435892dd6d70c107fe2d04494850dedd59841ba"
+        },
+        "required": [
+          "goal",
+          "risk"
+        ],
+        "graph": [
+          {
+            "task_id": "goal",
+            "capability": "goal",
+            "depends_on": [],
+            "required": true
+          },
+          {
+            "task_id": "risk",
+            "capability": "risk",
+            "depends_on": [
+              "goal"
+            ],
+            "required": true
+          }
+        ],
+        "proposal_hash": "e581b4a697c7724aacb067492565e21d9333fcca3866ecbc72d1990848a97df0",
+        "planner": null,
+        "origins": {
+          "goal": "POLICY_REQUIRED",
+          "risk": "POLICY_REQUIRED"
+        },
+        "model_inference_performed": false,
+        "events": [
+          {
+            "sequence": 0,
+            "stage": "MODE_RESOLVED",
+            "capabilities": [],
+            "contribution": "POLICY"
+          },
+          {
+            "sequence": 1,
+            "stage": "OBJECTIVE_BOUND",
+            "capabilities": [],
+            "contribution": "POLICY"
+          },
+          {
+            "sequence": 2,
+            "stage": "AUTHORITY_VERIFIED",
+            "capabilities": [],
+            "contribution": "POLICY"
+          },
+          {
+            "sequence": 3,
+            "stage": "MANDATORY_FLOOR",
+            "capabilities": [
+              "goal",
+              "risk"
+            ],
+            "contribution": "POLICY"
+          },
+          {
+            "sequence": 4,
+            "stage": "DEPENDENCIES_COMPOSED",
+            "capabilities": [
+              "goal",
+              "risk"
+            ],
+            "contribution": "COMPOSITION"
+          },
+          {
+            "sequence": 5,
+            "stage": "CANONICAL_ADMISSION",
+            "capabilities": [],
+            "contribution": "COMPOSITION"
+          }
+        ]
+      }
+    },
+    "observation": null,
+    "events": [
+      {
+        "sequence": 0,
+        "stage": "MODE_RESOLVED",
+        "capabilities": [],
+        "contribution": "POLICY"
+      },
+      {
+        "sequence": 1,
+        "stage": "OBJECTIVE_BOUND",
+        "capabilities": [],
+        "contribution": "POLICY"
+      },
+      {
+        "sequence": 2,
+        "stage": "AUTHORITY_VERIFIED",
+        "capabilities": [],
+        "contribution": "POLICY"
+      },
+      {
+        "sequence": 3,
+        "stage": "MANDATORY_FLOOR",
+        "capabilities": [
+          "goal",
+          "risk"
+        ],
+        "contribution": "POLICY"
+      },
+      {
+        "sequence": 4,
+        "stage": "DEPENDENCIES_COMPOSED",
+        "capabilities": [
+          "goal",
+          "risk"
+        ],
+        "contribution": "COMPOSITION"
+      },
+      {
+        "sequence": 5,
+        "stage": "CANONICAL_ADMISSION",
+        "capabilities": [],
+        "contribution": "COMPOSITION"
+      }
+    ],
+    "model_inference_performed": false
+  },
+  "run": {
+    "schema_version": "1.0",
+    "run_id": "e7c6890d-eea4-4d2d-b3d3-64c8d80b1aae",
+    "owner_id": "synthetic-browser-e2e939a5-8149-4113-9cde-f8fbee2ec0b5",
+    "plan_id": "7f576229-7a13-49c5-84a9-98e94b2166b5",
+    "mode": "MOCK_HTTP",
+    "status": "SUCCEEDED",
+    "events": [
+      {
+        "timestamp": "2026-10-17T14:53:16.148193+00:00",
+        "capability": "goal",
+        "task_id": "goal",
+        "status": "SUCCEEDED",
+        "method": "POST",
+        "path": "/v1/mock/goal",
+        "duration_ms": 46.68359999777749
+      },
+      {
+        "timestamp": "2026-10-17T14:53:16.258835+00:00",
+        "capability": "risk",
+        "task_id": "risk",
+        "status": "SUCCEEDED",
+        "method": "POST",
+        "path": "/v1/mock/risk",
+        "duration_ms": 42.26850002305582
+      }
+    ],
+    "results": {
+      "goal": {
+        "schema_version": "1.0",
+        "request_id": "be01b510-0f52-47ac-8363-136c8f3bdd84",
+        "trace_id": "daa9649d-15a7-4202-b8ee-066aa66301e6",
+        "run_id": "e7c6890d-eea4-4d2d-b3d3-64c8d80b1aae",
+        "task_id": "goal",
+        "objective_id": "f5392ec4-bc5b-424c-943f-1ddc749df5e3",
+        "revision": 1,
+        "context_revision": 1,
+        "capability": "goal",
+        "currency": "SGD",
+        "units": "synthetic",
+        "label": "MOCK",
+        "status": "SUCCEEDED",
+        "timestamp": "2026-10-17T14:53:16.118008+00:00"
+      },
+      "risk": {
+        "schema_version": "1.0",
+        "request_id": "be01b510-0f52-47ac-8363-136c8f3bdd84",
+        "trace_id": "daa9649d-15a7-4202-b8ee-066aa66301e6",
+        "run_id": "e7c6890d-eea4-4d2d-b3d3-64c8d80b1aae",
+        "task_id": "risk",
+        "objective_id": "f5392ec4-bc5b-424c-943f-1ddc749df5e3",
+        "revision": 1,
+        "context_revision": 1,
+        "capability": "risk",
+        "currency": "SGD",
+        "units": "synthetic",
+        "label": "MOCK",
+        "status": "SUCCEEDED",
+        "timestamp": "2026-10-17T14:53:16.227129+00:00"
+      }
+    }
+  },
+  "events": [
+    {
+      "timestamp": "2026-10-17T14:53:16.148193+00:00",
+      "capability": "goal",
+      "task_id": "goal",
+      "status": "SUCCEEDED",
+      "method": "POST",
+      "path": "/v1/mock/goal",
+      "duration_ms": 46.68359999777749
+    },
+    {
+      "timestamp": "2026-10-17T14:53:16.258835+00:00",
+      "capability": "risk",
+      "task_id": "risk",
+      "status": "SUCCEEDED",
+      "method": "POST",
+      "path": "/v1/mock/risk",
+      "duration_ms": 42.26850002305582
+    }
+  ]
+}

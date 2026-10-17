@@ -1,0 +1,9 @@
+{
+  "status": "PASS",
+  "fixture": "HTTP response fixtures for UI state coverage; no backend dispatch",
+  "checks": [
+    "cancellation button usable for observed RUNNING and displays backend CANCELLED",
+    "partial/failed/blocked/uncertain returned states render without success or replay",
+    "active execute-triggered observer leaves cancellation usable; exactly one fixture execution and no backend dispatch"
+  ]
+}

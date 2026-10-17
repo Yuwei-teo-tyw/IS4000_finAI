@@ -1,0 +1,17 @@
+{
+  "status": "PASS",
+  "original_files_checked": 930,
+  "changed": 0,
+  "credential_file_unchanged": true,
+  "original_head": "a2fdd558f7c8de3a634375f041f5af9eb84cc675",
+  "active_git_status_unchanged": true,
+  "frozen_runtime": {
+    "authority": "engineering-authority-v5",
+    "pins": 559,
+    "source_tree": "1a196f3645d26cfaaeddf4952bf79a1a0175c7d398fb6a1277cfb856b4de8995",
+    "manifest_sha256": "20d3c77640a9a0e973246acae346d5bdb0865b1fb2a79394e02fc59a86e6d33c",
+    "mode": "POLICY_ONLY",
+    "provider": "scripted",
+    "specialists": "MOCK_HTTP"
+  }
+}
