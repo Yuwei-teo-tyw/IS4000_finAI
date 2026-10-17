@@ -5,6 +5,7 @@ import type { MacroView, MarketAnswer, MarketRow, Role } from "../../types/arc";
 import { Badge, Button, CitationTag, Table } from "../ui";
 import { loadSystemPrompt } from "../settings/SettingsDialog";
 import { loadSelection, saveSelection } from "../../pages/ps/psShared";
+import { savePackDraft } from "../../services/packDraftStore";
 
 const SEEDED: Record<Role, string[]> = {
   ps: [
@@ -13,7 +14,7 @@ const SEEDED: Record<Role, string[]> = {
     "What is the current economic cycle and the CIO view per asset class?",
     "What is the top 5 ranking for equities and why?",
   ],
-  rm: ["Summarise the client's IPS", "What are the client's goals?", "Review the IPS", "Summarise the meeting notes", "What did the client say in the last meeting?"],
+  rm: ["Summarise the client's IPS", "What are the client's goals?", "Review the IPS", "Summarise the meeting notes", "What did the client say in the last meeting?", "Write the latest client profile + goals section formally in bullet points", "Why is portfolio health flagged?", "Explain the old vs new TAA"],
   ic: ["Summarise the client's IPS", "What are the client's goals?", "Explain the TAA changes"],
 };
 const HEADING: Record<Role, string> = { ps: "What would you like to research?", rm: "How can I help with this client?", ic: "How can I help with this portfolio?" };
@@ -30,10 +31,29 @@ function Direction({ d }: { d: MacroView["direction"] }) {
   return <span className="inline-flex items-center gap-1.5 text-ink-700"><Icon size={16} />{d}</span>;
 }
 
-function AnswerView({ a, picked, onToggle }: { a: MarketAnswer; picked: string[]; onToggle: (r: MarketRow) => void }) {
+function DraftCard({ a, clientId }: { a: MarketAnswer; clientId: string }) {
+  const d = a.draft!;
+  const [applied, setApplied] = useState(false);
+  const lines = d.text.split("\n").map((l) => l.replace(/^•\s*/, ""));
+  return (
+    <section className="rounded-sm border border-hairline-strong p-6">
+      <p className={label}>Draft for section {d.section}</p>
+      <h4 className="mt-2 text-[22px] tracking-tight">{d.title}</h4>
+      <ul className="mt-4 list-disc space-y-2 pl-5 text-[17px] leading-7 text-ink-700">{lines.map((l, i) => <li key={i}>{l}</li>)}</ul>
+      <div className="mt-6 flex flex-wrap items-center gap-4">
+        <Button variant="gold" disabled={applied} onClick={() => { savePackDraft(clientId, d.section, d.text); setApplied(true); }}>{applied ? "Applied to review pack" : `Replace section ${d.section} text`}</Button>
+        {applied && <Button variant="ghost" to={`/rm/clients/${clientId}/review-pack`}>Open review pack</Button>}
+      </div>
+    </section>
+  );
+}
+
+function AnswerView({ a, picked, onToggle, clientId }: { a: MarketAnswer; picked: string[]; onToggle: (r: MarketRow) => void; clientId: string }) {
   return (
     <div className="min-w-0 space-y-10 font-light">
       <p className="whitespace-pre-line text-[22px] leading-9 tracking-tight text-ink">{a.summary}</p>
+
+      {a.draft && <DraftCard a={a} clientId={clientId} />}
 
       {a.market && (
         <section>
@@ -142,7 +162,7 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
       const a = role === "ps"
         ? await arcApi.askMarketResearch(clientId, text, loadSystemPrompt(role))
         : await arcApi.askAgent(role, clientId, text).then((r): MarketAnswer => ({
-            summary: r.reply, market: null, rows: [], autoTick: false, tags: r.tags,
+            summary: r.reply, draft: r.draft, market: null, rows: [], autoTick: false, tags: r.tags,
             steps: ["Intent parser is reading your request…", `${r.agent} fired`, ...r.steps, "Consolidating…"],
           }));
       setWorking({ chatId: id, steps: a.steps, shown: 0 });
@@ -218,7 +238,7 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
               ) : (
                 <div key={i} className="animate-geneva-in w-full rounded-sm border border-hairline bg-surface-100 px-8 py-7">
                   <p className="mb-4 flex items-center gap-2 text-[13px] font-medium text-ink-muted"><img src="/ubs-logo.png" alt="" className="ubs-logo h-4 w-auto" />Geneva</p>
-                  {m.answer && <AnswerView a={m.answer} picked={pickedNames} onToggle={toggle} />}
+                  {m.answer && <AnswerView a={m.answer} picked={pickedNames} onToggle={toggle} clientId={clientId} />}
                 </div>
               ))}
               {busy && working && (

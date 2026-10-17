@@ -8,8 +8,8 @@ import { GenevaChat } from "./GenevaChat";
 
 const MIN_W = 420;
 const DEFAULT_W = 560;
-const WIDE_W = 960;
-const maxW = () => Math.max(MIN_W, Math.round(window.innerWidth * 0.9));
+const WIDE_W = 760;
+const maxW = () => Math.max(MIN_W, Math.round(window.innerWidth * 0.6));
 const clampW = (w: number) => Math.max(MIN_W, Math.min(maxW(), w));
 function loadWidth(): number {
   try { const v = Number(localStorage.getItem("arc.assistantWidth")); return v ? clampW(v) : DEFAULT_W; } catch { return DEFAULT_W; }
@@ -18,7 +18,7 @@ function loadOpen(): boolean {
   try { return localStorage.getItem("arc.assistantOpen") === "true"; } catch { return false; }
 }
 
-/** Geneva launcher, bottom right. Opens the same chat as the AI Assistant page in a resizable side panel. */
+/** Geneva launcher, bottom right. Opens the same chat as the AI Assistant page in a docked, resizable side panel that pushes the page left (never covers it). */
 export default function GenevaLauncher({ role, clientId }: { role: Role; clientId: string }) {
   const [open, setOpen] = useState(loadOpen);
   const [width, setWidth] = useState(loadWidth);
@@ -54,7 +54,7 @@ export default function GenevaLauncher({ role, clientId }: { role: Role; clientI
   };
 
   return (
-    <div className="print:hidden">
+    <div className="contents print:hidden">
       {!open && (
         <button type="button" onClick={() => set(true)} aria-label="Open Geneva assistant" title="Open Geneva assistant"
           className="fixed bottom-6 right-6 z-40 flex items-center gap-3 rounded-full border border-hairline-strong bg-surface-100 py-3 pl-4 pr-6 shadow-card hover:bg-surface-300">
@@ -63,8 +63,8 @@ export default function GenevaLauncher({ role, clientId }: { role: Role; clientI
         </button>
       )}
       {/* Kept mounted while closed so chats survive. */}
-      <aside hidden={!open} style={{ width }} aria-label="Geneva assistant"
-        className="animate-geneva-in fixed inset-y-0 right-0 z-40 flex max-w-[100vw] flex-col border-l border-hairline bg-surface-200 shadow-card">
+      <aside style={{ width }} aria-label="Geneva assistant" aria-hidden={!open}
+        className={`${open ? "flex" : "hidden"} animate-geneva-in sticky top-0 h-screen max-w-[60vw] shrink-0 flex-col border-l border-hairline bg-surface-200`}>
         <div role="separator" aria-orientation="vertical" aria-label="Resize assistant" aria-valuemin={MIN_W} aria-valuemax={maxW()} aria-valuenow={width} tabIndex={0}
           onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}
           onKeyDown={(e) => { if (e.key === "ArrowLeft") { e.preventDefault(); apply(width + 24); } else if (e.key === "ArrowRight") { e.preventDefault(); apply(width - 24); } }}

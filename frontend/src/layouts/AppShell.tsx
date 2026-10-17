@@ -18,8 +18,8 @@ export default function AppShell() {
   return (
     <div className="arc flex h-screen overflow-hidden bg-surface-100 print:block print:h-auto print:overflow-visible">
       <Sidebar role={role} />
-      <main className="min-w-0 flex-1 overflow-y-auto px-6 py-12 md:px-14 print:block print:h-auto print:overflow-visible print:p-0">
-        <div className={`mx-auto print:max-w-none ${inPageChat ? "max-w-[1680px]" : "max-w-[1160px]"}`}>
+      <main className="min-w-0 flex-1 overflow-y-auto px-6 py-12 md:px-10 print:block print:h-auto print:overflow-visible print:p-0">
+        <div className={`print:max-w-none ${inPageChat ? "mx-auto max-w-[1680px]" : "max-w-[1480px]"}`}>
           <Outlet />
         </div>
       </main>

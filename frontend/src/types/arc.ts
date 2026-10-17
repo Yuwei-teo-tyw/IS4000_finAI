@@ -61,4 +61,5 @@ export interface MarketRow { assetClass: string; product: string; industryFocus:
 export interface MacroView { assetClass: string; view: "Buy" | "Hold" | "Sell"; industry: string; direction: "Up" | "Flat" | "Down"; note: string }
 export interface MacroBrief { phase: string; asOf: string; events: string[]; views: MacroView[] }
 /** One chat turn. `steps` (agents fired, thinking) show only while thinking, never in the final answer. */
-export interface MarketAnswer { summary: string; market: MacroBrief | null; rows: MarketRow[]; autoTick: boolean; steps: string[]; tags: string[] }
+export interface SectionDraft { section: number; title: string; text: string }
+export interface MarketAnswer { summary: string; draft?: SectionDraft; market: MacroBrief | null; rows: MarketRow[]; autoTick: boolean; steps: string[]; tags: string[] }

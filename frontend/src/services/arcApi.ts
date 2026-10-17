@@ -7,7 +7,7 @@
 import * as m from "../mock/data";
 import type {
   ActivityEvent, AllocationRow, Bucket3L, Citation, Client, Gate, Holding, InboxItem, IpsPart,
-  MarketView, HouseView, MarketAnswer, MeetingNote, IpsVersion, PackSection, Product, Role, CaseStep, AllocationGroup, CorrelationMatrix, GoalProjection,
+  MarketView, HouseView, MarketAnswer, MeetingNote, IpsVersion, PackSection, Product, Role, CaseStep, AllocationGroup, CorrelationMatrix, GoalProjection, SectionDraft,
 } from "../types/arc";
 
 const delay = <T,>(v: T, ms = 150) => new Promise<T>((r) => setTimeout(() => r(v), ms));
@@ -120,7 +120,7 @@ export const arcApi = {
 };
 
 export type AgentName = "Profiling Agent" | "Portfolio Agent" | "Product Agent" | "Orchestrator";
-export interface AgentReply { role: Role; clientId: string; reply: string; tags: string[]; agent: AgentName; steps: string[] }
+export interface AgentReply { role: Role; clientId: string; reply: string; tags: string[]; agent: AgentName; steps: string[]; draft?: SectionDraft }
 
 /** Keyword intent routing shared by the UI (status line) and the mock agent. */
 export function routeAgent(message: string): AgentName {
@@ -136,6 +136,8 @@ const bullets = (items: string[]) => items.map((i) => `• ${i}`).join("\n");
 const firstLine = (s: string) => s.replace(/\s+/g, " ").trim();
 const clip = (s: string, n = 160) => { const x = firstLine(s); return x.length > n ? `${x.slice(0, n - 1)}…` : x; };
 
+const sgdM = (n: number) => `S$${(n / 1_000_000).toFixed(1)}m`;
+
 async function answerAsAgent(role: Role, clientId: string, message: string): Promise<AgentReply> {
   const t = message.toLowerCase();
   const agent = routeAgent(message);
@@ -146,6 +148,40 @@ async function answerAsAgent(role: Role, clientId: string, message: string): Pro
   const name = client?.name ?? "the client";
   const base = { role, clientId, agent };
   const done = (reply: string, tags: string[], steps: string[]): AgentReply => ({ ...base, reply, tags, steps });
+
+  const packKeys: [RegExp, number][] = [
+    [/client summary|latest client|profile \+ goals|\bsaa\b|strategic asset/, 1], [/market view|cio view/, 2], [/market conditions/, 3],
+    [/portfolio (current )?health|sharpe|diversif/, 4], [/old vs new|\btaa\b/, 5], [/product recommendation/, 6],
+    [/sign-?off/, 7], [/sources|citations/, 8],
+  ];
+  const hit = packKeys.find(([re]) => re.test(t));
+  const wantsDraft = /\b(write|draft|rewrite|redraft|compose)\b/.test(t);
+  if (hit && wantsDraft) {
+    const pack = await arcApi.getPack(clientId);
+    const sec = pack.find((x) => x.n === hit[1]);
+    if (sec && sec.owner !== role) {
+      const who = sec.owner === "ic" ? "the Investment Counsellor (Wei Lun)" : sec.owner === "ps" ? "the Product Specialist (David)" : "the Relationship Manager (Isabel)";
+      return { ...base, agent: "Orchestrator", reply: `Section ${sec.n}, ${sec.title}, belongs to ${who}. I can summarise it, but I cannot rewrite it for you.`, tags: [], steps: ["Checking section ownership…", "Drafting reply…"] };
+    }
+    if (sec) {
+      const plain = (x: string) => x.replace(/\s*\[[^\]]+\]/g, "").trim();
+      const facts = sec.n === 1 && client
+        ? [`${client.name}, ${sgdM(client.aumSgd)} under management, ${client.riskCategory} risk profile`, `IPS version ${client.ipsVersion ?? "pending"} governs this portfolio`]
+        : [];
+      const sentences = sec.body.split(/(?<=\.)\s+/).map(plain).filter(Boolean);
+      const text = [...facts, ...sentences].map((x) => `• ${x.replace(/\.$/, "")}`).join("\n");
+      return { ...base, agent: "Orchestrator", reply: `Here is a formal draft of section ${sec.n}, ${sec.title}, in bullet points. Review it, then apply it to the review pack.`, tags: [], steps: ["Opening the review pack…", `Reading section ${sec.n}…`, "Writing in a formal tone…", "Formatting as bullet points…"], draft: { section: sec.n, title: sec.title, text } };
+    }
+  }
+
+  if (hit) {
+    const pack = await arcApi.getPack(clientId);
+    const sec = pack.find((x) => x.n === hit[1]);
+    if (sec) {
+      const items = [`Owner: ${sec.owner.toUpperCase()}. Status: ${sec.status}.`, ...sec.body.split(/(?<=\.)\s+/).filter(Boolean).map((x) => x.replace(/\s*\[[^\]]+\]/g, ""))];
+      return { ...base, agent: "Orchestrator", reply: `Section ${sec.n}, ${sec.title}, for ${name}:\n${bullets(items)}`, tags: sec.body.match(/[A-Z]+-[A-Za-z0-9-]+(?=\])/g)?.slice(0, 2) ?? [], steps: ["Opening the review pack…", `Reading section ${sec.n}…`, "Drafting summary…"] };
+    }
+  }
 
   if (agent === "Profiling Agent") {
     if (/meeting|notes/.test(t)) {

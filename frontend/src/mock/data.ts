@@ -207,7 +207,7 @@ export const products: Product[] = [
 ];
 
 export const packSections: PackSection[] = [
-  { n: 1, title: "Client summary + SAA", owner: "rm", gate: "G4", status: "draft", body: "Sergio Ermotti, S$5.0m, Balanced. IPS v2 approved 2026-09-20 following the house purchase [NOTE-2026-09-12] [IPS-v2]." },
+  { n: 1, title: "Latest Client's Profile + Goals", owner: "rm", gate: "G4", status: "draft", body: "Sergio Ermotti, S$5.0m, Balanced. IPS v2 approved 2026-09-20 following the house purchase [NOTE-2026-09-12] [IPS-v2]." },
   { n: 2, title: "Market view", owner: "ic", gate: "G2", status: "ready", body: "Late expansion [MKT-0142]. Buy fixed income, hold equities and gold, sell cash [CIO-2026Q4-03]." },
   { n: 3, title: "Current market conditions", owner: "ic", gate: "G2", status: "ready", body: "Growth is slowing while profits remain solid; rate cuts are expected [MKT-0142]." },
   { n: 4, title: "Portfolio current health", owner: "ic", gate: "G2", status: "flagged", body: "Sharpe 0.82 [CALC-sharpe-v1]. Diversification 71. Tech concentration of 31% looks high." },
