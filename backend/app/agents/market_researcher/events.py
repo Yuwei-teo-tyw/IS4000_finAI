@@ -22,6 +22,12 @@ _YIELD_NAMES = {"DGS10": "10-year Treasury yield", "DGS30": "30-year Treasury yi
 _CURVE_NAMES = {"T10Y3M": "10Y-3M curve", "T10Y2Y": "10Y-2Y curve"}
 
 
+def _ordinal(n: float) -> str:
+    k = int(round(n))
+    suffix = "th" if 10 <= k % 100 <= 20 else {1: "st", 2: "nd", 3: "rd"}.get(k % 10, "th")
+    return f"{k}{suffix}"
+
+
 def _get(series: Series, key: str, as_of: date) -> list[SeriesPoint]:
     return f.truncate(series.get(key) or [], as_of)
 
@@ -165,24 +171,30 @@ def claims_rising(series: Series, prices: Series, as_of: date, t: EventThreshold
 
 
 def credit_stress(series: Series, prices: Series, as_of: date, t: EventThresholds) -> list[Event]:
-    pts = _get(series, "BAMLH0A0HYM2", as_of)
-    if not pts:
-        return []
-    latest = pts[-1]
-    widening = f.change_over(pts, 91)
-    pct = f.percentile(pts, 10)
-    parts = []
-    if widening is not None and widening > t.hy_oas_3m_widening:
-        parts.append(f"has widened {widening * 100:.0f}bp in 3 months")
-    if pct is not None and pct > t.hy_oas_high_percentile:
-        history_years = (latest.date - pts[0].date).days / 365.25
-        parts.append(f"sits at the {pct:.0f}th percentile of the last {min(10.0, history_years):.1f} years")
+    """Widening: ICE BofA HY OAS when available (only ~3 years on FRED, fine
+    for a 3-month change), else the Baa-Treasury spread. Level: Baa-Treasury
+    spread vs its own last 10 years - long enough history for a percentile."""
+    hy = _get(series, "BAMLH0A0HYM2", as_of)
+    baa = _get(series, "BAA10Y", as_of)
+    parts, evidence = [], []
+    hy_widening, baa_widening = f.change_over(hy, 91), f.change_over(baa, 91)
+    if hy_widening is not None and hy_widening > t.hy_oas_3m_widening:
+        parts.append(f"high-yield OAS widened {hy_widening * 100:.0f}bp in 3 months to {hy[-1].value:.2f}%")
+        evidence.append("BAMLH0A0HYM2")
+    elif baa_widening is not None and baa_widening > t.credit_spread_3m_widening:
+        parts.append(f"the Baa-Treasury spread widened {baa_widening * 100:.0f}bp in 3 months to {baa[-1].value:.2f}pp")
+        evidence.append("BAA10Y")
+    pct = f.percentile(baa, 10)
+    if pct is not None and pct > t.credit_high_percentile:
+        years = min(10.0, (baa[-1].date - baa[0].date).days / 365.25)
+        parts.append(f"the Baa-Treasury spread at {baa[-1].value:.2f}pp is at the {_ordinal(pct)} percentile of the last {years:.1f} years")
+        evidence.append("BAA10Y")
     if not parts:
         return []
     return [Event(
         id="credit_stress", severity="major" if len(parts) == 2 else "notable",
-        description=f"High-yield OAS at {latest.value:.2f}% " + " and ".join(parts) + ".",
-        evidence=["BAMLH0A0HYM2"],
+        description="Credit stress: " + "; ".join(parts) + ".",
+        evidence=sorted(set(evidence)),
     )]
 
 

@@ -260,6 +260,7 @@ class IndicatorFeatures:
     trend_gap_12m: Optional[float] = None
     annualized_3m: Optional[float] = None
     stale: bool = False
+    stats_window_years: Optional[float] = None  # history actually behind zscore_10y/percentile_10y
 
 
 def compute_indicator_features(spec: SeriesSpec, points: list[SeriesPoint], as_of: date) -> Optional[IndicatorFeatures]:
@@ -292,7 +293,16 @@ def compute_indicator_features(spec: SeriesSpec, points: list[SeriesPoint], as_o
         trend_gap_12m=trend_gap(derived, 365),
         annualized_3m=annualized,
         stale=is_stale(spec.frequency, latest.date, as_of),
+        stats_window_years=stats_window_years(derived, 10),
     )
+
+
+def stats_window_years(points: list[SeriesPoint], years: int = 10) -> Optional[float]:
+    """Years of history the trailing-`years` statistics actually cover - less
+    than `years` when the source has a short history (e.g. ICE BofA OAS on FRED)."""
+    if len(points) < 2:
+        return None
+    return round(min(float(years), (points[-1].date - points[0].date).days / 365.25), 1)
 
 
 def signal_for(features: IndicatorFeatures) -> str:

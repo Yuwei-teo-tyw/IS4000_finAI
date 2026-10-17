@@ -249,11 +249,17 @@ class MarketResearchService:
                 continue
             if feats.stale:
                 dq.stale_series.append(spec.id)
+            if feats.stats_window_years is not None and feats.stats_window_years < 9.5:
+                dq.notes.append(
+                    f"{spec.id}: percentile/z-score cover only {feats.stats_window_years:.1f} years "
+                    "(the source's history is shorter than 10 years)."
+                )
             out.append(Indicator(
                 id=spec.id, name=spec.name, category=spec.category,
                 value=round(feats.value, 4), unit=spec.unit, observation_date=feats.observation_date,
                 changes=feats.changes,
                 percentile_10y=_r(feats.percentile_10y, 1), zscore_10y=_r(feats.zscore_10y, 2),
+                stats_window_years=feats.stats_window_years,
                 signal=f.signal_for(feats), stale=feats.stale,
                 source="FRED", source_url=cfg.FRED_SERIES_URL.format(series_id=spec.id),
             ))
@@ -316,9 +322,13 @@ class MarketResearchService:
         if not series:
             regime.confidence = "low"
             dq.notes.append("No FRED data: the regime call is unavailable or low-confidence.")
-        if live and regime.phase:
+        # Persist the call for hysteresis/smoothing only when the macro data was
+        # complete - a degraded run must not move the shared state.
+        fred_complete = not any(s.startswith("FRED") for s in dq.failed_sources)
+        if live and regime.phase and fred_complete:
             await self.cache.set_regime(request.region, {
-                "phase": regime.phase, "probabilities": regime.probabilities, "as_of": as_of.isoformat(),
+                "phase": regime.phase, "probabilities": regime.probabilities, "scores": regime.scores,
+                "as_of": as_of.isoformat(),
             })
 
         news: list[NewsItem] = []

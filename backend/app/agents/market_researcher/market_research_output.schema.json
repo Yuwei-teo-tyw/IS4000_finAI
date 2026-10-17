@@ -143,6 +143,7 @@
             }
           ],
           "default": null,
+          "description": "0-100, vs the last 10 years - or less; see stats_window_years.",
           "title": "Percentile 10Y"
         },
         "zscore_10y": {
@@ -155,7 +156,21 @@
             }
           ],
           "default": null,
+          "description": "Std devs from the trailing mean over stats_window_years.",
           "title": "Zscore 10Y"
+        },
+        "stats_window_years": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Years of history behind percentile_10y/zscore_10y: 10 unless the source's history is shorter.",
+          "title": "Stats Window Years"
         },
         "signal": {
           "default": "neutral",
@@ -356,7 +371,29 @@
           "additionalProperties": {
             "type": "number"
           },
+          "description": "Per phase. The recession + late_recession share equals in_recession_prob; the split within each pair comes from the scores.",
           "title": "Probabilities",
+          "type": "object"
+        },
+        "in_recession_prob": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "P(the economy is in recession now) = P(recession) + P(late_recession), calibrated against NBER history when RegimeConfig.calibration is set.",
+          "title": "In Recession Prob"
+        },
+        "scores": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "description": "Raw (smoothed) phase scores behind the call; higher = stronger.",
+          "title": "Scores",
           "type": "object"
         },
         "confidence": {
@@ -441,7 +478,7 @@
   },
   "properties": {
     "schema_version": {
-      "default": "1.0",
+      "default": "1.2",
       "title": "Schema Version",
       "type": "string"
     },

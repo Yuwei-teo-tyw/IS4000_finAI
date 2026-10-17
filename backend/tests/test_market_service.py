@@ -49,7 +49,10 @@ class StubFred:
         self.calls.append(series_id)
         if self.fail_all or series_id in self.fail:
             raise SourceError(f"FRED:{series_id}: HTTP 500")
-        return synthetic_series(series_id, end or TODAY)
+        points = synthetic_series(series_id, end or TODAY)
+        if series_id.startswith("BAML"):  # like FRED: ICE BofA OAS only has ~3 years
+            points = [p for p in points if p.date >= (end or TODAY) - timedelta(days=3 * 365)]
+        return points
 
 
 class StubMarket:
@@ -114,6 +117,26 @@ def test_committed_schema_file_matches_model():
     assert json.loads(SCHEMA_PATH.read_text()) == output_json_schema(), (
         "Regenerate with: python -m app.agents.market_researcher.schemas"
     )
+
+
+def test_short_history_is_labelled(tmp_path):
+    out = run_async(make_service(tmp_path).run(MarketResearchRequest())).output
+    by_id = {i.id: i for i in out.indicators}
+    assert by_id["DGS10"].stats_window_years == 10.0
+    assert by_id["BAMLH0A0HYM2"].stats_window_years < 3.1
+    assert any(n.startswith("BAMLH0A0HYM2: percentile/z-score cover only") for n in out.data_quality.notes)
+    assert not any(n.startswith("DGS10:") for n in out.data_quality.notes)
+
+
+def test_regime_state_saved_only_when_fred_complete(tmp_path):
+    cache = InMemoryCache()
+    run_async(make_service(tmp_path, cache=cache, fred=StubFred(fail={"NFCI"})).run(MarketResearchRequest()))
+    assert run_async(cache.get_regime("US")) is None            # degraded run must not move shared state
+
+    out = run_async(make_service(tmp_path, cache=cache).run(MarketResearchRequest())).output
+    state = run_async(cache.get_regime("US"))
+    assert state["phase"] == out.regime.phase and state["scores"] == out.regime.scores
+    assert out.regime.in_recession_prob is not None
 
 
 def test_partial_fred_failure_is_reported(tmp_path):

@@ -20,7 +20,7 @@ Signal = Literal[
     "tightening", "easing", "neutral",
 ]
 
-SCHEMA_VERSION = "1.0"
+SCHEMA_VERSION = "1.2"  # 1.1: Indicator.stats_window_years; 1.2: Regime.in_recession_prob, Regime.scores
 SUPPORTED_REGIONS = ("US",)
 
 
@@ -80,6 +80,9 @@ US_SERIES: tuple[SeriesSpec, ...] = (
     SeriesSpec("SAHMREALTIME", "Sahm Rule Recession Indicator (real-time)", "pp", "M", "labor", up_signal="bearish_growth", down_signal="bullish_growth", signal_change="3m", signal_threshold=0.10),
     # Growth (YoY %)
     SeriesSpec("GDPC1", "Real GDP (YoY)", "%", "Q", "growth", "yoy", "bullish_growth", "bearish_growth", "1q", 0.30),
+    # CBO trend estimates (published with projections years ahead; truncated to as_of)
+    SeriesSpec("GDPPOT", "CBO Real Potential GDP (YoY)", "%", "Q", "growth", "yoy"),
+    SeriesSpec("NROU", "CBO Noncyclical Rate of Unemployment", "%", "Q", "labor"),
     SeriesSpec("INDPRO", "Industrial Production (YoY)", "%", "M", "growth", "yoy", "bullish_growth", "bearish_growth", "3m", 0.50),
     SeriesSpec("RSAFS", "Retail Sales, nominal (YoY)", "%", "M", "growth", "yoy", "bullish_growth", "bearish_growth", "3m", 0.75),
     SeriesSpec("PI", "Personal Income (YoY)", "%", "M", "growth", "yoy", "bullish_growth", "bearish_growth", "3m", 0.50),
@@ -90,6 +93,9 @@ US_SERIES: tuple[SeriesSpec, ...] = (
     # Credit
     SeriesSpec("BAMLH0A0HYM2", "US High Yield OAS", "%", "D", "credit", up_signal="tightening", down_signal="easing", signal_change="1m", signal_threshold=0.25),
     SeriesSpec("BAMLC0A0CM", "US Investment Grade OAS", "%", "D", "credit", up_signal="tightening", down_signal="easing", signal_change="1m", signal_threshold=0.10),
+    # Long-history credit spread (daily from 1986) - the ICE BofA OAS series above
+    # are licensed to FRED for ~3 years only, too short for 10y statistics.
+    SeriesSpec("BAA10Y", "Moody's Baa Corporate Spread over 10Y Treasury", "pp", "D", "credit", up_signal="tightening", down_signal="easing", signal_change="1m", signal_threshold=0.15),
     # Financial conditions
     SeriesSpec("NFCI", "Chicago Fed National Financial Conditions Index", "index", "W", "financial_conditions", up_signal="tightening", down_signal="easing", signal_change="1m", signal_threshold=0.05),
     SeriesSpec("STLFSI4", "St. Louis Fed Financial Stress Index", "index", "W", "financial_conditions", up_signal="tightening", down_signal="easing", signal_change="1m", signal_threshold=0.20),
@@ -204,8 +210,9 @@ class EventThresholds:
     sahm_trigger: float = 0.50
     sahm_warning: float = 0.30
     claims_rise_from_low: float = 0.15      # 4wk avg vs 52-week low of the 4wk avg
-    hy_oas_3m_widening: float = 1.00        # pp
-    hy_oas_high_percentile: float = 80.0
+    hy_oas_3m_widening: float = 1.00        # pp, ICE BofA HY OAS (short history - changes only)
+    credit_spread_3m_widening: float = 0.50 # pp, Baa-Treasury spread (BAA10Y)
+    credit_high_percentile: float = 80.0    # BAA10Y vs its last 10 years
     nfci_tight_level: float = 0.0
     nfci_3m_rise: float = 0.20
     inflation_reaccel_gap: float = 0.50     # core 3m annualized minus core YoY, pp
@@ -239,7 +246,8 @@ PHASES = ("early_expansion", "late_expansion", "recession", "late_recession")
 @dataclass(frozen=True)
 class RegimeConfig:
     zscore_years: int = 10
-    momentum_months: int = 6  # backtest: 3m momentum produced 5 false recession calls vs 2 at 6m
+    # Walk-forward (tuned on 1980-2005 only): momentum 9, adjustments 0.5/0.5, temperature 1.0.
+    momentum_months: int = 9
 
     # Growth level G: component -> weight. Signs are applied in regime.py
     # (unemployment gap and claims trend are inverted).
@@ -250,6 +258,13 @@ class RegimeConfig:
         "GDPC1_YOY": 0.75,
         "UNRATE_GAP": 1.25,
         "ICSA_TREND": 1.0,
+        "UNRATE_NROU_GAP": 0.0,
+        "OUTPUT_GAP": 0.0,
+    })
+    # Trend-gap components are scaled (gap / scale), not z-scored vs 10 years.
+    trend_gap_scales: dict[str, float] = field(default_factory=lambda: {
+        "UNRATE_NROU_GAP": 1.0,   # pp of unemployment above the CBO natural rate
+        "OUTPUT_GAP": 2.0,        # % below CBO potential GDP
     })
 
     # Inflation pressure I: (value - anchor) / scale, averaged.
@@ -267,9 +282,12 @@ class RegimeConfig:
     policy_weights: dict[str, float] = field(default_factory=lambda: {
         "REAL_POLICY_RATE": 1.0,
         "CURVE_FLATNESS": 0.75,
-        "HY_OAS": 1.0,
+        "CREDIT_SPREAD": 1.0,
         "NFCI": 1.0,
     })
+    # Credit spread used by P and the credit adjustments: needs long history for
+    # 10y z-scores/percentiles (ICE BofA HY OAS has only ~3 years on FRED).
+    credit_series: str = "BAA10Y"
 
     # Base quadrant score = base_scale * (sG*G + sM*M), so the argmax of the
     # base scores is exactly the guide's growth/momentum quadrant.
@@ -278,8 +296,8 @@ class RegimeConfig:
 
     # Confirmation adjustments (guide step 3) - each fired condition adds
     # this much to its phase's score.
-    adjustment_weight: float = 0.35
-    strong_adjustment_weight: float = 0.75   # Sahm rule, payrolls negative
+    adjustment_weight: float = 0.50
+    strong_adjustment_weight: float = 0.50   # Sahm rule, payrolls negative
 
     # Thresholds used by the adjustments.
     unrate_near_low_gap: float = 0.25
@@ -289,8 +307,9 @@ class RegimeConfig:
     easing_6m: float = -0.25
     aggressive_easing_6m: float = -1.0
     tightening_6m: float = 0.25
-    hy_tight_percentile: float = 35.0
-    hy_wide_percentile: float = 70.0
+    credit_tight_percentile: float = 35.0
+    credit_wide_percentile: float = 70.0
+    credit_blowout_3m: float = 0.50          # pp widening in 3 months
     probit_high: float = 0.5
     claims_surge: float = 0.20
     equity_rally_off_low: float = 0.15
@@ -298,12 +317,20 @@ class RegimeConfig:
     policy_restrictive: float = 0.5
 
     # Softmax / confidence / hysteresis (guide steps 4-5).
-    temperature: float = 0.6
+    temperature: float = 1.0
     confidence_medium: float = 0.15
     confidence_high: float = 0.35
     hysteresis_margin: float = 0.10
+    # EMA weight on the new month's scores (1.0 = no smoothing).
+    score_smoothing: float = 1.0
+    # (a, b) of P = sigmoid(a + b * logit(raw P(in recession))), fitted on
+    # 1980-2005 by `backtest --walk-forward`. None = uncalibrated.
+    calibration: Optional[tuple[float, float]] = None
     top_drivers: int = 5
     conflict_threshold: float = 0.25
+
+    # Adjustment ids (regime.ADJUSTMENT_IDS) to switch off - for backtest ablations.
+    disabled_adjustments: tuple[str, ...] = ()
 
 
 REGIME_CONFIG = RegimeConfig()

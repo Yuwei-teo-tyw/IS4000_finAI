@@ -49,8 +49,12 @@ class Indicator(BaseModel):
     unit: str
     observation_date: date
     changes: dict[str, float] = Field(default_factory=dict, description="Change over each window, in the value's own unit (pp for % values; % for prices).")
-    percentile_10y: Optional[float] = None
-    zscore_10y: Optional[float] = None
+    percentile_10y: Optional[float] = Field(default=None, description="0-100, vs the last 10 years - or less; see stats_window_years.")
+    zscore_10y: Optional[float] = Field(default=None, description="Std devs from the trailing mean over stats_window_years.")
+    stats_window_years: Optional[float] = Field(
+        default=None,
+        description="Years of history behind percentile_10y/zscore_10y: 10 unless the source's history is shorter.",
+    )
     signal: SignalLiteral = "neutral"
     stale: bool = False
     source: str
@@ -84,7 +88,18 @@ class Driver(BaseModel):
 
 class Regime(BaseModel):
     phase: Optional[Phase] = None
-    probabilities: dict[str, float] = Field(default_factory=dict)
+    probabilities: dict[str, float] = Field(
+        default_factory=dict,
+        description="Per phase. The recession + late_recession share equals in_recession_prob; the split within "
+                    "each pair comes from the scores.",
+    )
+    in_recession_prob: Optional[float] = Field(
+        default=None,
+        description="P(the economy is in recession now) = P(recession) + P(late_recession), calibrated against "
+                    "NBER history when RegimeConfig.calibration is set.",
+    )
+    scores: dict[str, float] = Field(
+        default_factory=dict, description="Raw (smoothed) phase scores behind the call; higher = stronger.")
     confidence: Literal["low", "medium", "high"] = "low"
     recession_prob_12m: Optional[float] = Field(default=None, description="NY Fed yield-curve probit model estimate, 0-1.")
     composites: dict[str, Optional[float]] = Field(default_factory=dict, description="G (growth level), M (momentum), I (inflation), P (policy/financial stance).")

@@ -83,3 +83,72 @@ def test_probit_matches_ny_fed_formula():
     inverted = [SeriesPoint(p.date, -1.0) for p in flat]
     assert recession_probability({"T10Y3M": inverted}, shift_months(START, 24)) == pytest.approx(0.5397, abs=1e-3)
     assert recession_probability({}, AS_OF) is None
+
+
+def test_adjustment_ids_are_listed_and_can_be_disabled():
+    import re
+    from pathlib import Path
+
+    import app.agents.market_researcher.regime as regime_module
+    from app.agents.market_researcher.regime import ADJUSTMENT_IDS
+
+    used = set(re.findall(r'_Adjustment\("([a-z_]+)"', Path(regime_module.__file__).read_text()))
+    assert used == set(ADJUSTMENT_IDS)
+
+    series = scenario(SCENARIOS["early_expansion"])
+    series["SAHMREALTIME"] = [SeriesPoint(shift_months(AS_OF, -1), 0.6)]
+    with_sahm = classify_regime(series, AS_OF)
+    without = classify_regime(series, AS_OF, cfg=RegimeConfig(disabled_adjustments=("sahm_triggered",)))
+    assert any("Sahm rule triggered" in c for c in with_sahm.conflicting_signals)
+    assert not any("Sahm rule triggered" in c for c in without.conflicting_signals)
+
+
+def test_credit_spread_uses_configured_long_history_series():
+    series = scenario(SCENARIOS["early_expansion"])
+    wide = [SeriesPoint(shift_months(START, i), 2.0) for i in range(MONTHS - 3)] + [
+        SeriesPoint(shift_months(START, i), 3.0) for i in range(MONTHS - 3, MONTHS)]
+    series["BAA10Y"] = wide
+    regime = classify_regime(series, AS_OF)
+    assert any("Credit spreads blowing out (BAA10Y)" in c for c in regime.conflicting_signals) or regime.phase == "recession"
+
+
+# --- step 2: trend gaps, smoothing, calibration -------------------------------
+
+def test_trend_gap_components_are_scaled_not_zscored():
+    from app.agents.market_researcher.regime import compute_inputs, growth_components
+
+    series = scenario(SCENARIOS["early_expansion"])
+    series["UNRATE"] = [SeriesPoint(shift_months(START, i), 6.0) for i in range(MONTHS)]
+    series["NROU"] = [SeriesPoint(shift_months(START, i), 4.5) for i in range(0, MONTHS, 3)]
+    comps = growth_components(series)
+    assert comps["UNRATE_NROU_GAP"][-1].value == pytest.approx(1.5)
+
+    cfg = RegimeConfig(growth_weights={"INDPRO_YOY": 1.0, "UNRATE_NROU_GAP": 1.0})
+    inp = compute_inputs(series, AS_OF, cfg=cfg)
+    # inverted (more slack = weaker growth) and scaled by 1.0pp, not z-scored
+    assert inp.growth_z["UNRATE_NROU_GAP"] == pytest.approx(-1.5)
+
+
+def test_score_smoothing_pulls_scores_toward_previous():
+    series = scenario(SCENARIOS["early_expansion"])
+    raw = classify_regime(series, AS_OF)
+    previous = {"phase": "recession", "scores": {k: (5.0 if k == "recession" else -5.0) for k in raw.scores}}
+    smoothed = classify_regime(series, AS_OF, previous=previous, cfg=RegimeConfig(score_smoothing=0.5))
+    assert smoothed.scores["recession"] == pytest.approx(0.5 * raw.scores["recession"] + 2.5, abs=1e-3)
+    unsmoothed = classify_regime(series, AS_OF, previous=previous, cfg=RegimeConfig(score_smoothing=1.0))
+    assert unsmoothed.scores == raw.scores
+
+
+def test_calibration_rescales_probabilities_consistently():
+    from app.agents.market_researcher.regime import calibrate_recession_prob
+
+    assert calibrate_recession_prob(0.3, None) == 0.3
+    assert calibrate_recession_prob(0.1, (-2.0, 1.0)) < calibrate_recession_prob(0.5, (-2.0, 1.0))  # monotone
+
+    series = scenario(SCENARIOS["recession"])
+    raw = classify_regime(series, AS_OF)
+    cal = classify_regime(series, AS_OF, cfg=RegimeConfig(calibration=(-2.0, 0.7)))
+    assert cal.phase == raw.phase                                        # call unchanged
+    assert sum(cal.probabilities.values()) == pytest.approx(1.0, abs=1e-3)
+    assert cal.probabilities["recession"] + cal.probabilities["late_recession"] == pytest.approx(cal.in_recession_prob, abs=1e-3)
+    assert cal.in_recession_prob != pytest.approx(raw.in_recession_prob)

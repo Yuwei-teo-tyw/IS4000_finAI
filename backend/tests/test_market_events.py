@@ -75,10 +75,19 @@ def test_claims_rising():
 
 
 def test_credit_stress():
-    values = [3.0] * 300 + [4.5] * 5
-    events = ev.credit_stress({"BAMLH0A0HYM2": daily(values)}, {}, AS_OF, T)
-    assert ids(events) == {"credit_stress"} and events[0].severity == "major"
-    assert ev.credit_stress({"BAMLH0A0HYM2": daily([3.0] * 300)}, {}, AS_OF, T) == []
+    # HY OAS widening alone (short history is fine for a 3-month change): notable
+    (event,) = ev.credit_stress({"BAMLH0A0HYM2": daily([3.0] * 300 + [4.5] * 5)}, {}, AS_OF, T)
+    assert event.severity == "notable" and event.evidence == ["BAMLH0A0HYM2"]
+    # ...plus the long-history Baa spread at a 10-year high: major
+    baa = daily([1.8] * 3000 + [2.9] * 5)
+    (event,) = ev.credit_stress({"BAMLH0A0HYM2": daily([3.0] * 300 + [4.5] * 5), "BAA10Y": baa}, {}, AS_OF, T)
+    assert event.severity == "major" and event.evidence == ["BAA10Y", "BAMLH0A0HYM2"]
+    assert "at the 100th percentile of the last 8.2 years" in event.description or "percentile of the last 8.2 years" in event.description
+    assert [ev._ordinal(n) for n in (1, 2, 3, 11, 12, 13, 22, 92, 100)] == ["1st", "2nd", "3rd", "11th", "12th", "13th", "22nd", "92nd", "100th"]
+    # Baa widening is used when there is no HY OAS
+    (event,) = ev.credit_stress({"BAA10Y": daily([1.8] * 300 + [2.5] * 5)}, {}, AS_OF, T)
+    assert "Baa-Treasury spread widened 70bp" in event.description
+    assert ev.credit_stress({"BAMLH0A0HYM2": daily([3.0] * 300), "BAA10Y": daily([1.8] * 300)}, {}, AS_OF, T) == []
 
 
 def test_financial_conditions():
