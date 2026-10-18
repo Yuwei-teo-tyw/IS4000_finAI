@@ -1,0 +1,29 @@
+{
+  "status": "PASS",
+  "tested_candidate_zip_sha256": "79fe57afdff94f26cd2adf18d0d3db715760c6b9ddbde1eef0a09e92d5cc58ba",
+  "local_config_absent_from_archive": true,
+  "explicit_local_setup_required": true,
+  "start": "READY",
+  "check": "all four readiness true, instance matches",
+  "stop": "STOPPED",
+  "owned_service_exit_codes": [
+    0,
+    0,
+    0,
+    0
+  ],
+  "runtime_member_sha256": {
+    "runtime.py": "2609861a62933fd2195fe806ef2a87b2e057d78fbf997ea700e0a9d7e4862679",
+    "server.py": "b17fb23a08f7f7106ffe3a1b451aeafe5cb475a06c8e580dd666f07d1cc0388d",
+    "service.py": "473131d980b308947e78235a09b2df9ef03fcc27955c0dce9ee54d3224ad5047",
+    "launcher.py": "17600d71570d18e40094cc19fc4ca597cf33fcafc2935118fdca6a09fc90f737",
+    "START_ADVISORY_DEMO.cmd": "dfdbf7955fbfb97bb3beefaf9f9387e3eb65136bcb4eb971d6cbe32f9880593e",
+    "STOP_ADVISORY_DEMO.cmd": "956936d9e1a4ea47fe7dd800fd2577862959ff57e28433800bf5d05dd1114c87",
+    "CHECK_ADVISORY_DEMO.cmd": "19626877ed3ae012b8267fa504bb748515853cdbc0977eb39cb16dc9f29fab38",
+    "assets/app.js": "cff5e718421b3c7f060a73fc7ace64f43dca66d4b1f854c257067a501a288fdb",
+    "assets/style.css": "4ef979fcb63416508ac8a0a9cae4c7ecc5b9eaa04162c7f6667b3b94ee43b6b9",
+    "assets/index.html": "dd02ac9b74bcbc1a4e04b01879f54d846491f90f76fdde2a851cccb73ced0a9e",
+    "demo-config.example.json": "04d7b010579ff9399d641002b06bed62c25ba6cf2ae27374b36ff9b53790b7b2"
+  },
+  "final_runtime_assets_identical": true
+}

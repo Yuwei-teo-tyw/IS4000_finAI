@@ -1,0 +1,19 @@
+{
+  "authority": "FROZEN",
+  "pins": 559,
+  "tree": "1a196f3645d26cfaaeddf4952bf79a1a0175c7d398fb6a1277cfb856b4de8995",
+  "mode": "POLICY_ONLY",
+  "clarifier": "scripted",
+  "specialists": "MOCK_HTTP",
+  "key_presence": {
+    "GEMINI_API_KEY": "MISSING",
+    "GROQ_API_KEY": "MISSING",
+    "OPENROUTER_API_KEY": "MISSING",
+    "LANGSMITH_API_KEY": "MISSING",
+    "LAB_INTERNAL_API_TOKEN": "PRESENT",
+    "OPENAI_API_KEY": "MISSING",
+    "TAVILY_API_KEY": "MISSING"
+  },
+  "tracing": false,
+  "guard": true
+}

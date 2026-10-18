@@ -1,0 +1,23 @@
+{
+  "status": "PASS",
+  "extracted_candidate_archive_sha256": "bd8af673bc12cd8c2b786d14fdb94c5fe906187b78ff5cee415947f280d32551",
+  "start": "READY",
+  "check": "all four readiness true and same owned instance",
+  "stop": "STOPPED",
+  "owned_processes_exited_zero": 4,
+  "runtime_member_hashes": {
+    "runtime.py": "3741bbc21d3c29ec4519558c55290685b0e711996ad042c857cfba4de3379546",
+    "server.py": "b17fb23a08f7f7106ffe3a1b451aeafe5cb475a06c8e580dd666f07d1cc0388d",
+    "service.py": "473131d980b308947e78235a09b2df9ef03fcc27955c0dce9ee54d3224ad5047",
+    "launcher.py": "17600d71570d18e40094cc19fc4ca597cf33fcafc2935118fdca6a09fc90f737",
+    "START_ADVISORY_DEMO.cmd": "32758e9b303e7ba4ebaf1eb4a9da988618140563525014e24f88aeb1de1a10bc",
+    "STOP_ADVISORY_DEMO.cmd": "70abb2bb371e91cd3b3845e59402fc97ab92bb4d67c9dd66677c50ac71db4971",
+    "CHECK_ADVISORY_DEMO.cmd": "dce43f603c324ab7f7ec5af02ddc1930b47e90fa6076fb9d4286a8df2082583d",
+    "assets/app.js": "cff5e718421b3c7f060a73fc7ace64f43dca66d4b1f854c257067a501a288fdb",
+    "assets/style.css": "4ef979fcb63416508ac8a0a9cae4c7ecc5b9eaa04162c7f6667b3b94ee43b6b9",
+    "assets/index.html": "dd02ac9b74bcbc1a4e04b01879f54d846491f90f76fdde2a851cccb73ced0a9e",
+    "demo-config.json": "f4ba442ad78f84823faac3c15669931ec3f82b6559efc0aaa2c4ce0850cdefa5"
+  },
+  "final_runtime_assets_identical": true,
+  "claim": "Final packaging/docs may differ; all executable runtime/asset/config members byte-identical to extracted smoke."
+}

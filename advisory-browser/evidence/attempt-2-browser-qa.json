@@ -1,0 +1,6 @@
+{
+  "fixture": "adapter-only against existing maintained synthetic services",
+  "checks": [],
+  "status": "FAILED",
+  "failure": "Expected values to be strictly equal:\n+ actual - expected\n\n+ 'Checking connection'\n- 'Local services ready'\n"
+}

@@ -1,0 +1,20 @@
+[
+  {
+    "name": "pytest_adapter_lifecycle_package",
+    "exit_code": 0,
+    "stdout": "..............................                                           [100%]\n30 passed in 4.45s\n",
+    "stderr": ""
+  },
+  {
+    "name": "ruff",
+    "exit_code": 0,
+    "stdout": "All checks passed!\n",
+    "stderr": ""
+  },
+  {
+    "name": "ruff_format",
+    "exit_code": 0,
+    "stdout": "16 files already formatted\n",
+    "stderr": ""
+  }
+]

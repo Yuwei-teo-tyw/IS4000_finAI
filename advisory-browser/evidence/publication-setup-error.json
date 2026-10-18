@@ -1,0 +1,7 @@
+{
+  "status": "PASS",
+  "scenario": "no local configuration",
+  "exit_code": 1,
+  "message": "Actionable HOLD instructs copy example and set approved external v5 project",
+  "secret_or_local_path_printed": false
+}

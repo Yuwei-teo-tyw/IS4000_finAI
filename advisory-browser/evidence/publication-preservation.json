@@ -1,0 +1,22 @@
+{
+  "status": "PASS",
+  "worktrees": {
+    "original": {
+      "source_and_recorded_evidence_files": 495,
+      "changed": 0,
+      "head_and_git_status_unchanged": true
+    },
+    "canonical": {
+      "source_and_recorded_evidence_files": 935,
+      "changed": 0,
+      "head_and_git_status_unchanged": true
+    },
+    "sync": {
+      "source_and_recorded_evidence_files": 904,
+      "changed": 0,
+      "head_and_git_status_unchanged": true
+    }
+  },
+  "credential_files_unchanged": true,
+  "service_owned_synthetic_records": "new session/lifecycle/audit records appended by authorized tests; existing records not deleted"
+}

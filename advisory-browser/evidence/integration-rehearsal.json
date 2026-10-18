@@ -1,0 +1,33 @@
+{
+  "frontend_commit": "0f38f72225f90c79e7f4bbc1e16511399877af9c",
+  "frontend_base": "a2fdd558f7c8de3a634375f041f5af9eb84cc675",
+  "upstream": "cae7c8e16d466baa3ab514bcd2939d8675aa08d5",
+  "snapshot_files": 954,
+  "active_c22_snapshot_tree": "32ee00a2fe4118e157418c0ce8f370e27fa1feef",
+  "candidates": {
+    "c22": {
+      "start_tree_or_commit": "32ee00a2fe4118e157418c0ce8f370e27fa1feef",
+      "candidate_tree": "980e715215f7e2a2e49d4778fca112eba83e4d6a",
+      "textual_conflicts": 0,
+      "changed_paths": 51,
+      "all_additive_frontend_only": true,
+      "pins_verified": 559,
+      "focused_tests_exit": 0,
+      "focused_tests_stdout": "..............................                                           [100%]\n30 passed in 4.46s\n",
+      "candidate_is_commit": false
+    },
+    "main": {
+      "start_tree_or_commit": "cae7c8e16d466baa3ab514bcd2939d8675aa08d5",
+      "candidate_tree": "81265a521c4a65c576c291e4464ccfdfc4d6b71f",
+      "textual_conflicts": 0,
+      "changed_paths": 51,
+      "all_additive_frontend_only": true,
+      "pins_verified": null,
+      "focused_tests_exit": 0,
+      "focused_tests_stdout": "..............................                                           [100%]\n30 passed in 4.57s\n",
+      "candidate_is_commit": false
+    }
+  },
+  "method": "temporary Git indexes and tree objects; exact frontend-only commit delta applied with git apply --cached; no merge/cherry-pick/commit on either target",
+  "no_active_index_or_worktree_mutation": true
+}
