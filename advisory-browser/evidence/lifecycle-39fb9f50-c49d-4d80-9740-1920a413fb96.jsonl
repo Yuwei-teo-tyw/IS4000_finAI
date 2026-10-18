@@ -1,0 +1,11 @@
+{"time": 1792248927.7640338, "code": "SOURCE_AND_SAFE_CHECK_PASSED", "pins": 559}
+{"time": 1792248927.7693872, "code": "OWNED_PROCESS_STARTED", "service": "clarifier", "pid": 34560, "port": 8811}
+{"time": 1792248927.773753, "code": "OWNED_PROCESS_STARTED", "service": "orchestrator", "pid": 52088, "port": 8812}
+{"time": 1792248927.7777536, "code": "OWNED_PROCESS_STARTED", "service": "mocks", "pid": 63752, "port": 8890}
+{"time": 1792248927.781754, "code": "OWNED_PROCESS_STARTED", "service": "browser", "pid": 13388, "port": 8820}
+{"time": 1792248933.493918, "code": "READY"}
+{"time": 1792249277.794943, "code": "OWNED_PROCESS_EXITED", "service": "clarifier", "pid": 34560, "exit_code": 0}
+{"time": 1792249277.802585, "code": "OWNED_PROCESS_EXITED", "service": "orchestrator", "pid": 52088, "exit_code": 0}
+{"time": 1792249277.803585, "code": "OWNED_PROCESS_EXITED", "service": "mocks", "pid": 63752, "exit_code": 0}
+{"time": 1792249277.803585, "code": "OWNED_PROCESS_EXITED", "service": "browser", "pid": 13388, "exit_code": 0}
+{"time": 1792249277.804585, "code": "STOPPED"}

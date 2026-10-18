@@ -1,0 +1,20 @@
+[
+  {
+    "name": "pytest",
+    "exit_code": 0,
+    "stdout": ".......................................                                  [100%]\n39 passed in 4.60s\n",
+    "stderr": ""
+  },
+  {
+    "name": "ruff",
+    "exit_code": 0,
+    "stdout": "All checks passed!\n",
+    "stderr": ""
+  },
+  {
+    "name": "format",
+    "exit_code": 0,
+    "stdout": "20 files already formatted\n",
+    "stderr": ""
+  }
+]
