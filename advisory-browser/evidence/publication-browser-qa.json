@@ -1,0 +1,67 @@
+{
+  "fixture": "complete launcher-owned frozen v5 services",
+  "checks": [
+    "keyboard navigation and visible focus",
+    "C: execution prevented before confirmation/admission",
+    "lost planning response recovered using backend attempt receipt without replanning",
+    "A: READY, explicit CONFIRMED, POLICY_ONLY admitted Goal -> Risk, SUCCEEDED and exactly two bound MOCK results",
+    "refresh recovers server run/events without resubmitting execution",
+    "B: incomplete objective, missing fields, correction revises brief and invalidates backend confirmation",
+    "D browser transport: unavailable health disables actions and shows safe error (request aborted by test; separate real transport test required)"
+  ],
+  "goal": {
+    "session": "32c505f3-ab55-4c02-8932-ffa7738ae61c",
+    "objective": "84296bfc-1c1b-40e2-9514-f64949428e6f",
+    "plan": "c4adcf1f-a1f0-4f3b-9085-daba18a4ee32",
+    "request": "0192a976-4d8e-4f21-b096-c003d34ff83d",
+    "trace": "04e95294-1d7c-452a-9e16-dec724dec3a6",
+    "run": "014ba921-93c3-4f45-a41d-b7cd44eece81",
+    "status": "SUCCEEDED",
+    "results": [
+      "goal",
+      "risk"
+    ],
+    "events": [
+      {
+        "timestamp": "2026-10-17T15:31:09.634068+00:00",
+        "capability": "goal",
+        "task_id": "goal",
+        "status": "SUCCEEDED",
+        "method": "POST",
+        "path": "/v1/mock/goal",
+        "duration_ms": 51.23100004857406
+      },
+      {
+        "timestamp": "2026-10-17T15:31:09.741202+00:00",
+        "capability": "risk",
+        "task_id": "risk",
+        "status": "SUCCEEDED",
+        "method": "POST",
+        "path": "/v1/mock/risk",
+        "duration_ms": 39.83560000779107
+      }
+    ]
+  },
+  "operations": [
+    "new",
+    "message",
+    "confirm",
+    "plan",
+    "objective",
+    "attempt",
+    "execute",
+    "run",
+    "events",
+    "objective",
+    "attempt",
+    "run",
+    "events",
+    "new",
+    "message",
+    "message",
+    "confirm",
+    "message"
+  ],
+  "page_errors": [],
+  "status": "PASS_WITH_LIFECYCLE_AND_REAL_UNAVAILABLE_PENDING"
+}

@@ -1,0 +1,6 @@
+{
+  "command": "Python 3.12 pytest -p pytest_asyncio.plugin canonical test_contracts.py + test_specialist_wire.py; guarded frozen imports",
+  "exit_code": 0,
+  "stdout": ".............                                                            [100%]\n13 passed in 0.22s\n",
+  "stderr": ""
+}

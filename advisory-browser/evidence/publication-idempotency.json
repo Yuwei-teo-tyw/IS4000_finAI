@@ -1,0 +1,12 @@
+{
+  "status": "PASS",
+  "scenario": "deliberate duplicate API submission with the browser plan-bound idempotency key",
+  "run_id_unchanged": true,
+  "specialist_POST_events_after_duplicate": 2,
+  "results": [
+    "goal",
+    "risk"
+  ],
+  "internal_token_absent_from_browser_responses": true,
+  "automatic_retry": false
+}
