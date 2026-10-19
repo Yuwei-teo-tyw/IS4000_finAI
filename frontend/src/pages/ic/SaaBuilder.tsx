@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { ChevronDown } from "lucide-react";
 import { arcApi, PortfolioManagerError } from "../../services/arcApi";
@@ -12,7 +12,7 @@ import { TemplateVerdicts } from "../../components/portfolio/TemplateVerdicts";
 import { sgdAmt } from "../../components/portfolio/pmFormat";
 import { isOffered, type PmResponse } from "../../types/portfolio";
 import { AutoSaveStatus } from "../../components/ic/SaveProgressButton";
-import { returnIpsToRm, saveIcProgress, useIcProgress } from "../../services/workflowStore";
+import { returnIpsToRm, saveIcProgress, useIcProgress, useIpsReturned } from "../../services/workflowStore";
 import { ASSETS, BackLink, Msg, NumInput, growthLimit, growthShare, sum } from "./icHelpers";
 import { IC_STEPS } from "./ThreeLBuilder";
 
@@ -36,13 +36,14 @@ export default function SaaBuilder() {
   const [tid, setTid] = useState<string | null>(null);
   const [vals, setVals] = useState<number[]>([]);
   const progress = useIcProgress(clientId);
-  const [sent, setSent] = useState(false);
+  const sent = useIpsReturned(clientId);
+  useEffect(() => { if (progress.saaTemplate) { setTid(progress.saaTemplate); if (progress.saa) setVals(progress.saa); } }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [agent, setAgent] = useState<AgentState>({ phase: "idle" });
   const [showInputs, setShowInputs] = useState(true);
   if (!client || !templates || !inputs) return <Loading />;
 
   const tpl = templates.find((t) => t.id === tid);
-  const pick = (id: string) => { setTid(id); const split = [...templates.find((t) => t.id === id)!.split]; setVals(split); setSent(false); saveIcProgress(clientId, { saaTemplate: id, saa: split }); };
+  const pick = (id: string) => { setTid(id); const split = [...templates.find((t) => t.id === id)!.split]; setVals(split); saveIcProgress(clientId, { saaTemplate: id, saa: split }); };
   const total = sum(vals);
   const limit = growthLimit(client.riskCap);
   const growth = growthShare(vals);
@@ -191,7 +192,7 @@ export default function SaaBuilder() {
       ) : !chosenOffered ? (
         <NextAction title={`Template ${tid} is not offered by the agent`} body={chosen?.suitability_explanation ?? "Pick one of the offered templates."} action={<Button disabled>Send back to RM</Button>} />
       ) : valid ? (
-        <NextAction title="Limit check passed" body="Everything is inside the rules. Send the 3L and SAA back to the RM." action={<Button variant="gold" onClick={() => { setSent(true); returnIpsToRm(clientId); }}>Send back to RM</Button>} />
+        <NextAction title="Limit check passed" body="Everything is inside the rules. Send the 3L and SAA back to the RM." action={<Button variant="gold" onClick={() => { returnIpsToRm(clientId); }}>Send back to RM</Button>} />
       ) : (
         <NextAction title="Blocked: fix the checks first" body="Open Edit weights and resolve the red messages. Sending stays off until all three pass." action={<Button disabled>Send back to RM</Button>} />
       )}

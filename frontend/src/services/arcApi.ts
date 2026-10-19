@@ -5,7 +5,7 @@
  * Pages must NEVER import from src/mock directly.
  */
 import * as m from "../mock/data";
-import { isActivated } from "./workflowStore";
+import { getActiveIps, isActivated, isIpsReturned, loadIcProgress } from "./workflowStore";
 import { bulletLines, toBulletItems } from "../utils/bullets";
 import type {
   ActivityEvent, AllocationRow, Bucket3L, Client, Gate, Holding, InboxItem, IpsPart,
@@ -26,7 +26,23 @@ const ipsEdits: Record<string, IpsPart[]> = {};
 
 /** An onboarding client whose IPS was made active moves to the Monitoring Phase. */
 const effective = (c: Client): Client =>
-  c.status === "Onboarding Phase" && isActivated(c.id) ? { ...c, status: "Monitoring Phase", ipsVersion: c.ipsVersion ?? 1 } : c;
+  c.status === "Onboarding Phase" && isActivated(c.id) ? { ...c, status: "Monitoring Phase", ipsVersion: getActiveIps(c.id) ?? c.ipsVersion ?? 1 } : c;
+
+const SAA_ASSETS = ["Cash", "Fixed income", "Equities", "Hedge funds", "Private markets", "Real estate", "Gold"];
+/** Once the IC returned the IPS, parts 2 (3L buckets) and 4 (SAA) carry the IC's saved values. */
+const withIcReturn = (clientId: string, parts: IpsPart[]): IpsPart[] => {
+  if (!isIpsReturned(clientId)) return parts;
+  const { buckets, saa } = loadIcProgress(clientId);
+  const bk = m.buckets3LByClient[clientId] ?? m.buckets3L;
+  return parts.map((p) => {
+    if (p.part === 2 && buckets && buckets.length === bk.length) {
+      const tot = buckets.reduce((a, b) => a + b, 0) || 1;
+      return { ...p, status: "filled", body: bk.map((b, i) => `• ${b.name ?? b.id}: ${Math.round((buckets[i] / tot) * 100)}% (S$${buckets[i].toLocaleString("en-SG")})`).join("\n") };
+    }
+    if (p.part === 4 && saa && saa.length === SAA_ASSETS.length) return { ...p, status: "filled", body: SAA_ASSETS.map((a, i) => `• ${a} ${saa[i]}%`).join("\n") };
+    return p;
+  });
+};
 
 const buildIpsHistory = (clientId: string): IpsVersion[] => {
   const base = m.clients.find((x) => x.id === clientId);
@@ -102,7 +118,7 @@ export const arcApi = {
   generatePortfolioProposals: (request: PmRequest): Promise<PmResponse> => generatePortfolioProposals(request),
   getAllocation: (clientId: string): Promise<AllocationRow[]> => delay(m.allocationByClient[clientId] ?? m.allocation),
   getSaaTemplates: () => delay(m.saaTemplates),
-  getIps: (clientId: string): Promise<IpsPart[]> => delay(m.ipsPartsByClient[clientId] ?? m.ipsParts),
+  getIps: (clientId: string): Promise<IpsPart[]> => delay(withIcReturn(clientId, m.ipsPartsByClient[clientId] ?? m.ipsParts)),
   getMeetingNotes: (clientId: string): Promise<MeetingNote[]> => delay(m.meetingNotes.filter((n) => n.clientId === clientId)),
   /** Newest first. Onboarding clients return [] or a single Draft. */
   getIpsHistory: (clientId: string): Promise<IpsVersion[]> => delay(withEdits(clientId, buildIpsHistory(clientId))),

@@ -24,7 +24,7 @@ export default function PsInbox() {
     : null;
   return (
     <InboxList items={items} eyebrow="Product Specialist" title="Inbox"
-      listTitle="Requests" openTo={(i) => `/ps/assistant?client=${i.clientId}`} onOpen={(i) => setActiveClientId(i.clientId)}
+      welcomeRole="ps" listTitle="Requests" openTo={(i) => `/ps/assistant?client=${i.clientId}`} onOpen={(i) => setActiveClientId(i.clientId)}
       showFilter finishedLabel="Sent to IC"
       openedNote="Waiting for product review" highNote="Due before the client meeting" />
   );

@@ -120,7 +120,7 @@ export default function PackReview({ embedded = false, clientId: clientIdProp }:
           );
         })}
       </ol>}
-      {!isIc && stage === 0 && (
+      {!isIc && stage === 0 && !onboarding && (
         <NextAction title="Send to Product Specialist" body={sendReady ? "Send this client to the Product Specialist for product research." : sendReason}
           action={<Button disabled={!sendReady} onClick={() => sendReviewRequest(clientId)}>Send to Product Specialist</Button>} />
       )}

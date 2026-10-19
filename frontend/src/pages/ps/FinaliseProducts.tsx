@@ -3,7 +3,9 @@ import { Check } from "lucide-react";
 import { useParams } from "react-router-dom";
 import { SignatureBlock, BulletList, BulletTextarea, toBulletText, Button, Card, GateChip, NextAction, PageHeader, Section, Stepper, useAsync } from "../../components/ui";
 import { arcApi } from "../../services/arcApi";
-import ProfessionaliseReview from "../../components/geneva/ProfessionaliseReview";
+import { ProfessionaliseButton } from "../../components/geneva/ProfessionaliseButton";
+import { WordingCompare } from "../rm/rmShared";
+import { getChatContext } from "../../services/chatContextStore";
 import { ClientStrip, PS_STEPS, loadSelection, saveSelection } from "./psShared";
 import { sendFinalised } from "../../services/workflowStore";
 import { savePackDraft, setSectionDone, useSignatures } from "../../services/packDraftStore";
@@ -49,22 +51,32 @@ export default function FinaliseProducts() {
   const client = useAsync(() => arcApi.getClient(clientId), [clientId]);
   const products = useAsync(() => arcApi.getProducts(clientId), [clientId]);
   const [confirm, setConfirm] = useState(false);
-  const [phase, setPhase] = useState<"reasons" | "geneva" | "preview">("reasons");
-  const [applied, setApplied] = useState<Record<string, string> | null>(null);
+  const [phase, setPhase] = useState<"reasons" | "preview">("reasons");
+  /** Per-box Geneva state: loading flag and the proposed professional wording awaiting Accept / Keep mine. */
+  const [busy, setBusy] = useState<Record<string, boolean>>({});
+  const [proposal, setProposal] = useState<Record<string, string>>({});
   const [sent, setSent] = useState(false);
+  const [editingReason, setEditingReason] = useState<string | null>(null);
   const [reasons, setReasons] = useState<Record<string, string>>({});
 
   const [all] = useState(() => loadSelection(clientId));
   const [ticked, setTicked] = useState<string[]>(() => all.map((r) => r.product));
   const list = all.filter((r) => ticked.includes(r.product));
   /** Professional baseline: seeded Product.psReason when the product is on the shelf, else a generic suitability draft. */
-  const baseline = (r: (typeof all)[number]) => (clientId === "jfr" ? products?.find((x) => x.name === r.product)?.psReason : undefined) ?? draftReason(r);
+  const baseline = (r: (typeof all)[number]) => (clientId === "jfr" ? products?.find((x) => x.name === r.product)?.psReason : undefined)?.trim() || draftReason(r);
   const [activeProduct, setActiveProduct] = useState<string | null>(null);
   const current = list.find((r) => r.product === activeProduct) ?? list[0];
   const typed = (name: string) => (reasons[name] ?? "").trim().length > 0;
-  /** What the IC receives: the professionalised text, else the baseline when nothing was typed, else the PS's own wording. */
-  const finalReason = (r: (typeof all)[number]) => applied?.[r.product] ?? (typed(r.product) ? toBulletText(reasons[r.product]) : baseline(r));
-  const typedList = list.filter((r) => typed(r.product));
+  /** What the IC receives: the PS's reason (professionalised if accepted), else the baseline when nothing was typed. */
+  const finalReason = (r: (typeof all)[number]) => (typed(r.product) && toBulletText(reasons[r.product]) ? toBulletText(reasons[r.product]) : toBulletText(baseline(r)) || draftReason(r));
+  const professionalise = async (name: string) => {
+    setBusy((b) => ({ ...b, [name]: true }));
+    const out = await arcApi.professionalise({ clientId, role: "ps", context: "products", items: [{ id: name, label: name, text: finalReason(all.find((r) => r.product === name)!) }], chat: getChatContext(clientId, "ps") });
+    setProposal((p) => ({ ...p, [name]: out[0]?.text ?? "" }));
+    setBusy((b) => ({ ...b, [name]: false }));
+  };
+  const hasReason = (r: (typeof all)[number]) => toBulletItems(finalReason(r)).length > 0;
+  const closeProposal = (name: string) => setProposal(({ [name]: _drop, ...rest }) => rest);
   const signed = !!useSignatures(clientId).ps;
   const send = () => {
     const items = list.map((r) => ({ ...r, reason: finalReason(r) }));
@@ -101,18 +113,6 @@ export default function FinaliseProducts() {
       <Stepper steps={PS_STEPS} current={1} />
       <ClientStrip client={client} />
 
-      {phase === "geneva" && (
-        <Section title="Professionalise your reasons" hint="Geneva rewrites your plain wording.">
-          <ProfessionaliseReview clientId={clientId} role="ps" context="products"
-            items={typedList.map((r) => ({ id: r.product, label: r.product, text: toBulletText(reasons[r.product]) }))}
-            onApply={(out) => setApplied(Object.fromEntries(out.map((o) => [o.id, o.text])))} />
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Button variant="secondary" onClick={() => setPhase("reasons")}>Back to reasons</Button>
-            <Button onClick={() => setPhase("preview")}>{applied ? "Continue to preview" : "Skip and preview"}</Button>
-          </div>
-        </Section>
-      )}
-
       {phase === "preview" && (
         <Section title="Preview what the IC will see">
           <div className="grid gap-8 md:grid-cols-[300px_1fr] md:items-start">
@@ -138,12 +138,35 @@ export default function FinaliseProducts() {
                     <p className="mt-2 text-xs uppercase tracking-[0.14em] text-brand">You fill in this section</p>
                     <p className="mt-2 text-sm text-ink-muted">{current.assetClass} · {current.confidencePct}% confidence</p>
                   </div>
-                  <div className="text-[17px] leading-8 text-ink-700"><BulletList className="!text-base" text={finalReason(current)} /></div>
+                  <div className="text-[17px] leading-8 text-ink-700">{editingReason === current.product ? (
+                    <BulletTextarea className="!border-brand" aria-label={`Reason for ${current.product}`} value={reasons[current.product] ?? ""}
+                      onChange={(v) => { setReasons((r) => ({ ...r, [current.product]: v })); closeProposal(current.product); }}
+                      placeholder="• Say in simple words why this suits the client" />
+                  ) : <BulletList className="!text-base" text={finalReason(current)} />}</div>
+                  {proposal[current.product] !== undefined && (
+                    <div className="border-t border-hairline pt-6">
+                      <WordingCompare oldText={finalReason(current)} newText={proposal[current.product]}
+                        onChangeNew={(t) => setProposal((x) => ({ ...x, [current.product]: t }))}
+                        onAccept={() => { setReasons((r) => ({ ...r, [current.product]: proposal[current.product] })); closeProposal(current.product); }}
+                        onKeep={() => closeProposal(current.product)} />
+                    </div>
+                  )}
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                      {proposal[current.product] === undefined && (
+                        <Button variant="secondary" size="sm" onClick={() => {
+                          if (editingReason === current.product) { setEditingReason(null); return; }
+                          if (!typed(current.product)) setReasons((r) => ({ ...r, [current.product]: finalReason(current) }));
+                          setEditingReason(current.product);
+                        }}>{editingReason === current.product ? "Done" : "Edit reason"}</Button>
+                      )}
+                    </div>
+                    <ProfessionaliseButton size="sm" label="Professionalise with Geneva" loading={!!busy[current.product]} disabled={!hasReason(current) || proposal[current.product] !== undefined || editingReason === current.product} onClick={() => professionalise(current.product)} />
+                  </div>
                 </div>
               </Card>
             )}
           </div>
-          {typedList.length > 0 && !applied && <p className="mt-6 text-sm text-ink-muted">Some reasons are in your own wording.</p>}
           <div className="mt-8"><Button variant="secondary" onClick={() => setPhase("reasons")}>Back to reasons</Button></div>
         </Section>
       )}
@@ -171,11 +194,11 @@ export default function FinaliseProducts() {
                 </div>
                 <p className="mt-3 text-sm text-ink-700">{p.industryFocus}</p>
                 <label className="mt-6 block text-sm text-ink-muted">Your reason, in plain words
-                  <BulletTextarea className="mt-2 !border-brand" aria-label={`Reason for ${p.product}`} value={reasons[p.product] ?? ""} onChange={(v) => { setReasons({ ...reasons, [p.product]: v }); setApplied(null); }}
+                  <BulletTextarea className="mt-2 !border-brand" aria-label={`Reason for ${p.product}`} value={reasons[p.product] ?? ""} onChange={(v) => { setReasons({ ...reasons, [p.product]: v }); closeProposal(p.product); }}
                     placeholder="• Say in simple words why this suits the client" />
                 </label>
-                <div className="mt-3 flex justify-end">
-                  <Button variant="secondary" size="sm" onClick={() => { setReasons({ ...reasons, [p.product]: syntheticReason(p) }); setApplied(null); }}>Fill synthetic reason</Button>
+                <div className="mt-3 flex flex-wrap justify-end gap-3">
+                  <Button variant="secondary" size="sm" onClick={() => { setReasons({ ...reasons, [p.product]: syntheticReason(p) }); closeProposal(p.product); }}>Fill synthetic reason</Button>
                 </div>
               </Card>
             ))}
@@ -185,18 +208,18 @@ export default function FinaliseProducts() {
 
       </>)}
 
-      {phase !== "geneva" && <Card className="mb-12 !p-8">
+      <Card className="mb-12 !p-8">
         <h2 className="text-xl">What the IC will receive</h2>
         <BulletList className="mt-3 !text-base" text={IC_RECEIVES.map((n) => `• ${n}`).join("\n")} />
         <label className="mt-6 flex items-start gap-3 text-sm text-ink-700">
           <input type="checkbox" className="mt-0.5 h-5 w-5" checked={confirm} onChange={(e) => setConfirm(e.target.checked)} />
           I have reviewed this list and confirm every product suits the client's IPS and risk limit.
         </label>
-      </Card>}
+      </Card>
 
       {phase === "reasons" && (
-        <NextAction title={typedList.length ? "Professionalise your reasons" : "Preview the list"}
-          action={<Button disabled={list.length === 0 || !confirm} onClick={() => setPhase(typedList.length ? "geneva" : "preview")}>{typedList.length ? "Professionalise with Geneva" : "Preview"}</Button>} />
+        <NextAction title="Preview the list"
+          action={<Button disabled={list.length === 0 || !confirm} onClick={() => setPhase("preview")}>Preview</Button>} />
       )}
       {phase === "preview" && (
         <NextAction title="Approve and send" body={signed ? "" : "Sign above to enable sending."} action={<Button disabled={!confirm || list.length === 0 || !signed} onClick={send}>Approve list & send to IC (G3)</Button>} />

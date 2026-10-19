@@ -2,6 +2,8 @@ import { useState } from "react";
 import { ArrowDownWideNarrow, ArrowUpNarrowWide, AlertTriangle, Inbox, type LucideIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Badge, Card, Loading, PageHeader } from "../ui";
+import { WelcomeBanner } from "../ui/WelcomeBanner";
+import type { Role } from "../../types/arc";
 
 export interface InboxRow { id: string; clientId: string; clientName: string; priority: "normal" | "high"; nextMeeting: string; finished?: boolean; /** Request type, e.g. "Onboarding: fill 3L and SAA" or "Quarterly review". */ kind?: string }
 type InboxItem = InboxRow;
@@ -9,6 +11,7 @@ const fmtDate = (s: string) => new Date(s).toLocaleDateString("en-SG", { day: "n
 
 
 const COLS = "md:grid-cols-[1.6fr_1.2fr_1.2fr_auto] md:items-center md:gap-x-8";
+const COLS_KIND = "md:grid-cols-[1.6fr_1.4fr_1.2fr_1.2fr_auto] md:items-center md:gap-x-8";
 
 function StatCard({ icon: Icon, label, value, note }: { icon: LucideIcon; label: string; value: React.ReactNode; note?: string }) {
   return (
@@ -42,9 +45,14 @@ interface Props {
   /** Show Open / Finished / All filter above the list (default off). */
   showFilter?: boolean;
   finishedLabel?: string;
+  /** Show a dedicated "Request type" column (kind badge) between Client and Priority (default off). */
+  kindColumn?: boolean;
+  /** Opt-in: show the shared welcome banner at the top (replaces the page header). */
+  welcomeRole?: Role;
 }
 
-export default function InboxList({ items, eyebrow, title, subtitle, listTitle, openTo, onOpen, openedNote, highNote, showFilter, finishedLabel = "Finished" }: Props) {
+export default function InboxList({ items, eyebrow, title, subtitle, listTitle, openTo, onOpen, openedNote, highNote, showFilter, finishedLabel = "Finished", kindColumn = false, welcomeRole }: Props) {
+  const cols = kindColumn ? COLS_KIND : COLS;
   const [leastFirst, setLeastFirst] = useState(false);
   const [filter, setFilter] = useState<"open" | "finished" | "all">("open");
   if (!items) return <Loading />;
@@ -55,7 +63,7 @@ export default function InboxList({ items, eyebrow, title, subtitle, listTitle, 
 
   return (
     <div>
-      <PageHeader eyebrow={eyebrow} title={title} subtitle={subtitle} />
+      {welcomeRole ? <WelcomeBanner role={welcomeRole} /> : <PageHeader eyebrow={eyebrow} title={title} subtitle={subtitle} />}
       <div className="mb-14 grid gap-8 md:grid-cols-2">
         <StatCard icon={Inbox} label="Open requests" value={openItems.length} note={openedNote} />
         <StatCard icon={AlertTriangle} label="High priority" value={high} note={highNote} />
@@ -82,13 +90,14 @@ export default function InboxList({ items, eyebrow, title, subtitle, listTitle, 
         </div>
       </div>
 
-      <div className={`hidden px-8 pb-3 text-sm text-ink-muted md:grid ${COLS}`}>
-        <span>Client</span><span>Priority</span><span>Next meeting</span><span className="invisible">Open</span>
+      <div className={`hidden px-8 pb-3 text-sm text-ink-muted md:grid ${cols}`}>
+        <span>Client</span>{kindColumn && <span>Request type</span>}<span>Priority</span><span>Next meeting</span><span className="invisible">Open</span>
       </div>
       <div className="flex flex-col gap-4">
         {sorted.map((i) => (
-          <Card key={i.id} className={`grid gap-y-4 !px-8 !py-6 ${COLS}`}>
-            <div className="flex flex-wrap items-center gap-3"><p className="text-xl text-ink">{i.clientName}</p>{i.finished && <Badge tone="green">{finishedLabel}</Badge>}{i.kind && <Badge tone="grey">{i.kind}</Badge>}</div>
+          <Card key={i.id} className={`grid gap-y-4 !px-8 !py-6 ${cols}`}>
+            <div className="flex flex-wrap items-center gap-3"><p className="text-xl text-ink">{i.clientName}</p>{i.finished && <Badge tone="green">{finishedLabel}</Badge>}{!kindColumn && i.kind && <Badge tone="grey">{i.kind}</Badge>}</div>
+            {kindColumn && <div>{i.kind && <Badge tone="grey">{i.kind}</Badge>}</div>}
             <div className="whitespace-nowrap"><Badge tone={i.priority === "high" ? "amber" : "grey"}>{i.priority === "high" ? "High priority" : "Normal"}</Badge></div>
             <p className="text-sm font-semibold">{fmtDate(i.nextMeeting)}</p>
             <div><Link to={openTo(i)} onClick={() => onOpen?.(i)} className="inline-flex min-h-12 items-center rounded-sm bg-brand px-6 text-[15px] font-semibold text-on-brand transition hover:bg-brand-hover">Open</Link></div>
