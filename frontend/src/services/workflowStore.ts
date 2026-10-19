@@ -3,8 +3,12 @@
  * Same seam style as packDraftStore: swap the bodies for a saved-state API later, keep the hooks.
  */
 import { useSyncExternalStore } from "react";
-import type { MarketRow } from "../types/arc";
-import { recordPackEdit } from "./packDraftStore";
+import type { MarketRow, Role } from "../types/arc";
+import { recordPackEdit, ipsKey, seedPackState } from "./packDraftStore";
+import { notify, clientNameOf, PERSON } from "./notificationStore";
+import { clients } from "../mock/data";
+
+export { ipsKey };
 
 function createStore<T>(storageKey: string, initial: T) {
   const listeners = new Set<() => void>();
@@ -35,6 +39,7 @@ export const useReviewRequest = (clientId: string) => requests.use().find((r) =>
 export const sendReviewRequest = (clientId: string, priority: ReviewRequest["priority"] = "normal") => {
   recordPackEdit(clientId, 0, "rm", "Handed over to Product Specialist");
   requests.write([...requests.read().filter((r) => r.clientId !== clientId), { clientId, sentAt: new Date().toISOString(), priority }]);
+  notify({ to: "ps", from: "rm", clientId, kind: "pack", message: `${PERSON.rm} sent the Review pack for ${clientNameOf(clientId)}` });
 };
 export const withdrawReviewRequest = (clientId: string) => requests.write(requests.read().filter((r) => r.clientId !== clientId));
 
@@ -57,6 +62,7 @@ export const useAllFinalised = (): FinalisedList[] => Object.values(finalised.us
 export const sendFinalised = (clientId: string, items: FinalisedItem[]) => {
   recordPackEdit(clientId, 0, "ps", "Handed over to Investment Counsellor");
   finalised.write({ ...finalised.read(), [clientId]: { clientId, sentAt: new Date().toISOString(), items } });
+  notify({ to: "ic", from: "ps", clientId, kind: "pack", message: `${PERSON.ps} sent the Review pack for ${clientNameOf(clientId)}` });
 };
 
 /* ---- 4. Active IPS version per client (used by the chatbot: "Using IPS v2") ---- */
@@ -81,8 +87,102 @@ export const useIcHandover = (clientId: string): IcHandover | undefined => icHan
 export const sendIcToRm = (clientId: string) => {
   recordPackEdit(clientId, 0, "ic", "Handed over to Relationship Manager");
   icHandover.write({ ...icHandover.read(), [clientId]: { sentAt: new Date().toISOString() } });
+  notify({ to: "rm", from: "ic", clientId, kind: "pack", message: `${PERSON.ic} sent the Review pack for ${clientNameOf(clientId)}` });
 };
 export const withdrawIcToRm = (clientId: string) => {
   const { [clientId]: _drop, ...rest } = icHandover.read();
   icHandover.write(rest);
 };
+
+/* ---- 7. IPS creation workflow (RM -> IC -> RM). Section content lives in the pack stores under ipsKey(clientId). ---- */
+export interface IpsRequest { clientId: string; sentAt: string }
+const ipsRequests = createStore<IpsRequest[]>("wf-ips-requests", []);
+export const useIpsRequests = () => ipsRequests.use();
+export const useIpsRequest = (clientId: string) => ipsRequests.use().find((r) => r.clientId === clientId);
+export const sendIpsToIc = (clientId: string) => {
+  recordPackEdit(ipsKey(clientId), 0, "rm", "Handed over to Investment Counsellor");
+  ipsRequests.write([...ipsRequests.read().filter((r) => r.clientId !== clientId), { clientId, sentAt: new Date().toISOString() }]);
+  notify({ to: "ic", from: "rm", clientId, kind: "ips", message: `${PERSON.rm} sent the IPS for ${clientNameOf(clientId)}` });
+};
+export const withdrawIpsToIc = (clientId: string) => ipsRequests.write(ipsRequests.read().filter((r) => r.clientId !== clientId));
+
+const ipsIcHandover = createStore<Record<string, IcHandover>>("wf-ips-ic-handover", {});
+export const useIpsIcHandover = (clientId: string): IcHandover | undefined => ipsIcHandover.use()[clientId];
+export const sendIpsIcToRm = (clientId: string) => {
+  recordPackEdit(ipsKey(clientId), 0, "ic", "Handed over to Relationship Manager");
+  ipsIcHandover.write({ ...ipsIcHandover.read(), [clientId]: { sentAt: new Date().toISOString() } });
+  notify({ to: "rm", from: "ic", clientId, kind: "ips", message: `${PERSON.ic} sent the IPS for ${clientNameOf(clientId)}` });
+};
+
+/* ---- 8. Final completion, set only by the RM ("Complete workflow") ---- */
+const ipsComplete = createStore<Record<string, { at: string }>>("wf-ips-complete", {});
+export const useIpsComplete = (clientId: string): boolean => !!ipsComplete.use()[clientId];
+export const setIpsComplete = (clientId: string, complete = true) => {
+  const { [clientId]: _drop, ...rest } = ipsComplete.read();
+  ipsComplete.write(complete ? { ...rest, [clientId]: { at: new Date().toISOString() } } : rest);
+  if (complete) recordPackEdit(ipsKey(clientId), 0, "rm", "IPS workflow completed");
+};
+const packComplete = createStore<Record<string, { at: string }>>("wf-workflow-complete", {});
+export const useWorkflowComplete = (clientId: string): boolean => !!packComplete.use()[clientId];
+export const setWorkflowComplete = (clientId: string, complete = true) => {
+  const { [clientId]: _drop, ...rest } = packComplete.read();
+  packComplete.write(complete ? { ...rest, [clientId]: { at: new Date().toISOString() } } : rest);
+  if (complete) recordPackEdit(clientId, 0, "rm", "Review pack workflow completed");
+};
+
+/* ---- 9. Client Book stage: derived from the stores above ---- */
+export interface WorkflowStep { role: Role; label: string; state: "done" | "current" | "todo" }
+export interface WorkflowStage { kind: "pack" | "ips"; steps: WorkflowStep[]; percent: number }
+const toSteps = (defs: [Role, string, boolean][]): WorkflowStep[] => {
+  let currentSet = false;
+  return defs.map(([role, label, done]) => {
+    if (done) return { role, label, state: "done" as const };
+    if (!currentSet) { currentSet = true; return { role, label, state: "current" as const }; }
+    return { role, label, state: "todo" as const };
+  });
+};
+/** kind omitted: Onboarding clients show the IPS flow, Monitoring clients the Review Pack flow. Percent reaches 100 only after setIpsComplete / setWorkflowComplete. */
+export function useWorkflowStage(clientId: string, kind?: "pack" | "ips"): WorkflowStage {
+  const sentPack = !!useReviewRequest(clientId);
+  const psDone = useAllFinalised().some((f) => f.clientId === clientId);
+  const icPack = !!useIcHandover(clientId);
+  const packDone = useWorkflowComplete(clientId);
+  const sentIps = !!useIpsRequest(clientId);
+  const icIps = !!useIpsIcHandover(clientId);
+  const ipsDone = useIpsComplete(clientId);
+  const k = kind ?? (clients.find((c) => c.id === clientId)?.status === "Onboarding Phase" ? "ips" : "pack");
+  const steps = k === "ips"
+    ? toSteps([["rm", "RM fills IPS", sentIps], ["ic", "IC proposes SAA", icIps], ["rm", "RM reviews", ipsDone]])
+    : toSteps([["rm", "RM drafts pack", sentPack], ["ps", "PS products", psDone], ["ic", "IC sections", icPack], ["rm", "RM reviews", packDone]]);
+  const complete = k === "ips" ? ipsDone : packDone;
+  const doneN = steps.filter((x) => x.state === "done").length;
+  const hasCurrent = steps.some((x) => x.state === "current");
+  const percent = complete ? 100 : Math.min(99, Math.round((doneN / steps.length) * 100 + (hasCurrent ? 10 : 0)));
+  return { kind: k, steps, percent };
+}
+
+/* ---- Demo seed: Tan Su Shan has RM -> PS -> IC -> RM done; only the RM's "Complete workflow" remains. Runs once per session and never overwrites. ---- */
+function seedTss() {
+  const id = "tss";
+  try {
+    if (sessionStorage.getItem("wf-seeded-tss")) return;
+    sessionStorage.setItem("wf-seeded-tss", "1");
+    const addTo = <T,>(key: string, init: T, put: (cur: T) => T) => {
+      let cur = init;
+      try { const raw = sessionStorage.getItem(key); if (raw) cur = JSON.parse(raw) as T; } catch { /* ignore */ }
+      sessionStorage.setItem(key, JSON.stringify(put(cur)));
+    };
+    const at = (mins: number) => new Date(Date.now() - mins * 60_000).toISOString();
+    addTo<ReviewRequest[]>("wf-review-requests", [], (c) => (c.some((r) => r.clientId === id) ? c : [...c, { clientId: id, sentAt: at(300), priority: "normal" }]));
+    addTo<Record<string, FinalisedList>>("wf-finalised", {}, (c) => (c[id] ? c : { ...c, [id]: { clientId: id, sentAt: at(200), items: [] } }));
+    addTo<Record<string, IcHandover>>("wf-ic-handover", {}, (c) => (c[id] ? c : { ...c, [id]: { sentAt: at(100) } }));
+    seedPackState(id, {
+      done: { 1: "rm", 2: "ic", 3: "ic", 4: "ic", 5: "ps", 7: "rm", 8: "ic" },
+      signatures: {
+        ps: { name: "David", dataUrl: "", typed: true, signedAt: at(190) },
+        ic: { name: "Wei Lun", dataUrl: "", typed: true, signedAt: at(90) },
+      },
+    });
+  } catch { /* ignore */ }
+}
+seedTss();

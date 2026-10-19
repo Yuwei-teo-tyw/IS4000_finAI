@@ -1,6 +1,7 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { useLocation } from "react-router-dom";
 import {
+  BookMarked,
   BookUser,
   Inbox,
   Sparkles,
@@ -43,25 +44,28 @@ export function getNav(role: Role, _clientId: string): NavItem[] {
     case "rm":
       return [
         { label: "Client Book", to: "/rm/clients", icon: BookUser },
+        { label: "House View Records", to: "/rm/house-view", icon: BookMarked },
         { label: "AI Assistant", to: "/rm/assistant", icon: Sparkles },
       ];
     case "ic":
       return [
         { label: "Requests Inbox", to: "/ic/inbox", icon: Inbox },
         { label: "Client Book", to: "/ic/clients", icon: BookUser },
+        { label: "House View Records", to: "/ic/house-view", icon: BookMarked },
         { label: "AI Assistant", to: "/ic/assistant", icon: Sparkles },
       ];
     case "ps":
       return [
         { label: "Product Requests", to: "/ps/inbox", icon: Inbox },
         { label: "Client Book", to: "/ps/clients", icon: BookUser },
+        { label: "House View Records", to: "/ps/house-view", icon: BookMarked },
         { label: "AI Assistant", to: "/ps/assistant", icon: Sparkles },
       ];
   }
 }
 
 const STORAGE_KEY = "arc.activeClient";
-const VALID_IDS = ["jdi", "jfr", "dso"];
+const VALID_IDS = ["jdi", "jfr", "dso", "tss"];
 const DEFAULT_ID = "jfr";
 
 function isValid(id: string | null | undefined): id is string {

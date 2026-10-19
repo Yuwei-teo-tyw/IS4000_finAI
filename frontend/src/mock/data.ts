@@ -4,6 +4,7 @@ import type {
 } from "../types/arc";
 
 export const clients: Client[] = [
+  { id: "tss", name: "Tan Su Shan", riskCategory: "Growth", riskCap: 4, aumSgd: 6_200_000, nextMeeting: "2026-11-10", nextQuarterlyReview: "2026-11-12", status: "Monitoring Phase", ipsVersion: 1, sharpe: 0.91, diversificationScore: 74 },
   { id: "jdi", name: "Jamie Dimon", riskCategory: "Aggressive", riskCap: 5, aumSgd: 3_600_000, nextMeeting: "2026-10-30", nextQuarterlyReview: null, status: "Onboarding Phase", ipsVersion: null, sharpe: 0.70, diversificationScore: 68 },
   { id: "jfr", name: "Jane Fraser", riskCategory: "Balanced", riskCap: 3, aumSgd: 5_000_000, nextMeeting: "2026-10-21", nextQuarterlyReview: "2026-10-28", status: "Monitoring Phase", ipsVersion: 2, sharpe: 0.82, diversificationScore: 71 },
   { id: "dso", name: "David Solomon", riskCategory: "Conservative", riskCap: 1, aumSgd: 2_800_000, nextMeeting: "2026-11-03", nextQuarterlyReview: null, status: "Onboarding Phase", ipsVersion: null, sharpe: 0.61, diversificationScore: 64 },
@@ -44,6 +45,7 @@ export const holdingsByClient: Record<string, Holding[]> = {
   jfr: holdings,
   dso: mkHoldings(2_800_000, [20, 30, 20, 4, 3, 8, 2, 1, 5, 7], [2.9, 3.4, 4.1, 14.2, 12.7, 6.3, 5.1, 8.8, 3.0, 18.5]),
   jdi: mkHoldings(3_600_000, [12, 28, 18, 10, 8, 6, 4, 2, 6, 6], [2.9, 3.4, 4.1, 14.2, 12.7, 6.3, 5.1, 8.8, 3.0, 18.5]),
+  tss: mkHoldings(6_200_000, [10, 22, 14, 16, 10, 6, 6, 4, 5, 7], [2.9, 3.4, 4.1, 14.2, 12.7, 6.3, 5.1, 8.8, 3.0, 18.5]),
 };
 
 export const holdingLabels = ["T-Bills", "SGS 10Y", "PIMCO Income", "MSFT", "AAPL", "DBS", "Man AHL", "BXPE", "CLAR REIT", "Gold"];
@@ -119,6 +121,7 @@ export const ipsParts: IpsPart[] = [
 ];
 
 export const meetingNotes: MeetingNote[] = [
+  { id: "note_tss1", clientId: "tss", date: "2026-10-08", title: "Annual review meeting", sourceFile: "2026-10-08-annual-review.pdf", originalText: "Annual review with Tan Su Shan, 8 October 2026. Attendees: Tan Su Shan, Isabel (RM).\n\nSu Shan confirmed her appetite for growth and asked to keep two years of living costs liquid. She plans to fund a family trust from 2030 and wants philanthropic giving to continue.", summary: ["Growth appetite confirmed", "Keep two years of living costs liquid", "Family trust funding planned for 2030"], checklist: [{ text: "Update review pack", done: true }, { text: "Confirm trust funding schedule", done: false }] },
   { id: "note_0318", sourceFile: "2026-09-12-house-purchase-meeting.pdf", originalText: "Meeting with Jane Fraser, 12 September 2026. Attendees: Jane Fraser, Isabel (RM).\n\nJane opened by explaining that she and her family have found a house they want to buy, at about S$15m. She expects to pay a deposit of S$3.0m within the next twelve months and would like to fund it without disturbing the part of the portfolio that supports her retirement income.\n\nI asked how firm the timeline is. She said the sellers are flexible but she does not want to be rushed into selling investments in a weak market. She repeated that volatility worries him more than it did a year ago, and that she would prefer to hold more in cash and short-dated bonds until the deposit is paid.\n\nWe agreed that the Liquidity bucket in the IPS should be enlarged, and that the IPS should be updated to version 2. Isabel will confirm the deposit date with her and send the draft to the Investment Counsellor for the revised allocation.", clientId: "jfr", date: "2026-09-12", title: "House purchase meeting", summary: ["Plans to buy a S$15m house", "Needs S$3.0m deposit within 12 months", "Wants to keep retirement income intact", "Concerned about market volatility", "Prefers cash and short-dated bonds until the deposit is paid"], checklist: [{ text: "Confirm deposit date with client", done: true }, { text: "Review liquidity bucket", done: false }, { text: "Send IPS v2 draft to IC", done: false }] },
   { id: "note_0421", sourceFile: "2026-10-12-first-meeting.pdf", originalText: "First meeting with David Solomon, 12 October 2026. Attendees: David Solomon, Isabel (RM).\n\nDavid said his priorities are steady income and keeping his capital safe. He is considering retiring about two years earlier than planned, though no date has been fixed.\n\nWhen we discussed risk, he said a fall of more than 10% in a single year would make him uncomfortable and likely prompt him to sell. He holds a bond-heavy portfolio transferred from another bank and would like it reviewed.\n\nNext steps: confirm the retirement date, complete the risk questionnaire, then send the IPS draft to the Investment Counsellor for the 3L and SAA.", clientId: "dso", date: "2026-10-12", title: "First meeting", summary: ["Wants steady income and capital kept safe", "May retire about two years early", "Would be uncomfortable with a fall of more than 10% in a year", "Bond-heavy portfolio transferred from another bank", "Retirement date not yet fixed"], checklist: [{ text: "Run the risk questionnaire", done: true }, { text: "Confirm retirement date", done: false }, { text: "Send IPS draft to IC", done: false }] },
   { id: "note_0715", sourceFile: "2026-10-09-first-meeting.pdf", originalText: "First meeting with Jamie Dimon, 9 October 2026. Attendees: Jamie Dimon, Isabel (RM).\n\nJamie would like to buy a condominium within two years. He has a moderate appetite for risk but dislikes large drops in value, especially as the purchase date gets closer. He saves roughly S$8k a month.\n\nOpen question: he has not decided on the expected price of the condo. Isabel will confirm his budget, then send the IPS draft to the Investment Counsellor. The risk questionnaire was completed during the meeting.", clientId: "jdi", date: "2026-10-09", title: "First meeting", summary: ["Wants to buy a condo within 2 years", "Moderate risk appetite, dislikes large drops", "Saves roughly S$8k a month", "Open question: expected condo price not stated", "Risk questionnaire completed in the meeting"], checklist: [{ text: "Run the risk questionnaire", done: true }, { text: "Confirm condo budget", done: false }, { text: "Send IPS draft to IC", done: false }] },
@@ -134,11 +137,13 @@ export const gates: Gate[] = [
 /** Seed requests per role: 2 Onboarding clients (jdi, dso) + 1 Monitoring client (jfr, quarterly review). */
 export const inboxes: Record<"ic" | "ps", InboxItem[]> = {
   ic: [
+    { id: "ic-tss", clientId: "tss", clientName: "Tan Su Shan", kind: "Quarterly review: new TAA and sections 2-4", from: "rm", receivedAt: "2026-10-12 09:00", summary: "Quarterly review opened; IC sections handed to the Relationship Manager.", priority: "normal", trigger: 2 },
     { id: "ic-jfr", clientId: "jfr", clientName: "Jane Fraser", kind: "Quarterly review: new TAA and sections 2-4", from: "rm", receivedAt: "2026-10-14 17:05", summary: "Quarterly review opened; revise the TAA against the new CIO House View.", priority: "high", trigger: 2 },
     { id: "ic-jdi", clientId: "jdi", clientName: "Jamie Dimon", kind: "Onboarding: fill 3L and SAA", from: "rm", receivedAt: "2026-10-15 09:30", summary: "Onboarding IPS draft sent; parts 2 and 4 await the Investment Counsellor.", priority: "normal", trigger: 1 },
     { id: "ic-dso", clientId: "dso", clientName: "David Solomon", kind: "Onboarding: fill 3L and SAA", from: "rm", receivedAt: "2026-10-16 10:15", summary: "Onboarding IPS draft sent; parts 2 and 4 await the Investment Counsellor.", priority: "normal", trigger: 1 },
   ],
   ps: [
+    { id: "ps-tss", clientId: "tss", clientName: "Tan Su Shan", kind: "Quarterly review: product list", from: "rm", receivedAt: "2026-10-12 09:10", summary: "Shortlist products for the quarterly review.", priority: "normal", trigger: 2 },
     { id: "ps-jfr", clientId: "jfr", clientName: "Jane Fraser", kind: "Quarterly review: product list", from: "rm", receivedAt: "2026-10-14 11:00", summary: "Shortlist products for the revised TAA before the 28 Oct quarterly review.", priority: "high", trigger: 2 },
     { id: "ps-jdi", clientId: "jdi", clientName: "Jamie Dimon", kind: "Onboarding: initial product list", from: "rm", receivedAt: "2026-10-15 14:00", summary: "Initial product review for the onboarding IPS.", priority: "normal", trigger: 1 },
     { id: "ps-dso", clientId: "dso", clientName: "David Solomon", kind: "Onboarding: initial product list", from: "rm", receivedAt: "2026-10-16 11:30", summary: "Initial product review for the onboarding IPS.", priority: "normal", trigger: 1 },
@@ -252,6 +257,11 @@ export const buckets3LByClient: Record<string, Bucket3L[]> = {
     { id: "longevity", name: "Longevity", horizon: "Lifetime income", amountSgd: 1_620_000, pct: 45, purpose: "Retirement savings" },
     { id: "legacy", name: "Legacy", horizon: "Beyond lifetime", amountSgd: 900_000, pct: 25, purpose: "Support for parents and future family" },
   ],
+  tss: [
+    { id: "liquidity", name: "Liquidity", horizon: "0–3 years", amountSgd: 930_000, pct: 15, purpose: "Working capital and a two-year living-cost cushion" },
+    { id: "longevity", name: "Longevity", horizon: "Lifetime income", amountSgd: 3_720_000, pct: 60, purpose: "Long-term growth to fund retirement" },
+    { id: "legacy", name: "Legacy", horizon: "Beyond lifetime", amountSgd: 1_550_000, pct: 25, purpose: "Family trust and philanthropic giving" },
+  ],
 };
 
 const rows = (cls: AllocationRow["assetClass"][], saa: number[], cur: number[], oldT: number[], newT: number[], tag: string): AllocationRow[] =>
@@ -261,10 +271,19 @@ export const allocationByClient: Record<string, AllocationRow[]> = {
   jfr: allocation,
   dso: rows(CLS, [20, 48, 18, 2, 1, 5, 6], [20, 50, 15, 2, 1, 5, 7], [20, 49, 16, 2, 1, 5, 7], [18, 52, 15, 2, 1, 5, 7], "IPS-draft"),
   jdi: rows(CLS, [12, 38, 25, 6, 2, 8, 9], [12, 40, 24, 6, 2, 7, 9], [12, 39, 24, 6, 2, 8, 9], [11, 40, 25, 6, 2, 7, 9], "IPS-draft"),
+  tss: rows(CLS, [8, 30, 30, 10, 6, 8, 8], [10, 32, 28, 10, 5, 7, 8], [9, 31, 29, 10, 6, 7, 8], [8, 30, 31, 10, 6, 7, 8], "IPS-v1"),
 };
 
 export const ipsPartsByClient: Record<string, IpsPart[]> = {
   jfr: ipsParts,
+  tss: [
+    { part: 1, title: "Client goals and objectives", owner: "rm", status: "filled", body: "• Primary objective: long-term capital growth over a 20-year horizon.\n• Secondary objective: fund a family trust and annual philanthropic giving.\n• Tertiary objective: maintain two years of living costs in liquid assets." },
+    { part: 2, title: "3L buckets and explanation", owner: "ic", status: "filled", body: "• Liquidity bucket: 15% of investable assets for working capital.\n• Longevity bucket: 60%, supporting retirement income and growth.\n• Legacy bucket: 25%, held for the family trust and giving." },
+    { part: 3, title: "Client risk profile", owner: "rm", status: "filled", body: "• Risk profile: Growth, with a risk limit of 4 on a 5-point scale.\n• Loss tolerance: maximum drawdown of approximately 18%." },
+    { part: 4, title: "Strategic Asset Allocation", owner: "ic", status: "filled", body: "• Cash 8%, Fixed income 30%, Equities 30%.\n• Hedge funds 10%, Private markets 6%, Real estate 8%, Gold 8%.\n• Tactical deviations are permitted within a band of 5 points around each strategic weight." },
+    { part: 5, title: "Review rules", owner: "rm", status: "locked", body: "• Portfolio review frequency: quarterly.\n• Rebalancing trigger: drift exceeding 5 points from SAA." },
+    { part: 6, title: "Signature line", owner: "rm", status: "locked", body: "• Executed by the Relationship Manager following client confirmation (G1).\n• Effective only upon recorded client acknowledgement." },
+  ],
   dso: [
     { part: 1, title: "Client goals and objectives", owner: "rm", status: "filled", body: "• Primary objective: capital preservation.\n• Secondary objective: steady income drawdown throughout retirement.\n• Tertiary objective: modest bequest to grandchildren." },
     { part: 2, title: "3L buckets and explanation", owner: "ic", status: "blank", body: "" },
@@ -294,6 +313,7 @@ const gp = (start: number, grow: number, req0: number, reqGrow: number) =>
 export const goalProjectionByClient: Record<string, GoalProjection> = {
   jfr: { points: gp(5, 0.052, 4.6, 0.05), events: [{ year: 2027, label: "House deposit" }, { year: 2034, label: "Child's education" }, { year: 2042, label: "Retirement" }], yearsOnTrack: 6, summary: "Funds last 6 years beyond the target age under the current Balanced plan." },
   dso: { points: gp(2.8, 0.036, 2.6, 0.035), events: [{ year: 2029, label: "Retirement" }, { year: 2045, label: "Legacy gift" }], yearsOnTrack: 4, summary: "Funds last 4 years beyond the target age; a small buffer on a conservative path." },
+  tss: { points: gp(6.2, 0.06, 5.6, 0.055), events: [{ year: 2030, label: "Family trust funding" }, { year: 2046, label: "Retirement" }], yearsOnTrack: 7, summary: "Funds last 7 years beyond the target age under the Growth plan." },
   jdi: { points: gp(3.6, 0.055, 3.3, 0.052), events: [{ year: 2028, label: "Condo down payment" }, { year: 2050, label: "Retirement" }], yearsOnTrack: 5, summary: "Funds last 5 years beyond the target age under the Moderate plan." },
 };
 

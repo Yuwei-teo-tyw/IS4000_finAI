@@ -167,3 +167,19 @@ export function useSignatures(clientId: string): PackSignatures {
     () => snapSignatures(clientId),
   );
 }
+
+/** IPS workflow namespace: use `ipsKey(clientId)` wherever a pack clientId is accepted (drafts, blocks, done flags, signatures, history) so the IPS never collides with the Review Pack. */
+export const ipsKey = (clientId: string) => `${clientId}:ips`;
+
+/** Demo seed: writes done flags / signatures only when that client has none yet. Never overwrites existing session state. */
+export function seedPackState(clientId: string, opts: { done?: Record<number, Role>; signatures?: Record<string, PackSignature> }) {
+  const at = new Date().toISOString();
+  try {
+    if (opts.done && sessionStorage.getItem(doneKey(clientId)) === null) {
+      const d: SectionDone = {};
+      Object.entries(opts.done).forEach(([n, by]) => { d[Number(n)] = { done: true, by, at }; });
+      sessionStorage.setItem(doneKey(clientId), JSON.stringify(d));
+    }
+    if (opts.signatures && sessionStorage.getItem(sigKey(clientId)) === null) sessionStorage.setItem(sigKey(clientId), JSON.stringify(opts.signatures));
+  } catch { /* ignore */ }
+}

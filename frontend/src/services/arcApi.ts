@@ -149,6 +149,23 @@ export const arcApi = {
     return { summary, market: wantsMarket ? m.macroBrief : null, rows, autoTick: named.length > 0, steps, tags: ["MKT-0142", "CIO-2026Q4-03"] };
   },
   getHouseViews: (_clientId: string): Promise<HouseView[]> => delay(m.houseViews),
+  /** IPS parts as PackSection[] so the Review Pack machinery (blocks, done flags, history) can edit them under ipsKey(clientId). RM owns 1,3,5,6; IC owns 2 (SAA proposal) and 4 (3L). */
+  getIpsSections: (clientId: string): Promise<PackSection[]> => {
+    const parts = m.ipsPartsByClient[clientId] ?? m.ipsParts;
+    const body = (part: number) => parts.find((p) => p.part === part)?.body ?? "";
+    const defs: { n: number; title: string; owner: Role; src: number }[] = [
+      { n: 1, title: "Client goals and objectives", owner: "rm", src: 1 },
+      { n: 2, title: "Strategic asset allocation proposal", owner: "ic", src: 4 },
+      { n: 3, title: "Client risk profile", owner: "rm", src: 3 },
+      { n: 4, title: "3L buckets and explanation", owner: "ic", src: 2 },
+      { n: 5, title: "Review rules", owner: "rm", src: 5 },
+      { n: 6, title: "Signature line", owner: "rm", src: 6 },
+    ];
+    return delay(defs.map((d) => ({
+      n: d.n, order: d.n, title: d.title, owner: d.owner, gate: d.owner === "ic" ? "G2" as const : "G1" as const,
+      status: body(d.src).trim() ? "ready" as const : "draft" as const, body: body(d.src), ...(d.n === 2 ? { chart: "saa" as const } : {}),
+    })));
+  },
   getPack: (_clientId: string): Promise<PackSection[]> => delay([...m.packSections].sort((a, b) => (a.order ?? a.n) - (b.order ?? b.n))),
   /** Backend Jinja render of the compiled pack: RM's current text in, standalone HTML out (same HTML feeds the PDF). */
   renderPackHtml: async (input: PackRenderInput): Promise<string> => {

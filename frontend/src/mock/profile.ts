@@ -19,6 +19,13 @@ export const profileByClient: Record<string, ClientProfile> = {
     timeHorizon: "Short to medium term (retirement may be brought forward by two years)", liquidityNeeds: "Moderate, steady income draw expected from retirement; onboarding in progress",
     lossTolerance: ["Uncomfortable with a fall above 10% in a year", "Likely to sell after a large drawdown", "Risk questionnaire completed; to be confirmed with the Relationship Manager"],
   },
+  tss: {
+    dateOfBirth: "21 August 1976", age: 50, nationality: "Singaporean", residency: "Singapore", occupation: "Company director", maritalStatus: "Married",
+    dependants: "2 children", incomeSource: "Director fees; dividend income", taxResidency: "Singapore",
+    goals: ["Long-term capital growth", "Fund a family trust from 2030", "Continue annual philanthropic giving"],
+    timeHorizon: "Long term (20 years)", liquidityNeeds: "Moderate; two years of living costs held liquid",
+    lossTolerance: ["Can tolerate a drawdown of about 18%", "Comfortable with equity volatility"],
+  },
   jdi: {
     dateOfBirth: "30 May 1985", age: 41, nationality: "Singaporean", residency: "Singapore", occupation: "Technology professional", maritalStatus: "Married",
     dependants: "1 child", incomeSource: "Salary; equity compensation", taxResidency: "Singapore",
