@@ -4,11 +4,13 @@ import { arcApi } from "../../services/arcApi";
 import { Badge, Button, Card, Loading, RiskScale, sgd, useAsync } from "../../components/ui";
 import { ROLE_PEOPLE } from "../../layouts/navConfig";
 import { useRole } from "../../layouts/AppShell";
-import { fmtDate } from "./rmShared";
+import { fmtDate, usePackStatus } from "./rmShared";
+import { useActivated, useIpsReturned, useIpsSent } from "../../services/workflowStore";
 
 const TODAY = new Date("2026-10-17");
 const DAY = 86_400_000;
 const COLS = "md:grid-cols-[1.4fr_1fr_0.8fr_1.1fr_1.1fr_auto] md:items-center md:gap-x-8";
+const COLS_RM = "md:grid-cols-[1.3fr_1fr_0.8fr_1fr_1fr_1.1fr_1.1fr_auto] md:items-center md:gap-x-6";
 
 const TAGLINES = [
   "Great relationships are built one thoughtful conversation at a time.",
@@ -48,8 +50,36 @@ function StatCard({ icon: Icon, label, value, note }: { icon: LucideIcon; label:
   );
 }
 
+function Bar({ done, total, label }: { done: number; total: number; label: string }) {
+  return (
+    <div>
+      <div className="h-1 w-full bg-hairline" role="progressbar" aria-valuemin={0} aria-valuemax={total} aria-valuenow={done} aria-label={label}>
+        <div className="h-full bg-brand" style={{ width: `${total ? (done / total) * 100 : 0}%` }} />
+      </div>
+      <p className="mt-2 text-xs text-ink-muted">{done >= total && total > 0 ? "Complete" : `${done} of ${total}`}</p>
+    </div>
+  );
+}
+
+/** RM-only progress cells. Onboarding: notes, IPS draft, sent to IC, returned, active. Pack: sections complete. */
+function ProgressCells({ clientId, monitoring }: { clientId: string; monitoring: boolean }) {
+  const sent = !!useIpsSent(clientId);
+  const returned = useIpsReturned(clientId);
+  const active = useActivated(clientId);
+  const pack = usePackStatus(clientId);
+  const step = monitoring || active ? 5 : returned ? 4 : sent ? 3 : 2;
+  const onboarding = monitoring || active
+    ? <Bar done={5} total={5} label="Onboarding progress" />
+    : <Bar done={step} total={5} label="Onboarding progress" />;
+  const packCell = !(monitoring || active)
+    ? <p className="text-xs text-ink-muted">Not started</p>
+    : pack.ready ? <Bar done={pack.doneCount} total={pack.total} label="Review pack progress" /> : <p className="text-xs text-ink-muted">Loading</p>;
+  return <>{onboarding}{packCell}</>;
+}
+
 export default function ClientBook() {
   const role = useRole();
+  const isRm = role === "rm";
   const clients = useAsync(() => arcApi.listClients());
   const [furthestFirst, setFurthestFirst] = useState(false);
   const [tagline] = useState(() => TAGLINES[Math.floor(Math.random() * TAGLINES.length)]);
@@ -96,8 +126,8 @@ export default function ClientBook() {
         </div>
       </div>
 
-      <div className={`hidden px-8 pb-3 text-sm text-ink-muted md:grid ${COLS}`}>
-        <span>Client</span><span>Risk appetite</span><span>AUM</span><span>Phase</span><span>Next Meeting</span><span className="invisible">Open</span>
+      <div className={`hidden px-8 pb-3 text-sm text-ink-muted md:grid ${isRm ? COLS_RM : COLS}`}>
+        <span>Client</span><span>Risk appetite</span><span>AUM</span><span>Phase</span><span>Next Meeting</span>{isRm && <><span>Onboarding progress</span><span>Review pack progress</span></>}<span className="invisible">Open</span>
       </div>
       <div className="flex flex-col gap-10">
         {groups.map((g) => (
@@ -105,7 +135,7 @@ export default function ClientBook() {
             <h3 className="mb-4 text-lg">{g.title} <span className="text-ink-muted">({g.list.length})</span></h3>
             <div className="flex flex-col gap-4">
         {g.list.map((c) => (
-          <Card key={c.id} className={`grid gap-y-4 !px-8 !py-6 ${COLS}`}>
+          <Card key={c.id} className={`grid gap-y-4 !px-8 !py-6 ${isRm ? COLS_RM : COLS}`}>
             <p className="text-xl text-ink">{c.name}</p>
             <div><RiskScale value={c.riskCap} /><p className="mt-2 text-xs text-ink-muted">{c.riskCategory}, {c.riskCap} of 5</p></div>
             <p className="text-sm font-semibold">{sgd(c.aumSgd)}</p>
@@ -114,6 +144,7 @@ export default function ClientBook() {
               <p className="font-semibold">{fmtDate(c.nextMeeting)}</p>
               <p className="mt-1 text-ink-muted">{relative(c.nextMeeting)}</p>
             </div>
+            {isRm && <ProgressCells clientId={c.id} monitoring={g.title === "Monitoring"} />}
             <div><Button to={`/${role}/clients/${c.id}`}>Open</Button></div>
           </Card>
         ))}

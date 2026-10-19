@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { Lock } from "lucide-react";
 import { arcApi } from "../../services/arcApi";
+import { activateClient, setActiveIps } from "../../services/workflowStore";
 import { Badge, BulletList, Button, Card, GateChip, Loading, NextAction, PageHeader, Stepper, useAsync } from "../../components/ui";
 import { onboardingSteps, ipsToSections, fmtDate } from "./rmShared";
 import { ContributionsPanel } from "../../components/export/ContributionsPanel";
@@ -24,7 +25,7 @@ export default function IpsApproval() {
       <Stepper steps={onboardingSteps} current={approvedBy ? 5 : 4} />
 
       {approvedBy ? (
-        <NextAction title="IPS approved" body={`Approved by ${approvedBy}. The IPS is now active.`}
+        <NextAction title="IPS approved" body={`Approved by ${approvedBy}. The IPS is now active and the client is in the Monitoring Phase.`}
           action={<Button to={`/rm/clients/${clientId}/documents`}>View client's documents</Button>} />
       ) : (
         <NextAction title="Review, then approve" body="The agent never approves on your behalf."
@@ -38,7 +39,7 @@ export default function IpsApproval() {
           <div className="flex flex-wrap gap-3">
             <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your full name"
               className="min-w-64 flex-1 rounded-md border border-ink-200 px-4 py-3 text-sm outline-none focus:border-ink" />
-            <Button disabled={!name.trim()} onClick={() => setApprovedBy(`${name.trim()} on ${new Date().toLocaleString("en-SG")}`)}>Confirm</Button>
+            <Button disabled={!name.trim()} onClick={() => { setApprovedBy(`${name.trim()} on ${new Date().toLocaleString("en-SG")}`); setActiveIps(clientId, 1); activateClient(clientId); }}>Confirm</Button>
             <Button variant="secondary" onClick={() => setConfirming(false)}>Cancel</Button>
           </div>
         </Card>

@@ -1,7 +1,7 @@
 import InboxList, { type InboxRow } from "../../components/inbox/InboxList";
 import { arcApi } from "../../services/arcApi";
 import { useAsync } from "../../components/ui";
-import { useAllFinalised } from "../../services/workflowStore";
+import { useAllFinalised, useAllIpsSent } from "../../services/workflowStore";
 import { setActiveClientId } from "../../layouts/navConfig";
 
 const isOnboarding = (kind?: string) => /^onboarding/i.test(kind ?? "");
@@ -10,11 +10,12 @@ export default function IcInbox() {
   const clients = useAsync(() => arcApi.listClients());
   const seeded = useAsync(() => arcApi.getInbox("ic"));
   const finalised = useAllFinalised();
+  const ipsSent = useAllIpsSent();
   const items: InboxRow[] | null = clients && seeded
     ? [
-        ...seeded.flatMap((s) => {
+        ...seeded.filter((s) => !isOnboarding(s.kind) || ipsSent.includes(s.clientId)).flatMap((s) => {
           const c = clients.find((x) => x.id === s.clientId);
-          return [{ id: s.id, clientId: s.clientId, clientName: s.clientName, priority: s.priority, nextMeeting: c?.nextMeeting ?? s.receivedAt, kind: s.kind }];
+          return [{ id: s.id, clientId: s.clientId, clientName: s.clientName, priority: s.priority, nextMeeting: c?.nextMeeting ?? s.receivedAt, kind: isOnboarding(s.kind) ? "Onboarding" : s.kind }];
         }),
         // Live workflow state: a PS-finalised list for a client not already seeded appears as its own row.
         ...finalised.flatMap((f) => {

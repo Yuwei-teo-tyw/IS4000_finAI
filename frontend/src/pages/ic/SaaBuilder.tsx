@@ -4,6 +4,8 @@ import { arcApi } from "../../services/arcApi";
 import { Badge, Button, Card, GateChip, Loading, NextAction, PageHeader, Section, Stepper, Table, useAsync } from "../../components/ui";
 import { ASSETS, BackLink, Msg, NumInput, growthLimit, growthShare, sum } from "./icHelpers";
 import { IC_STEPS } from "./ThreeLBuilder";
+import { AutoSaveStatus } from "../../components/ic/SaveProgressButton";
+import { returnIpsToRm, saveIcProgress, useIcProgress } from "../../services/workflowStore";
 
 const TABS = ["Template", "Edit weights", "Frontier"] as const;
 
@@ -11,15 +13,17 @@ export default function SaaBuilder() {
   const { clientId = "jfr" } = useParams();
   const client = useAsync(() => arcApi.getClient(clientId), [clientId]);
   const templates = useAsync(() => arcApi.getSaaTemplates());
+  const progress = useIcProgress(clientId);
   const [tab, setTab] = useState<(typeof TABS)[number]>("Template");
-  const [tid, setTid] = useState("C");
+  const [tid, setTid] = useState(progress.saaTemplate ?? "C");
   const [vals, setVals] = useState<number[]>([]);
   const [sent, setSent] = useState(false);
-  useEffect(() => { if (templates) setVals([...templates.find((t) => t.id === "C")!.split]); }, [templates]);
+  useEffect(() => { if (templates) setVals(progress.saa && progress.saa.length === templates[0].split.length ? progress.saa : [...templates.find((t) => t.id === tid)!.split]); }, [templates]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!client || !templates) return <Loading />;
 
   const tpl = templates.find((t) => t.id === tid)!;
-  const pick = (id: string) => { setTid(id); setVals([...templates.find((t) => t.id === id)!.split]); setSent(false); };
+  const pick = (id: string) => { const split = [...templates.find((t) => t.id === id)!.split]; setTid(id); setVals(split); setSent(false); saveIcProgress(clientId, { saaTemplate: id, saa: split }); };
+  const edit = (i: number, n: number) => { const next = vals.map((v, j) => (j === i ? n : v)); setVals(next); saveIcProgress(clientId, { saaTemplate: tid, saa: next }); };
   const total = sum(vals);
   const limit = growthLimit(client.riskCap);
   const growth = growthShare(vals);
@@ -58,7 +62,7 @@ export default function SaaBuilder() {
         <Section title="Edit the seven classes" hint={`Template ${tpl.id}. Each class within 5 points of it, total 100, growth assets at most ${limit}% (risk limit ${client.riskCap}).`}>
           <Table head={["Asset class", "Template", "Your SAA", "Gap"]} rows={ASSETS.map((a, i) => {
             const gap = vals[i] - tpl.split[i];
-            return [a, `${tpl.split[i]}%`, <NumInput key={a} value={vals[i] ?? 0} suffix="%" onChange={(n) => setVals(vals.map((v, j) => (j === i ? n : v)))} />,
+            return [a, `${tpl.split[i]}%`, <NumInput key={a} value={vals[i] ?? 0} suffix="%" onChange={(n) => edit(i, n)} />,
               <span key="g" className={Math.abs(gap) > 5 ? "font-semibold text-negative" : "text-ink-500"}>{gap > 0 ? "+" : ""}{gap}</span>];
           })} />
           <div className="mt-8 flex flex-col gap-4">
@@ -84,8 +88,9 @@ export default function SaaBuilder() {
         </Section>
       )}
 
+      <div className="mb-6 flex justify-end"><AutoSaveStatus savedAt={progress.savedAt} /></div>
       {sent ? <Msg ok>SAA sent back to the RM for the IPS. Awaiting RM review.</Msg> : valid ? (
-        <NextAction title="Limit check passed" body="Everything is inside the rules." action={<Button variant="primary" onClick={() => setSent(true)}>Send back to RM</Button>} />
+        <NextAction title="Limit check passed" body="Everything is inside the rules." action={<Button variant="primary" onClick={() => { setSent(true); returnIpsToRm(clientId); }}>Send back to RM</Button>} />
       ) : (
         <NextAction title="Blocked: fix the checks first" body="Resolve the red checks to enable sending." action={<Button disabled>Send back to RM</Button>} />
       )}

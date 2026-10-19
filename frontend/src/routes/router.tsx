@@ -21,6 +21,8 @@ import IcPack from "../pages/ic/IcPack";
 import PsInbox from "../pages/ps/PsInbox";
 import MarketResearch from "../pages/ps/MarketResearch";
 import FinaliseProducts from "../pages/ps/FinaliseProducts";
+import HouseViewRecords from "../pages/ps/HouseViewRecords";
+import ProductShelfPage from "../pages/ps/ProductShelfPage";
 import ClientLayout from "../pages/client/ClientLayout";
 import ClientOverview from "../pages/client/ClientOverview";
 import ClientDocuments from "../pages/client/ClientDocuments";
@@ -49,6 +51,7 @@ export const router = createBrowserRouter([
     path: "/rm",
     element: <AppShell />,
     children: [
+      { path: "house-views", element: <HouseViewRecords /> },
       { index: true, element: <Navigate to="clients" replace /> },
       { path: "clients", element: <ClientBook /> },
       { path: "assistant", element: <RmAssistant /> },
@@ -65,6 +68,7 @@ export const router = createBrowserRouter([
     path: "/ic",
     element: <AppShell />,
     children: [
+      { path: "house-views", element: <HouseViewRecords /> },
       { index: true, element: <Navigate to="inbox" replace /> },
       { path: "inbox", element: <IcInbox /> },
       { path: "clients", element: <ClientBook /> },
@@ -88,6 +92,8 @@ export const router = createBrowserRouter([
       { path: "inbox", element: <PsInbox /> },
       { path: "clients", element: <ClientBook /> },
       { path: "assistant", element: <MarketResearch /> },
+      { path: "house-views", element: <HouseViewRecords /> },
+      { path: "shelf", element: <ProductShelfPage /> },
       client360,
       { path: "cases/:clientId/market", element: <Navigate to="/ps/assistant" replace /> },
       { path: "cases/:clientId/finalise", element: <FinaliseProducts /> },

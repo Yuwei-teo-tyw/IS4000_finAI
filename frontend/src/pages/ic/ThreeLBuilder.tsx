@@ -4,6 +4,8 @@ import { ChevronDown } from "lucide-react";
 import { arcApi } from "../../services/arcApi";
 import { BulletList, Button, Card, GateChip, Loading, NextAction, PageHeader, Section, Stepper, sgdFull, useAsync } from "../../components/ui";
 import { Bar, BackLink, Msg, NumInput } from "./icHelpers";
+import { AutoSaveStatus } from "../../components/ic/SaveProgressButton";
+import { saveIcProgress, useIcProgress } from "../../services/workflowStore";
 
 export const IC_STEPS = [{ label: "3L buckets", hint: "IPS part 2" }, { label: "SAA", hint: "IPS part 4" }, { label: "Send back to RM", hint: "Return to RM" }];
 
@@ -12,9 +14,10 @@ export default function ThreeLBuilder() {
   const client = useAsync(() => arcApi.getClient(clientId), [clientId]);
   const buckets = useAsync(() => arcApi.get3L(clientId), [clientId]);
   const ips = useAsync(() => arcApi.getIps(clientId), [clientId]);
+  const progress = useIcProgress(clientId);
   const [amounts, setAmounts] = useState<number[]>([]);
   const [open, setOpen] = useState(false);
-  useEffect(() => { if (buckets) setAmounts(buckets.map((b) => b.amountSgd)); }, [buckets]);
+  useEffect(() => { if (buckets) setAmounts(progress.buckets && progress.buckets.length === buckets.length ? progress.buckets : buckets.map((b) => b.amountSgd)); }, [buckets]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!client || !buckets || !ips) return <Loading />;
 
   const total = amounts.reduce((a, b) => a + b, 0);
@@ -51,7 +54,7 @@ export default function ThreeLBuilder() {
                   <p className="text-sm text-ink-500">{b.horizon}</p>
                   <p className="mt-2 text-sm text-ink-700">{b.purpose}</p>
                 </div>
-                <NumInput value={amounts[i] ?? 0} width="w-40" suffix="S$" onChange={(n) => setAmounts(amounts.map((a, j) => (j === i ? n : a)))} />
+                <NumInput value={amounts[i] ?? 0} width="w-40" suffix="S$" onChange={(n) => { const next = amounts.map((a, j) => (j === i ? n : a)); setAmounts(next); saveIcProgress(clientId, { buckets: next }); }} />
               </div>
               <div className="mt-5 flex items-center gap-4">
                 <Bar pct={client.aumSgd ? ((amounts[i] ?? 0) / client.aumSgd) * 100 : 0} tone="gold" />
@@ -60,8 +63,9 @@ export default function ThreeLBuilder() {
             </Card>
           ))}
         </div>
-        <div className="mt-8">
+        <div className="mt-8 flex flex-wrap items-center justify-between gap-4">
           <Msg ok={ok}>{ok ? `Total is ${sgdFull(total)}. Matches the portfolio.` : `Total is ${sgdFull(total)}. ${diff > 0 ? `${sgdFull(diff)} still to place.` : `${sgdFull(-diff)} over the portfolio.`}`}</Msg>
+          <AutoSaveStatus savedAt={progress.savedAt} />
         </div>
       </Section>
 

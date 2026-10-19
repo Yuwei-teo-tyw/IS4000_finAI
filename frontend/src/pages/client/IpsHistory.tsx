@@ -6,14 +6,14 @@ import { DocumentPreviewModal } from "../../components/documents/DocumentPreview
 import { IpsDocument } from "../../components/documents/IpsDocument";
 import { SortByDate, type SortOrder } from "../../components/documents/SortByDate";
 import { arcApi } from "../../services/arcApi";
-import { setActiveIps, useActiveIps } from "../../services/workflowStore";
+import { activateClient, setActiveIps, useActiveIps, useIpsReturned } from "../../services/workflowStore";
 import IpsDraft from "../rm/IpsDraft";
 import type { IpsVersion } from "../../types/arc";
 
 const statusTone = { Active: "green", Superseded: "grey", Draft: "gold" } as const;
 const iconBtn = "inline-flex size-10 items-center justify-center rounded-sm border border-ink text-ink hover:bg-surface-300";
 
-function VersionCard({ v, clientName, canEdit, onEdit, isActive, canActivate, onActivate }: { v: IpsVersion; clientName: string; canEdit: boolean; onEdit: () => void; isActive: boolean; canActivate: boolean; onActivate: () => void }) {
+function VersionCard({ v, clientName, canEdit, onEdit, isActive, canActivate, onActivate, returned }: { v: IpsVersion; clientName: string; canEdit: boolean; onEdit: () => void; isActive: boolean; canActivate: boolean; onActivate: () => void; returned: boolean }) {
   const [preview, setPreview] = useState(false);
   const editable = canEdit;
   return (
@@ -35,8 +35,8 @@ function VersionCard({ v, clientName, canEdit, onEdit, isActive, canActivate, on
         <div className="mt-6 flex flex-wrap items-center gap-3">
           <button type="button" aria-label="Preview" title="Preview" onClick={() => setPreview(true)} className={iconBtn}><Eye size={18} /></button>
           {canActivate && !isActive && (
-            <span title={v.status === "Draft" ? "Draft versions cannot be made active until approved." : "Make this the IPS the AI assistant uses"}>
-              <Button variant="ghost" disabled={v.status === "Draft"} onClick={onActivate}>Make active</Button>
+            <span title={v.status === "Draft" && !returned ? "Draft versions cannot be made active until the IC returns the IPS." : "Make this the IPS the AI assistant uses"}>
+              <Button variant="ghost" disabled={v.status === "Draft" && !returned} onClick={onActivate}>Make active</Button>
             </span>
           )}
           {editable && <button type="button" aria-label="Edit" title="Edit" onClick={onEdit} className={iconBtn}><Pencil size={18} /></button>}
@@ -62,6 +62,7 @@ export function IpsHistory({ clientId, clientName = "" }: { clientId: string; cl
     [versions, order],
   );
   const explicit = useActiveIps(clientId);
+  const returned = useIpsReturned(clientId);
   const activeVersion = explicit ?? [...(versions ?? [])].filter((v) => v.status !== "Draft").sort((a, b) => b.version - a.version)[0]?.version ?? null;
   const name = clientName || client?.name || "Client";
   if (editing) {
@@ -84,7 +85,7 @@ export function IpsHistory({ clientId, clientName = "" }: { clientId: string; cl
             <SortByDate value={order} onChange={setOrder} />
           </div>
           <div className="flex flex-col gap-8">
-            {sorted.map((v) => <VersionCard key={v.version} v={v} clientName={name} canEdit={role === "rm" && (v.status === "Active" || v.status === "Draft")} onEdit={() => setEditing(true)} isActive={v.version === activeVersion} canActivate={role === "rm"} onActivate={() => setActiveIps(clientId, v.version)} />)}
+            {sorted.map((v) => <VersionCard key={v.version} v={v} clientName={name} canEdit={role === "rm" && (v.status === "Active" || v.status === "Draft")} onEdit={() => setEditing(true)} isActive={v.version === activeVersion} canActivate={role === "rm"} onActivate={() => { setActiveIps(clientId, v.version); activateClient(clientId); }} returned={returned} />)}
           </div>
         </div>
       )}

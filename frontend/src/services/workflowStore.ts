@@ -66,7 +66,7 @@ export const useActiveIps = (clientId: string): number | null => activeIps.use()
 export const setActiveIps = (clientId: string, version: number) => activeIps.write({ ...activeIps.read(), [clientId]: version });
 
 /* ---- 5. IC saved progress per client (products ticked for the TAA, TAA values); section text goes through packDraftStore ---- */
-export interface IcProgress { products?: string[]; taa?: number[]; /** IC's written reason per asset class (keyed by assetClass) for the TAA change */ taaReasons?: Record<string, string>; /** edited holding weights (% of portfolio) by holding id */ holdings?: Record<string, number>; savedAt?: string }
+export interface IcProgress { products?: string[]; taa?: number[]; /** IC's written reason per asset class (keyed by assetClass) for the TAA change */ taaReasons?: Record<string, string>; /** edited holding weights (% of portfolio) by holding id */ holdings?: Record<string, number>; /** onboarding 3L bucket amounts (S$) */ buckets?: number[]; /** onboarding SAA weights, template id + class weights */ saaTemplate?: string; saa?: number[]; savedAt?: string }
 const icProgress = createStore<Record<string, IcProgress>>("wf-ic-progress", {});
 export const useIcProgress = (clientId: string): IcProgress => icProgress.use()[clientId] ?? {};
 export const loadIcProgress = (clientId: string): IcProgress => icProgress.read()[clientId] ?? {};
@@ -86,3 +86,19 @@ export const withdrawIcToRm = (clientId: string) => {
   const { [clientId]: _drop, ...rest } = icHandover.read();
   icHandover.write(rest);
 };
+
+/* ---- 7. Onboarding IPS: RM -> IC (RM sends the draft), IC -> RM (IC returns parts 2 and 4), activation ---- */
+const ipsSent = createStore<Record<string, { sentAt: string }>>("wf-ips-sent", {});
+export const useIpsSent = (clientId: string): { sentAt: string } | undefined => ipsSent.use()[clientId];
+export const useAllIpsSent = (): string[] => Object.keys(ipsSent.use());
+export const sendIpsToIc = (clientId: string) => ipsSent.write({ ...ipsSent.read(), [clientId]: { sentAt: new Date().toISOString() } });
+
+const ipsReturned = createStore<Record<string, { sentAt: string }>>("wf-ips-returned", {});
+export const useIpsReturned = (clientId: string): boolean => !!ipsReturned.use()[clientId];
+export const returnIpsToRm = (clientId: string) => ipsReturned.write({ ...ipsReturned.read(), [clientId]: { sentAt: new Date().toISOString() } });
+
+/** Clients whose onboarding IPS is active: they move to the Monitoring Phase. */
+const activated = createStore<Record<string, boolean>>("wf-ips-activated", {});
+export const isActivated = (clientId: string): boolean => !!activated.read()[clientId];
+export const useActivated = (clientId: string): boolean => !!activated.use()[clientId];
+export const activateClient = (clientId: string) => activated.write({ ...activated.read(), [clientId]: true });

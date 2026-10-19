@@ -5,6 +5,7 @@
  * Pages must NEVER import from src/mock directly.
  */
 import * as m from "../mock/data";
+import { isActivated } from "./workflowStore";
 import { bulletLines, toBulletItems } from "../utils/bullets";
 import type {
   ActivityEvent, AllocationRow, Bucket3L, Client, Gate, Holding, InboxItem, IpsPart,
@@ -19,14 +20,22 @@ const tweak = (parts: IpsPart[], note: string): IpsPart[] =>
 /** In-memory edits keyed by `${clientId}:${version}` so previews reflect saved changes. */
 const ipsEdits: Record<string, IpsPart[]> = {};
 
+/** An onboarding client whose IPS was made active moves to the Monitoring Phase. */
+const effective = (c: Client): Client =>
+  c.status === "Onboarding Phase" && isActivated(c.id) ? { ...c, status: "Monitoring Phase", ipsVersion: c.ipsVersion ?? 1 } : c;
+
 const buildIpsHistory = (clientId: string): IpsVersion[] => {
-  const c = m.clients.find((x) => x.id === clientId);
+  const base = m.clients.find((x) => x.id === clientId);
   const parts = m.ipsPartsByClient[clientId] ?? m.ipsParts;
-  if (!c) return [];
-  if (c.status === "Onboarding Phase") {
+  if (!base) return [];
+  const c = effective(base);
+  if (base.status === "Onboarding Phase" && c.status === "Onboarding Phase") {
     return m.ipsPartsByClient[c.id]
       ? [{ version: 1, issuedOn: "2026-10-15", status: "Draft", author: "Isabel", summary: "Onboarding draft. Parts 2 and 4 await the Investment Counsellor.", parts }]
       : [];
+  }
+  if (base.status === "Onboarding Phase") {
+    return [{ version: 1, issuedOn: "2026-10-15", status: "Active", author: "Isabel", summary: "Initial IPS approved after onboarding.", parts }];
   }
   const v = c.ipsVersion ?? 1;
   const active: IpsVersion = { version: v, issuedOn: clientId === "jfr" ? "2026-09-20" : "2026-04-22", status: "Active", author: "Isabel", summary: clientId === "jfr" ? "Updated for the house purchase and a higher liquidity need." : "Initial IPS approved after onboarding.", parts };
@@ -70,8 +79,8 @@ function professionaliseText(input: ProfessionaliseInput, it: { label: string; t
 }
 
 export const arcApi = {
-  listClients: (): Promise<Client[]> => delay(m.clients),
-  getClient: (id: string): Promise<Client | undefined> => delay(m.clients.find((c) => c.id === id)),
+  listClients: (): Promise<Client[]> => delay(m.clients.map(effective)),
+  getClient: (id: string): Promise<Client | undefined> => delay(m.clients.filter((c) => c.id === id).map(effective)[0]),
   getHoldings: (clientId: string): Promise<Holding[]> => delay(m.holdingsByClient[clientId] ?? m.holdings),
   getCorrelation: (_clientId: string): Promise<CorrelationMatrix> => delay({ labels: [...m.holdingLabels], matrix: m.holdingsCorrelation }),
   getAllocationGroups: (clientId: string): Promise<AllocationGroup[]> => delay(m.allocationGroupsFor(clientId)),

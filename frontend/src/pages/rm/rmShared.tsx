@@ -205,28 +205,43 @@ export function ProfileCarousel({ clientId, blocks, saa }: { clientId: string; b
   );
 }
 
-/** Edit mode for section 1: three labelled boxes (one point per line) plus the block editor for images, charts and tables. */
-export function ProfileEdit({ clientId, blocks, onChange }: { clientId: string; blocks: PackBlock[]; onChange: (b: PackBlock[]) => void }) {
+/** Edit mode for section 1: the same tabs as the read view; only the selected tab's box (or SAA editor) is shown. Images, charts and tables sit on the Profile tab. */
+export function ProfileEdit({ clientId, blocks, onChange, saa }: { clientId: string; blocks: PackBlock[]; onChange: (b: PackBlock[]) => void; saa?: SaaEditor }) {
   const [p, setP] = useState<ProfileParts>(() => parseProfile(primaryText(blocks)));
+  const [i, setI] = useState(0);
   const firstText = blocks.find((b) => b.type === "text");
   const nonText = blocks.filter((b) => b !== firstText);
+  const tabs = [...SLIDES, ...(saa ? (["SAA"] as const) : [])];
+  const keys = ["profile", "goals", "concerns"] as const;
   const set = (k: keyof ProfileParts, v: string) => {
     const next = { ...p, [k]: v };
     setP(next);
     onChange(withText(blocks, composeProfile({ ...next })));
   };
   return (
-    <div className="space-y-8">
-      {([["profile", "Profile"], ["goals", "Goals"], ["concerns", "Concerns"]] as const).map(([k, label]) => (
-        <div key={k}>
-          <label htmlFor={`prof-${k}`} className="mb-2 block text-[12px] uppercase tracking-[0.14em] text-ink-muted">{label}</label>
-          <textarea id={`prof-${k}`} value={p[k]} rows={5} onChange={(e) => set(k, e.target.value)}
-            className="block w-full resize-y rounded-sm border border-hairline-strong bg-surface-100 px-4 py-3 text-[16px] font-light leading-7 text-ink" />
-        </div>
-      ))}
-      <p className="text-xs text-ink-muted">One point per line.</p>
-      <div className="border-t border-hairline pt-8">
-        <BlockEditor clientId={clientId} section={1} blocks={nonText} onChange={(nb) => onChange(firstText ? [firstText, ...nb] : nb)} />
+    <div>
+      <div role="tablist" aria-label="Profile, goals and concerns" className="mb-8 flex flex-wrap gap-6 border-b border-hairline">
+        {tabs.map((l, k) => (
+          <button key={l} role="tab" aria-selected={i === k} tabIndex={i === k ? 0 : -1} onClick={() => setI(k)}
+            className={`-mb-px cursor-pointer border-b py-3 text-[13px] uppercase tracking-[0.12em] transition-colors ${i === k ? "border-brand text-ink" : "border-transparent text-ink-muted hover:text-ink"}`}>{l}</button>
+        ))}
+      </div>
+      <div key={i} role="tabpanel" className="animate-geneva-in">
+        {i < 3 ? (
+          <div className="space-y-8">
+            <div>
+              <label htmlFor={`prof-${keys[i]}`} className="mb-2 block text-[12px] uppercase tracking-[0.14em] text-ink-muted">{tabs[i]}</label>
+              <textarea id={`prof-${keys[i]}`} value={p[keys[i]]} rows={8} onChange={(e) => set(keys[i], e.target.value)}
+                className="block w-full resize-y rounded-sm border border-hairline-strong bg-surface-100 px-4 py-3 text-[16px] font-light leading-7 text-ink" />
+              <p className="mt-2 text-xs text-ink-muted">One point per line.</p>
+            </div>
+            {i === 0 && (
+              <div className="border-t border-hairline pt-8">
+                <BlockEditor clientId={clientId} section={1} blocks={nonText} onChange={(nb) => onChange(firstText ? [firstText, ...nb] : nb)} />
+              </div>
+            )}
+          </div>
+        ) : saa ? <SaaPanel saa={saa} /> : null}
       </div>
     </div>
   );

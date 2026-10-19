@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Lock } from "lucide-react";
+import { Check, Lock, X } from "lucide-react";
 import { arcApi } from "../../services/arcApi";
-import { Badge, Button, Card, GateChip, Loading, NextAction, PageHeader, Stepper, useAsync, BulletTextarea } from "../../components/ui";
+import { Button, Card, GateChip, Loading, NextAction, PageHeader, Stepper, useAsync, BulletTextarea, BulletList } from "../../components/ui";
 import { onboardingSteps, ipsToSections, fmtDate } from "./rmShared";
-import { ContributionsPanel } from "../../components/export/ContributionsPanel";
+import { sendIpsToIc, useIpsSent } from "../../services/workflowStore";
 import { IpsDocument } from "../../components/documents/IpsDocument";
 import { ProfessionaliseButton } from "../../components/geneva/ProfessionaliseButton";
 import { getChatContext } from "../../services/chatContextStore";
@@ -20,7 +20,7 @@ export default function IpsDraft({ embedded = false, clientId: clientIdProp }: {
   const client = useAsync(() => arcApi.getClient(clientId), [clientId]);
   const [active, setActive] = useState(1);
   const [text, setText] = useState<Record<number, string>>({});
-  const [sent, setSent] = useState(false);
+  const sent = !!useIpsSent(clientId);
   const [saved, setSaved] = useState(false);
   const [stage, setStage] = useState<"edit" | "polish">("edit");
   const [busy, setBusy] = useState(false);
@@ -63,35 +63,43 @@ export default function IpsDraft({ embedded = false, clientId: clientIdProp }: {
       )}
 
       </>)}
-      <div className="mb-10 flex flex-col gap-8 lg:flex-row lg:items-start">
-      <aside className="w-full shrink-0 lg:sticky lg:top-6 lg:w-80">
-        <ContributionsPanel sections={sections} className="" />
-      </aside>
-      <div className="min-w-0 flex-1">
-      <div className="mb-8 flex flex-wrap gap-3">
-        {parts.map((x) => (
-          <button key={x.part} onClick={() => setActive(x.part)}
-            className={`cursor-pointer rounded-full px-5 py-2 text-sm font-semibold ${active === x.part ? "bg-surface-inverse text-ink-inverse" : "bg-surface-300 text-ink-700"}`}>
-            {x.title}
-          </button>
-        ))}
-      </div>
+      <div className="mb-10 grid gap-8 md:grid-cols-[300px_1fr] md:items-start">
+        <Card className="!p-5">
+          <h2 className="text-base">Sections</h2>
+          <p className="mt-1 text-xs text-ink-muted">{sections.filter((x) => x.complete).length} of {sections.length} complete</p>
+          <p className="mt-3 flex items-center gap-2 text-xs text-ink-muted"><span className="inline-block h-3 w-5 border border-brand" />Sections you fill in</p>
+          <nav className="mt-4 flex flex-col gap-2">
+            {parts.map((x, idx) => {
+              const done = sections.find((y) => y.n === x.part)?.complete;
+              return (
+                <button key={x.part} onClick={() => setActive(x.part)}
+                  className={`flex cursor-pointer items-center justify-between gap-3 rounded-sm border px-4 py-3.5 text-left text-sm transition-colors duration-300 ${active === x.part ? "bg-surface-inverse text-ink-inverse" : "bg-surface-100 text-ink-700 hover:bg-surface-300"} ${RM_PARTS.includes(x.part) ? "border-brand" : active === x.part ? "border-transparent" : "border-hairline"}`}>
+                  <span className="min-w-0">{idx + 1}. {x.title}</span>
+                  <span className="flex shrink-0 items-center gap-2">
+                    {done ? <Check size={16} className={`shrink-0 ${active === x.part ? "text-ink-inverse" : "text-positive"}`} aria-label="Done" /> : <X size={16} className={`shrink-0 ${active === x.part ? "text-ink-inverse" : "text-negative"}`} aria-label="Not done" />}
+                  </span>
+                </button>
+              );
+            })}
+          </nav>
+        </Card>
 
-      <Card>
-        <div className="mb-5 flex items-center justify-between gap-4">
-          <h2 className="min-w-0 break-words text-2xl">{p.title}</h2>
-          {!RM_PARTS.includes(active) ? <Badge tone="grey"><Lock size={12} className="mr-1" />To be filled by IC</Badge>
-            : sent ? <Badge tone="grey"><Lock size={12} className="mr-1" />Locked</Badge> : <Badge tone="gold">You edit</Badge>}
-        </div>
-        {RM_PARTS.includes(active) ? (
-          <div>
-            <BulletTextarea value={text[active] ?? ""} disabled={!editable} onChange={(v) => { setText({ ...text, [active]: v }); setSaved(false); }} rows={8} />
+        <Card className={`min-h-96 !p-10 ${RM_PARTS.includes(active) ? "!border-brand" : ""}`}>
+          <div key={active} className="animate-geneva-in space-y-8">
+            <div className="min-w-0">
+              <h2 className="text-[28px] font-light tracking-tight">{parts.findIndex((x) => x.part === active) + 1}. {p.title}</h2>
+              {RM_PARTS.includes(active) && !sent && <p className="mt-2 text-xs uppercase tracking-[0.14em] text-brand">You fill in this section</p>}
+              {(!RM_PARTS.includes(active) || sent) && <p className="mt-2 flex items-center gap-1.5 text-xs uppercase tracking-[0.14em] text-ink-muted"><Lock size={12} />{RM_PARTS.includes(active) ? "Locked" : "To be filled by the Investment Counsellor"}</p>}
+            </div>
+            {editable ? (
+              <BulletTextarea value={text[active] ?? ""} onChange={(v) => { setText({ ...text, [active]: v }); setSaved(false); }} rows={8} />
+            ) : (
+              <div className="text-[17px] leading-8 text-ink-700">
+                {(text[active] ?? "").trim() ? <BulletList text={text[active]} className="!text-base" /> : <p className="text-sm text-ink-muted">Not yet completed.</p>}
+              </div>
+            )}
           </div>
-        ) : (
-          <p className="rounded-md bg-surface-200 p-8 text-center text-sm text-ink-500">To be filled by the Investment Counsellor.</p>
-        )}
-      </Card>
-      </div>
+        </Card>
       </div>
 
       <div className="mb-10 flex flex-wrap justify-end">
@@ -108,7 +116,7 @@ export default function IpsDraft({ embedded = false, clientId: clientIdProp }: {
         <div className="flex flex-wrap items-center justify-end gap-3">
           <ProfessionaliseButton onClick={runPolish} loading={busy} disabled={polished} label="Professionalise" />
           <Button variant="secondary" onClick={() => setStage("edit")}>Back</Button>
-          {polished && <Button onClick={() => setSent(true)}>Send to IC</Button>}
+          {polished && <Button onClick={() => sendIpsToIc(clientId)}>Send to IC</Button>}
         </div>
       ) : (
         <div className="flex flex-wrap items-center justify-end gap-3">

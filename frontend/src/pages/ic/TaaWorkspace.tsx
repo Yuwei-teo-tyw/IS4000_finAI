@@ -4,7 +4,7 @@ import { arcApi } from "../../services/arcApi";
 import { AlertTriangle, ChevronDown, ChevronRight } from "lucide-react";
 import { syncPackFromIc } from "../../components/ic/packSync";
 import { TaaPie } from "../../components/ic/TaaPie";
-import { SaveProgressButton } from "../../components/ic/SaveProgressButton";
+import { AutoSaveStatus } from "../../components/ic/SaveProgressButton";
 import { saveIcProgress, useIcProgress } from "../../services/workflowStore";
 import { Badge, BulletList, DirectionArrow, BulletTextarea, Button, CitationTag, GateChip, Loading, NextAction, PageHeader, Section, useAsync } from "../../components/ui";
 import { IcStepper } from "../../components/ic/IcStepper";
@@ -27,10 +27,8 @@ export default function TaaWorkspace() {
 
   const out = rows.filter((r, i) => Math.abs(vals[i] - r.saa) > r.band);
   const total = sum(vals);
-  const base = saved && saved.length === rows.length ? saved : rows.map((r) => r.newTaa);
-  const savedReason = (r: { assetClass: string; reason: string }) => progress.taaReasons?.[r.assetClass] ?? r.reason;
-  const dirty = vals.length > 0 && (vals.some((v, i) => v !== base[i]) || rows.some((r) => (reasons[r.assetClass] ?? r.reason) !== savedReason(r)));
-  const save = () => { saveIcProgress(clientId, { taa: vals, taaReasons: reasons }); syncPackFromIc(clientId); };
+  const persist = (v: number[], r: Record<string, string>) => { saveIcProgress(clientId, { taa: v, taaReasons: r }); syncPackFromIc(clientId); };
+  const save = () => persist(vals, reasons);
 
   return (
     <div>
@@ -79,7 +77,7 @@ export default function TaaWorkspace() {
                       <td className="px-4 py-5 align-top">{r.assetClass}</td>
                       <td className="px-4 py-5 align-top">{r.saa}%</td>
                       <td className="px-4 py-5 align-top">{r.oldTaa}%</td>
-                      <td className="px-4 py-5 align-top"><NumInput value={vals[i] ?? 0} suffix="%" width="w-24" onChange={(n) => setVals(vals.map((v, j) => (j === i ? n : v)))} /></td>
+                      <td className="px-4 py-5 align-top"><NumInput value={vals[i] ?? 0} suffix="%" width="w-24" onChange={(n) => { const next = vals.map((v, j) => (j === i ? n : v)); setVals(next); persist(next, reasons); }} /></td>
                       <td className="px-4 py-5 align-top">
                         <DirectionArrow d={d} />
                       </td>
@@ -99,7 +97,7 @@ export default function TaaWorkspace() {
                       <tr key={`${r.assetClass}-edit`} className="border-t border-hairline bg-surface-200">
                         <td colSpan={7} className="px-6 py-6">
                           <label className="mb-2 block text-xs font-semibold text-ink-muted" htmlFor={`why-${i}`}>Your reason for {r.assetClass}</label>
-                          <BulletTextarea id={`why-${i}`} rows={7} value={reason} placeholder={BULLET_PLACEHOLDER} onChange={(t) => setReasons({ ...reasons, [r.assetClass]: t })} />
+                          <BulletTextarea id={`why-${i}`} rows={7} value={reason} placeholder={BULLET_PLACEHOLDER} onChange={(t) => { const next = { ...reasons, [r.assetClass]: t }; setReasons(next); persist(vals, next); }} />
           {changed && !reason.trim() && <p className="mt-2 text-xs text-negative">Reason required</p>}
                           <div className="mt-3"><BulletList text={reason} empty="" /></div>
                         </td>
@@ -113,7 +111,7 @@ export default function TaaWorkspace() {
           </div>
         </div>
       </Section>
-      <div className="mt-8"><SaveProgressButton onSave={save} dirty={dirty} savedAt={progress.savedAt} /></div>
+      <div className="mt-8"><AutoSaveStatus savedAt={progress.savedAt} /></div>
       <div className="mt-10" />
       <NextAction title="Next: review client holdings"
         action={<Button variant="primary" onClick={() => { save(); navigate(`/ic/cases/${clientId}/holdings`); }}>Review Client Individual Holdings</Button>} />

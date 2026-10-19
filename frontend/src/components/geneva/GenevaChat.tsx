@@ -37,7 +37,23 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const viewTone = { Buy: "green", Hold: "amber", Sell: "red" } as const;
 const label = "text-xs font-semibold uppercase tracking-[0.12em] text-ink-muted";
 
-interface Msg { from: "user" | "agent"; text: string; answer?: MarketAnswer }
+interface Msg { from: "user" | "agent"; text: string; answer?: MarketAnswer; finalise?: string[] }
+
+/* ---- PS finalise-by-prompt: detect "I'm happy with X and Y" and match product names ---- */
+const FINALISE_INTENT = /\b(finali[sz]e|happy with|ok with|okay with|fine with|good with|comfortable with|go with|going with|proceed with|shortlist|i like|i(?:'|’)ll take|i want to (?:take|go|proceed|keep)|i(?:'|’)m (?:ok|ok?ay|happy|fine) )/i;
+const STOP = new Set(["the", "and", "fund", "funds", "etf", "etfs", "of", "a", "an", "for", "fixed", "income", "plc", "ltd", "inc", "note", "class"]);
+const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
+const stem = (w: string) => w.replace(/s$/, "");
+/** Product matches when its full name appears, or most of its distinctive words do (at least two, or its only one). */
+function matchesProduct(text: string, name: string): boolean {
+  const t = norm(text), n = norm(name);
+  if (t.includes(n)) return true;
+  const words = new Set(t.split(" ").map(stem));
+  const sig = n.split(" ").filter((w) => !STOP.has(w));
+  if (sig.length === 0) return false;
+  const hit = sig.filter((w) => words.has(stem(w))).length;
+  return sig.length === 1 ? hit === 1 : hit >= 2 && hit / sig.length >= 0.6;
+}
 interface Chat { id: number; title: string; messages: Msg[] }
 
 function Direction({ d }: { d: MacroView["direction"] }) {
@@ -228,6 +244,25 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
     setDraft("");
     patch(id, (c) => ({ ...c, title: c.messages.length === 0 ? text.slice(0, 40) : c.title, messages: [...c.messages, { from: "user", text }] }));
     setWorking({ chatId: id, steps: [], shown: 0 });
+    if (role === "ps" && FINALISE_INTENT.test(text)) {
+      const [products] = await Promise.all([arcApi.getProducts(clientId), sleep(500)]);
+      const lastRows = [...chat.messages].reverse().find((m) => m.answer?.rows.length)?.answer?.rows ?? [];
+      const cand: MarketRow[] = [
+        ...products.map((p): MarketRow => ({ assetClass: p.assetClass, product: p.name, industryFocus: p.tags[0] ?? "", top5: [], confidencePct: Math.round(p.stars * 20), ranking: [] })),
+        ...lastRows.filter((r) => !products.some((p) => p.name === r.product)),
+      ];
+      const found = cand.filter((r) => matchesProduct(text, r.product));
+      let reply: string; let names: string[] | undefined;
+      if (found.length === 0) reply = "I could not tell which products you mean. Please name the products you are happy with, for example \"finalise Global Equity ETF and the green bond fund\".";
+      else {
+        saveSelection(clientId, found);
+        names = found.map((r) => r.product);
+        reply = `Noted. I have put ${names.length} product${names.length === 1 ? "" : "s"} on your finalise list. Review them and add your reasons on the next page. Nothing is approved until you confirm.`;
+      }
+      patch(id, (c) => ({ ...c, messages: [...c.messages, { from: "agent", text: reply, finalise: names ?? [] }] }));
+      setWorking(null);
+      return;
+    }
     try {
       const a = role === "ps"
         ? await arcApi.askMarketResearch(clientId, text, loadSystemPrompt(role), ipsVersion)
@@ -315,6 +350,17 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
               ) : (
                 <div key={i} className="animate-geneva-in w-full rounded-sm border border-hairline bg-surface-100 px-8 py-7">
                   <p className="mb-4 flex items-center gap-2 text-[13px] font-medium text-ink-muted"><img src="/ubs-logo.png" alt="" className="ubs-logo h-4 w-auto" />Geneva</p>
+                  {m.finalise && (
+                    <div className="space-y-6 font-light">
+                      <p className="text-[19px] leading-8 tracking-tight text-ink">{m.text}</p>
+                      {m.finalise.length > 0 && (
+                        <>
+                          <ul className="list-disc space-y-1 pl-5 text-[17px] leading-7 text-ink-700">{m.finalise.map((n) => <li key={n}>{n}</li>)}</ul>
+                          <div><Button variant="primary" size="sm" to={`/ps/cases/${clientId}/finalise`}>Finalise list</Button></div>
+                        </>
+                      )}
+                    </div>
+                  )}
                   {m.answer && <AnswerView a={m.answer} picked={pickedNames} onToggle={toggle} clientId={clientId} role={role} />}
                 </div>
               ))}

@@ -4,7 +4,7 @@ import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import { arcApi } from "../../services/arcApi";
 import { saveIcProgress, useIcProgress } from "../../services/workflowStore";
 import { IcStepper } from "../../components/ic/IcStepper";
-import { SaveProgressButton } from "../../components/ic/SaveProgressButton";
+import { AutoSaveStatus } from "../../components/ic/SaveProgressButton";
 import { TaaPie } from "../../components/ic/TaaPie";
 import { Button, DirectionArrow, GateChip, Loading, NextAction, PageHeader, Table, useAsync } from "../../components/ui";
 import { syncPackFromIc } from "../../components/ic/packSync";
@@ -51,7 +51,7 @@ export default function IcHoldings() {
   const classSum = (cls: string) => r1(sum(holdings.filter((h) => h.assetClass === cls).map((h) => cur(h.id))));
   const total = r1(sum(holdings.map((h) => cur(h.id))));
   const off = classes.filter((c) => target(c) !== undefined && Math.abs(classSum(c) - target(c)) > 0.05);
-  const dirty = holdings.some((h) => cur(h.id) !== base[h.id]);
+  const edit = (id: string, n: number) => { const next = { ...w, [id]: n }; setW(next); saveIcProgress(clientId, { holdings: { ...base, ...next } }); syncPackFromIc(clientId); };
   const save = () => { saveIcProgress(clientId, { holdings: { ...base, ...w } }); syncPackFromIc(clientId); };
 
   return (
@@ -91,7 +91,7 @@ export default function IcHoldings() {
                       sgd(h.valueSgd),
                       <Ytd key="y" v={h.returnYtdPct} />,
                       `${o1}%`,
-                      <NumInput key="n" value={cur(h.id)} suffix="%" width="w-20" onChange={(n) => setW({ ...w, [h.id]: n })} />,
+                      <NumInput key="n" value={cur(h.id)} suffix="%" width="w-20" onChange={(n) => edit(h.id, n)} />,
                       <Dir key="d" d={cur(h.id) - o1} />,
                     ];
                   })} />
@@ -101,7 +101,7 @@ export default function IcHoldings() {
           })}
         </div>
       </section>
-      <div className="mb-14 flex justify-end border-t border-hairline pt-8"><SaveProgressButton onSave={save} dirty={dirty} savedAt={progress.savedAt} /></div>
+      <div className="mb-14 flex justify-end border-t border-hairline pt-8"><AutoSaveStatus savedAt={progress.savedAt} /></div>
       <NextAction title="Check the Review Pack" action={<Button variant="primary" onClick={() => { save(); navigate(`/ic/cases/${clientId}/pack`); }}>Check Review Pack</Button>} />
     </div>
   );

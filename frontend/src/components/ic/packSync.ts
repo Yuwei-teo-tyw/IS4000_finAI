@@ -1,6 +1,6 @@
 import { arcApi } from "../../services/arcApi";
 import { loadIcProgress } from "../../services/workflowStore";
-import { loadPackDrafts, savePackDraft } from "../../services/packDraftStore";
+import { getSectionDone, loadPackDrafts, savePackDraft, setSectionDone } from "../../services/packDraftStore";
 import type { AllocationRow, Holding } from "../../types/arc";
 
 const r1 = (n: number) => Math.round(n * 10) / 10;
@@ -64,7 +64,10 @@ export function syncPackFromIc(clientId: string): void {
       ([[4, build(clientId, alloc)], [8, buildHoldings(clientId, holdings)]] as [number, string][]).forEach(([n, text]) => {
         const current = drafts[n];
         if (current && current.trim() && current !== getLast(clientId, n)) return; // hand-edited
+        // savePackDraft reopens a done section; first-time materialisation of unchanged seed content must not undo the IC's tick.
+        const wasDone = !!getSectionDone(clientId)[n]?.done && !(current && current.trim());
         savePackDraft(clientId, n, text, "ic");
+        if (wasDone && !getSectionDone(clientId)[n]?.done) setSectionDone(clientId, n, true, "ic");
         setLast(clientId, text, n);
       });
     })
