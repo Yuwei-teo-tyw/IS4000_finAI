@@ -16,6 +16,8 @@ from app.agents.graph import MultiAgentGraph  # noqa: E402
 from app.endpoints import router as endpoints_router  # noqa: E402
 from app.endpoints.market_researcher import router as market_researcher_router  # noqa: E402
 from app.endpoints.market_researcher import ui_router as market_researcher_ui_router  # noqa: E402
+from app.endpoints.portfolio_manager import router as portfolio_manager_router  # noqa: E402
+from app.endpoints.portfolio_manager import install_validation_handler as install_pm_validation_handler  # noqa: E402
 from app.agents.market_researcher.cache import PostgresCache, init_market_tables  # noqa: E402
 from app.agents.market_researcher.runs import MarketResearchRunner, PostgresRunRegistry  # noqa: E402
 from app.agents.market_researcher.service import MarketResearchService  # noqa: E402
@@ -60,6 +62,8 @@ app.add_middleware(
 app.include_router(endpoints_router)
 app.include_router(market_researcher_router)
 app.include_router(market_researcher_ui_router)
+app.include_router(portfolio_manager_router)
+install_pm_validation_handler(app)
 
 
 @app.get("/")
@@ -68,4 +72,5 @@ async def root():
         "message": "Multi-Agent Triage System",
         "websocket": "/agents/langgraph",
         "market_researcher": "/agents/market-researcher",
+        "portfolio_manager": "/agents/portfolio-manager",
     }

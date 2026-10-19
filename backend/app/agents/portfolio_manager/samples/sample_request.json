@@ -1,0 +1,39 @@
+{
+  "request_id": "PM-REQ-001",
+  "client_id": "CLIENT_001",
+  "trigger": {
+    "life_event": "Planning for retirement",
+    "requirement_change": "Review investment risk and liquidity",
+    "reason_for_review": "Prepare for retirement withdrawals",
+    "effective_date": "2026-10-15"
+  },
+  "client_profile": {
+    "client_id": "CLIENT_001",
+    "base_currency": "SGD",
+    "total_aum": 500000,
+    "investable_assets": 400000,
+    "annual_income": 120000,
+    "monthly_expenses": 5000,
+    "liabilities": 50000,
+    "emergency_fund": 30000,
+    "cash_balance": 50000,
+    "risk_appetite": "Moderate",
+    "risk_capacity": "Moderate",
+    "risk_tolerance_score": 3,
+    "maximum_acceptable_drawdown": 15,
+    "financial_goals": [
+      {
+        "goal": "Retirement income",
+        "target_amount": 250000,
+        "currency": "SGD",
+        "years_to_goal": 8,
+        "priority": "High"
+      }
+    ],
+    "planned_withdrawals": 20000,
+    "minimum_cash_reserve": 30000,
+    "preferred_asset_classes": ["Cash", "Fixed Income", "Equities"],
+    "restricted_products": [],
+    "maximum_single_asset_allocation": 30
+  }
+}

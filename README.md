@@ -170,6 +170,76 @@ RUN_BACKTEST=1 pytest -m slow                                         # backtest
 
 The regime classifier is score-based and transparent. Every weight and threshold lives in `market_researcher/config.py`, so tune it there and re-run the backtest. The current backtest covers 1980 to the present. It catches **6/6** NBER recessions and makes 2 sustained false recession calls: the 2003 jobless recovery and the 2024 Sahm-rule trigger. See `backtest_report.md`.
 
+## 📊 Portfolio Manager Agent
+
+`backend/app/agents/portfolio_manager/` builds the six SAA templates the IC uses (**A** Capital preservation, **B** Income, **C** Balanced, **D** Growth, **E** Aggressive growth, **F** Opportunistic) into concrete, constraint-checked portfolios for one client. It then compares them, explains the result, and can nominate a preferred option for review. Each portfolio uses the same seven asset classes and growth-asset limits as the IC SAA builder in the frontend.
+
+It is **proposal-only**: it never executes trades or changes holdings, and every response has `requires_rm_review: true`.
+
+> **Core rule: numbers come from code, not from the LLM.**
+> Python does all allocation, amounts, metrics and validation. The LLM, if configured, only writes narrative. That narrative is rejected if it states a number the engine didn't produce, or claims guarantees, optimality, live data or executed trades.
+
+**Endpoints.** The main app serves these under `/agents/portfolio-manager`; the routes live in `app/endpoints/portfolio_manager.py`.
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /agents/portfolio-manager/health` | Liveness and the data sources in use |
+| `GET /agents/portfolio-manager/templates` | The six SAA templates A–F (weights, growth share, minimum risk level and horizon) |
+| `POST /agents/portfolio-manager/portfolio/generate` | Validate the profile → fetch market and product data → construct, validate, compare and explain options A–F |
+| `GET /agents/portfolio-manager/portfolio/{request_id}` | A stored proposal. The store is in memory and bounded, so proposals are lost on restart. Returns `404` if unknown |
+
+**Inputs**
+
+- **Client profile and review trigger:** the request body. See `samples/sample_request.json`. Missing or contradictory fields are reported as BLOCKING, MATERIAL or MINOR, never guessed.
+- **Market Researcher output:** a `MarketResearchOutput`, validated with that agent's own Pydantic model (`market_research_output.schema.json`). The Portfolio Manager uses:
+  - the regime call and the 12-month recession probability;
+  - events, indicators, implications and the quality flags.
+
+  A recession call, or a recession probability of 50% or more, trims the growth ceiling by 10 points. A run marked `unusable` is not used.
+- **Product candidates:** from the Product Specialist (mocked for now). Each product is screened for restrictions, eligibility, sector exclusions, ESG, lock-in versus horizon, minimum investment and currency.
+- **House assumptions:** `assumptions/capital_market_assumptions.json`. The Market Researcher publishes no return forecasts, so expected returns for non-yield assets and the Expansion / Slowdown / Recession stress scenarios come from this explicit, illustrative file. They are always labelled `ASSUMPTION`.
+
+**Mock data and integration points.** By default the agent runs on illustrative mock data, so no upstream services are needed. Each upstream source has one function to replace:
+
+| Source | Function to replace | Constant to set to `"LIVE"` |
+|---|---|---|
+| Market Researcher | `get_market_analysis()` in `upstream/market_analysis.py` | `MARKET_ANALYSIS_SOURCE` |
+| Product Specialist | `get_product_candidates()` in `upstream/product_specialist.py` | `PRODUCT_CANDIDATES_SOURCE` |
+
+Both functions are marked `# INPUT API HERE`.
+
+**Run it**
+
+- **Full stack:** the Portfolio Manager is part of the main backend. Start the main backend as described under Getting Started.
+- **Without Postgres or Docker:**
+
+  ```bash
+  cd backend
+  python -m app.agents.portfolio_manager serve --port 8001          # only the Portfolio Manager routes, same paths
+  python -m app.agents.portfolio_manager generate app/agents/portfolio_manager/samples/sample_request.json --no-llm
+  ```
+
+- **LLM settings:**
+  - `GROQ_API_KEY` in the root `.env` enables LLM narratives. Without it, the agent uses deterministic template explanations.
+  - `PORTFOLIO_LLM_ENABLED=false` forces the template explanations.
+  - `PORTFOLIO_LLM_MODEL` overrides the model. The default is `CURRENT_MODEL` in `app/core/constants.py`.
+
+**Tests:** `cd backend && pytest tests/test_portfolio_*.py`. These run offline: the LLM is faked and the clock is fixed.
+
+**In the frontend.** The agent appears in the Investment Counsellor's **3L And SAA** flow (`/ic/requests/:clientId/3l`, then `saa`):
+
+1. On the 3L step, the IC sets the buckets. "Continue to SAA" saves them.
+2. The SAA step shows the agent's inputs and where each came from, and the IC clicks **Run the Portfolio Manager**:
+   - The portfolio is the client's AUM. The **Liquidity bucket** is held separately in cash, and the agent invests the rest.
+   - Risk category, risk limit, **risk capacity** and the drawdown limit come from IPS part 3.
+   - Goals come from goal-plan events more than 3 years out. Nearer goals are funded by the Liquidity bucket.
+   - Fields that aren't captured are sent as missing, never guessed.
+3. Each of the six template cards shows the agent's verdict: whether it is offered, its expected return, stress drawdown, growth share and the agent's preference.
+4. The **Compare** tab has four views: Side by side, Option detail (the agent's mix against the template, products and checks), Products (every candidate, with why it was used or excluded), and Why (labelled rationale and the Market Researcher's input).
+5. The IC still picks the template, edits the weights and sends it back to the RM. The agent never approves anything.
+
+The mapping from captured data to agent inputs is in `buildPortfolioInputs` in `frontend/src/services/arcApi.ts`. The frontend calls `VITE_API_BASE`, which defaults to `http://localhost:8000`.
+
 ## 🔧 Technology Stack
 
 ### Backend

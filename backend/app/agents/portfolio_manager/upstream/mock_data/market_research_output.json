@@ -1,0 +1,383 @@
+{
+  "schema_version": "1.4",
+  "agent": "market_researcher",
+  "run_id": "mr_mock_20261015T000000Z_pm0001",
+  "generated_at": "2026-10-15T00:00:00Z",
+  "as_of": "2026-10-15",
+  "region": "US",
+  "request": {
+    "query": "Macro backdrop for portfolio construction",
+    "region": "US",
+    "focus": [
+      "rates",
+      "inflation",
+      "growth"
+    ],
+    "lookback_days_news": 3,
+    "as_of": null,
+    "include_narrative": true,
+    "planning": "off",
+    "explain_events": false
+  },
+  "regime": {
+    "phase": "late_expansion",
+    "probabilities": {
+      "early_expansion": 0.2958,
+      "late_expansion": 0.3859,
+      "recession": 0.1341,
+      "late_recession": 0.1842
+    },
+    "in_recession_prob": 0.3183,
+    "scores": {
+      "early_expansion": 0.211,
+      "late_expansion": 0.367,
+      "recession": -0.143,
+      "late_recession": 0.041
+    },
+    "confidence": "low",
+    "recession_prob_12m": 0.1281,
+    "composites": {
+      "G": 0.142,
+      "M": 0.095,
+      "I": 0.686,
+      "P": -0.088
+    },
+    "drivers": [
+      {
+        "indicator": "Inflation pressure elevated (I)",
+        "value": 0.686,
+        "direction": "favors_late_expansion",
+        "contribution": 0.35
+      },
+      {
+        "indicator": "Unemployment vs 12m low (UNRATE)",
+        "value": 0.1,
+        "direction": "growth_above_trend",
+        "contribution": 0.067
+      },
+      {
+        "indicator": "Payrolls 3m avg change (PAYEMS)",
+        "value": 142.0,
+        "direction": "growth_above_trend",
+        "contribution": 0.041
+      }
+    ],
+    "conflicting_signals": [
+      "Momentum (M) is only slightly positive, which also fits early_expansion."
+    ],
+    "previous_phase": "late_expansion",
+    "changed": false
+  },
+  "events": [
+    {
+      "id": "core_inflation_reaccelerating",
+      "severity": "notable",
+      "description": "Core CPI re-accelerating: 3-month annualized 3.41% vs 2.57% YoY (2026-09-01).",
+      "evidence": [
+        "CPILFESL"
+      ]
+    },
+    {
+      "id": "fed_raised",
+      "severity": "notable",
+      "description": "Fed raised its target range by 25bp in the last 60 days (now 3.75-4.00%).",
+      "evidence": [
+        "DFEDTARU",
+        "DFEDTARL"
+      ]
+    },
+    {
+      "id": "ten_year_high",
+      "severity": "info",
+      "description": "10-year Treasury yield at 5.19%, in the 99th percentile of the last 10 years (2026-10-14).",
+      "evidence": [
+        "DGS10"
+      ]
+    }
+  ],
+  "indicators": [
+    {
+      "id": "DGS10",
+      "name": "10-Year Treasury Yield",
+      "category": "rates",
+      "value": 5.19,
+      "unit": "%",
+      "observation_date": "2026-10-14",
+      "changes": {
+        "1d": -0.02,
+        "1w": -0.09,
+        "1m": 0.22,
+        "3m": 0.64,
+        "1y": 1.16
+      },
+      "percentile_10y": 99.5,
+      "zscore_10y": 1.85,
+      "stats_window_years": 10.0,
+      "signal": "tightening",
+      "stale": false,
+      "source": "FRED (illustrative mock)",
+      "source_url": "https://fred.stlouisfed.org/series/DGS10"
+    },
+    {
+      "id": "T10Y3M",
+      "name": "10-Year minus 3-Month Treasury Spread",
+      "category": "rates",
+      "value": 0.42,
+      "unit": "pp",
+      "observation_date": "2026-10-14",
+      "changes": {
+        "1m": -0.05,
+        "3m": -0.18,
+        "1y": 0.61
+      },
+      "percentile_10y": 38.0,
+      "zscore_10y": -0.21,
+      "stats_window_years": 10.0,
+      "signal": "neutral",
+      "stale": false,
+      "source": "FRED (illustrative mock)",
+      "source_url": "https://fred.stlouisfed.org/series/T10Y3M"
+    },
+    {
+      "id": "DFF",
+      "name": "Effective Federal Funds Rate",
+      "category": "rates",
+      "value": 3.88,
+      "unit": "%",
+      "observation_date": "2026-10-14",
+      "changes": {
+        "1m": 0.25,
+        "3m": 0.25,
+        "1y": -0.45
+      },
+      "percentile_10y": 71.0,
+      "zscore_10y": 0.62,
+      "stats_window_years": 10.0,
+      "signal": "tightening",
+      "stale": false,
+      "source": "FRED (illustrative mock)",
+      "source_url": "https://fred.stlouisfed.org/series/DFF"
+    },
+    {
+      "id": "CPILFESL",
+      "name": "Core CPI (YoY)",
+      "category": "inflation",
+      "value": 2.57,
+      "unit": "%",
+      "observation_date": "2026-09-01",
+      "changes": {
+        "1m": 0.06,
+        "3m": 0.21,
+        "1y": -0.39
+      },
+      "percentile_10y": 62.0,
+      "zscore_10y": 0.31,
+      "stats_window_years": 10.0,
+      "signal": "inflationary",
+      "stale": false,
+      "source": "FRED (illustrative mock)",
+      "source_url": "https://fred.stlouisfed.org/series/CPILFESL"
+    },
+    {
+      "id": "UNRATE",
+      "name": "Unemployment Rate",
+      "category": "labor",
+      "value": 4.1,
+      "unit": "%",
+      "observation_date": "2026-09-01",
+      "changes": {
+        "1m": 0.0,
+        "3m": 0.1,
+        "1y": 0.2
+      },
+      "percentile_10y": 41.0,
+      "zscore_10y": -0.12,
+      "stats_window_years": 10.0,
+      "signal": "neutral",
+      "stale": false,
+      "source": "FRED (illustrative mock)",
+      "source_url": "https://fred.stlouisfed.org/series/UNRATE"
+    },
+    {
+      "id": "PAYEMS",
+      "name": "Nonfarm Payrolls (3m avg change, thousands)",
+      "category": "labor",
+      "value": 142.0,
+      "unit": "thousands",
+      "observation_date": "2026-09-01",
+      "changes": {
+        "1m": -18.0,
+        "3m": -25.0
+      },
+      "percentile_10y": 45.0,
+      "zscore_10y": -0.08,
+      "stats_window_years": 10.0,
+      "signal": "bullish_growth",
+      "stale": false,
+      "source": "FRED (illustrative mock)",
+      "source_url": "https://fred.stlouisfed.org/series/PAYEMS"
+    },
+    {
+      "id": "BAA10Y",
+      "name": "Baa Corporate minus 10-Year Treasury Spread",
+      "category": "credit",
+      "value": 1.62,
+      "unit": "pp",
+      "observation_date": "2026-10-14",
+      "changes": {
+        "1m": 0.04,
+        "3m": 0.09,
+        "1y": -0.11
+      },
+      "percentile_10y": 22.0,
+      "zscore_10y": -0.74,
+      "stats_window_years": 10.0,
+      "signal": "neutral",
+      "stale": false,
+      "source": "FRED (illustrative mock)",
+      "source_url": "https://fred.stlouisfed.org/series/BAA10Y"
+    },
+    {
+      "id": "NFCI",
+      "name": "Chicago Fed National Financial Conditions Index",
+      "category": "credit",
+      "value": -0.48,
+      "unit": "index",
+      "observation_date": "2026-10-10",
+      "changes": {
+        "1m": 0.02,
+        "3m": 0.05
+      },
+      "percentile_10y": 30.0,
+      "zscore_10y": -0.55,
+      "stats_window_years": 10.0,
+      "signal": "easing",
+      "stale": false,
+      "source": "FRED (illustrative mock)",
+      "source_url": "https://fred.stlouisfed.org/series/NFCI"
+    }
+  ],
+  "market_snapshot": [
+    {
+      "id": "SPY",
+      "name": "S&P 500 ETF",
+      "category": "equity_index",
+      "value": 771.79,
+      "unit": "USD",
+      "observation_date": "2026-10-15",
+      "changes": {
+        "1d": 0.28,
+        "1w": -0.28,
+        "1m": 2.15,
+        "3m": 3.06,
+        "1y": 17.28
+      },
+      "percentile_10y": null,
+      "zscore_10y": null,
+      "stats_window_years": null,
+      "signal": "neutral",
+      "stale": false,
+      "source": "Yahoo Finance (illustrative mock)",
+      "source_url": "https://fred.stlouisfed.org/series/SPY"
+    },
+    {
+      "id": "GLD",
+      "name": "Gold ETF",
+      "category": "commodity",
+      "value": 312.4,
+      "unit": "USD",
+      "observation_date": "2026-10-15",
+      "changes": {
+        "1m": 1.4,
+        "3m": 4.9,
+        "1y": 21.3
+      },
+      "percentile_10y": null,
+      "zscore_10y": null,
+      "stats_window_years": null,
+      "signal": "neutral",
+      "stale": false,
+      "source": "Yahoo Finance (illustrative mock)",
+      "source_url": "https://fred.stlouisfed.org/series/GLD"
+    }
+  ],
+  "news": [
+    {
+      "title": "Mortgage rates hold near three-year high as bond market stabilises",
+      "source": "Illustrative Newswire",
+      "url": "https://example.com/mock-news/mortgage-rates",
+      "published_at": "2026-10-15T02:00:00Z",
+      "summary": "Mortgage rates stayed elevated as long-dated Treasury yields paused after a sharp rise.",
+      "topics": [
+        "rates",
+        "housing"
+      ],
+      "sentiment": "neutral",
+      "market_impact": "medium"
+    },
+    {
+      "title": "Fed officials signal patience after latest rate increase",
+      "source": "Illustrative Newswire",
+      "url": "https://example.com/mock-news/fed-patience",
+      "published_at": "2026-10-14T20:00:00Z",
+      "summary": "Several Fed officials said they would watch inflation data before deciding on further moves.",
+      "topics": [
+        "fed",
+        "inflation"
+      ],
+      "sentiment": "neutral",
+      "market_impact": "high"
+    },
+    {
+      "title": "Tariff talks stall, weighing on cyclical stocks",
+      "source": "Illustrative Newswire",
+      "url": "https://example.com/mock-news/tariffs",
+      "published_at": "2026-10-14T15:00:00Z",
+      "summary": "Stalled trade negotiations pressured industrial and materials shares.",
+      "topics": [
+        "geopolitics",
+        "equities"
+      ],
+      "sentiment": "risk_off",
+      "market_impact": "medium"
+    }
+  ],
+  "plan": null,
+  "planned_indicators": [],
+  "planned_market": [],
+  "event_explanations": [],
+  "key_themes": [
+    "Late-expansion call with low confidence; growth still above trend [UNRATE, PAYEMS].",
+    "Core inflation re-accelerating on a 3-month basis [CPILFESL].",
+    "Long-dated Treasury yields near 10-year highs [DGS10]."
+  ],
+  "risks": [
+    "Further inflation surprises could push yields higher and pressure bond and equity prices.",
+    "A flatter yield curve keeps the 12-month recession probability at about 13% [T10Y3M].",
+    "Trade tensions weigh on cyclical sectors."
+  ],
+  "implications": {
+    "duration": "Long-dated bonds are sensitive to further rises in yields from near 10-year highs.",
+    "equities": "Equities have risen over the past year while valuations face higher discount rates.",
+    "credit": "Credit spreads remain tight relative to their 10-year history [BAA10Y]."
+  },
+  "narrative": null,
+  "data_quality": {
+    "failed_sources": [],
+    "stale_series": [],
+    "notes": [
+      "Illustrative mock output for Portfolio Manager testing - not a real market researcher run."
+    ]
+  },
+  "quality": {
+    "status": "ok",
+    "checks": {
+      "consistency": true,
+      "completeness": true,
+      "freshness": true,
+      "sources": true,
+      "advice_language": true
+    },
+    "issues": []
+  }
+}

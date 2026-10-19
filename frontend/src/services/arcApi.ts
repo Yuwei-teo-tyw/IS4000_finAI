@@ -11,8 +11,12 @@ import type {
   ActivityEvent, AllocationRow, Bucket3L, Client, Gate, Holding, InboxItem, IpsPart,
   MarketView, HouseView, PackRenderInput, MarketAnswer, MeetingNote, IpsVersion, PackSection, Product, Role, AllocationGroup, CorrelationMatrix, GoalProjection, SectionDraft,
 } from "../types/arc";
+import type { PmInputField, PmInputs, PmRequest, PmResponse } from "../types/portfolio";
 
 const delay = <T,>(v: T, ms = 150) => new Promise<T>((r) => setTimeout(() => r(v), ms));
+
+/** IC-edited 3L buckets, keyed by client (in memory, like ipsEdits). */
+const saved3L: Record<string, Bucket3L[]> = {};
 
 const tweak = (parts: IpsPart[], note: string): IpsPart[] =>
   parts.map((p) => ({ ...p, status: p.status === "blank" ? p.status : p.status === "locked" ? "locked" : "filled", body: p.body && p.part !== 6 ? `${p.body} (${note})` : p.body }));
@@ -86,7 +90,16 @@ export const arcApi = {
   getAllocationGroups: (clientId: string): Promise<AllocationGroup[]> => delay(m.allocationGroupsFor(clientId)),
   getGoalProjection: (clientId: string): Promise<GoalProjection> => delay(m.goalProjectionByClient[clientId] ?? m.goalProjectionByClient.jfr),
   getHoldingClusters: (_clientId: string) => delay(m.holdingClusters),
-  get3L: (clientId: string): Promise<Bucket3L[]> => delay(m.buckets3LByClient[clientId] ?? m.buckets3L),
+  get3L: (clientId: string): Promise<Bucket3L[]> => delay(saved3L[clientId] ?? m.buckets3LByClient[clientId] ?? m.buckets3L),
+  /** Mock save: keeps the IC's bucket amounts in memory so the SAA step and the Portfolio Manager use them. */
+  save3L: (clientId: string, buckets: Bucket3L[]): Promise<Bucket3L[]> => {
+    saved3L[clientId] = buckets.map((b) => ({ ...b }));
+    return delay(saved3L[clientId]);
+  },
+  /** Portfolio Manager inputs derived from the 3L buckets, IPS part 3 and the goal plan (see buildPortfolioInputs). */
+  getPortfolioInputs: (clientId: string): Promise<PmInputs> => buildPortfolioInputs(clientId),
+  /** Real backend call: the Portfolio Manager agent builds and compares SAA templates A-F. */
+  generatePortfolioProposals: (request: PmRequest): Promise<PmResponse> => generatePortfolioProposals(request),
   getAllocation: (clientId: string): Promise<AllocationRow[]> => delay(m.allocationByClient[clientId] ?? m.allocation),
   getSaaTemplates: () => delay(m.saaTemplates),
   getIps: (clientId: string): Promise<IpsPart[]> => delay(m.ipsPartsByClient[clientId] ?? m.ipsParts),
@@ -366,4 +379,121 @@ async function answerAsAgent(role: Role, clientId: string, message: string): Pro
   }
 
   return done(`I can help with ${name}'s IPS, goals, meeting notes, TAA or products. Try one of the suggested questions.`, [], ["Understanding the question…", "Drafting reply…"]);
+}
+
+/* ---------- Portfolio Manager agent (real backend) ---------- */
+
+/** Backend base URL: the main app (or `python -m app.agents.portfolio_manager serve`). Override with VITE_API_BASE. */
+const API_BASE = ((import.meta.env.VITE_API_BASE as string | undefined) ?? "http://localhost:8000").replace(/\/$/, "");
+const PM_URL = `${API_BASE}/agents/portfolio-manager`;
+const PM_TIMEOUT_MS = 90_000; // generation can include an LLM call
+
+export class PortfolioManagerError extends Error {
+  kind: "UNREACHABLE" | "TIMEOUT" | "REJECTED" | "SERVER" | "INVALID_RESPONSE";
+  details: string[];
+  constructor(kind: PortfolioManagerError["kind"], message: string, details: string[] = []) {
+    super(message);
+    this.kind = kind;
+    this.details = details;
+  }
+}
+
+const shortS = (n: number) => `S$${(n / 1_000_000).toFixed(2)}m`;
+
+/**
+ * Turn what the RM and IC have captured into the agent's client profile.
+ * - Portfolio = client AUM. The Liquidity bucket (0-3 years) is the cash
+ *   ring-fenced from investing; the agent invests the rest.
+ * - Risk: category + limit (willingness), capacity and drawdown limit from IPS part 3.
+ * - Goals: dated goal-plan events beyond 3 years; nearer ones are funded by the
+ *   Liquidity bucket. The Legacy bucket has no date, so it is not a dated goal.
+ * - Anything not captured (age, income, expenses, accredited status...) is left
+ *   out so the agent reports it as missing instead of the UI guessing.
+ */
+async function buildPortfolioInputs(clientId: string): Promise<PmInputs> {
+  const [client, buckets, alloc, goals, inbox] = await Promise.all([
+    arcApi.getClient(clientId), arcApi.get3L(clientId), arcApi.getAllocation(clientId),
+    arcApi.getGoalProjection(clientId), arcApi.getInbox("ic"),
+  ]);
+  if (!client) throw new Error(`Unknown client ${clientId}`);
+  const risk = m.ipsRiskByClient[clientId];
+  const liquidity = buckets.find((b) => b.id === "liquidity")?.amountSgd ?? 0;
+  const year = new Date().getFullYear();
+  const dated = goals.events.map((e) => ({ ...e, years: e.year - year })).sort((a, b) => a.years - b.years);
+  const near = dated.filter((e) => e.years <= 3);
+  const later = dated.filter((e) => e.years > 3);
+  const request = inbox.find((i) => i.clientId === clientId);
+  const current = Object.fromEntries(alloc.map((r) => [r.assetClass, r.current]));
+
+  const fields: PmInputField[] = [
+    { label: "Portfolio", value: shortS(client.aumSgd), source: "Client record" },
+    { label: "Liquidity bucket (held separately)", value: shortS(liquidity), source: "3L buckets, this request" },
+    { label: "Invested by the agent", value: shortS(client.aumSgd - liquidity), source: "Portfolio minus Liquidity bucket" },
+    { label: "Risk category and limit", value: `${client.riskCategory}, ${client.riskCap} of 5`, source: "IPS part 3" },
+    { label: "Risk capacity", value: risk?.riskCapacity ?? null, source: risk ? "IPS part 3" : "Not captured" },
+    { label: "Maximum drawdown", value: risk ? `${risk.maxDrawdownPct}%` : null, source: risk ? "IPS part 3" : "Not captured" },
+    { label: "Goals", value: later.length ? later.map((e) => `${e.label} in ${e.years} yrs`).join(" · ") : null, source: later.length ? "Goal plan" : "Not captured" },
+    { label: "Current allocation", value: alloc.map((r) => `${r.assetClass} ${r.current}%`).join(" · "), source: "Holdings" },
+    ...["Age", "Residency", "Accredited investor status", "Income and monthly expenses", "Liabilities"].map((label) => ({
+      label, value: null, source: "Not captured",
+    })),
+  ];
+  const notes = [
+    ...near.map((e) => `${e.label} (${e.year}) falls within 3 years, so it is funded from the Liquidity bucket, not the invested portfolio.`),
+    "The Legacy bucket has no target date (beyond lifetime); it is invested with the Longevity bucket.",
+  ];
+  return {
+    fields,
+    notes,
+    request: {
+      client_id: clientId,
+      trigger: request ? { requirement_change: request.kind, reason_for_review: request.summary, effective_date: new Date().toISOString().slice(0, 10) } : null,
+      client_profile: {
+        client_id: clientId,
+        base_currency: "SGD",
+        total_aum: client.aumSgd,
+        investable_assets: client.aumSgd,
+        minimum_cash_reserve: liquidity,
+        planned_withdrawals: 0,
+        risk_appetite: client.riskCategory,
+        risk_tolerance_score: client.riskCap,
+        risk_capacity: risk?.riskCapacity ?? null,
+        maximum_acceptable_drawdown: risk?.maxDrawdownPct ?? null,
+        financial_goals: later.map((e) => ({ goal: e.label, years_to_goal: e.years, priority: /retire/i.test(e.label) ? "High" : "Medium", currency: "SGD" })),
+        current_asset_allocation: current,
+      },
+    },
+  };
+}
+
+async function generatePortfolioProposals(req: PmRequest): Promise<PmResponse> {
+  const body: PmRequest = { ...req, request_id: req.request_id ?? `IC-${req.client_id}-${Date.now()}` };
+  let res: Response;
+  try {
+    res = await fetch(`${PM_URL}/portfolio/generate`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(PM_TIMEOUT_MS),
+    });
+  } catch (err) {
+    if (err instanceof DOMException && (err.name === "TimeoutError" || err.name === "AbortError")) {
+      throw new PortfolioManagerError("TIMEOUT", "The Portfolio Manager did not respond in time.");
+    }
+    throw new PortfolioManagerError("UNREACHABLE", `Cannot reach the Portfolio Manager at ${API_BASE}.`, [
+      "Start the backend: cd backend, then python -m app.agents.portfolio_manager serve",
+    ]);
+  }
+  const json: unknown = await res.json().catch(() => null);
+  if (!res.ok) {
+    const detail = (json as { detail?: unknown } | null)?.detail;
+    if (res.status === 422 && Array.isArray(detail)) {
+      throw new PortfolioManagerError("REJECTED", "The Portfolio Manager rejected the inputs.",
+        detail.map((d: { loc?: unknown[]; msg?: string }) => `${(d.loc ?? []).filter((x) => x !== "body").join(" › ")}: ${d.msg ?? "invalid"}`));
+    }
+    throw new PortfolioManagerError("SERVER", `The Portfolio Manager returned an error (${typeof detail === "string" ? detail : `HTTP ${res.status}`}).`);
+  }
+  const r = json as Partial<PmResponse> | null;
+  const ok = !!r && typeof r.request_id === "string" && Array.isArray(r.portfolio_options) && Array.isArray(r.comparison_matrix)
+    && Array.isArray(r.candidate_products) && !!r.market_context_summary && r.requires_rm_review === true && r.execution_status === "NOT_EXECUTED"
+    && r.portfolio_options.every((o) => typeof o?.option_id === "string" && Array.isArray(o?.asset_allocation) && Array.isArray(o?.product_selections));
+  if (!ok) throw new PortfolioManagerError("INVALID_RESPONSE", "The Portfolio Manager's response did not match the expected format.");
+  return r as PmResponse;
 }
