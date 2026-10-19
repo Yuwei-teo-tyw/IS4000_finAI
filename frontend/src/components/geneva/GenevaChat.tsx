@@ -126,6 +126,17 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
   const busy = working?.chatId === chat.id;
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  /** Seeded question: fill the composer (do not submit) so the user can keep editing. */
+  const fillDraft = (q: string) => {
+    setDraft(q);
+    requestAnimationFrame(() => {
+      const el = inputRef.current;
+      if (!el) return;
+      el.focus({ preventScroll: true });
+      el.setSelectionRange(q.length, q.length);
+    });
+  };
   const nearBottom = useRef(true);
   const onScroll = () => {
     const el = scrollRef.current;
@@ -181,7 +192,7 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
 
   const composer = (
     <form className="mx-auto flex w-full max-w-4xl items-center gap-3 rounded-full border border-hairline-strong bg-surface-100 py-2 pl-6 pr-2" onSubmit={(e) => { e.preventDefault(); send(draft); }}>
-      <input value={draft} onChange={(e) => setDraft(e.target.value)} aria-label="Message Geneva" placeholder={PLACEHOLDER[role]}
+      <input ref={inputRef} value={draft} onChange={(e) => setDraft(e.target.value)} aria-label="Message Geneva" placeholder={PLACEHOLDER[role]}
         className="min-h-10 min-w-0 flex-1 bg-transparent text-[15px] text-ink outline-none placeholder:text-ink-muted" />
       <button type="submit" disabled={busy || !draft.trim()} aria-label="Send" title="Send"
         className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-brand text-white disabled:opacity-40"><ArrowUp size={18} /></button>
@@ -223,7 +234,7 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
             <ul className="mt-6 w-full max-w-4xl">
               {SEEDED[role].map((q) => (
                 <li key={q}>
-                  <button type="button" onClick={() => send(q)} className="flex w-full items-start gap-4 rounded-sm px-4 py-3 text-left text-[15px] leading-6 text-ink-700 hover:bg-surface-300 hover:text-ink">
+                  <button type="button" onClick={() => fillDraft(q)} className="flex w-full items-start gap-4 rounded-sm px-4 py-3 text-left text-[15px] leading-6 text-ink-700 hover:bg-surface-300 hover:text-ink">
                     <Search size={18} className="mt-0.5 shrink-0 text-ink-muted" /> {q}
                   </button>
                 </li>
