@@ -1,10 +1,10 @@
 import type { ReactNode } from "react";
+import { toBulletItems } from "../../../utils/bullets";
 
 export const WRAP = "break-words [overflow-wrap:anywhere] min-w-0";
 
-/** Split a body into bullet items on newlines and sentence ends. */
-export const toBullets = (text: string): string[] =>
-  text.split(/\n+|(?<=[.;])\s+(?=[A-Z0-9])/).map((s) => s.trim().replace(/\.$/, "")).filter(Boolean);
+/** Split a body into bullet items (alias of the shared normaliser, document style). */
+export const toBullets = (text: string): string[] => toBulletItems(text, { splitSemicolon: true, stripPeriod: true });
 
 export function DocSection({ n, title, children }: { n: number; title: string; children: ReactNode }) {
   return (

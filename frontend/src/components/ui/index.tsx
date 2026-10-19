@@ -1,6 +1,15 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { Check } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, Minus } from "lucide-react";
+
+/** Icon-only direction cue (no text). Colours: text-up / text-down / text-ink-muted. Number = sign of delta. */
+export function DirectionArrow({ d, size = 14 }: { d: "up" | "down" | "flat" | number; size?: number }) {
+  const dir = typeof d === "number" ? (d > 0 ? "up" : d < 0 ? "down" : "flat") : d;
+  const Icon = dir === "up" ? ArrowUp : dir === "down" ? ArrowDown : Minus;
+  const cls = dir === "up" ? "text-up" : dir === "down" ? "text-down" : "text-ink-muted";
+  const label = dir === "up" ? "Up" : dir === "down" ? "Down" : "No change";
+  return <Icon size={size} role="img" aria-label={label} className={`inline-block shrink-0 align-[-2px] ${cls}`} />;
+}
 
 /** Load async data once; pages stay free of fetch plumbing. */
 export function useAsync<T>(fn: () => Promise<T>, deps: unknown[] = []) {
@@ -74,14 +83,15 @@ export function RiskScale({ value, max = 5 }: { value: number; max?: number }) {
   );
 }
 
-/** "gold" = the one primary (brand red) action; "primary" = dark secondary; "ghost" = outlined secondary. */
+/** "primary" (default) and "gold" = brand red fill; "secondary" and "ghost" = outlined neutral (back / cancel / sort / toggle). */
 export function Button({ children, variant = "primary", to, onClick, disabled, type = "button", size = "md" }: {
-  children: ReactNode; variant?: "primary" | "gold" | "ghost"; size?: "sm" | "md"; to?: string; onClick?: () => void; disabled?: boolean; type?: "button" | "submit";
+  children: ReactNode; variant?: "primary" | "gold" | "secondary" | "ghost"; size?: "sm" | "md"; to?: string; onClick?: () => void; disabled?: boolean; type?: "button" | "submit";
 }) {
   const base = "inline-flex items-center gap-2 rounded-sm text-[15px] font-semibold transition disabled:bg-surface-300 disabled:text-ink-muted disabled:pointer-events-none";
   const v = {
     gold: "bg-brand text-on-brand hover:bg-brand-hover",
-    primary: "bg-surface-inverse text-ink-inverse hover:opacity-90",
+    primary: "bg-brand text-on-brand hover:bg-brand-hover",
+    secondary: "border border-ink text-ink bg-transparent hover:bg-surface-300",
     ghost: "border border-ink text-ink bg-transparent hover:bg-surface-300",
   }[variant];
   const cls = `${base} ${size === "sm" ? "min-h-9 px-4" : "min-h-12 px-6"} ${v}`;
@@ -120,13 +130,13 @@ export function Stepper({ steps, current }: { steps: { label: string; hint?: str
 }
 
 /** "What to do next" band: one primary action per page. */
-export function NextAction({ title, body, action }: { title: string; body: string; action?: ReactNode }) {
+export function NextAction({ title, body, action }: { title: string; body?: string; action?: ReactNode }) {
   return (
     <div className="mb-14 flex flex-wrap items-center justify-between gap-6 bg-surface-200 p-6">
       <div className="max-w-[680px]">
         <p className="text-xs text-ink-muted">Next step</p>
         <h3 className="mt-1 text-[22px] font-normal leading-7">{title}</h3>
-        <p className="mt-2 text-sm text-ink-muted">{body}</p>
+        {body && <p className="mt-2 text-sm text-ink-muted">{body}</p>}
       </div>
       {action}
     </div>
@@ -137,10 +147,6 @@ const gateTone = { not_started: "grey", pending: "amber", approved: "green", res
 const gateText = { not_started: "Not started", pending: "Awaiting approval", approved: "Approved", reset: "Reset" } as const;
 export function GateChip({ id, state }: { id: string; state: keyof typeof gateTone }) {
   return <Badge tone={gateTone[state]}>{id} · {gateText[state]}</Badge>;
-}
-
-export function CitationTag({ tag }: { tag: string }) {
-  return <span className="mr-1 inline-block rounded-sm bg-surface-300 px-2 py-0.5 text-xs font-medium text-ink-muted">[{tag}]</span>;
 }
 
 /** Lux: rows separated by hairlines, no boxes; header is plain muted text on a light band. */
@@ -167,3 +173,10 @@ export const sgdFull = (n: number) => `S$${n.toLocaleString("en-SG")}`;
 export function Loading() {
   return <p className="py-16 text-center text-sm text-ink-muted">Loading…</p>;
 }
+export { toBulletItems, toBulletText, BulletList, BulletTextarea } from "./BulletText";
+export type { BulletTextareaProps } from "./BulletText";
+export { CitationTag } from "./CitationTag";
+export { useSliceTooltip, SliceTooltip } from "./SliceTooltip";
+export type { SliceTip } from "./SliceTooltip";
+export { SignatureBlock, SCRIPT_FONT } from "./SignatureBlock";
+export type { SignatureRole } from "./SignatureBlock";

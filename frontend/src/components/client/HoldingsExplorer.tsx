@@ -42,7 +42,6 @@ export function HoldingsExplorer({ clientId }: { clientId: string }) {
       <section className="space-y-6">
         <div>
           <h2 className="text-2xl font-light text-ink">Holdings</h2>
-          <p className="mt-2 text-sm text-ink-muted">Filter by asset class to see what the client holds and how each position is performing.</p>
         </div>
         <div className="flex flex-wrap gap-3">
           {chip("All", holdings.length)}

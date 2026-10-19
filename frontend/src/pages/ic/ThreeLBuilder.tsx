@@ -2,13 +2,13 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { ChevronDown } from "lucide-react";
 import { arcApi } from "../../services/arcApi";
-import { Button, Card, GateChip, Loading, NextAction, PageHeader, Section, Stepper, sgd, sgdFull, useAsync } from "../../components/ui";
+import { BulletList, Button, Card, GateChip, Loading, NextAction, PageHeader, Section, Stepper, sgdFull, useAsync } from "../../components/ui";
 import { Bar, BackLink, Msg, NumInput } from "./icHelpers";
 
 export const IC_STEPS = [{ label: "3L buckets", hint: "IPS part 2" }, { label: "SAA", hint: "IPS part 4" }, { label: "Send back to RM", hint: "Return to RM" }];
 
 export default function ThreeLBuilder() {
-  const { clientId = "ser" } = useParams();
+  const { clientId = "jfr" } = useParams();
   const client = useAsync(() => arcApi.getClient(clientId), [clientId]);
   const buckets = useAsync(() => arcApi.get3L(clientId), [clientId]);
   const ips = useAsync(() => arcApi.getIps(clientId), [clientId]);
@@ -25,6 +25,7 @@ export default function ThreeLBuilder() {
     <div>
       <PageHeader eyebrow={`${client.name} · Request`} title="Build the 3L buckets" subtitle="Split the portfolio into Liquidity, Longevity and Legacy." actions={<GateChip id="G2" state="not_started" />} />
       <Stepper steps={IC_STEPS} current={0} />
+      <BackLink to="/ic/inbox">Back to inbox</BackLink>
 
       <Card className="mb-12">
         <button type="button" onClick={() => setOpen(!open)} className="flex w-full items-center justify-between text-left">
@@ -34,13 +35,13 @@ export default function ThreeLBuilder() {
         {open && (
           <div className="mt-6 flex flex-col gap-5 border-t border-ink-200 pt-6">
             {ips.filter((p) => p.owner === "rm").map((p) => (
-              <div key={p.part}><p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted">Part {p.part} · {p.title}</p><p className="mt-1 text-sm text-ink-700">{p.body}</p></div>
+              <div key={p.part}><p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted">Part {p.part} · {p.title}</p><BulletList text={p.body} className="mt-2 text-ink-700" /></div>
             ))}
           </div>
         )}
       </Card>
 
-      <Section title="Three buckets" hint={`Amounts must add up to the portfolio of ${sgd(client.aumSgd)}.`}>
+      <Section title="Three buckets">
         <div className="flex flex-col gap-8">
           {buckets.map((b, i) => (
             <Card key={b.id}>
@@ -64,8 +65,7 @@ export default function ThreeLBuilder() {
         </div>
       </Section>
 
-      <NextAction title="Continue to SAA" body="Once the buckets add up, pick a strategic template and fine-tune it." action={<Button to={`/ic/requests/${clientId}/saa`} disabled={!ok}>Continue to SAA</Button>} />
-      <BackLink to="/ic/inbox">Back to inbox</BackLink>
+      <NextAction title="Continue to SAA" action={<Button to={`/ic/requests/${clientId}/saa`} disabled={!ok}>Continue to SAA</Button>} />
     </div>
   );
 }

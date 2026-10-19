@@ -6,8 +6,6 @@ import { GenevaMark } from "../documents/GenevaMark";
 
 export interface DocSection { n: number; title: string; owner: Role; complete: boolean; body: ReactNode; wide?: boolean }
 
-export const pendingLabel = (owner: Role) => `${ROLE_LABEL[owner]} (${ROLE_PEOPLE[owner].person})`;
-
 /** Roles that still owe at least one section. */
 export function pendingRoles(sections: DocSection[]): Role[] {
   return Array.from(new Set(sections.filter((s) => !s.complete).map((s) => s.owner)));
@@ -43,10 +41,10 @@ export function CompiledDocument({ docTitle, clientName, version, date, sections
       </header>
 
       <div className="grid grid-cols-1 gap-x-12 gap-y-12 md:grid-cols-2">
-        {sections.map((s) => (
+        {sections.map((s, idx) => (
           <section key={s.n} className={`min-w-0 ${s.wide ? "md:col-span-2" : ""}`}>
             <div className="avoid-break flex flex-wrap items-baseline justify-between gap-3 border-t border-ink pt-4">
-              <h2 className="min-w-0 break-words text-[22px] font-light [overflow-wrap:anywhere]"><span className="mr-3 text-sm text-ink-muted">{String(s.n).padStart(2, "0")}</span>{s.title}</h2>
+              <h2 className="min-w-0 break-words text-[22px] font-light [overflow-wrap:anywhere]"><span className="mr-3 text-sm text-ink-muted">{String(idx + 1).padStart(2, "0")}</span>{s.title}</h2>
               <span className={`border px-3 py-1 text-[11px] uppercase tracking-[0.14em] ${s.complete ? "border-ink text-ink" : "border-dashed border-negative text-negative"}`}>
                 {s.complete ? "Complete" : "Pending"}
               </span>

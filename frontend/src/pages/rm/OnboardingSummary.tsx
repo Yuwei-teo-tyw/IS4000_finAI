@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { Bot, Check } from "lucide-react";
 import { arcApi } from "../../services/arcApi";
 import { Badge, Button, Card, GateChip, Loading, PageHeader, Section, Stepper, useAsync } from "../../components/ui";
+import { toBulletItems } from "../../components/ui";
 import { onboardingSteps } from "./rmShared";
 
 const questions = [
@@ -23,17 +24,17 @@ export default function OnboardingSummary() {
 
   return (
     <div>
-      <PageHeader eyebrow={client.name} title="Review the summary" subtitle="Here is what the agent understood from your notes. Correct anything that looks wrong."
+      <PageHeader eyebrow={client.name} title="Review the summary" subtitle="Correct anything that looks wrong."
         actions={<GateChip id="G1" state="not_started" />} />
       <Stepper steps={onboardingSteps} current={1} />
 
-      <Section title="What I understood" hint="Goals, risks, concerns, amounts and key dates.">
+      <Section title="What I understood">
         <Card>
           <div className="flex gap-4">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-inverse text-ink-inverse"><Bot size={20} /></span>
             <div>
               <ul className="list-disc space-y-3 pl-5 text-base text-ink-700">
-                {(note?.summary ?? ["Goals, risks and amounts will appear here."]).map((s, i) => <li key={i}>{s}</li>)}
+                {toBulletItems((note?.summary ?? ["Goals, risks and amounts will appear here."]).join("\n")).map((s, i) => <li key={i}>{s}</li>)}
               </ul>
               <div className="mt-6 flex items-center gap-3 text-sm text-ink-500">
                 Detected case type:
@@ -48,7 +49,7 @@ export default function OnboardingSummary() {
         </Card>
       </Section>
 
-      <Section title="Questions for you" hint="I never guess missing facts. Please answer these.">
+      <Section title="Questions for you" hint="Answer each to complete the summary.">
         <div className="flex flex-col gap-5">
           {questions.map((q, i) => (
             <Card key={i}>
@@ -60,7 +61,7 @@ export default function OnboardingSummary() {
         </div>
       </Section>
 
-      <Section title="To-do" hint="Follow-ups from the meeting.">
+      <Section title="To-do">
         <Card>
           <ul className="flex flex-col gap-4">
             {items.map((c, i) => {

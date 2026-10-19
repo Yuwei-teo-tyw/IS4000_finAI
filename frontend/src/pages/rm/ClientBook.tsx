@@ -59,6 +59,9 @@ export default function ClientBook() {
     const diff = new Date(a.nextMeeting).getTime() - new Date(b.nextMeeting).getTime();
     return furthestFirst ? -diff : diff;
   });
+  const onboarding = sorted.filter((c) => c.status.startsWith("Onboarding"));
+  const monitoring = sorted.filter((c) => !c.status.startsWith("Onboarding"));
+  const groups = [{ title: "Onboarding", list: onboarding }, { title: "Monitoring", list: monitoring }].filter((g) => g.list.length);
   const earliest = [...clients].sort((a, b) => a.nextMeeting.localeCompare(b.nextMeeting))[0]?.nextMeeting;
 
   return (
@@ -76,7 +79,7 @@ export default function ClientBook() {
       </section>
 
       <div className="mb-14 grid gap-8 md:grid-cols-3">
-        <StatCard icon={Users} label="Clients" value={clients.length} />
+        <StatCard icon={Users} label="Clients" value={clients.length} note={`${onboarding.length} Onboarding, ${monitoring.length} Monitoring`} />
         <StatCard icon={Landmark} label="Assets Under Management" value={sgd(total)} />
         <StatCard icon={CalendarClock} label="Next Meeting" value={earliest ? fmtDate(earliest) : "None scheduled"} note={earliest ? relative(earliest) : undefined} />
       </div>
@@ -94,21 +97,28 @@ export default function ClientBook() {
       </div>
 
       <div className={`hidden px-8 pb-3 text-sm text-ink-muted md:grid ${COLS}`}>
-        <span>Client</span><span>Risk</span><span>AUM</span><span>Phase</span><span>Next Meeting</span><span className="invisible">Open</span>
+        <span>Client</span><span>Risk appetite</span><span>AUM</span><span>Phase</span><span>Next Meeting</span><span className="invisible">Open</span>
       </div>
-      <div className="flex flex-col gap-4">
-        {sorted.map((c) => (
+      <div className="flex flex-col gap-10">
+        {groups.map((g) => (
+          <section key={g.title} aria-label={`${g.title} clients`}>
+            <h3 className="mb-4 text-lg">{g.title} <span className="text-ink-muted">({g.list.length})</span></h3>
+            <div className="flex flex-col gap-4">
+        {g.list.map((c) => (
           <Card key={c.id} className={`grid gap-y-4 !px-8 !py-6 ${COLS}`}>
             <p className="text-xl text-ink">{c.name}</p>
-            <RiskScale value={c.riskCap} />
+            <div><RiskScale value={c.riskCap} /><p className="mt-2 text-xs text-ink-muted">{c.riskCategory}, {c.riskCap} of 5</p></div>
             <p className="text-sm font-semibold">{sgd(c.aumSgd)}</p>
             <div className="whitespace-nowrap"><Badge tone="grey"><span className="whitespace-nowrap">{c.status}</span></Badge></div>
             <div className="text-sm">
               <p className="font-semibold">{fmtDate(c.nextMeeting)}</p>
               <p className="mt-1 text-ink-muted">{relative(c.nextMeeting)}</p>
             </div>
-            <div><Button to={`/${role}/clients/${c.id}`} variant="ghost">Open</Button></div>
+            <div><Button to={`/${role}/clients/${c.id}`}>Open</Button></div>
           </Card>
+        ))}
+      </div>
+          </section>
         ))}
       </div>
     </div>

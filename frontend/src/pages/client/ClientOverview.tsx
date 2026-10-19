@@ -28,11 +28,11 @@ export default function ClientOverview() {
       </Section>
       </div>
 
-      <Section title="Goal projection" hint="Projected portfolio against the value needed to fund each life event.">
+      <Section title="Goal projection">
         <Card className="!p-8"><GoalProjection data={goal} /></Card>
       </Section>
 
-      <Section title="3L and allocation" hint="Goal buckets on the left, current holdings by group, then the target bands.">
+      <Section title="3L and allocation">
         <Card className="mb-8 !p-8">
           <div className="grid gap-10 lg:grid-cols-2">
             <div className="flex flex-col gap-7">
@@ -90,7 +90,7 @@ export default function ClientOverview() {
         </Card>
       </Section>
 
-      <Section title="Holdings" hint="Instruments held, filtered by asset class, with how they move together.">
+      <Section title="Holdings">
         <HoldingsExplorer clientId={clientId} />
       </Section>
     </div>

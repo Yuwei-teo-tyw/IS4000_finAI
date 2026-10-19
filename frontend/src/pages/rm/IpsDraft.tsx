@@ -2,10 +2,12 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Lock } from "lucide-react";
 import { arcApi } from "../../services/arcApi";
-import { Badge, Button, Card, GateChip, Loading, NextAction, PageHeader, Stepper, useAsync } from "../../components/ui";
+import { Badge, Button, Card, GateChip, Loading, NextAction, PageHeader, Stepper, useAsync, BulletTextarea } from "../../components/ui";
 import { onboardingSteps, ipsToSections, fmtDate } from "./rmShared";
 import { ContributionsPanel } from "../../components/export/ContributionsPanel";
 import { IpsDocument } from "../../components/documents/IpsDocument";
+import { ProfessionaliseButton } from "../../components/geneva/ProfessionaliseButton";
+import { getChatContext } from "../../services/chatContextStore";
 import { ExportActions } from "../../components/export/ExportActions";
 
 const RM_PARTS = [1, 3, 5, 6];
@@ -20,17 +22,30 @@ export default function IpsDraft({ embedded = false, clientId: clientIdProp }: {
   const [text, setText] = useState<Record<number, string>>({});
   const [sent, setSent] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [stage, setStage] = useState<"edit" | "polish">("edit");
+  const [busy, setBusy] = useState(false);
+  const [polished, setPolished] = useState(false);
   useEffect(() => {
     if (parts) setText(Object.fromEntries(parts.map((p) => [p.part, p.body])));
   }, [parts]);
   if (!parts) return <Loading />;
   const p = parts.find((x) => x.part === active)!;
   const sections = ipsToSections(parts, text);
-  const subtitle = `You fill ${RM_PARTS.map((n) => parts.find((x) => x.part === n)?.title ?? "").filter(Boolean).join(", ")}. The Investment Counsellor completes the remaining sections.`;
+  const subtitle = `You fill ${RM_PARTS.map((n) => parts.find((x) => x.part === n)?.title ?? "").filter(Boolean).join(", ")}.`;
   const editable = RM_PARTS.includes(active) && !sent;
+
+  const runPolish = async () => {
+    setBusy(true);
+    const out = await arcApi.professionalise({ clientId, role: "rm", context: "ips", chat: getChatContext(clientId, "rm"),
+      items: RM_PARTS.map((n) => ({ id: String(n), label: parts.find((x) => x.part === n)?.title ?? `Part ${n}`, text: text[n] ?? "" })) });
+    setText((t) => ({ ...t, ...Object.fromEntries(out.map((o) => [Number(o.id), o.text])) }));
+    setBusy(false); setPolished(true);
+  };
+  const bottomOnly = stage === "polish" && !sent;
 
   return (
     <div>
+      {!bottomOnly && (<>
       {embedded ? (
         <div className="mb-10 flex flex-wrap items-start justify-between gap-6">
           <div className="min-w-0">
@@ -47,6 +62,7 @@ export default function IpsDraft({ embedded = false, clientId: clientIdProp }: {
         </>
       )}
 
+      </>)}
       <div className="mb-10 flex flex-col gap-8 lg:flex-row lg:items-start">
       <aside className="w-full shrink-0 lg:sticky lg:top-6 lg:w-80">
         <ContributionsPanel sections={sections} className="" />
@@ -68,10 +84,11 @@ export default function IpsDraft({ embedded = false, clientId: clientIdProp }: {
             : sent ? <Badge tone="grey"><Lock size={12} className="mr-1" />Locked</Badge> : <Badge tone="gold">You edit</Badge>}
         </div>
         {RM_PARTS.includes(active) ? (
-          <textarea value={text[active] ?? ""} disabled={!editable} onChange={(e) => { setText({ ...text, [active]: e.target.value }); setSaved(false); }}
-            rows={8} className="block w-full max-w-full resize-y break-words [overflow-wrap:anywhere] rounded-md border border-ink-200 p-5 text-base leading-relaxed outline-none focus:border-ink disabled:bg-surface-200" />
+          <div>
+            <BulletTextarea value={text[active] ?? ""} disabled={!editable} onChange={(v) => { setText({ ...text, [active]: v }); setSaved(false); }} rows={8} />
+          </div>
         ) : (
-          <p className="rounded-md bg-surface-200 p-8 text-center text-sm text-ink-500">The Investment Counsellor will complete this part after you send the draft.</p>
+          <p className="rounded-md bg-surface-200 p-8 text-center text-sm text-ink-500">To be filled by the Investment Counsellor.</p>
         )}
       </Card>
       </div>
@@ -85,15 +102,21 @@ export default function IpsDraft({ embedded = false, clientId: clientIdProp }: {
       {sent && embedded ? (
         <Card><p className="text-base text-ink-700">Sent to the Investment Counsellor. Your sections are now locked.</p></Card>
       ) : sent ? (
-        <NextAction title="Sent to the Investment Counsellor" body="Your sections are now locked. You will be notified when the IC returns the IPS for your approval."
+        <NextAction title="Sent to the Investment Counsellor" body="Sections are locked until the IC returns the IPS."
           action={<Button to={`/rm/clients/${clientId}/ips-approval`}>Preview IC return</Button>} />
+      ) : stage === "polish" ? (
+        <div className="flex flex-wrap items-center justify-end gap-3">
+          <ProfessionaliseButton onClick={runPolish} loading={busy} disabled={polished} label="Professionalise" />
+          <Button variant="secondary" onClick={() => setStage("edit")}>Back</Button>
+          {polished && <Button onClick={() => setSent(true)}>Send to IC</Button>}
+        </div>
       ) : (
         <div className="flex flex-wrap items-center justify-end gap-3">
           {embedded && saved && <span className="text-sm text-ink-500" role="status">Saved</span>}
           {embedded
-            ? <Button variant="ghost" onClick={() => setSaved(true)}>Save</Button>
-            : <Button variant="ghost" onClick={() => nav(-1)}>Back</Button>}
-          <Button onClick={() => setSent(true)}>Send to IC</Button>
+            ? <Button onClick={() => setSaved(true)}>Save</Button>
+            : <Button variant="secondary" onClick={() => nav(-1)}>Back</Button>}
+          <Button onClick={() => { setPolished(false); setStage("polish"); }}>Review wording and send</Button>
         </div>
       )}
     </div>

@@ -14,12 +14,16 @@ export function useRole(): Role {
 export default function AppShell() {
   const role = useRole();
   const clientId = useActiveClientId();
-  const inPageChat = /\/assistant$/.test(useLocation().pathname);
+  const { pathname, search } = useLocation();
+  const onAssistant = /\/assistant$/.test(pathname);
+  const tab = new URLSearchParams(search).get("tab");
+  // PS keeps the docked chat on every assistant tab except the research chat.
+  const inPageChat = onAssistant && !(role === "ps" && tab && tab !== "research");
   return (
     <div className="arc flex h-screen overflow-hidden bg-surface-100 print:block print:h-auto print:overflow-visible">
       <Sidebar role={role} />
       <main className="min-w-0 flex-1 overflow-y-auto px-6 py-12 md:px-10 print:block print:h-auto print:overflow-visible print:p-0">
-        <div className={`print:max-w-none ${inPageChat ? "mx-auto max-w-[1680px]" : "max-w-[1480px]"}`}>
+        <div className="mx-auto w-full max-w-[1760px] print:max-w-none">
           <Outlet />
         </div>
       </main>

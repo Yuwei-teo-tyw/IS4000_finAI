@@ -84,3 +84,51 @@
 
 /* Geneva chat: one light weight everywhere, matching the page titles. */
 .geneva-light, .geneva-light * { font-weight: 300 !important; }
+
+/* Geneva liquid-glass button */
+@keyframes geneva-sheen { 0% { transform: translateX(-130%) skewX(-18deg); } 100% { transform: translateX(330%) skewX(-18deg); } }
+@keyframes geneva-liquid { 0% { transform: translate(-18%, 0) scale(1); } 50% { transform: translate(18%, -8%) scale(1.15); } 100% { transform: translate(-18%, 0) scale(1); } }
+@keyframes geneva-liquid-b { 0% { transform: translate(20%, 6%) scale(1.1); } 50% { transform: translate(-20%, -6%) scale(0.95); } 100% { transform: translate(20%, 6%) scale(1.1); } }
+.geneva-glass {
+  --gg-tint: rgba(255,255,255,0.55); --gg-edge: rgba(255,255,255,0.9); --gg-line: rgba(28,28,28,0.14);
+  --gg-shadow: rgba(28,28,28,0.12); --gg-blob-a: rgba(210,40,40,0.28); --gg-blob-b: rgba(120,140,200,0.30);
+  position: relative; isolation: isolate; overflow: hidden; border-radius: 0;
+  background: linear-gradient(135deg, var(--gg-tint), rgba(255,255,255,0.18));
+  -webkit-backdrop-filter: blur(14px) saturate(160%); backdrop-filter: blur(14px) saturate(160%);
+  border: 1px solid var(--gg-line);
+  box-shadow: inset 0 1px 0 var(--gg-edge), inset 0 -1px 0 rgba(255,255,255,0.25), 0 6px 18px -6px var(--gg-shadow);
+  color: var(--ink); transition: box-shadow .3s ease, transform .3s ease;
+}
+[data-theme="dark"] .geneva-glass {
+  --gg-tint: rgba(255,255,255,0.14); --gg-edge: rgba(255,255,255,0.28); --gg-line: rgba(255,255,255,0.18);
+  --gg-shadow: rgba(0,0,0,0.6); --gg-blob-a: rgba(230,60,60,0.38); --gg-blob-b: rgba(130,150,220,0.34);
+}
+.geneva-glass:hover:not(:disabled) { box-shadow: inset 0 1px 0 var(--gg-edge), 0 10px 24px -6px var(--gg-shadow); transform: translateY(-1px); }
+.geneva-glass:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+.geneva-glass:disabled { opacity: .5; cursor: not-allowed; }
+.geneva-glass::before { /* specular sheen */
+  content: ""; position: absolute; inset: 0 auto 0 0; width: 40%; z-index: -1; pointer-events: none; opacity: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.7), transparent); transform: translateX(-130%) skewX(-18deg);
+}
+[data-theme="dark"] .geneva-glass::before { background: linear-gradient(90deg, transparent, rgba(255,255,255,0.28), transparent); }
+.geneva-glass:hover:not(:disabled)::before { opacity: 1; animation: geneva-sheen 1.1s ease-out 1; }
+.geneva-glass .gg-blob { position: absolute; z-index: -1; border-radius: 9999px; filter: blur(14px); opacity: 0; pointer-events: none; transition: opacity .4s ease; }
+.geneva-glass[data-loading="true"] .gg-blob { opacity: 1; }
+.geneva-glass .gg-blob-a { width: 60%; height: 140%; left: 5%; top: -20%; background: var(--gg-blob-a); animation: geneva-liquid 3.2s ease-in-out infinite; }
+.geneva-glass .gg-blob-b { width: 55%; height: 130%; right: 0; top: -15%; background: var(--gg-blob-b); animation: geneva-liquid-b 4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .geneva-glass, .geneva-glass:hover:not(:disabled) { transition: none; transform: none; }
+  .geneva-glass::before, .geneva-glass .gg-blob { animation: none !important; }
+  .geneva-glass:hover:not(:disabled)::before { opacity: 0; }
+}
+
+@layer base {
+/* Global interactive cursor: standard hand pointer on anything clickable. */
+button, a[href], summary, select, [role="button"], [role="tab"], [role="menuitem"], [role="link"],
+input[type="checkbox"], input[type="radio"], input[type="file"], label[for], tbody tr[onclick], [data-clickable] {
+  cursor: pointer;
+}
+button:disabled, [aria-disabled="true"], input:disabled, select:disabled, [role="button"][aria-disabled="true"] {
+  cursor: not-allowed;
+}
+}

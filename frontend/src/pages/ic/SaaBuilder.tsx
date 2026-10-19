@@ -8,7 +8,7 @@ import { IC_STEPS } from "./ThreeLBuilder";
 const TABS = ["Template", "Edit weights", "Frontier"] as const;
 
 export default function SaaBuilder() {
-  const { clientId = "ser" } = useParams();
+  const { clientId = "jfr" } = useParams();
   const client = useAsync(() => arcApi.getClient(clientId), [clientId]);
   const templates = useAsync(() => arcApi.getSaaTemplates());
   const [tab, setTab] = useState<(typeof TABS)[number]>("Template");
@@ -29,8 +29,9 @@ export default function SaaBuilder() {
 
   return (
     <div>
-      <PageHeader eyebrow={`${client.name} · Request`} title="Build the SAA" subtitle="Choose a template, then adjust each class by up to 5 points." actions={<GateChip id="G2" state={sent ? "pending" : "not_started"} />} />
+      <PageHeader eyebrow={`${client.name} · Request`} title="Build the SAA" subtitle="Choose a template to start." actions={<GateChip id="G2" state={sent ? "pending" : "not_started"} />} />
       <Stepper steps={IC_STEPS} current={sent ? 2 : 1} />
+      <BackLink to={`/ic/requests/${clientId}/3l`}>Back to 3L</BackLink>
 
       <div className="mb-10 flex gap-3">
         {TABS.map((t) => (
@@ -39,7 +40,7 @@ export default function SaaBuilder() {
       </div>
 
       {tab === "Template" && (
-        <Section title="Pick a template" hint="Templates A to F run from cautious to opportunistic.">
+        <Section title="Pick a template">
           <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
             {templates.map((t) => (
               <button key={t.id} type="button" onClick={() => pick(t.id)} className="text-left">
@@ -69,7 +70,7 @@ export default function SaaBuilder() {
       )}
 
       {tab === "Frontier" && (
-        <Section title="Efficient frontier (illustration)" hint="Shows where your mix sits against the best return for each level of risk. Illustrative only.">
+        <Section title="Efficient frontier (illustration)" hint="Illustrative only.">
           <Card>
             <svg viewBox="0 0 400 240" className="w-full max-w-xl" role="img" aria-label="Efficient frontier">
               <line x1="40" y1="200" x2="380" y2="200" stroke="var(--hairline)" /><line x1="40" y1="20" x2="40" y2="200" stroke="var(--hairline)" />
@@ -84,11 +85,10 @@ export default function SaaBuilder() {
       )}
 
       {sent ? <Msg ok>SAA sent back to the RM for the IPS. Awaiting RM review.</Msg> : valid ? (
-        <NextAction title="Limit check passed" body="Everything is inside the rules. Send the 3L and SAA back to the RM." action={<Button variant="gold" onClick={() => setSent(true)}>Send back to RM</Button>} />
+        <NextAction title="Limit check passed" body="Everything is inside the rules." action={<Button variant="primary" onClick={() => setSent(true)}>Send back to RM</Button>} />
       ) : (
-        <NextAction title="Blocked: fix the checks first" body="Open Edit weights and resolve the red messages. Sending stays off until all three pass." action={<Button disabled>Send back to RM</Button>} />
+        <NextAction title="Blocked: fix the checks first" body="Resolve the red checks to enable sending." action={<Button disabled>Send back to RM</Button>} />
       )}
-      <BackLink to={`/ic/requests/${clientId}/3l`}>Back to 3L</BackLink>
     </div>
   );
 }
