@@ -1,4 +1,4 @@
-import { Table, sgdFull } from "../ui";
+import { DirectionArrow, Table, sgdFull } from "../ui";
 import type { AssetClass, Holding } from "../../types/arc";
 
 type H = Holding & { ticker?: string };
@@ -11,7 +11,7 @@ export function HoldingsTable({ holdings, assetClass, showTotal = false }: { hol
     h.assetClass,
     sgdFull(h.valueSgd),
     <div className="flex items-center gap-3"><div className="h-2 w-24 rounded bg-surface-300"><div className="h-2 rounded bg-surface-inverse" style={{ width: `${Math.min(100, h.weightPct * 4)}%` }} /></div>{h.weightPct}%</div>,
-    <span className={h.returnYtdPct >= 0 ? "text-positive" : "text-negative"}>{sign(h.returnYtdPct)}</span>,
+    <span className="inline-flex items-center gap-1"><DirectionArrow d={h.returnYtdPct} />{sign(h.returnYtdPct)}</span>,
   ]);
   if (showTotal && list.length) {
     const value = list.reduce((a, h) => a + h.valueSgd, 0);
@@ -22,7 +22,7 @@ export function HoldingsTable({ holdings, assetClass, showTotal = false }: { hol
       "",
       <span className="font-semibold text-ink">{sgdFull(value)}</span>,
       <span className="font-semibold text-ink">{Math.round(weight * 10) / 10}%</span>,
-      <span className={ytd >= 0 ? "font-semibold text-positive" : "font-semibold text-negative"}>{sign(ytd)}</span>,
+      <span className="inline-flex items-center gap-1 font-semibold"><DirectionArrow d={ytd} />{sign(ytd)}</span>,
     ]);
   }
   return <Table head={["Instrument", "Asset class", "Value", "Weight", "YTD"]} rows={rows} />;

@@ -35,9 +35,15 @@ export interface InboxItem {
 
 export interface MarketView { assetClass: AssetClass; view: "Buy" | "Hold" | "Sell"; explanation: string; confidence: "High" | "Medium" | "Low"; tags: string[] }
 export type ProductClass = AssetClass | "Structured products";
-export interface Product { id: string; name: string; assetClass: ProductClass; whyBuy: string; feePct: number; stars: number; suitability: string; riskRating: number; tags: string[] }
+export interface Product { id: string; name: string; assetClass: ProductClass; whyBuy: string; feePct: number; stars: number; suitability: string; riskRating: number; tags: string[];
+  /** Professional PS rationale, "• ... [TAG]" bullets (>=5). Seeded for client jfr. */
+  psReason?: string }
 
-export interface PackSection { n: number; title: string; owner: Role; gate: GateId | null; status: "draft" | "ready" | "flagged" | "approved"; body: string }
+export interface PackSection { n: number; title: string; owner: Role; gate: GateId | null; status: "draft" | "ready" | "flagged" | "approved"; body: string;
+  /** Chart placeholder the compiled document renders beside this section's text. */
+  chart?: "saa" | "taa" | "holdings"; kind?: "signoff";
+  /** Display position (ascending). Defaults to n when absent. n stays stable as the section id. */
+  order?: number }
 export interface Citation { tag: string; what: string; system: string; asOf: string; ref: string }
 export interface ActivityEvent { id: string; at: string; actor: string; role: Role | "system"; text: string }
 export interface MeetingNote { id: string; clientId: string; date: string; title: string; sourceFile: string; originalText: string; summary: string[]; checklist: { text: string; done: boolean }[] }
@@ -63,3 +69,19 @@ export interface MacroBrief { phase: string; asOf: string; events: string[]; vie
 /** One chat turn. `steps` (agents fired, thinking) show only while thinking, never in the final answer. */
 export interface SectionDraft { section: number; title: string; text: string }
 export interface MarketAnswer { summary: string; draft?: SectionDraft; market: MacroBrief | null; rows: MarketRow[]; autoTick: boolean; steps: string[]; tags: string[] }
+
+/** Input for the backend Jinja template that renders the compiled review pack (see backend app/reports). */
+export interface PackRenderInput {
+  doc: { title: string; clientName: string; version: string; date: string };
+  sections: { n: number; title: string; ownerLabel: string; complete: boolean; text: string; wide?: boolean; chart?: "saa" | "taa"; kind?: "signoff" }[];
+  allocation: AllocationRow[];
+  signatures: Record<string, { name: string; dataUrl: string; signedAt: string }>;
+}
+
+/** Block-based pack section content. Charts/tables are LIVE references resolved at render time; `snapshot` optionally freezes chart values. */
+export type PackBlock = { id: string } & (
+  | { type: "text"; text: string }
+  | { type: "image"; src: string; alt: string; caption?: string }
+  | { type: "chart"; chart: "saa" | "taa" | "holdings" | "allocation"; clientId?: string; caption?: string; snapshot?: { label: string; value: number }[] }
+  | { type: "table"; table: "taa" | "holdings"; caption?: string }
+);

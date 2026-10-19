@@ -1,11 +1,10 @@
-import { useEffect } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { useLocation } from "react-router-dom";
 import {
   BookUser,
-  ClipboardCheck,
   Inbox,
-  Layers,
-  SlidersHorizontal,
+  Library,
+  ScrollText,
   Sparkles,
   type LucideIcon,
 } from "lucide-react";
@@ -41,33 +40,35 @@ export const ROLE_PEOPLE: Record<Role, { name: string; person: string; blurb: st
 };
 
 /** At most 6 items per role (Lux density limit). */
-export function getNav(role: Role, clientId: string): NavItem[] {
-  const id = clientId;
+export function getNav(role: Role, _clientId: string): NavItem[] {
   switch (role) {
     case "rm":
       return [
         { label: "Client Book", to: "/rm/clients", icon: BookUser },
         { label: "AI Assistant", to: "/rm/assistant", icon: Sparkles },
+        { label: "House View Records", to: "/rm/house-views", icon: ScrollText },
       ];
     case "ic":
       return [
         { label: "Requests Inbox", to: "/ic/inbox", icon: Inbox },
-        { label: "3L And SAA", to: `/ic/requests/${id}/3l`, icon: Layers },
-        { label: "Tactical Review", to: `/ic/cases/${id}/taa`, icon: SlidersHorizontal },
-        { label: "Review Pack", to: `/ic/cases/${id}/pack`, icon: ClipboardCheck },
+        { label: "Client Book", to: "/ic/clients", icon: BookUser },
+        { label: "AI Assistant", to: "/ic/assistant", icon: Sparkles },
+        { label: "House View Records", to: "/ic/house-views", icon: ScrollText },
       ];
     case "ps":
       return [
         { label: "Product Requests", to: "/ps/inbox", icon: Inbox },
         { label: "Client Book", to: "/ps/clients", icon: BookUser },
         { label: "AI Assistant", to: "/ps/assistant", icon: Sparkles },
+        { label: "House View Records", to: "/ps/house-views", icon: ScrollText },
+        { label: "Product Shelf", to: "/ps/shelf", icon: Library },
       ];
   }
 }
 
 const STORAGE_KEY = "arc.activeClient";
-const VALID_IDS = ["ser", "dso", "teo", "jfr", "sha"];
-const DEFAULT_ID = "ser";
+const VALID_IDS = ["jdi", "jfr", "dso"];
+const DEFAULT_ID = "jfr";
 
 function isValid(id: string | null | undefined): id is string {
   return !!id && VALID_IDS.includes(id);
@@ -99,18 +100,33 @@ function idFromPath(pathname: string): string | null {
   return isValid(id) ? id : null;
 }
 
-/** The shell sits above route params, so derive the client from the pathname. */
+const listeners = new Set<() => void>();
+let current: string = readStored() ?? DEFAULT_ID;
+const subscribe = (fn: () => void) => { listeners.add(fn); return () => { listeners.delete(fn); }; };
+const getSnapshot = () => current;
+
+/** Reactive: every subscriber (shell, chat, pages) updates at once. */
 export function setActiveClientId(id: string) {
-  if (VALID_IDS.includes(id)) writeStored(id);
+  if (!VALID_IDS.includes(id)) return;
+  writeStored(id);
+  if (current !== id) { current = id; listeners.forEach((fn) => fn()); }
+}
+
+/** Replace the client id segment of a route (/rm/clients/:id, /ic/cases/:id, /ps/cases/:id, /ic/requests/:id) so the same page opens for another client. */
+export function pathForClient(pathname: string, id: string): string | null {
+  const m = pathname.match(/^(.*\/(?:clients|requests|cases)\/)([^/]+)(.*)$/);
+  if (!m || !isValid(m[2])) return null;
+  return `${m[1]}${id}${m[3]}`;
 }
 
 export function useActiveClientId(): string {
   const { pathname } = useLocation();
+  const stored = useSyncExternalStore(subscribe, getSnapshot);
   const fromPath = idFromPath(pathname);
 
   useEffect(() => {
-    if (fromPath) writeStored(fromPath);
+    if (fromPath && fromPath !== current) { current = fromPath; writeStored(fromPath); listeners.forEach((fn) => fn()); }
   }, [fromPath]);
 
-  return fromPath ?? readStored() ?? DEFAULT_ID;
+  return fromPath ?? stored;
 }

@@ -1,5 +1,5 @@
 import type { AllocationRow, Bucket3L } from "../../../types/arc";
-import { sgd } from "../../ui";
+import { sgd, SliceTooltip, useSliceTooltip } from "../../ui";
 
 const BUCKET_BG = { liquidity: "bg-chart-liquidity", longevity: "bg-chart-equities", legacy: "bg-chart-alternatives" } as const;
 const CLASS_COLOR: Record<string, string> = {
@@ -43,21 +43,25 @@ export function SaaDonut({ rows }: { rows: AllocationRow[] }) {
   ];
   rows.forEach((x) => { (groups.find((g) => g.label === x.assetClass) ?? groups[3]).v += x.saa; });
   let offset = 0;
+  const tt = useSliceTooltip();
   return (
     <div className="grid grid-cols-1 gap-8 sm:grid-cols-[200px_1fr]">
       <div className="space-y-4">
+        <div ref={tt.containerRef} className="relative h-[200px] w-[200px]">
         <svg viewBox="0 0 200 200" className="h-[200px] w-[200px]" role="img" aria-label="Strategic asset allocation">
           <g transform="rotate(-90 100 100)">
             <circle cx="100" cy="100" r={r} fill="none" stroke="var(--scale-track)" strokeWidth="28" />
             {groups.filter((g) => g.v > 0).map((g) => {
               const len = (g.v / total) * c;
-              const el = <circle key={g.label} cx="100" cy="100" r={r} fill="none" stroke={g.col} strokeWidth="28" strokeDasharray={`${len} ${c - len}`} strokeDashoffset={-offset} />;
+              const el = <circle key={g.label} cx="100" cy="100" r={r} fill="none" stroke={g.col} strokeWidth="28" strokeDasharray={`${len} ${c - len}`} strokeDashoffset={-offset} {...tt.bind(g.label, (g.v / total) * 100)} style={tt.sliceStyle(g.label)} />;
               offset += len;
               return el;
             })}
           </g>
           <text x="100" y="105" textAnchor="middle" fontSize="14" fill="var(--ink)">SAA</text>
         </svg>
+        <SliceTooltip tip={tt.tip} />
+        </div>
         <ul className="space-y-1 text-[13px]">
           {groups.filter((g) => g.v > 0).map((g) => (
             <li key={g.label} className="flex items-center gap-2"><i className="inline-block h-3 w-3" style={{ background: g.col }} />{g.label}<span className="ml-auto">{g.v}%</span></li>

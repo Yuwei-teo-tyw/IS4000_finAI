@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
 import { Badge } from "../../components/ui";
 
 export const ASSETS = ["Cash", "Fixed income", "Equities", "Hedge funds", "Private markets", "Real estate", "Gold"] as const;
@@ -38,7 +39,11 @@ export function Msg({ ok, children }: { ok: boolean; children: ReactNode }) {
 }
 
 export function BackLink({ to, children }: { to: string; children: ReactNode }) {
-  return <Link to={to} className="text-sm font-semibold text-ink underline underline-offset-4">{children}</Link>;
+  return (
+    <Link to={to} className="mb-10 inline-flex min-h-9 items-center gap-2 rounded-sm border border-hairline px-4 text-[15px] font-normal text-ink transition hover:bg-surface-200">
+      <ArrowLeft size={16} aria-hidden />{children}
+    </Link>
+  );
 }
 
 export const Tone = Badge;
@@ -48,3 +53,10 @@ export function splitCitations(text: string): { text: string; tags: string[] } {
   const tags = Array.from(text.matchAll(/\[([A-Za-z0-9-]+)\]/g)).map((m) => m[1]);
   return { text: text.replace(/\s*\[[A-Za-z0-9-]+\]/g, ""), tags };
 }
+
+export const CASE_STEPS = [
+  { label: "Product recommendations", path: "products" }, { label: "Market view and portfolio health", path: "market-health" }, { label: "TAA", path: "taa" },
+  { label: "Individual holdings", path: "holdings" }, { label: "Review pack", path: "pack" },
+];
+
+export const BULLET_PLACEHOLDER = "- State the conclusion first\n- Give the supporting evidence with its source tag\n- Note the impact on the client portfolio\n- Flag the main risk or caveat\n- Close with the recommended action";

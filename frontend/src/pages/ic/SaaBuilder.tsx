@@ -11,6 +11,8 @@ import { ProductCompare } from "../../components/portfolio/ProductCompare";
 import { TemplateVerdicts } from "../../components/portfolio/TemplateVerdicts";
 import { sgdAmt } from "../../components/portfolio/pmFormat";
 import { isOffered, type PmResponse } from "../../types/portfolio";
+import { AutoSaveStatus } from "../../components/ic/SaveProgressButton";
+import { returnIpsToRm, saveIcProgress, useIcProgress } from "../../services/workflowStore";
 import { ASSETS, BackLink, Msg, NumInput, growthLimit, growthShare, sum } from "./icHelpers";
 import { IC_STEPS } from "./ThreeLBuilder";
 
@@ -33,13 +35,14 @@ export default function SaaBuilder() {
   // No template until the Portfolio Manager has run; then its preference is pre-selected for the IC to confirm or change.
   const [tid, setTid] = useState<string | null>(null);
   const [vals, setVals] = useState<number[]>([]);
+  const progress = useIcProgress(clientId);
   const [sent, setSent] = useState(false);
   const [agent, setAgent] = useState<AgentState>({ phase: "idle" });
   const [showInputs, setShowInputs] = useState(true);
   if (!client || !templates || !inputs) return <Loading />;
 
   const tpl = templates.find((t) => t.id === tid);
-  const pick = (id: string) => { setTid(id); setVals([...templates.find((t) => t.id === id)!.split]); setSent(false); };
+  const pick = (id: string) => { setTid(id); const split = [...templates.find((t) => t.id === id)!.split]; setVals(split); setSent(false); saveIcProgress(clientId, { saaTemplate: id, saa: split }); };
   const total = sum(vals);
   const limit = growthLimit(client.riskCap);
   const growth = growthShare(vals);
@@ -154,7 +157,7 @@ export default function SaaBuilder() {
         <Section title="Edit the seven classes" hint={`Template ${tpl.id}. Each class within 5 points of it, total 100, growth assets at most ${limit}% (risk limit ${client.riskCap}).`}>
           <Table head={["Asset class", "Template", "Your SAA", "Gap"]} rows={ASSETS.map((a, i) => {
             const gap = vals[i] - tpl.split[i];
-            return [a, `${tpl.split[i]}%`, <NumInput key={a} value={vals[i] ?? 0} suffix="%" onChange={(n) => setVals(vals.map((v, j) => (j === i ? n : v)))} />,
+            return [a, `${tpl.split[i]}%`, <NumInput key={a} value={vals[i] ?? 0} suffix="%" onChange={(n) => { const next = vals.map((v, j) => (j === i ? n : v)); setVals(next); saveIcProgress(clientId, { saaTemplate: tid ?? undefined, saa: next }); }} />,
               <span key="g" className={Math.abs(gap) > 5 ? "font-semibold text-negative" : "text-ink-500"}>{gap > 0 ? "+" : ""}{gap}</span>];
           })} />
           <div className="mt-8 flex flex-col gap-4">
@@ -180,6 +183,7 @@ export default function SaaBuilder() {
         </Section>
       )}
 
+      <div className="mb-6 flex justify-end"><AutoSaveStatus savedAt={progress.savedAt} /></div>
       {sent ? <Msg ok>SAA sent back to the RM for the IPS. Awaiting RM review.</Msg> : !response ? (
         <NextAction title="Run the Portfolio Manager first" body="Sending stays off until the agent has assessed templates A to F and a template is selected." action={<Button disabled>Send back to RM</Button>} />
       ) : !tid ? (
@@ -187,7 +191,7 @@ export default function SaaBuilder() {
       ) : !chosenOffered ? (
         <NextAction title={`Template ${tid} is not offered by the agent`} body={chosen?.suitability_explanation ?? "Pick one of the offered templates."} action={<Button disabled>Send back to RM</Button>} />
       ) : valid ? (
-        <NextAction title="Limit check passed" body="Everything is inside the rules. Send the 3L and SAA back to the RM." action={<Button variant="gold" onClick={() => setSent(true)}>Send back to RM</Button>} />
+        <NextAction title="Limit check passed" body="Everything is inside the rules. Send the 3L and SAA back to the RM." action={<Button variant="gold" onClick={() => { setSent(true); returnIpsToRm(clientId); }}>Send back to RM</Button>} />
       ) : (
         <NextAction title="Blocked: fix the checks first" body="Open Edit weights and resolve the red messages. Sending stays off until all three pass." action={<Button disabled>Send back to RM</Button>} />
       )}

@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { Lock } from "lucide-react";
 import { arcApi } from "../../services/arcApi";
-import { Badge, Button, Card, GateChip, Loading, NextAction, PageHeader, Stepper, useAsync } from "../../components/ui";
+import { activateClient, setActiveIps } from "../../services/workflowStore";
+import { Badge, BulletList, Button, Card, GateChip, Loading, NextAction, PageHeader, Stepper, useAsync } from "../../components/ui";
 import { onboardingSteps, ipsToSections, fmtDate } from "./rmShared";
 import { ContributionsPanel } from "../../components/export/ContributionsPanel";
 import { ExportActions } from "../../components/export/ExportActions";
@@ -19,16 +20,16 @@ export default function IpsApproval() {
 
   return (
     <div>
-      <PageHeader eyebrow="Gate G1" title="Approve the IPS" subtitle="The IC has completed its sections. Read through the full IPS before approving."
+      <PageHeader eyebrow="Gate G1" title="Approve the IPS"
         actions={<GateChip id="G1" state={approvedBy ? "approved" : "pending"} />} />
       <Stepper steps={onboardingSteps} current={approvedBy ? 5 : 4} />
 
       {approvedBy ? (
-        <NextAction title="IPS approved" body={`Approved by ${approvedBy}. The IPS is now active and logged in the audit trail.`}
+        <NextAction title="IPS approved" body={`Approved by ${approvedBy}. The IPS is now active and the client is in the Monitoring Phase.`}
           action={<Button to={`/rm/clients/${clientId}/documents`}>View client's documents</Button>} />
       ) : (
-        <NextAction title="Review, then approve" body="Approval is yours alone. The agent never approves on your behalf."
-          action={<Button variant="gold" onClick={() => setConfirming(true)}>Approve G1</Button>} />
+        <NextAction title="Review, then approve" body="The agent never approves on your behalf."
+          action={<Button onClick={() => setConfirming(true)}>Approve G1</Button>} />
       )}
 
       {confirming && !approvedBy && (
@@ -38,8 +39,8 @@ export default function IpsApproval() {
           <div className="flex flex-wrap gap-3">
             <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your full name"
               className="min-w-64 flex-1 rounded-md border border-ink-200 px-4 py-3 text-sm outline-none focus:border-ink" />
-            <Button disabled={!name.trim()} onClick={() => setApprovedBy(`${name.trim()} on ${new Date().toLocaleString("en-SG")}`)}>Confirm</Button>
-            <Button variant="ghost" onClick={() => setConfirming(false)}>Cancel</Button>
+            <Button disabled={!name.trim()} onClick={() => { setApprovedBy(`${name.trim()} on ${new Date().toLocaleString("en-SG")}`); setActiveIps(clientId, 1); activateClient(clientId); }}>Confirm</Button>
+            <Button variant="secondary" onClick={() => setConfirming(false)}>Cancel</Button>
           </div>
         </Card>
       )}
@@ -55,7 +56,7 @@ export default function IpsApproval() {
                 <h2 className="min-w-0 break-words text-xl">{p.title}</h2>
                 <Badge tone={p.owner === "ic" ? "sky" : "grey"}><Lock size={12} className="mr-1" />{p.owner === "ic" ? "Filled by IC" : "Filled by RM"}</Badge>
               </div>
-              <p className="whitespace-pre-wrap break-words text-base leading-relaxed text-ink-700 [overflow-wrap:anywhere]">{p.body}</p>
+              <BulletList text={p.body} className="!text-base" />
             </Card>
           ))}
         </div>

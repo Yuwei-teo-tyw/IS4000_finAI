@@ -1,5 +1,5 @@
 /* Mirrored from the IS4000 UBS design system "Lux" (https://claude.ai/artifact/K7hLmtKJ8MtAxWGjbrgV1U). */
-@import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;500;600&family=Dancing+Script:wght@400&display=swap');
 
 :root, [data-theme="light"] {
   color-scheme: light;
@@ -7,7 +7,7 @@
   --hairline: #dcdad3; --hairline-strong: #858279;
   --ink: #1c1c1c; --ink-muted: #5c5a55; --ink-inverse: #ffffff;
   --brand: #e60000; --brand-hover: #b80000; --on-brand: #ffffff; --link: #c20000;
-  --positive: #00638a; --negative: #b3001b; --focus: #1c1c1c;
+  --positive: #00638a; --gain: #1b7a3a; --negative: #b3001b; --up: #1b7a3a; --down: #c4001f; --focus: #1c1c1c;
   --chart-equities: #a06a50; --chart-bonds: #d5c4b0; --chart-alternatives: #e3cd85; --chart-liquidity: #5a5249;
   --scale-fill: #7d7a74; --scale-track: #d0cec5;
   --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 24px; --space-6: 32px; --space-7: 48px; --space-8: 64px; --space-9: 96px;
@@ -21,7 +21,7 @@
   --hairline: #3a3936; --hairline-strong: #7a776f;
   --ink: #f2f2f0; --ink-muted: #b0aea8; --ink-inverse: #141414;
   --brand: #e60000; --brand-hover: #ff3b3b; --on-brand: #ffffff; --link: #ff7a7a;
-  --positive: #5cb8e0; --negative: #ff6b7f; --focus: #f2f2f0;
+  --positive: #5cb8e0; --gain: #5fcf8a; --negative: #ff6b7f; --up: #5fcf8a; --down: #ff6b7f; --focus: #f2f2f0;
   --chart-equities: #c98d6f; --chart-bonds: #b7a58f; --chart-alternatives: #d9bf6a; --chart-liquidity: #8f867b;
   --scale-fill: #9a968e; --scale-track: #3a3936;
   --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.6); --shadow-overlay: 0 8px 24px rgba(0, 0, 0, 0.6);
@@ -33,7 +33,7 @@
   --color-hairline: var(--hairline); --color-hairline-strong: var(--hairline-strong);
   --color-ink: var(--ink); --color-ink-muted: var(--ink-muted); --color-ink-inverse: var(--ink-inverse);
   --color-brand: var(--brand); --color-brand-hover: var(--brand-hover); --color-on-brand: var(--on-brand); --color-link: var(--link);
-  --color-positive: var(--positive); --color-negative: var(--negative);
+  --color-positive: var(--positive); --color-gain: var(--gain); --color-negative: var(--negative); --color-up: var(--up); --color-down: var(--down);
   --color-chart-equities: var(--chart-equities); --color-chart-bonds: var(--chart-bonds);
   --color-chart-alternatives: var(--chart-alternatives); --color-chart-liquidity: var(--chart-liquidity);
   --color-scale-fill: var(--scale-fill); --color-scale-track: var(--scale-track);

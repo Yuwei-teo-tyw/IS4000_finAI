@@ -1,15 +1,15 @@
-import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { arcApi } from "../../services/arcApi";
 import { Button, Card, GateChip, Loading, NextAction, PageHeader, Section, useAsync } from "../../components/ui";
+import { sendReviewRequest, withdrawReviewRequest, useReviewRequest } from "../../services/workflowStore";
 
 export default function QuarterlyReviewStart() {
   const { clientId = "" } = useParams();
   const client = useAsync(() => arcApi.getClient(clientId), [clientId]);
   const gates = useAsync(() => arcApi.getGates(clientId), [clientId]);
   const activity = useAsync(() => arcApi.getActivity(clientId), [clientId]);
-  const [started, setStarted] = useState(false);
+  const started = !!useReviewRequest(clientId);
   if (!client || !gates || !activity) return <Loading />;
   const events = started
     ? [{ id: "new", at: new Date().toLocaleString("en-SG"), actor: "RM", text: `Ran quarterly review for ${client.name}; Product Specialist notified` }, ...activity]
@@ -17,16 +17,16 @@ export default function QuarterlyReviewStart() {
 
   return (
     <div>
-      <PageHeader eyebrow={client.name} title="Quarterly review" subtitle="Each quarter the agents refresh the market view, product shortlist and portfolio health, then build a pack for you." />
+      <PageHeader eyebrow={client.name} title="Quarterly review" />
       {started ? (
-        <NextAction title="Product Specialist notified" body="You will be asked to review the pack once PS and IC have approved their parts."
-          action={<Button to={`/rm/clients/${clientId}/review/pack`}>Preview pack review</Button>} />
+        <NextAction title="Sent to Product Specialist"
+          action={<span className="flex flex-wrap gap-3"><Button to={`/rm/clients/${clientId}/review/pack`}>Preview pack review</Button><Button variant="secondary" onClick={() => withdrawReviewRequest(clientId)}>Withdraw request</Button></span>} />
       ) : (
-        <NextAction title="Start the review" body="This notifies the Product Specialist to research the market and shortlist products."
-          action={<Button variant="gold" onClick={() => setStarted(true)}>Run quarterly review</Button>} />
+        <NextAction title="Start the review"
+          action={<Button onClick={() => sendReviewRequest(clientId)}>Run quarterly review and send to Product Specialist</Button>} />
       )}
 
-      <Section title="How it flows" hint="PS and IC work first. You approve last.">
+      <Section title="How it flows">
         <Card>
           <div className="flex flex-wrap items-center gap-4 text-sm font-semibold text-ink">
             <span>Product Specialist</span><ArrowRight size={16} />

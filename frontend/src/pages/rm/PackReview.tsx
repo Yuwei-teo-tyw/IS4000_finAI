@@ -1,150 +1,163 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { AlertTriangle, Check, X } from "lucide-react";
+import { Check } from "lucide-react";
 import { arcApi } from "../../services/arcApi";
-import { Badge, Button, Card, GateChip, Loading, NextAction, PageHeader, useAsync } from "../../components/ui";
-import { SectionBody, packToSections, fmtDate } from "./rmShared";
-import { SaaDonut } from "../../components/documents/ips/charts";
-import { PackSignatures } from "../../components/documents/ips/PackSignatures";
-import { loadPackDrafts, loadSignatures, saveSignature, savePackDraft, subscribePackDrafts, subscribeSignatures, type PackDrafts, type PackSignatures as Sigs } from "../../services/packDraftStore";
+import { Button, GateChip, Loading, NextAction, PageHeader, useAsync } from "../../components/ui";
+import { packToSections, fmtDate, SignoffBoxes, SourcesBoard, isSources, usePackStatus, isHiddenFor, PendingBox } from "./rmShared";
+import { PackSectionPanel } from "./PackSectionPanel";
+import { GenevaMark } from "../../components/documents/GenevaMark";
+import { PackDocument } from "./PackDocument";
+import { syncPackFromIc } from "../../components/ic/packSync";
+import { loadPackDrafts, loadSignatures, saveSignature, subscribePackDrafts, subscribeSignatures, type PackDrafts, type PackSignatures as Sigs } from "../../services/packDraftStore";
+import { sendReviewRequest, withdrawReviewRequest, useReviewRequest, useAllFinalised, useIcProgress, useIcHandover } from "../../services/workflowStore";
+import { useRole } from "../../layouts/AppShell";
 import { ExportActions } from "../../components/export/ExportActions";
 
 export default function PackReview({ embedded = false, clientId: clientIdProp }: { embedded?: boolean; clientId?: string }) {
   const params = useParams();
   const clientId = clientIdProp ?? params.clientId ?? "";
+  const role = useRole();
+  const isIc = role === "ic";
   const pack = useAsync(() => arcApi.getPack(clientId), [clientId]);
   const client = useAsync(() => arcApi.getClient(clientId), [clientId]);
   const alloc = useAsync(() => arcApi.getAllocation(clientId), [clientId]);
-  const [active, setActive] = useState(1);
   const [drafts, setDrafts] = useState<PackDrafts>(() => loadPackDrafts(clientId));
   useEffect(() => { setDrafts(loadPackDrafts(clientId)); return subscribePackDrafts(clientId, setDrafts); }, [clientId]);
   const [sigs, setSigs] = useState<Sigs>(() => loadSignatures(clientId));
   useEffect(() => { setSigs(loadSignatures(clientId)); return subscribeSignatures(clientId, setSigs); }, [clientId]);
-  const [editing, setEditing] = useState(false);
+  const progress = useIcProgress(clientId);
+  const holdingsList = useAsync(() => arcApi.getHoldings(clientId), [clientId]);
   const [approved, setApproved] = useState(false);
+  const sent = useReviewRequest(clientId);
+  const finalisedByPs = useAllFinalised().some((f) => f.clientId === clientId);
+  /** 0 = RM updates, 1 = waiting on Product Specialist, 2 = with IC. */
+  const stage = finalisedByPs ? 2 : sent ? 1 : 0;
+  const status = usePackStatus(clientId);
+  const icHandover = useIcHandover(clientId);
+  // Keep sections 4 and 8 in step with the IC's saved values: on mount, on every IC save and when the IC hands over.
+  useEffect(() => { if (progress.savedAt || icHandover) syncPackFromIc(clientId); }, [progress.savedAt, icHandover?.sentAt, clientId]);
+  const [openMap, setOpenMap] = useState<Record<number, boolean>>({});
+  const onboarding = client?.status === "Onboarding Phase";
   if (!pack) return <Loading />;
+  const pos = (n: number) => pack.findIndex((x) => x.n === n) + 1;
   const allSigned = ["ps", "ic", "rm"].every((r) => sigs[r]);
-  const touched = [...Object.keys(drafts).map(Number).filter((n) => n !== 7), ...(allSigned ? [7] : [])];
-  const saaVisual = alloc ? (
-    <div>
-      <p className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-ink-muted">Strategic asset allocation</p>
-      <SaaDonut rows={alloc} />
-    </div>
-  ) : null;
+  const signoffN = pack.find((x) => x.kind === "signoff")?.n;
+  const sourcesN = pack.find(isSources)?.n;
+  const touched = [...Object.keys(drafts).map(Number).filter((n) => n !== signoffN), ...(allSigned && signoffN ? [signoffN] : [])];
+  const savedTaa = alloc && progress.taa && progress.taa.length === alloc.length ? progress.taa : null;
+  const editedHoldings = progress.holdings && Object.keys(progress.holdings).length > 0 ? progress.holdings : null;
+  const icUpdated: Record<number, boolean> = { 4: !!savedTaa, 8: !!editedHoldings };
   const pageExtras: Record<number, React.ReactNode> = {
-    1: saaVisual,
-    7: <PackSignatures sigs={sigs} onUpload={(role, sig) => saveSignature(clientId, role, sig)} onRemove={(role) => saveSignature(clientId, role, null)} />,
+    ...(signoffN ? { [signoffN]: <SignoffBoxes sigs={sigs} me={role} onSign={(r, sig) => saveSignature(clientId, r, sig)} onRemove={(r) => saveSignature(clientId, r, null)} /> } : {}),
+    ...(sourcesN ? { [sourcesN]: <SourcesBoard clientId={clientId} me={role} editing={false} hideEditButton /> } : {}),
   };
-  const docExtras: Record<number, React.ReactNode> = { 1: saaVisual, 7: <PackSignatures sigs={sigs} /> };
-  const sections = packToSections(pack, drafts, touched, docExtras);
+  const sections = packToSections(clientId, pack, drafts, touched, pageExtras).map((x) => ({ ...x, complete: !!status.complete[x.n], ...(isHiddenFor(x, role, status.complete) && !isSources(x) ? { body: <PendingBox owner={x.owner} /> } : {}) }));
   const steps = [
     { label: "RM Updates", owner: "rm" },
     { label: "Product Specialist Recommendations", owner: "ps" },
     { label: "IC Portfolio Allocation", owner: "ic" },
   ].map((st) => {
-    const mine = sections.filter((x) => x.owner === st.owner);
-    return { ...st, done: mine.filter((x) => x.complete).length, total: mine.length };
+    const mine = sections.filter((x) => x.owner === st.owner && x.n !== signoffN);
+    const done = mine.filter((x) => x.complete).length;
+    const gate = st.owner === "rm" ? sent || finalisedByPs : st.owner === "ps" ? finalisedByPs : !!icHandover;
+    const finished = mine.length > 0 && done === mine.length && gate;
+    return { ...st, done: finished ? mine.length : done, total: mine.length, finished };
   });
-  const activeStep = steps.findIndex((st) => st.done < st.total);
-  const s = pack.find((x) => x.n === active)!;
-  const body = drafts[s.n] ?? s.body;
-  const canEdit = s.owner === "rm" && s.n !== 7 && !approved;
-  const rmOwned = s.owner === "rm";
-  const flagged = s.status === "flagged";
+  const firstOpen = steps.findIndex((st) => !st.finished);
+  const activeStep = firstOpen === -1 ? -1 : firstOpen;
+  const allComplete = status.doneCount === status.total && status.total > 0;
+  const ownIds = pack.filter((x) => x.owner === role && x.kind !== "signoff").map((x) => x.n);
+  const pending = ownIds.filter((n) => !status.done[n]?.done);
+  const sendReady = pending.length === 0;
+  const pendingLabel = pending.map(pos);
+  const sendReason = `Mark section${pendingLabel.length > 1 ? "s" : ""} ${pendingLabel.length > 1 ? `${pendingLabel.slice(0, -1).join(", ")} and ${pendingLabel[pendingLabel.length - 1]}` : pendingLabel[0]} as done to send.`;
+  const extraFor = (n: number) => (n === signoffN || n === sourcesN
+    ? (editing: boolean) => (n === signoffN ? pageExtras[n] : <SourcesBoard clientId={clientId} me={role} editing={editing} hideEditButton />)
+    : undefined);
+  const updatedNote = (n: number) => (icUpdated[n] && progress.savedAt ? `Updated from the IC workspace, saved ${new Date(progress.savedAt).toLocaleString("en-SG", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}.` : undefined);
+  const isOpen = (n: number, owner: string) => openMap[n] ?? owner === role;
+  const allOpen = pack.every((x) => isOpen(x.n, x.owner));
+  const setAll = (v: boolean) => setOpenMap(Object.fromEntries(pack.map((x) => [x.n, v])));
+  const quarter = `Q${Math.floor(new Date().getMonth() / 3) + 1} ${new Date().getFullYear()}`;
+
+  const exportActions = (
+    <ExportActions docTitle="Quarterly Review Pack" clientName={client?.name ?? clientId} version={approved ? "Approved (G4)" : "Awaiting G4"} date={fmtDate(new Date().toISOString())}
+      sections={sections}
+      document={<PackDocument clientId={clientId} clientName={client?.name ?? clientId} version={approved ? "Approved (G4)" : "Awaiting G4"} pack={pack} alloc={alloc} holdings={holdingsList} approved={approved} />}
+      exportBlocked={!approved} blockedReason="Final export unlocks once G4 is approved." />
+  );
 
   return (
     <div>
+      <>
       {embedded ? (
         <div className="mb-10 flex flex-wrap items-start justify-between gap-6">
           <div className="min-w-0">
             <h2 className="text-3xl">Review pack</h2>
-            <p className="mt-2 text-base text-ink-500">Read each of the 8 sections. You can edit the sections you own (1, 7 and 8), or ask Geneva to draft them; the rest belong to IC and PS.</p>
+            <p className="mt-2 text-base text-ink-500">Edit the sections you own; the rest belong to {isIc ? "RM and PS" : "IC and PS"}.</p>
           </div>
           <GateChip id="G4" state={approved ? "approved" : "pending"} />
         </div>
       ) : (
-        <PageHeader eyebrow="Gate G4" title="Review the pack" subtitle="Read each of the 8 sections. You can edit the sections you own (1, 7 and 8), or ask Geneva to draft them; the rest belong to IC and PS."
+        <PageHeader eyebrow="Gate G4" title="Review the pack" subtitle={`Edit the sections you own; the rest belong to ${isIc ? "RM and PS" : "IC and PS"}.`}
           actions={<GateChip id="G4" state={approved ? "approved" : "pending"} />} />
       )}
-      <ol className="mb-12 grid gap-3 sm:grid-cols-3" aria-label="Review pack progress">
+      {!isIc && <ol className="mb-12 grid gap-3 sm:grid-cols-3" aria-label="Review pack progress">
         {steps.map((st, i) => {
-          const complete = st.done === st.total;
+          const complete = st.finished;
           const current = i === activeStep;
           return (
             <li key={st.label} className="flex flex-col gap-3">
               <span className="relative h-px overflow-hidden bg-hairline-strong">
-                <span className={`absolute inset-y-0 left-0 transition-all duration-700 ${current ? "h-[3px] bg-brand" : "h-[3px] bg-scale-fill"}`} style={{ width: `${st.total ? (st.done / st.total) * 100 : 0}%` }} />
+                <span className="absolute inset-y-0 left-0 h-[3px] bg-brand transition-all duration-700" style={{ width: `${complete ? 100 : current && st.total ? (st.done / st.total) * 100 : 0}%` }} />
               </span>
               <span className="flex items-center gap-2 text-[12px] uppercase tracking-[0.14em] text-ink-muted">
                 {complete && <Check size={14} />}Step {i + 1}
               </span>
               <span className={`text-[18px] font-light leading-6 ${current ? "text-ink" : "text-ink-muted"}`}>{st.label}</span>
-              <span className="text-[13px] text-ink-muted">{st.done} of {st.total} sections complete</span>
+              <span className="text-[13px] text-ink-muted">{complete ? `Done, ${st.total} of ${st.total} sections complete` : current ? `${st.done} of ${st.total} sections complete` : "Waiting"}</span>
             </li>
           );
         })}
-      </ol>
-      <NextAction title={approved ? "Pack approved" : "Approve the final pack"} body={approved ? "G4 is approved. You can export the PDF." : "Approving G4 releases the PDF. The agent never approves for you."}
-        action={approved ? undefined : <Button variant="gold" onClick={() => setApproved(true)}>Approve G4</Button>} />
+      </ol>}
+      {!isIc && stage === 0 && (
+        <NextAction title="Send to Product Specialist" body={sendReady ? "Send this client to the Product Specialist for product research." : sendReason}
+          action={<Button disabled={!sendReady} onClick={() => sendReviewRequest(clientId)}>Send to Product Specialist</Button>} />
+      )}
+      {!isIc && stage === 1 && (
+        <NextAction title="Sent to Product Specialist" body="Waiting for the Product Specialist."
+          action={<Button variant="secondary" onClick={() => withdrawReviewRequest(clientId)}>Withdraw request</Button>} />
+      )}
+      {!isIc && stage === 2 && (allComplete || approved) && (
+        <NextAction title={approved ? "Pack approved" : "Approve the final pack"} body={approved ? "G4 is approved. You can export the PDF." : "Approving G4 releases the PDF. The agent never approves."}
+          action={approved ? undefined : <Button onClick={() => setApproved(true)}>Approve G4</Button>} />
+      )}
 
+      </>
 
-      <div className="grid gap-8 md:grid-cols-[300px_1fr] md:items-start">
-        <Card className="!p-5">
-          <h2 className="text-base">Sections</h2>
-          <p className="mt-1 text-xs text-ink-muted">{sections.filter((x) => x.complete).length} of {sections.length} complete</p>
-          <p className="mt-3 flex items-center gap-2 text-xs text-ink-muted"><span className="inline-block h-3 w-5 border border-brand" />Sections you fill in</p>
-          <nav className="mt-4 flex flex-col gap-2">
-            {pack.map((x) => {
-              const done = sections.find((y) => y.n === x.n)?.complete;
-              return (
-                <button key={x.n} onClick={() => { setActive(x.n); setEditing(false); }}
-                  className={`flex cursor-pointer items-center justify-between gap-3 rounded-sm border px-4 py-3.5 text-left text-sm transition-colors duration-300 ${active === x.n ? "bg-surface-inverse text-ink-inverse" : "bg-surface-100 text-ink-700 hover:bg-surface-300"} ${x.owner === "rm" ? "border-brand" : active === x.n ? "border-transparent" : "border-hairline"}`}>
-                  <span className="min-w-0">
-                    {x.n}. {x.title}
-                    {x.status === "flagged" && <AlertTriangle size={14} className="ml-2 inline text-ink-muted" />}
-                  </span>
-                  {done ? <Check size={16} className={`shrink-0 ${active === x.n ? "text-ink-inverse" : "text-positive"}`} aria-label="Done" /> : <X size={16} className={`shrink-0 ${active === x.n ? "text-ink-inverse" : "text-negative"}`} aria-label="Not done" />}
-                </button>
-              );
-            })}
-          </nav>
-        </Card>
-
-        <Card className={`min-h-96 !p-10 ${rmOwned ? "!border-brand" : ""}`}>
-          <div key={active} className="animate-geneva-in">
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 className="text-[28px] font-light tracking-tight">{s.n}. {s.title}</h2>
-              {rmOwned && <p className="mt-1 text-xs uppercase tracking-[0.14em] text-brand">You fill in this section</p>}
+      <article className="w-full min-w-0 border border-hairline bg-surface-100 px-4 py-10 text-ink shadow-card sm:px-8 sm:py-14">
+        <header className="mb-14">
+          <GenevaMark className="mb-10" />
+          <p className="text-[12px] uppercase tracking-[0.14em] text-ink-muted">Quarterly review pack</p>
+          <h1 className="mt-3 text-[40px] font-light leading-[48px]">{client?.name ?? clientId}</h1>
+          <div className="mt-6 h-px w-full bg-ink" />
+          <p className="mt-4 text-sm text-ink-muted">{quarter} · {approved ? "Approved (G4)" : "Awaiting G4"} · {status.doneCount} of {sections.length} sections complete</p>
+        </header>
+        <div className="mb-8 flex justify-end">
+          <button type="button" onClick={() => setAll(!allOpen)} className="cursor-pointer text-[13px] uppercase tracking-[0.12em] text-ink-muted hover:text-ink">{allOpen ? "Collapse all" : "Expand all"}</button>
+        </div>
+        <div className="space-y-12">
+          {pack.map((x, idx) => (
+            <div key={x.n}>
+              <div className="mb-10 h-px w-full bg-hairline" />
+              <PackSectionPanel clientId={clientId} s={x} pos={idx + 1} role={role} onboarding={onboarding} approved={approved} status={status} alloc={alloc}
+                open={isOpen(x.n, x.owner)} onToggle={() => setOpenMap((m) => ({ ...m, [x.n]: !isOpen(x.n, x.owner) }))} extra={extraFor(x.n)} updatedNote={updatedNote(x.n)} />
             </div>
-            <div className="flex gap-2">
-              {s.gate && <GateChip id={s.gate} state={s.status === "approved" ? "approved" : s.status === "ready" ? "pending" : "not_started"} />}
-              {s.owner === "ic" && <Badge tone="green">IC reviewed thoroughly</Badge>}
-              {drafts[s.n] !== undefined && <Badge tone="gold">Updated by you</Badge>}
-            </div>
-          </div>
-          {flagged && (
-            <div className="mb-6 flex items-start gap-3 rounded-md bg-surface-300 p-5 text-sm text-ink">
-              <AlertTriangle size={18} className="mt-0.5 shrink-0" />Flagged line: please read this section closely before approving.
-            </div>
-          )}
-          {editing && canEdit ? (
-            <textarea value={body} onChange={(e) => savePackDraft(clientId, s.n, e.target.value)} rows={10}
-              className="w-full rounded-md border border-ink-200 p-5 text-base leading-relaxed outline-none focus:border-ink" />
-          ) : (
-            <div className="text-[17px] leading-8 text-ink-700"><SectionBody n={s.n} text={body} extra={pageExtras[s.n]} /></div>
-          )}
-          {canEdit && (
-            <div className="mt-6"><Button variant="ghost" onClick={() => setEditing(!editing)}>{editing ? "Done" : "Edit section"}</Button></div>
-          )}
-          </div>
-        </Card>
-      </div>
+          ))}
+        </div>
+      </article>
 
-      <div className="mt-10 flex flex-wrap justify-end">
-        <ExportActions docTitle="Quarterly Review Pack" clientName={client?.name ?? clientId} version={approved ? "Approved (G4)" : "Awaiting G4"} date={fmtDate(new Date().toISOString())}
-          sections={sections} exportBlocked={!approved} blockedReason="Final export unlocks once G4 is approved." />
-      </div>
+      <div className="mt-10 flex flex-wrap justify-end">{exportActions}</div>
     </div>
   );
 }

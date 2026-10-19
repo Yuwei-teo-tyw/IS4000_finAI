@@ -38,9 +38,9 @@ export default function ClientUploadNotes() {
     <div className="flex flex-col gap-12">
       <Card className="!p-8">
         <h2 className="text-2xl font-light">Meeting Notes</h2>
-        <p className="mt-2 text-sm text-ink-muted">Add notes from your client meeting. PDF, DOCX, TXT or M4A recordings.</p>
+        <p className="mt-2 text-sm text-ink-muted">PDF, DOCX, TXT or M4A recordings.</p>
         <div
-          role="button" tabIndex={0}
+          role="button" tabIndex={0} data-clickable
           onClick={() => input.current?.click()}
           onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && input.current?.click()}
           onDragOver={(e) => { e.preventDefault(); setDrag(true); }}

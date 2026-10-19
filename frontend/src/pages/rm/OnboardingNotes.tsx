@@ -19,7 +19,7 @@ export default function OnboardingNotes() {
 
   return (
     <div>
-      <PageHeader eyebrow={client.name} title="Upload meeting notes" subtitle="Drop in your notes from the first client meeting. The agent will read them and prepare a summary for you to confirm."
+      <PageHeader eyebrow={client.name} title="Upload meeting notes" subtitle="Upload notes from the first client meeting."
         actions={<GateChip id="G1" state="not_started" />} />
       <Stepper steps={onboardingSteps} current={0} />
 

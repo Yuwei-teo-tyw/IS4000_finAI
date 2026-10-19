@@ -24,7 +24,7 @@ function FullDocuments() {
       <IpsHistory clientId={clientId} clientName={client.name} />
 
       <div>
-        <Section title="Portfolio analytics" hint="Computed by code (Python analytics engine), not by the AI.">
+        <Section title="Portfolio analytics" hint="Computed by code.">
           <div className="grid gap-8 md:grid-cols-3">
             <div><Stat label="Sharpe ratio" value={client.sharpe.toFixed(2)} note="Return per unit of risk" /><p className="mt-3 text-sm text-ink-muted"><CitationTag tag="CALC-sharpe-v1" /></p></div>
             <div><Stat label="Diversification score" value={`${client.diversificationScore}/100`} /><p className="mt-3 text-sm text-ink-muted"><CitationTag tag="CALC-divscore-v1" /></p></div>
@@ -34,13 +34,13 @@ function FullDocuments() {
       </div>
 
       <div>
-        <Section title="Correlation heatmap" hint="How each holding moves against every other. Red means they move together, green means they offset.">
+        <Section title="Correlation heatmap">
           <Card className="!p-8"><CorrelationHeatmap labels={corr.labels} matrix={corr.matrix} /></Card>
         </Section>
       </div>
 
       <div>
-        <Section title="Holdings that move together" hint="Plain-words groups of holdings that tend to rise and fall at the same time.">
+        <Section title="Holdings that move together">
           <div className="grid gap-8 md:grid-cols-2">
             {clusters.map((c) => (
               <Card key={c.id} className="!p-8">
@@ -58,7 +58,7 @@ function FullDocuments() {
       </div>
 
       <div>
-        <Section title="Meeting notes" hint="Summary and follow-up checklist from each client meeting.">
+        <Section title="Meeting notes">
           {notes.length === 0 && <p className="text-sm text-ink-muted">No meeting notes yet.</p>}
           {notes.length > 0 && <MeetingNotesList notes={notes} clientName={client.name} />}
         </Section>

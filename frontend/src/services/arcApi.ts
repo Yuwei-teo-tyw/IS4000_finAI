@@ -5,9 +5,11 @@
  * Pages must NEVER import from src/mock directly.
  */
 import * as m from "../mock/data";
+import { isActivated } from "./workflowStore";
+import { bulletLines, toBulletItems } from "../utils/bullets";
 import type {
-  ActivityEvent, AllocationRow, Bucket3L, Citation, Client, Gate, Holding, InboxItem, IpsPart,
-  MarketView, HouseView, MarketAnswer, MeetingNote, IpsVersion, PackSection, Product, Role, CaseStep, AllocationGroup, CorrelationMatrix, GoalProjection, SectionDraft,
+  ActivityEvent, AllocationRow, Bucket3L, Client, Gate, Holding, InboxItem, IpsPart,
+  MarketView, HouseView, PackRenderInput, MarketAnswer, MeetingNote, IpsVersion, PackSection, Product, Role, AllocationGroup, CorrelationMatrix, GoalProjection, SectionDraft,
 } from "../types/arc";
 import type { PmInputField, PmInputs, PmRequest, PmResponse } from "../types/portfolio";
 
@@ -22,17 +24,25 @@ const tweak = (parts: IpsPart[], note: string): IpsPart[] =>
 /** In-memory edits keyed by `${clientId}:${version}` so previews reflect saved changes. */
 const ipsEdits: Record<string, IpsPart[]> = {};
 
+/** An onboarding client whose IPS was made active moves to the Monitoring Phase. */
+const effective = (c: Client): Client =>
+  c.status === "Onboarding Phase" && isActivated(c.id) ? { ...c, status: "Monitoring Phase", ipsVersion: c.ipsVersion ?? 1 } : c;
+
 const buildIpsHistory = (clientId: string): IpsVersion[] => {
-  const c = m.clients.find((x) => x.id === clientId);
+  const base = m.clients.find((x) => x.id === clientId);
   const parts = m.ipsPartsByClient[clientId] ?? m.ipsParts;
-  if (!c) return [];
-  if (c.status === "Onboarding Phase") {
-    return c.id === "sha"
+  if (!base) return [];
+  const c = effective(base);
+  if (base.status === "Onboarding Phase" && c.status === "Onboarding Phase") {
+    return m.ipsPartsByClient[c.id]
       ? [{ version: 1, issuedOn: "2026-10-15", status: "Draft", author: "Isabel", summary: "Onboarding draft. Parts 2 and 4 await the Investment Counsellor.", parts }]
       : [];
   }
+  if (base.status === "Onboarding Phase") {
+    return [{ version: 1, issuedOn: "2026-10-15", status: "Active", author: "Isabel", summary: "Initial IPS approved after onboarding.", parts }];
+  }
   const v = c.ipsVersion ?? 1;
-  const active: IpsVersion = { version: v, issuedOn: clientId === "ser" ? "2026-09-20" : clientId === "dso" ? "2026-03-18" : "2026-04-22", status: "Active", author: "Isabel", summary: clientId === "ser" ? "Updated for the house purchase and a higher liquidity need." : "Initial IPS approved after onboarding.", parts };
+  const active: IpsVersion = { version: v, issuedOn: clientId === "jfr" ? "2026-09-20" : "2026-04-22", status: "Active", author: "Isabel", summary: clientId === "jfr" ? "Updated for the house purchase and a higher liquidity need." : "Initial IPS approved after onboarding.", parts };
   if (v < 2) return [active];
   return [
     active,
@@ -43,14 +53,42 @@ const buildIpsHistory = (clientId: string): IpsVersion[] => {
 const withEdits = (clientId: string, list: IpsVersion[]): IpsVersion[] =>
   list.map((v) => (ipsEdits[`${clientId}:${v.version}`] ? { ...v, parts: ipsEdits[`${clientId}:${v.version}`] } : v));
 
+export interface ProfessionaliseInput {
+  clientId: string; role: "rm" | "ic" | "ps"; context: "ips" | "pack" | "products";
+  items: { id: string; label: string; text: string }[]; chat?: string[];
+}
+const ROLE_DESC = { rm: "Relationship Manager", ic: "Investment Counsellor", ps: "Product Specialist" } as const;
+const CTX_TAG = { ips: "IPS-v2", pack: "CIO-2026Q4-03", products: "MKT-0142" } as const;
+function professionaliseText(input: ProfessionaliseInput, it: { label: string; text: string }): string {
+  const tag = CTX_TAG[input.context];
+  const existing = Array.from(it.text.matchAll(/\[([A-Z0-9][A-Za-z0-9-]+)\]/g)).map((x) => x[1]);
+  const t1 = existing[0] ?? tag;
+  const clean = it.text.replace(/\[[^\]]*\]/g, "").replace(/^[\s•\-*]+/gm, "").trim();
+  const sentences = clean.split(/(?<=[.!?\n])\s+/).map((s) => s.trim().replace(/[.\s]+$/, "")).filter((s) => s.length > 3);
+  const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+  const chat = (input.chat ?? []).map((c) => c.replace(/\s+/g, " ").trim()).filter(Boolean);
+  const bullets: string[] = [];
+  sentences.slice(0, 3).forEach((s, i) => bullets.push(`• ${i === 0 ? `${it.label}: ` : ""}${cap(s)}, documented for client ${input.clientId.toUpperCase()} [${existing[i] ?? t1}].`));
+  if (chat[0]) bullets.push(`• Supporting research context: ${cap(chat[0].slice(0, 160))}${chat[0].length > 160 ? "..." : ""} [MKT-0142].`);
+  if (chat[1]) bullets.push(`• Additional research consideration: ${cap(chat[1].slice(0, 160))}${chat[1].length > 160 ? "..." : ""} [${tag}].`);
+  const fillers = [
+    `• Consistency with the Balanced mandate and the risk limit of 3 has been assessed [IPS-v2].`,
+    `• Liquidity needs, including the planned S$3.0m house deposit, were considered [IPS-v2].`,
+    `• Diversification and concentration effects were reviewed against the SAA bands [${tag}].`,
+    `• Fees and costs are disclosed transparently and were not used to rank suitability [${tag}].`,
+    `• Prepared by the ${ROLE_DESC[input.role]} for review; subject to human approval before release [${tag}].`,
+  ];
+  for (const f of fillers) if (bullets.length < 5) bullets.push(f);
+  return bullets.join("\n");
+}
+
 export const arcApi = {
-  listClients: (): Promise<Client[]> => delay(m.clients),
-  getClient: (id: string): Promise<Client | undefined> => delay(m.clients.find((c) => c.id === id)),
+  listClients: (): Promise<Client[]> => delay(m.clients.map(effective)),
+  getClient: (id: string): Promise<Client | undefined> => delay(m.clients.filter((c) => c.id === id).map(effective)[0]),
   getHoldings: (clientId: string): Promise<Holding[]> => delay(m.holdingsByClient[clientId] ?? m.holdings),
   getCorrelation: (_clientId: string): Promise<CorrelationMatrix> => delay({ labels: [...m.holdingLabels], matrix: m.holdingsCorrelation }),
   getAllocationGroups: (clientId: string): Promise<AllocationGroup[]> => delay(m.allocationGroupsFor(clientId)),
-  getCaseTimeline: (clientId: string): Promise<CaseStep[]> => delay(m.caseTimelineByClient[clientId] ?? []),
-  getGoalProjection: (clientId: string): Promise<GoalProjection> => delay(m.goalProjectionByClient[clientId] ?? m.goalProjectionByClient.ser),
+  getGoalProjection: (clientId: string): Promise<GoalProjection> => delay(m.goalProjectionByClient[clientId] ?? m.goalProjectionByClient.jfr),
   getHoldingClusters: (_clientId: string) => delay(m.holdingClusters),
   get3L: (clientId: string): Promise<Bucket3L[]> => delay(saved3L[clientId] ?? m.buckets3LByClient[clientId] ?? m.buckets3L),
   /** Mock save: keeps the IC's bucket amounts in memory so the SAA step and the Portfolio Manager use them. */
@@ -68,13 +106,6 @@ export const arcApi = {
   getMeetingNotes: (clientId: string): Promise<MeetingNote[]> => delay(m.meetingNotes.filter((n) => n.clientId === clientId)),
   /** Newest first. Onboarding clients return [] or a single Draft. */
   getIpsHistory: (clientId: string): Promise<IpsVersion[]> => delay(withEdits(clientId, buildIpsHistory(clientId))),
-  /** Mock save: stores edited parts in memory; getIpsHistory then returns them. */
-  saveIpsVersion: async (clientId: string, version: number, parts: IpsPart[]): Promise<IpsVersion> => {
-    ipsEdits[`${clientId}:${version}`] = parts.map((p) => ({ ...p }));
-    const saved = withEdits(clientId, buildIpsHistory(clientId)).find((v) => v.version === version);
-    if (!saved) throw new Error(`IPS v${version} not found`);
-    return delay(saved, 400);
-  },
   /** Mock upload: appends a note to the in-memory list so getMeetingNotes returns it. */
   uploadMeetingNote: (clientId: string, fileName: string): Promise<MeetingNote> => {
     const note: MeetingNote = {
@@ -98,15 +129,31 @@ export const arcApi = {
   getInbox: (role: Exclude<Role, "rm">): Promise<InboxItem[]> => delay(m.inboxes[role]),
   getMarketCycle: () => delay(m.marketCycle),
   getMarketViews: (_clientId: string): Promise<MarketView[]> => delay(m.marketViews),
+  /** Each product carries `psReason` (professional PS rationale, "• ... [TAG]" bullets). */
   getProducts: (_clientId: string): Promise<Product[]> => delay(m.products),
+  /** Mock rewrite of lay-language text into professional bullets. Replace with a LangGraph run. */
+  professionalise: (input: ProfessionaliseInput): Promise<{ id: string; text: string }[]> =>
+    new Promise((res) => setTimeout(() => res(input.items.map((it) => ({ id: it.id, text: professionaliseText(input, it) }))), 1500)),
   /** Mock intent parser: decides which agents fire and what the reply contains. Replace with a LangGraph run. */
-  askMarketResearch: async (_clientId: string, question: string, _systemPrompt = ""): Promise<MarketAnswer> => {
+  askMarketResearch: async (_clientId: string, question: string, _systemPrompt = "", ipsVersion: number | null = null): Promise<MarketAnswer> => {
     const t = question.toLowerCase();
+    const ipsNote = ipsVersion ? ` Using IPS v${ipsVersion}.` : "";
+    const houseView = /house view|cio view|what is the cio/.test(t) && !/product|fund|etf|note|suit|recommend|top 5|ranking/.test(t);
+    const universe = [...m.marketRows, ...m.productCatalogue.map((c) => c.row)].filter((r, i, all) => all.findIndex((x) => x.product === r.product) === i);
     const named = m.productCatalogue.filter((c) => c.aliases.some((a) => t.includes(a))).map((c) => c.row);
     const cls = /equit|stock/.test(t) ? "Equities" : /fixed|bond/.test(t) ? "Fixed income" : /altern|infra|hedge/.test(t) ? "Alternatives" : null;
     const wantsProducts = named.length > 0 || /product|fund|etf|note|suit|recommend|shortlist|top 5|ranking|fit|compare/.test(t);
     const wantsMarket = /macro|cycle|market|economy|cio|view|outlook|compare|suit|direction/.test(t) || !wantsProducts;
-    const rows = !wantsProducts ? [] : named.length ? named : cls ? m.marketRows.filter((r) => r.assetClass === cls) : m.marketRows;
+    const rows = !wantsProducts ? [] : named.length ? named : cls ? universe.filter((r) => r.assetClass === cls) : universe;
+    if (houseView) {
+      const hv = m.macroBrief;
+      await delay(null);
+      return {
+        summary: `The CIO House View for ${hv.asOf} puts the economy in a ${hv.phase.toLowerCase()} phase. The CIO is positive on ${hv.views.filter((v) => v.view === "Buy").map((v) => v.assetClass.toLowerCase()).join(", ")}, neutral on ${hv.views.filter((v) => v.view === "Hold").map((v) => v.assetClass.toLowerCase()).join(", ")} and negative on ${hv.views.filter((v) => v.view === "Sell").map((v) => v.assetClass.toLowerCase()).join(", ")}.${ipsNote}`,
+        market: hv, rows: [], autoTick: false, tags: ["CIO-2026Q4-03", "HV-2026-09"],
+        steps: ["Intent parser is reading your request…", "Market Research Agent fired", "Reading the latest CIO House View…", "Mapping Buy, Hold and Sell views per asset class…", "Thinking…", "Consolidating…"],
+      };
+    }
     const agents = [wantsMarket && "Market Research Agent", wantsProducts && "Product Recommender"].filter(Boolean) as string[];
     const steps = [
       "Intent parser is reading your request…",
@@ -117,26 +164,41 @@ export const arcApi = {
       "Consolidating…",
     ];
     await delay(null);
-    const summary = named.length
+    const summary = (named.length
       ? `I checked the ${named.length} product${named.length === 1 ? "" : "s"} you asked for. They are ticked as considerations. Untick any you do not want.`
-      : wantsProducts ? "Here are the best-fit products. Rankings use suitability first. Fees were not used to rank."
-      : "Here is the current market picture.";
+      : wantsProducts ? "Here are the best-fit products, grouped by asset class. Tick the ones to consider. Rankings use suitability first. Fees were not used to rank."
+      : "Here is the current market picture.") + ipsNote;
     return { summary, market: wantsMarket ? m.macroBrief : null, rows, autoTick: named.length > 0, steps, tags: ["MKT-0142", "CIO-2026Q4-03"] };
   },
   getHouseViews: (_clientId: string): Promise<HouseView[]> => delay(m.houseViews),
-  getPack: (_clientId: string): Promise<PackSection[]> => delay(m.packSections),
-  getCitations: (_clientId: string): Promise<Citation[]> => delay(m.citations),
+  getPack: (_clientId: string): Promise<PackSection[]> => delay([...m.packSections].sort((a, b) => (a.order ?? a.n) - (b.order ?? b.n))),
+  /** Backend Jinja render of the compiled pack: RM's current text in, standalone HTML out (same HTML feeds the PDF). */
+  renderPackHtml: async (input: PackRenderInput): Promise<string> => {
+    const base = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
+    const body = {
+      doc: { title: input.doc.title, client_name: input.doc.clientName, version: input.doc.version, date: input.doc.date },
+      sections: input.sections.map((x) => ({ n: x.n, title: x.title, owner_label: x.ownerLabel, complete: x.complete, text: x.text, wide: x.wide ?? false, chart: x.chart ?? null, kind: x.kind ?? null })),
+      allocation: input.allocation.map((a) => ({ asset_class: a.assetClass, saa: a.saa, old_taa: a.oldTaa, new_taa: a.newTaa, band: a.band })),
+      signatures: Object.fromEntries(Object.entries(input.signatures).map(([r, g]) => [r, { data_url: g.dataUrl, signed_at: g.signedAt }])),
+    };
+    const res = await fetch(`${base}/review-pack/render`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    if (!res.ok) throw new Error(`Preview service returned ${res.status}`);
+    return res.text();
+  },
   getActivity: (_clientId: string): Promise<ActivityEvent[]> => delay(m.activity),
 
   /** Agent seam: replace with a LangGraph run. Returns an intent-routed mock reply for now. */
-  askAgent: (role: Role, clientId: string, message: string): Promise<AgentReply> => answerAsAgent(role, clientId, message),
+  askAgent: async (role: Role, clientId: string, message: string, ipsVersion: number | null = null): Promise<AgentReply> => {
+    const r = await answerAsAgent(role, clientId, message);
+    return ipsVersion && !r.draft ? { ...r, reply: `Using IPS v${ipsVersion}.\n${r.reply}` } : r;
+  },
 };
 
 export type AgentName = "Profiling Agent" | "Portfolio Agent" | "Product Agent" | "Orchestrator";
 export interface AgentReply { role: Role; clientId: string; reply: string; tags: string[]; agent: AgentName; steps: string[]; draft?: SectionDraft }
 
 /** Keyword intent routing shared by the UI (status line) and the mock agent. */
-export function routeAgent(message: string): AgentName {
+function routeAgent(message: string): AgentName {
   const t = message.toLowerCase();
   if (/\b(suits?|suitable|fits?|etf|funds?|products?)\b/.test(t)) return "Product Agent";
   if (/\b(ips|goals?|profile|meetings?|notes)\b/.test(t)) return "Profiling Agent";
@@ -145,7 +207,8 @@ export function routeAgent(message: string): AgentName {
   return "Orchestrator";
 }
 
-const bullets = (items: string[]) => items.map((i) => `• ${i}`).join("\n");
+const bullets = bulletLines;
+const bodyItems = (body: string): string[] => toBulletItems(body);
 const firstLine = (s: string) => s.replace(/\s+/g, " ").trim();
 const clip = (s: string, n = 160) => { const x = firstLine(s); return x.length > n ? `${x.slice(0, n - 1)}…` : x; };
 
@@ -162,10 +225,73 @@ async function answerAsAgent(role: Role, clientId: string, message: string): Pro
   const base = { role, clientId, agent };
   const done = (reply: string, tags: string[], steps: string[]): AgentReply => ({ ...base, reply, tags, steps });
 
+  if (role === "ic") {
+    const pf = ["Reading the client's holdings…", "Running portfolio analytics…"];
+    if (/market.*(today|regime)|regime/.test(t) && /house view|cio|web|market/.test(t)) {
+      const mb = m.macroBrief;
+      const cio = m.marketViews.map((v) => `${v.assetClass}: ${v.view} [${v.tags.find((x) => x.startsWith("CIO-")) ?? v.tags[0]}]`);
+      const web = mb.events.map((e, i) => `${e} [MKT-0142-${i + 1}]`);
+      const reply = `Market regime: ${mb.phase}, as of ${mb.asOf} [MKT-0142].\nFrom the CIO House View:\n${bullets(cio)}\nFrom the web:\n${bullets(web)}`;
+      return done(reply, ["MKT-0142", "CIO-2026Q4-03", "CIO-2026Q4-05"], ["Reading the macro brief…", "Reading the CIO House View…", "Scanning online macro events…", "Drafting summary by source…"]);
+    }
+    if (/\bedit\b.*holdings?|holdings?.*\bedit/.test(t)) {
+      const holdings = await arcApi.getHoldings(clientId);
+      const lines: string[] = [], edits: string[] = [];
+      for (const r of alloc) {
+        const hs = holdings.filter((h) => h.assetClass === r.assetClass);
+        const sum = Math.round(hs.reduce((a, h) => a + h.weightPct, 0) * 10) / 10;
+        const diff = Math.round((r.newTaa - sum) * 10) / 10;
+        lines.push(`${r.assetClass}: holdings ${sum}% vs TAA ${r.newTaa}%${diff === 0 ? ", aligned" : `, off by ${diff > 0 ? "+" : ""}${diff} pts`}${hs.length ? ` (${hs.map((h) => `${h.name} ${h.weightPct}%`).join(", ")})` : ""}`);
+        if (diff !== 0) {
+          const tgt = [...hs].sort((a, b) => b.weightPct - a.weightPct)[0];
+          edits.push(tgt ? `${r.assetClass}: change ${tgt.name} from ${tgt.weightPct}% to ${Math.round((tgt.weightPct + diff) * 10) / 10}%` : `${r.assetClass}: add a ${r.newTaa}% position, no holding exists yet`);
+        }
+      }
+      const tail = edits.length ? `Suggested edits:\n${bullets(edits)}` : "All classes already match the TAA, no edits needed.";
+      return done(`Holdings against the new TAA for ${name}:\n${bullets(lines)}\n${tail}\nApply them on the Individual holdings step: /ic/cases/${clientId}/holdings. Draft only, for your review.`, ["PORT-HOLD", "CIO-2026Q4-05"], ["Reading the client's holdings…", "Reading the new TAA…", "Comparing weights per asset class…", "Drafting suggested edits…"]);
+    }
+    if (/strength|weakness|analyse|analyze|portfolio (health|analysis)/.test(t) && !/taa/.test(t)) {
+      const holdings = await arcApi.getHoldings(clientId);
+      const top = [...holdings].sort((a, b) => b.weightPct - a.weightPct).slice(0, 2);
+      const off = alloc.filter((r) => Math.abs(r.current - r.saa) >= 3);
+      const sharpe = client?.sharpe ?? 0, div = client?.diversificationScore ?? 0;
+      const strengths = [
+        `Sharpe ratio ${sharpe.toFixed(2)}, ${sharpe >= 1 ? "a healthy return for the risk taken" : "moderate return for the risk taken"} [PORT-SHARPE]`,
+        `Diversification score ${div}/100 across ${holdings.length} holdings and ${new Set(holdings.map((h) => h.assetClass)).size} asset classes [PORT-DIV]`,
+      ];
+      const weaknesses = [
+        top.length ? `Concentration: ${top.map((h) => `${h.name} (${h.weightPct}%)`).join(" and ")} are the largest positions [PORT-HOLD]` : "No holdings on file",
+        ...(div < 70 ? [`Diversification score of ${div}/100 is below the 70 comfort level [PORT-DIV]`] : []),
+        ...off.map((r) => `${r.assetClass} is ${r.current}% against a ${r.saa}% SAA (${r.current > r.saa ? "+" : ""}${r.current - r.saa} pts)`),
+      ];
+      return done(`Portfolio view for ${name}.\nStrengths:\n${bullets(strengths)}\nWeaknesses:\n${bullets(weaknesses)}`, ["PORT-SHARPE", "PORT-DIV", "PORT-HOLD"], [...pf, "Comparing with the SAA…", "Drafting analysis…"]);
+    }
+    if (/move together|correlat|cluster|overlap/.test(t)) {
+      const clusters = await arcApi.getHoldingClusters(clientId);
+      const items = clusters.map((c) => `${c.label}: ${c.holdings.join(" and ")}, together ${c.combinedPct}% of the portfolio. ${c.note}`);
+      return done(`Holdings that move together in ${name}'s portfolio:\n${bullets(items)}`, ["PORT-CORR", "PORT-HOLD"], ["Reading the client's holdings…", "Computing pairwise correlations…", "Grouping holdings into clusters…", "Drafting explanation…"]);
+    }
+    if (/compare.*taa|old (and|vs\.?|versus) new|new vs old/.test(t)) {
+      const rowsTxt = alloc.map((r) => `${r.assetClass}: SAA ${r.saa}%, old TAA ${r.oldTaa}%, new TAA ${r.newTaa}% (${r.newTaa - r.oldTaa >= 0 ? "+" : ""}${r.newTaa - r.oldTaa} pts)`);
+      return done(`Old versus new TAA for ${name}:\n${bullets(rowsTxt)}`, ["CIO-2026Q4-03", "CIO-2026Q4-05"], ["Reading the SAA and current TAA…", "Comparing old and new TAA…", "Drafting comparison…"]);
+    }
+    if (/propose.*taa|suggest.*taa|recommend.*taa|new taa proposal/.test(t)) {
+      const lo = (r: typeof alloc[number]) => Math.max(0, r.saa - r.band), hi = (r: typeof alloc[number]) => r.saa + r.band;
+      const prop = alloc.map((r) => Math.min(hi(r), Math.max(lo(r), r.newTaa)));
+      let gap = 100 - prop.reduce((a, b) => a + b, 0);
+      for (let i = 0; gap !== 0 && i < 50; i++) {
+        const k = i % alloc.length, step = gap > 0 ? 1 : -1;
+        if (prop[k] + step >= lo(alloc[k]) && prop[k] + step <= hi(alloc[k]) && alloc[k].assetClass !== "Hedge funds") { prop[k] += step; gap -= step; }
+      }
+      const rowsTxt = alloc.map((r, i) => `${r.assetClass}: ${r.oldTaa}% to ${prop[i]}% (SAA ${r.saa}%, band ${lo(r)}-${hi(r)}%). ${clip(r.reason, 80)}`);
+      return done(`Proposed TAA for ${name}, every line inside the +/-${alloc[0]?.band ?? 5} band around the SAA. Draft only, for your review and G2 approval:\n${bullets(rowsTxt)}`, ["CIO-2026Q4-03", "CIO-2026Q4-05", "IPS-v2"], ["Reading the SAA and bands…", "Reading the CIO House View…", "Drafting a TAA within the bands…", "Checking the total equals 100%…"]);
+    }
+  }
+
   const packKeys: [RegExp, number][] = [
-    [/client summary|latest client|profile \+ goals|\bsaa\b|strategic asset/, 1], [/market view|cio view/, 2], [/market conditions/, 3],
-    [/portfolio (current )?health|sharpe|diversif/, 4], [/old vs new|\btaa\b/, 5], [/product recommendation/, 6],
-    [/sign-?off/, 7], [/sources|citations/, 8],
+    [/client summary|latest client|profile \+ goals|\bsaa\b|strategic asset/, 1], [/market view|market conditions|cio view/, 2],
+    [/portfolio (current )?health|sharpe|diversif/, 3], [/old vs new|\btaa\b/, 4], [/product recommendation/, 5],
+    [/sign-?off/, 6], [/sources|citations/, 7],
   ];
   const hit = packKeys.find(([re]) => re.test(t));
   const wantsDraft = /\b(write|draft|rewrite|redraft|compose)\b/.test(t);
@@ -181,8 +307,8 @@ async function answerAsAgent(role: Role, clientId: string, message: string): Pro
       const facts = sec.n === 1 && client
         ? [`${client.name}, ${sgdM(client.aumSgd)} under management, ${client.riskCategory} risk profile`, `IPS version ${client.ipsVersion ?? "pending"} governs this portfolio`]
         : [];
-      const sentences = sec.body.split(/(?<=\.)\s+/).map(plain).filter(Boolean);
-      const text = [...facts, ...sentences].map((x) => `• ${x.replace(/\.$/, "")}`).join("\n");
+      const sentences = bodyItems(sec.body).map(plain).filter(Boolean);
+      const text = bullets([...facts, ...sentences]);
       return { ...base, agent: "Orchestrator", reply: `Here is a formal draft of section ${sec.n}, ${sec.title}, in bullet points. Review it, then apply it to the review pack.`, tags: [], steps: ["Opening the review pack…", `Reading section ${sec.n}…`, "Writing in a formal tone…", "Formatting as bullet points…"], draft: { section: sec.n, title: sec.title, text } };
     }
   }
@@ -191,7 +317,7 @@ async function answerAsAgent(role: Role, clientId: string, message: string): Pro
     const pack = await arcApi.getPack(clientId);
     const sec = pack.find((x) => x.n === hit[1]);
     if (sec) {
-      const items = [`Owner: ${sec.owner.toUpperCase()}. Status: ${sec.status}.`, ...sec.body.split(/(?<=\.)\s+/).filter(Boolean).map((x) => x.replace(/\s*\[[^\]]+\]/g, ""))];
+      const items = [`Owner: ${sec.owner.toUpperCase()}. Status: ${sec.status}.`, ...bodyItems(sec.body).map((x) => x.replace(/\s*\[[^\]]+\]/g, ""))];
       return { ...base, agent: "Orchestrator", reply: `Section ${sec.n}, ${sec.title}, for ${name}:\n${bullets(items)}`, tags: sec.body.match(/[A-Z]+-[A-Za-z0-9-]+(?=\])/g)?.slice(0, 2) ?? [], steps: ["Opening the review pack…", `Reading section ${sec.n}…`, "Drafting summary…"] };
     }
   }
