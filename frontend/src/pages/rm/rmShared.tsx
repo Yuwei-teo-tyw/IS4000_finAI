@@ -83,7 +83,7 @@ export function SectionBody({ n, text, extra }: { n: number; text: string; extra
   return <><BodyView text={text} />{extra && <div className="mt-10 border-t border-hairline pt-10">{extra}</div>}</>;
 }
 
-/* ---------- Section 1: Profile / Goals / Concerns (+ SAA when onboarding) ---------- */
+/* ---------- Section 1: Profile / Goals / Concerns  ---------- */
 const SLIDES = ["Profile", "Goals", "Concerns"] as const;
 const slideOf = (t: string) => (/concern/i.test(t) ? 2 : /objective|goal|deposit|twelve months|target/i.test(t) ? 1 : /liquidity|worr/i.test(t) ? 2 : 0);
 const PROPOSED = "proposed saa";
@@ -153,7 +153,7 @@ export function SectionBlocksBody({ clientId, n, body, chart }: { clientId: stri
 
 export interface SaaEditor { rows: AllocationRow[]; vals: number[]; setVals: (v: number[]) => void }
 
-function SaaPanel({ saa }: { saa: SaaEditor }) {
+export function SaaPanel({ saa }: { saa: SaaEditor }) {
   const total = Math.round(saa.vals.reduce((a, b) => a + b, 0) * 10) / 10;
   const ok = total === 100;
   return (
@@ -178,28 +178,61 @@ function SaaPanel({ saa }: { saa: SaaEditor }) {
   );
 }
 
-/** Section 1 as tabs (Profile, Goals, Concerns, plus SAA when onboarding). Non-text blocks sit on the Profile tab. No autoplay. */
-export function ProfileCarousel({ clientId, blocks, saa }: { clientId: string; blocks: PackBlock[]; saa?: SaaEditor }) {
+/** Section 1 as tabs (Profile, Goals, Concerns). The tab on show can be edited inline and saved. Non-text blocks sit on the Profile tab. No autoplay. */
+export function ProfileCarousel({ clientId, blocks, canEdit = false, onChange }: { clientId: string; blocks: PackBlock[]; canEdit?: boolean; onChange?: (b: PackBlock[]) => void }) {
   const [i, setI] = useState(0);
+  const [edit, setEdit] = useState<string | null>(null);
   const parts = parseProfile(primaryText(blocks));
-  const tabs = [...SLIDES, ...(saa ? (["SAA"] as const) : [])];
-  const go = (d: number) => setI((v) => (v + d + tabs.length) % tabs.length);
+  const keys = ["profile", "goals", "concerns"] as const;
+  const go = (d: number) => setI((v) => (v + d + SLIDES.length) % SLIDES.length);
   const slide = (t: string) => (t.trim() ? <HangList items={toBulletItems(t)} /> : <p className="text-sm text-ink-muted">Nothing recorded.</p>);
   const firstText = blocks.find((b) => b.type === "text");
   const nonText = blocks.filter((b) => b !== firstText);
+  const editable = canEdit && !!onChange;
+  const save = () => {
+    if (edit === null || !onChange) return;
+    onChange(withText(blocks, composeProfile({ ...parts, [keys[i]]: edit.split("\n").map((l) => l.replace(/^\s*[•\-*]\s*/, "").trimEnd()).filter((l) => l.trim()).join("\n") })));
+    setEdit(null);
+  };
   return (
-    <div onKeyDown={(e) => { if (e.key === "ArrowLeft") { e.preventDefault(); go(-1); } if (e.key === "ArrowRight") { e.preventDefault(); go(1); } }}>
-      <div role="tablist" aria-label="Profile, goals and concerns" className="mb-8 flex flex-wrap gap-6 border-b border-hairline">
-        {tabs.map((l, k) => (
-          <button key={l} role="tab" aria-selected={i === k} tabIndex={i === k ? 0 : -1} onClick={() => setI(k)}
-            className={`-mb-px cursor-pointer border-b py-3 text-[13px] uppercase tracking-[0.12em] transition-colors ${i === k ? "border-brand text-ink" : "border-transparent text-ink-muted hover:text-ink"}`}>{l}</button>
+    <div>
+      <div role="tablist" aria-label="Profile, goals and concerns" className="mb-8 flex flex-wrap items-center gap-6 border-b border-hairline"
+        onKeyDown={(e) => { if (edit !== null) return; if (e.key === "ArrowLeft") { e.preventDefault(); go(-1); } if (e.key === "ArrowRight") { e.preventDefault(); go(1); } }}>
+        {SLIDES.map((l, k) => (
+          <button key={l} role="tab" aria-selected={i === k} tabIndex={i === k ? 0 : -1} disabled={edit !== null && i !== k} onClick={() => setI(k)}
+            className={`-mb-px cursor-pointer border-b py-3 text-[13px] uppercase tracking-[0.12em] transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${i === k ? "border-brand text-ink" : "border-transparent text-ink-muted hover:text-ink"}`}>{l}</button>
         ))}
+        {editable && (
+          <span className="ml-auto flex items-center gap-2 pb-2">
+            {edit === null ? (
+              <Button variant="secondary" size="sm" onClick={() => setEdit(parts[keys[i]])}>Edit {SLIDES[i].toLowerCase()}</Button>
+            ) : (
+              <>
+                <Button variant="secondary" size="sm" onClick={() => setEdit(null)}>Cancel</Button>
+                <Button size="sm" onClick={save}>Save</Button>
+              </>
+            )}
+          </span>
+        )}
       </div>
       <div key={i} role="tabpanel" className="animate-geneva-in h-[420px] overflow-y-auto pr-2">
-        {i === 0 ? (
+        {edit !== null ? (
+          <div className="space-y-8">
+            <div>
+              <label htmlFor={`prof-${keys[i]}`} className="mb-2 block text-[12px] uppercase tracking-[0.14em] text-ink-muted">{SLIDES[i]} (one point per line)</label>
+              <textarea id={`prof-${keys[i]}`} value={edit} rows={7} onChange={(e) => setEdit(e.target.value)} autoFocus
+                className="block w-full resize-none rounded-sm border border-hairline-strong bg-surface-100 px-4 py-3 text-[16px] font-light leading-7 text-ink" />
+            </div>
+            {i === 0 && onChange && (
+              <div className="border-t border-hairline pt-8">
+                <BlockEditor clientId={clientId} section={1} blocks={nonText} onChange={(nb) => onChange(firstText ? [firstText, ...nb] : nb)} />
+              </div>
+            )}
+          </div>
+        ) : i === 0 ? (
           <div className="space-y-10"><div className="min-w-0">{slide(parts.profile)}</div>
             {nonText.length > 0 && <div className="min-w-0 border-t border-hairline pt-10"><SectionBlocksView blocks={nonText} clientId={clientId} /></div>}</div>
-        ) : i === 1 ? slide(parts.goals) : i === 2 ? slide(parts.concerns) : saa ? <SaaPanel saa={saa} /> : null}
+        ) : slide(i === 1 ? parts.goals : parts.concerns)}
       </div>
     </div>
   );
