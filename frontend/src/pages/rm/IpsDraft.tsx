@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Check, Lock, X } from "lucide-react";
 import { arcApi } from "../../services/arcApi";
-import { Button, Card, GateChip, Loading, NextAction, PageHeader, Stepper, useAsync, BulletTextarea, BulletList } from "../../components/ui";
+import { Button, Card, GateChip, Loading, PageHeader, Stepper, useAsync, BulletTextarea, BulletList } from "../../components/ui";
 import { onboardingSteps, ipsToSections, fmtDate } from "./rmShared";
-import { sendIpsToIc, useIpsSent } from "../../services/workflowStore";
+import { sendIpsToIc, useIpsSent, withdrawIpsFromIc } from "../../services/workflowStore";
 import { IpsDocument } from "../../components/documents/IpsDocument";
 import { ProfessionaliseButton } from "../../components/geneva/ProfessionaliseButton";
 import { getChatContext } from "../../services/chatContextStore";
@@ -32,7 +32,14 @@ export default function IpsDraft({ embedded = false, clientId: clientIdProp }: {
   const p = parts.find((x) => x.part === active)!;
   const sections = ipsToSections(parts, text);
   const subtitle = `You fill ${RM_PARTS.map((n) => parts.find((x) => x.part === n)?.title ?? "").filter(Boolean).join(", ")}.`;
-  const editable = RM_PARTS.includes(active) && !sent;
+  const editable = RM_PARTS.includes(active);
+  const first = (client?.name ?? "The client").split(" ")[0];
+  const synthetic: Record<number, string> = {
+    1: `• ${first} wants long-term growth after a business sale\n• Pass assets on to the family; set up a family foundation within five years\n• No need to touch the capital for at least ten years`,
+    3: `• ${client?.riskCategory ?? "Aggressive"}, risk limit ${client?.riskCap ?? 5} of 5\n• Risk capacity: High; can tolerate a 30% fall in a single year\n• Comfortable with large swings in value for long-term growth`,
+    5: "• Quarterly review with the client\n• Rebalance when drift exceeds 5 points\n• Benchmark: 70/30 blended index",
+    6: "• Signed by the RM after the client confirms the draft (G1)",
+  };
 
   const runPolish = async () => {
     setBusy(true);
@@ -88,14 +95,19 @@ export default function IpsDraft({ embedded = false, clientId: clientIdProp }: {
           <div key={active} className="animate-geneva-in space-y-8">
             <div className="min-w-0">
               <h2 className="text-[28px] font-light tracking-tight">{parts.findIndex((x) => x.part === active) + 1}. {p.title}</h2>
-              {RM_PARTS.includes(active) && !sent && <p className="mt-2 text-xs uppercase tracking-[0.14em] text-brand">You fill in this section</p>}
-              {(!RM_PARTS.includes(active) || sent) && <p className="mt-2 flex items-center gap-1.5 text-xs uppercase tracking-[0.14em] text-ink-muted"><Lock size={12} />{RM_PARTS.includes(active) ? "Locked" : "To be filled by the Investment Counsellor"}</p>}
+              {RM_PARTS.includes(active) && <p className="mt-2 text-xs uppercase tracking-[0.14em] text-brand">You fill in this section</p>}
+              {!RM_PARTS.includes(active) && <p className="mt-2 flex items-center gap-1.5 text-xs uppercase tracking-[0.14em] text-ink-muted"><Lock size={12} />To be filled by the Investment Counsellor</p>}
             </div>
             {editable ? (
               <BulletTextarea value={text[active] ?? ""} onChange={(v) => { setText({ ...text, [active]: v }); setSaved(false); }} rows={8} />
             ) : (
               <div className="text-[17px] leading-8 text-ink-700">
                 {(text[active] ?? "").trim() ? <BulletList text={text[active]} className="!text-base" /> : <p className="text-sm text-ink-muted">Not yet completed.</p>}
+              </div>
+            )}
+            {editable && synthetic[active] && (
+              <div className="flex justify-end">
+                <Button variant="secondary" size="sm" onClick={() => { setText({ ...text, [active]: synthetic[active] }); setSaved(false); }}>Fill in synthetic data</Button>
               </div>
             )}
           </div>
@@ -107,16 +119,21 @@ export default function IpsDraft({ embedded = false, clientId: clientIdProp }: {
           document={<IpsDocument clientId={clientId} clientName={client?.name ?? clientId} version={{ version: (client?.ipsVersion ?? 0) + 1, issuedOn: new Date().toISOString().slice(0, 10), status: "Draft", author: "Isabel", summary: "", parts: parts.map((x) => ({ ...x, body: text[x.part] ?? x.body })) }} />} />
       </div>
 
-      {sent && embedded ? (
-        <Card><p className="text-base text-ink-700">Sent to the Investment Counsellor. Your sections are now locked.</p></Card>
-      ) : sent ? (
-        <NextAction title="Sent to the Investment Counsellor" body="Sections are locked until the IC returns the IPS."
-          action={<Button to={`/rm/clients/${clientId}/ips-approval`}>Preview IC return</Button>} />
+      {sent ? (
+        <div className="flex flex-wrap items-center justify-between gap-4 rounded-md bg-surface-300 px-6 py-5">
+          <p className="text-base text-ink-700">Sent to the Investment Counsellor. You can keep editing your sections; withdraw to pull the draft back.</p>
+          <div className="flex flex-wrap items-center gap-3">
+            {embedded && saved && <span className="text-sm text-ink-500" role="status">Saved</span>}
+            {embedded && <Button variant="secondary" onClick={() => setSaved(true)}>Save</Button>}
+            {!embedded && <Button variant="secondary" to={`/rm/clients/${clientId}/ips-approval`}>Preview IC return</Button>}
+            <Button onClick={() => withdrawIpsFromIc(clientId)}>Withdraw</Button>
+          </div>
+        </div>
       ) : stage === "polish" ? (
         <div className="flex flex-wrap items-center justify-end gap-3">
           <ProfessionaliseButton onClick={runPolish} loading={busy} disabled={polished} label="Professionalise" />
           <Button variant="secondary" onClick={() => setStage("edit")}>Back</Button>
-          {polished && <Button onClick={() => sendIpsToIc(clientId)}>Send to IC</Button>}
+          {polished && <Button onClick={() => sendIpsToIc(clientId)}>Send IPS draft to IC</Button>}
         </div>
       ) : (
         <div className="flex flex-wrap items-center justify-end gap-3">
@@ -124,7 +141,7 @@ export default function IpsDraft({ embedded = false, clientId: clientIdProp }: {
           {embedded
             ? <Button onClick={() => setSaved(true)}>Save</Button>
             : <Button variant="secondary" onClick={() => nav(-1)}>Back</Button>}
-          <Button onClick={() => { setPolished(false); setStage("polish"); }}>Review wording and send</Button>
+          <Button onClick={() => sendIpsToIc(clientId)}>Send IPS draft to IC</Button>
         </div>
       )}
     </div>

@@ -20,8 +20,10 @@ function answerPlainText(a: MarketAnswer): string {
   return parts.join(" ").replace(/<[^>]*>/g, "").replace(/\[[^\]]*\]/g, "").replace(/[*_`#]+/g, "").replace(/\s+/g, " ").trim();
 }
 
+const MATCH_PROMPT = "Read client IPS, and research market, match products most suited to client via risk appetite and preferences and current market condition";
 const SEEDED: Record<Role, string[]> = {
   ps: [
+    MATCH_PROMPT,
     "Tell me if PIMCO Balanced Income & Growth Fund suits the client's profile, explain why, and whether it fits the current macroeconomic status",
     "For fixed income, I want PIMCO Balanced Income & Growth, BlackRock iShares, and an equity-linked note on DBS",
     "What is the CIO House View?",
@@ -37,7 +39,105 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const viewTone = { Buy: "green", Hold: "amber", Sell: "red" } as const;
 const label = "text-xs font-semibold uppercase tracking-[0.12em] text-ink-muted";
 
-interface Msg { from: "user" | "agent"; text: string; answer?: MarketAnswer; finalise?: string[] }
+interface Recommend {
+  name: string; riskCap: number; riskCategory: string; profile: string[]; market: string[]; tags: string[];
+  shortlist: { row: MarketRow; riskRating: number; reason: string; tags: string[] }[]; excluded: string[];
+}
+interface Msg { from: "user" | "agent"; text: string; answer?: MarketAnswer; finalise?: string[]; recommend?: Recommend }
+
+const MATCH_INTENT = /read client ips.*(research market|match products)/i;
+const pause = (min: number, max: number) => sleep(min + Math.random() * (max - min));
+/** Synthetic three-agent run (profiling, market research, recommender), built only from arcApi data for the active client. Replace with a LangGraph run. */
+async function buildRecommendation(clientId: string, ipsVersion: number | null): Promise<{ steps: string[]; rec: Recommend }> {
+  const [client, ips, products, views, cycle] = await Promise.all([arcApi.getClient(clientId), arcApi.getIps(clientId), arcApi.getProducts(clientId), arcApi.getMarketViews(clientId), arcApi.getMarketCycle()]);
+  const name = client?.name ?? "the client", cap = client?.riskCap ?? 3, cat = client?.riskCategory ?? "Balanced";
+  const part = (n: number) => ips.find((x) => x.part === n)?.body?.trim() ?? "";
+  const goals = part(1) || `Goals not yet written in the IPS. Working assumption for a ${cat.toLowerCase()} profile: grow wealth steadily within a risk limit of ${cap} of 5.`;
+  const risk = part(3);
+  const dd = /(\d+)%\s*drawdown/i.exec(risk)?.[1] ?? String(Math.max(4, cap * 6 - 6));
+  const liq = /liquidity[^.]*\./i.exec(risk)?.[0]?.trim() ?? (cap <= 3 ? "Needs ready access to cash for near-term spending." : "Can hold longer-dated, less liquid assets.");
+  const wantsIncome = /income|retire/i.test(goals), wantsLegacy = /legacy|children|estate/i.test(goals);
+  const pref = wantsIncome ? "income and capital stability" : wantsLegacy ? "long-term growth and legacy" : cap >= 4 ? "growth with diversification" : "capital preservation with steady income";
+  const view = (cls: string) => views.find((v) => v.assetClass === cls);
+  const viewOf = (cls: string) => view(cls)?.view ?? "Hold";
+  const tagOf = (cls: string) => view(cls)?.tags.find((t) => t.startsWith("CIO-")) ?? "CIO-2026Q4-03";
+  const within = products.filter((p) => p.riskRating <= cap), above = products.filter((p) => p.riskRating > cap);
+  const score = (p: typeof products[number]) => p.stars * 10 + ({ Buy: 8, Hold: 3, Sell: -6 }[viewOf(p.assetClass)] ?? 0) + (p.riskRating / cap) * (cap >= 4 ? 8 : 3) - p.feePct * 3 + (wantsIncome && /income|dividend|yield|bond/i.test(p.name + p.whyBuy) ? 5 : 0);
+  const top = [...within].sort((a, b) => score(b) - score(a)).slice(0, 5);
+  const shortlist = top.map((p) => ({
+    row: { assetClass: p.assetClass, product: p.name, industryFocus: p.tags[0] ?? "", top5: [], confidencePct: Math.round(p.stars * 20), ranking: [] } as MarketRow,
+    riskRating: p.riskRating,
+    reason: `Risk ${p.riskRating} of 5 is within ${name}'s limit of ${cap} (${cat.toLowerCase()}), suits a preference for ${pref}, and the CIO is ${viewOf(p.assetClass)} on ${p.assetClass.toLowerCase()}. ${p.suitability}.`,
+    tags: [tagOf(p.assetClass), ...p.tags.filter((t) => !t.startsWith("CIO-")).slice(0, 1)],
+  }));
+  const profile = [
+    `${name}, ${cat}, risk limit ${cap} of 5${ipsVersion ? `, IPS v${ipsVersion}` : ", no active IPS yet"}`,
+    `Loss tolerance: about ${dd}% drawdown`,
+    `Liquidity: ${liq.replace(/\.$/, "")}`,
+    `Goals and preferences: ${goals.replace(/\.$/, "")}. Preference leans to ${pref}`,
+  ];
+  const market = [
+    `${cycle.phase} as of ${cycle.asOf}. Rates are expected to ease as growth slows [${cycle.tag}]`,
+    `Equities ${viewOf("Equities")}, fixed income ${viewOf("Fixed income")} [${tagOf("Fixed income")}]`,
+    `Credit: high-grade preferred, high yield only at a modest weight [CIO-2026Q4-03]`,
+    `FX: SGD firm, unhedged foreign bonds carry currency risk [MKT-0142]`,
+    `Cash ${viewOf("Cash")}, gold ${viewOf("Gold")} [${tagOf("Cash")}] [${tagOf("Gold")}]`,
+  ];
+  const excluded = above.map((p) => `${p.name} (risk ${p.riskRating})`);
+  const steps = [
+    "Client profiling agent fired",
+    `Reading ${name}'s active IPS${ipsVersion ? ` v${ipsVersion}` : ""}: risk limit, loss tolerance, liquidity, goals…`,
+    `Profile summary ready: ${cat}, limit ${cap} of 5, ${dd}% drawdown`,
+    "Market research agent fired",
+    "Reading the CIO House View on rates, equities, credit and FX…",
+    `Market summary ready: ${cycle.phase.toLowerCase()}, fixed income ${viewOf("Fixed income")}`,
+    "Product recommender agent fired",
+    `Screening ${products.length} products against ${name}'s risk limit of ${cap}${excluded.length ? `, excluding ${excluded.length} above it` : ""}…`,
+    `Ranking ${within.length} eligible products by risk appetite, preference and market view…`,
+    "Consolidating…",
+  ];
+  return { steps, rec: { name, riskCap: cap, riskCategory: cat, profile, market, tags: [cycle.tag, "CIO-2026Q4-03", ...(ipsVersion ? [`IPS-v${ipsVersion}`] : [])], shortlist, excluded } };
+}
+
+/** Render "[TAG]" markers in plain strings as citation tags. */
+function Tagged({ text }: { text: string }) {
+  return <>{text.split(/(\[[A-Za-z0-9-]+\])/).map((p, i) => /^\[[A-Za-z0-9-]+\]$/.test(p) ? <CitationTag key={i} tag={p.slice(1, -1)} /> : <span key={i}>{p}</span>)}</>;
+}
+
+function RecommendView({ r, picked, onToggle, clientId }: { r: Recommend; picked: string[]; onToggle: (m: MarketRow) => void; clientId: string }) {
+  const h = "text-[26px] font-light tracking-tight";
+  const ul = "mt-3 list-disc space-y-2 pl-5 text-[17px] leading-7 text-ink-700";
+  return (
+    <div className="min-w-0 space-y-10 font-light">
+      <p className="text-[22px] leading-9 tracking-tight text-ink">{`For ${r.name} (${r.riskCategory}, risk limit ${r.riskCap} of 5), I matched ${r.shortlist.length} products to the IPS and today's market view. Tick the ones you want, or tell me which you are happy with.`}</p>
+      <section><h4 className={h}>Client profile</h4><ul className={ul}>{r.profile.map((x) => <li key={x}>{x}</li>)}</ul></section>
+      <section><h4 className={h}>Current market conditions</h4><ul className={ul}>{r.market.map((x) => <li key={x}><Tagged text={x} /></li>)}</ul></section>
+      <section>
+        <h4 className={h}>Ranked shortlist</h4>
+        <div className="mt-3">
+          <Table
+            head={["Select", "Rank", "Product", "Risk", "Why it suits this client"]}
+            rows={r.shortlist.map((s, i) => [
+              <input type="checkbox" className="h-5 w-5 cursor-pointer" checked={picked.includes(s.row.product)} onChange={() => onToggle(s.row)} aria-label={`Select ${s.row.product}`} />,
+              String(i + 1),
+              <span className="block max-w-56 font-semibold">{s.row.product}</span>,
+              `${s.riskRating} of ${r.riskCap}`,
+              <span className="block max-w-80 text-ink-700">{s.reason} {s.tags.map((t) => <CitationTag key={t} tag={t} />)}</span>,
+            ])}
+          />
+        </div>
+        {r.excluded.length > 0 && <p className="mt-4 text-[15px] text-ink-muted">{`Excluded as above ${r.name}'s risk limit of ${r.riskCap}: ${r.excluded.join(", ")}.`}</p>}
+        {picked.length > 0 && (
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-sm border border-hairline-strong px-5 py-3">
+            <p className="text-sm text-ink-700">{picked.length} product{picked.length === 1 ? "" : "s"} ticked. They also show in the Product Shelf.</p>
+            <Button variant="primary" size="sm" to={`/ps/cases/${clientId}/finalise`}>Finalise list</Button>
+          </div>
+        )}
+      </section>
+      <p>{r.tags.map((t) => <CitationTag key={t} tag={t} />)}</p>
+    </div>
+  );
+}
 
 /* ---- PS finalise-by-prompt: detect "I'm happy with X and Y" and match product names ---- */
 const FINALISE_INTENT = /\b(finali[sz]e|happy with|ok with|okay with|fine with|good with|comfortable with|go with|going with|proceed with|shortlist|i like|i(?:'|’)ll take|i want to (?:take|go|proceed|keep)|i(?:'|’)m (?:ok|ok?ay|happy|fine) )/i;
@@ -244,6 +344,18 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
     setDraft("");
     patch(id, (c) => ({ ...c, title: c.messages.length === 0 ? text.slice(0, 40) : c.title, messages: [...c.messages, { from: "user", text }] }));
     setWorking({ chatId: id, steps: [], shown: 0 });
+    if (role === "ps" && MATCH_INTENT.test(text)) {
+      try {
+        const { steps, rec } = await buildRecommendation(clientId, ipsVersion);
+        setWorking({ chatId: id, steps, shown: 0 });
+        for (let i = 1; i <= steps.length; i++) { setWorking({ chatId: id, steps, shown: i }); await pause(700, 1200); }
+        patch(id, (c) => ({ ...c, messages: [...c.messages, { from: "agent", text: "", recommend: rec }] }));
+        appendChatContext(clientId, role, { q: text, a: `Shortlist for ${rec.name} (limit ${rec.riskCap}): ${rec.shortlist.map((x) => x.row.product).join(", ")}.` });
+      } finally {
+        setWorking((w) => (w?.chatId === id ? null : w));
+      }
+      return;
+    }
     if (role === "ps" && FINALISE_INTENT.test(text)) {
       const [products] = await Promise.all([arcApi.getProducts(clientId), sleep(500)]);
       const lastRows = [...chat.messages].reverse().find((m) => m.answer?.rows.length)?.answer?.rows ?? [];
@@ -361,6 +473,7 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
                       )}
                     </div>
                   )}
+                  {m.recommend && <RecommendView r={m.recommend} picked={pickedNames} onToggle={toggle} clientId={clientId} />}
                   {m.answer && <AnswerView a={m.answer} picked={pickedNames} onToggle={toggle} clientId={clientId} role={role} />}
                 </div>
               ))}

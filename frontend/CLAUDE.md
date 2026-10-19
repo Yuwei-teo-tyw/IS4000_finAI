@@ -17,3 +17,14 @@ If a required resource is unavailable (design system, Claude Doc, tool, file, ac
 - Frontend only: data via `services/arcApi.ts`, never import `mock/` in pages.
 
 Done = `npm run build` passes.
+
+## Client phase rule (all roles)
+- A client moves **Onboarding Phase -> Monitoring Phase only when onboarding progress is full (5/5) AND an IPS is active.** Never flip status any other way. Phase is derived, never stored: `arcApi.effective()` reads `workflowStore.isActivated()`, which re-checks IPS sent + returned by IC + active IPS.
+- Only `activateIps(clientId, version)` (workflowStore) can activate; it refuses unless the RM sent the IPS and the IC returned it. `returnIpsToRm` refuses unless the IPS was sent. Do not call `setActiveIps` + a status flip separately for onboarding clients.
+- Onboarding progress steps (RM Client Book bar): draft -> sent to IC (3) -> returned by IC (4) -> approved at G1 and IPS active (5). "-" while not started. Seeded Monitoring clients (ser, dso, teo) count as complete.
+- Review pack progress is for Monitoring clients only; "-" when 0.
+
+## Request paths (keep these intact)
+- **IPS path (Mei Jia's Portfolio Manager code):** RM IpsDraft "Send IPS draft to IC" (`sendIpsToIc`) -> IC inbox row, type **IPS SAA request** in the dedicated "Request type" column (built live from `useAllIpsSent`, any onboarding client) -> Open `/ic/requests/:id/3l` (ThreeLBuilder) -> `/saa` (SaaBuilder, Portfolio Manager) -> "Send back to RM" (`returnIpsToRm`, row shows Finished) -> RM IpsApproval "Approve G1" (enabled only after the return) -> `activateIps` -> client becomes Monitoring.
+- **Review pack path (Wei Lun's code):** RM PackReview "Send to Product Specialist" (`sendReviewRequest`) -> PS inbox -> PS chat names products -> FinaliseProducts "send to IC" (`sendFinalised`) -> IC inbox row **Quarterly review** (built live from `useAllFinalised`) -> `/ic/cases/:id/products` -> market health -> TAA -> holdings -> pack -> "Send to Relationship Manager" (`sendIcToRm`) -> RM approves G4.
+- IC inbox rows are built live-first from workflow state (`IcInbox.tsx`); seeds only add priority. Do not dedupe against the unfiltered seed list.

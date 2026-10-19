@@ -189,13 +189,13 @@ export function ProfileCarousel({ clientId, blocks, saa }: { clientId: string; b
   const nonText = blocks.filter((b) => b !== firstText);
   return (
     <div onKeyDown={(e) => { if (e.key === "ArrowLeft") { e.preventDefault(); go(-1); } if (e.key === "ArrowRight") { e.preventDefault(); go(1); } }}>
-      <div role="tablist" aria-label="Profile, goals and concerns" className="mb-8 flex flex-wrap gap-6 border-b border-hairline">
+      <div role="tablist" aria-label="Profile, goals and concerns" className="mb-6 flex flex-wrap gap-6 border-b border-hairline">
         {tabs.map((l, k) => (
           <button key={l} role="tab" aria-selected={i === k} tabIndex={i === k ? 0 : -1} onClick={() => setI(k)}
             className={`-mb-px cursor-pointer border-b py-3 text-[13px] uppercase tracking-[0.12em] transition-colors ${i === k ? "border-brand text-ink" : "border-transparent text-ink-muted hover:text-ink"}`}>{l}</button>
         ))}
       </div>
-      <div key={i} role="tabpanel" className="animate-geneva-in h-[420px] overflow-y-auto pr-2">
+      <div key={i} role="tabpanel" className="animate-geneva-in">
         {i === 0 ? (
           <div className="space-y-10"><div className="min-w-0">{slide(parts.profile)}</div>
             {nonText.length > 0 && <div className="min-w-0 border-t border-hairline pt-10"><SectionBlocksView blocks={nonText} clientId={clientId} /></div>}</div>

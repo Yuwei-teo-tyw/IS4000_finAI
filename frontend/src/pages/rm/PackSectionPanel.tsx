@@ -101,7 +101,7 @@ export function PackSectionPanel({ clientId, s, pos, role, onboarding, approved,
       </div>
 
       {shown && <>
-      <div className="mt-8 space-y-6 text-[16px] font-light leading-8 text-ink-700 ">
+      <div className="mt-6 space-y-6 text-[16px] font-light leading-8 text-ink-700 ">
         {!hidden && updatedNote && <p className="text-xs text-ink-muted">{updatedNote}</p>}
         {s.status === "flagged" && !hidden && (
           <div className="flex items-start gap-3 rounded-md bg-surface-300 p-5 text-sm text-ink"><AlertTriangle size={18} className="mt-0.5 shrink-0" />Flagged line: please read this section closely before approving.</div>
@@ -121,7 +121,7 @@ export function PackSectionPanel({ clientId, s, pos, role, onboarding, approved,
       </div>
 
       {!hidden && !compare && (canEdit || canPolish || (sources && !approved)) && (
-        <div className="mt-8 flex flex-wrap items-center justify-between gap-4 ">
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
           <div>{(canEdit || sources) && <Button variant="secondary" size="sm" onClick={() => setEditing(!editing)}>{editing ? "Done" : sources ? "Edit sources" : "Edit section"}</Button>}</div>
           <div className="flex flex-wrap items-center justify-end gap-4">
             {polishErr && <span className="text-xs text-negative" role="alert">{polishErr}</span>}

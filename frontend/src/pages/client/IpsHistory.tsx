@@ -6,7 +6,7 @@ import { DocumentPreviewModal } from "../../components/documents/DocumentPreview
 import { IpsDocument } from "../../components/documents/IpsDocument";
 import { SortByDate, type SortOrder } from "../../components/documents/SortByDate";
 import { arcApi } from "../../services/arcApi";
-import { activateClient, setActiveIps, useActiveIps, useIpsReturned } from "../../services/workflowStore";
+import { activateIps, setActiveIps, useActiveIps, useIpsReturned } from "../../services/workflowStore";
 import IpsDraft from "../rm/IpsDraft";
 import type { IpsVersion } from "../../types/arc";
 
@@ -85,7 +85,7 @@ export function IpsHistory({ clientId, clientName = "" }: { clientId: string; cl
             <SortByDate value={order} onChange={setOrder} />
           </div>
           <div className="flex flex-col gap-8">
-            {sorted.map((v) => <VersionCard key={v.version} v={v} clientName={name} canEdit={role === "rm" && (v.status === "Active" || v.status === "Draft")} onEdit={() => setEditing(true)} isActive={v.version === activeVersion} canActivate={role === "rm"} onActivate={() => { setActiveIps(clientId, v.version); activateClient(clientId); }} returned={returned} />)}
+            {sorted.map((v) => <VersionCard key={v.version} v={v} clientName={name} canEdit={role === "rm" && (v.status === "Active" || v.status === "Draft")} onEdit={() => setEditing(true)} isActive={v.version === activeVersion} canActivate={role === "rm"} onActivate={() => { if (v.status === "Draft") activateIps(clientId, v.version); else setActiveIps(clientId, v.version); }} returned={returned} />)}
           </div>
         </div>
       )}

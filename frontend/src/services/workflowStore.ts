@@ -6,6 +6,15 @@ import { useSyncExternalStore } from "react";
 import type { MarketRow } from "../types/arc";
 import { recordPackEdit } from "./packDraftStore";
 
+/** One-time reset of stale demo state in this tab, so Jane Fraser and David Solomon start from the seeded zero progress. Bump SEED_VERSION to reset again. */
+const SEED_VERSION = "2";
+try {
+  if (sessionStorage.getItem("wf-seed-version") !== SEED_VERSION) {
+    Object.keys(sessionStorage).filter((k) => k.startsWith("wf-") || /[-_:](jfr|dso)$/.test(k)).forEach((k) => sessionStorage.removeItem(k));
+    sessionStorage.setItem("wf-seed-version", SEED_VERSION);
+  }
+} catch { /* ignore */ }
+
 function createStore<T>(storageKey: string, initial: T) {
   const listeners = new Set<() => void>();
   let cache: { raw: string | null; value: T } | null = null;
@@ -63,6 +72,7 @@ export const sendFinalised = (clientId: string, items: FinalisedItem[]) => {
 const activeIps = createStore<Record<string, number>>("wf-active-ips", {});
 /** Explicit choice if the RM made one, else null (callers fall back to the client's latest approved version). */
 export const useActiveIps = (clientId: string): number | null => activeIps.use()[clientId] ?? null;
+export const getActiveIps = (clientId: string): number | null => activeIps.read()[clientId] ?? null;
 export const setActiveIps = (clientId: string, version: number) => activeIps.write({ ...activeIps.read(), [clientId]: version });
 
 /* ---- 5. IC saved progress per client (products ticked for the TAA, TAA values); section text goes through packDraftStore ---- */
@@ -93,12 +103,35 @@ export const useIpsSent = (clientId: string): { sentAt: string } | undefined => 
 export const useAllIpsSent = (): string[] => Object.keys(ipsSent.use());
 export const sendIpsToIc = (clientId: string) => ipsSent.write({ ...ipsSent.read(), [clientId]: { sentAt: new Date().toISOString() } });
 
+/** RM pulls a sent IPS back to keep editing (also clears any IC return). */
+export const withdrawIpsFromIc = (clientId: string) => {
+  const { [clientId]: _s, ...sentRest } = ipsSent.read(); ipsSent.write(sentRest);
+  const { [clientId]: _r, ...retRest } = ipsReturned.read(); ipsReturned.write(retRest);
+};
+
 const ipsReturned = createStore<Record<string, { sentAt: string }>>("wf-ips-returned", {});
 export const useIpsReturned = (clientId: string): boolean => !!ipsReturned.use()[clientId];
-export const returnIpsToRm = (clientId: string) => ipsReturned.write({ ...ipsReturned.read(), [clientId]: { sentAt: new Date().toISOString() } });
+/** The IC can only return an IPS the RM actually sent. */
+export const returnIpsToRm = (clientId: string) => { if (ipsSent.read()[clientId]) ipsReturned.write({ ...ipsReturned.read(), [clientId]: { sentAt: new Date().toISOString() } }); };
+export const useAllIpsReturned = (): string[] => Object.keys(ipsReturned.use());
+export const loadReturned = (): string[] => Object.keys(ipsReturned.read());
+export const isIpsReturned = (clientId: string): boolean => !!ipsReturned.read()[clientId];
 
-/** Clients whose onboarding IPS is active: they move to the Monitoring Phase. */
+/**
+ * RULE: a client leaves the Onboarding Phase only when onboarding progress is full (draft sent, returned by the IC, approved at G1)
+ * AND an IPS is active. `activateIps` is the single way to get there; `isActivated` re-checks every condition.
+ */
 const activated = createStore<Record<string, boolean>>("wf-ips-activated", {});
-export const isActivated = (clientId: string): boolean => !!activated.read()[clientId];
-export const useActivated = (clientId: string): boolean => !!activated.use()[clientId];
-export const activateClient = (clientId: string) => activated.write({ ...activated.read(), [clientId]: true });
+export const isActivated = (clientId: string): boolean =>
+  !!activated.read()[clientId] && !!ipsSent.read()[clientId] && !!ipsReturned.read()[clientId] && activeIps.read()[clientId] !== undefined;
+export const useActivated = (clientId: string): boolean => {
+  const a = activated.use()[clientId]; const s = ipsSent.use()[clientId]; const r = ipsReturned.use()[clientId]; const v = activeIps.use()[clientId];
+  return !!a && !!s && !!r && v !== undefined;
+};
+/** G1 approval: needs the IPS sent to and returned by the IC. Sets the active IPS and activates the client in one step. Returns false if the steps are incomplete. */
+export const activateIps = (clientId: string, version: number): boolean => {
+  if (!ipsSent.read()[clientId] || !ipsReturned.read()[clientId]) return false;
+  setActiveIps(clientId, version);
+  activated.write({ ...activated.read(), [clientId]: true });
+  return true;
+};

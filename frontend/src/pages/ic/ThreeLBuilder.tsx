@@ -4,7 +4,7 @@ import { ChevronDown } from "lucide-react";
 import { arcApi } from "../../services/arcApi";
 import { Button, Card, GateChip, Loading, NextAction, PageHeader, Section, Stepper, sgd, sgdFull, useAsync } from "../../components/ui";
 import { AutoSaveStatus } from "../../components/ic/SaveProgressButton";
-import { saveIcProgress, useIcProgress } from "../../services/workflowStore";
+import { saveIcProgress, useIcProgress, useIpsReturned } from "../../services/workflowStore";
 import { Bar, BackLink, Msg, NumInput } from "./icHelpers";
 
 export const IC_STEPS = [{ label: "3L buckets", hint: "IPS part 2" }, { label: "SAA", hint: "IPS part 4" }, { label: "Send back to RM", hint: "Return to RM" }];
@@ -15,6 +15,7 @@ export default function ThreeLBuilder() {
   const buckets = useAsync(() => arcApi.get3L(clientId), [clientId]);
   const ips = useAsync(() => arcApi.getIps(clientId), [clientId]);
   const progress = useIcProgress(clientId);
+  const returned = useIpsReturned(clientId);
   const [amounts, setAmounts] = useState<number[]>([]);
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
@@ -32,7 +33,7 @@ export default function ThreeLBuilder() {
 
   return (
     <div>
-      <PageHeader eyebrow={`${client.name} · Request`} title="Build the 3L buckets" subtitle="Split the portfolio into Liquidity, Longevity and Legacy." actions={<GateChip id="G2" state="not_started" />} />
+      <PageHeader eyebrow={`${client.name} · Request`} title="Build the 3L buckets" subtitle="Split the portfolio into Liquidity, Longevity and Legacy." actions={<GateChip id="G2" state={returned ? "pending" : "not_started"} />} />
       <Stepper steps={IC_STEPS} current={0} />
 
       <Card className="mb-12">

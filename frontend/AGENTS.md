@@ -52,3 +52,5 @@ Parallel work: one agent per file. Cross-file needs (routes, arcApi, shared ui) 
 - **RM** `/rm/clients`: Client Book + AI Assistant. Client 360 tabs: Overview, IPS, Meeting Notes, Review Pack. IPS draft embedded, send to IC (G1); Review Pack: G4, PDF.
 - **IC** `/ic/inbox`: 3L builder, SAA builder (templates A-F), portfolio insights, TAA old vs new, G2, pack sections 2-5.
 - **PS** `/ps/inbox`: Requests, Client Book, AI Assistant (`/ps/assistant`); market research chat, house views, product shelf, finalise and send to IC (G3).
+
+See CLAUDE.md "Client phase rule" and "Request paths" before touching client status, IPS activation, or inbox rows.

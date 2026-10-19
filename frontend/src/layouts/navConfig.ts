@@ -50,14 +50,14 @@ export function getNav(role: Role, _clientId: string): NavItem[] {
       ];
     case "ic":
       return [
-        { label: "Requests Inbox", to: "/ic/inbox", icon: Inbox },
+        { label: "Inbox", to: "/ic/inbox", icon: Inbox },
         { label: "Client Book", to: "/ic/clients", icon: BookUser },
         { label: "AI Assistant", to: "/ic/assistant", icon: Sparkles },
         { label: "House View Records", to: "/ic/house-views", icon: ScrollText },
       ];
     case "ps":
       return [
-        { label: "Product Requests", to: "/ps/inbox", icon: Inbox },
+        { label: "Inbox", to: "/ps/inbox", icon: Inbox },
         { label: "Client Book", to: "/ps/clients", icon: BookUser },
         { label: "AI Assistant", to: "/ps/assistant", icon: Sparkles },
         { label: "House View Records", to: "/ps/house-views", icon: ScrollText },

@@ -93,7 +93,7 @@ export const caseTimelineByClient: Record<string, CaseStep[]> = {
     { who: "IC", what: "Redo 3L and SAA (G2)", by: "Wei Lun", state: "waiting" },
   ],
   jfr: [
-    { who: "RM", what: "Onboarding IPS sent to IC", by: "Isabel", state: "waiting" },
+    { who: "RM", what: "Draft the IPS and send to IC", by: "Isabel", state: "not_started" },
     { who: "IC", what: "Fill 3L and SAA (G2)", by: "Wei Lun", state: "not_started" },
   ],
   teo: [
@@ -166,10 +166,10 @@ export const gates: Gate[] = [
 
 export const inboxes: Record<"ic" | "ps", InboxItem[]> = {
   ic: [
-    { id: "ic1", clientId: "jfr", clientName: "Jane Fraser", kind: "SAA request", from: "rm", receivedAt: "2026-10-16 09:12", summary: "Onboarding IPS sent. Fill 3L and SAA (parts 2 and 4).", priority: "high", trigger: 1 },
+    { id: "ic1", clientId: "jfr", clientName: "Jane Fraser", kind: "IPS SAA request", from: "rm", receivedAt: "2026-10-16 09:12", summary: "Onboarding IPS sent. Fill 3L and SAA (parts 2 and 4).", priority: "high", trigger: 1 },
     { id: "ic2", clientId: "ser", clientName: "Sergio Ermotti", kind: "Portfolio adjustment request", from: "ps", receivedAt: "2026-10-14 11:20", summary: "PS approved 4 fixed income products. Propose and approve the TAA.", priority: "high", trigger: 3 },
-    { id: "ic3", clientId: "dso", clientName: "David Solomon", kind: "SAA request", from: "rm", receivedAt: "2026-10-12 15:40", summary: "Life event: retirement brought forward. Redo 3L and SAA.", priority: "normal", trigger: 2 },
-    { id: "ic4", clientId: "sha", clientName: "Shane", kind: "SAA request", from: "rm", receivedAt: "2026-10-15 14:25", summary: "Onboarding IPS sent. Fill 3L and SAA (parts 2 and 4).", priority: "normal", trigger: 1 },
+    { id: "ic3", clientId: "dso", clientName: "David Solomon", kind: "IPS SAA request", from: "rm", receivedAt: "2026-10-12 15:40", summary: "Life event: retirement brought forward. Redo 3L and SAA.", priority: "normal", trigger: 2 },
+    { id: "ic4", clientId: "sha", clientName: "Shane", kind: "IPS SAA request", from: "rm", receivedAt: "2026-10-15 14:25", summary: "Onboarding IPS sent. Fill 3L and SAA (parts 2 and 4).", priority: "normal", trigger: 1 },
   ],
   ps: [
     { id: "ps1", clientId: "ser", clientName: "Sergio Ermotti", kind: "Product-review request", from: "rm", receivedAt: "2026-10-14 08:30", summary: "Quarterly review opened. Research the market and shortlist products.", priority: "high", trigger: 3 },
@@ -281,9 +281,9 @@ export const ipsPartsByClient: Record<string, IpsPart[]> = {
     { part: 6, title: "Signature line", owner: "rm", status: "locked", body: "Signed by RM after client confirmation (G1)." },
   ],
   jfr: [
-    { part: 1, title: "Client goals and objectives", owner: "rm", status: "filled", body: "Grow wealth long term after business sale; pass assets to family." },
+    { part: 1, title: "Client goals and objectives", owner: "rm", status: "blank", body: "" },
     { part: 2, title: "3L buckets and explanation", owner: "ic", status: "blank", body: "" },
-    { part: 3, title: "Client risk profile", owner: "rm", status: "filled", body: "Aggressive. Risk limit 5 of 5. Risk capacity: High. Can tolerate a 30% drawdown." },
+    { part: 3, title: "Client risk profile", owner: "rm", status: "blank", body: "" },
     { part: 4, title: "Strategic Asset Allocation", owner: "ic", status: "blank", body: "" },
     { part: 5, title: "Review rules", owner: "rm", status: "locked", body: "Quarterly review. Rebalance when drift exceeds 5 points." },
     { part: 6, title: "Signature line", owner: "rm", status: "locked", body: "Signed by RM after client confirmation (G1)." },
