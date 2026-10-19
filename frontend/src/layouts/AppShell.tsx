@@ -2,6 +2,7 @@ import { Outlet, useLocation } from "react-router-dom";
 import type { Role } from "../types/arc";
 import Sidebar from "./Sidebar";
 import { useActiveClientId } from "./navConfig";
+import NotificationToaster from "../components/ui/NotificationToaster";
 import GenevaLauncher from "../components/geneva/GenevaLauncher";
 
 /** Routes are literal /rm, /ic, /ps (no :role param), so read the role from the URL. */
@@ -27,6 +28,7 @@ export default function AppShell() {
           <Outlet />
         </div>
       </main>
+      <NotificationToaster role={role} />
       {!inPageChat && <GenevaLauncher role={role} clientId={clientId} />}
     </div>
   );

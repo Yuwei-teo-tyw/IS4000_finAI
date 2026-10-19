@@ -1,14 +1,18 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { ArrowDownWideNarrow, ArrowUpNarrowWide, CalendarClock, Landmark, Users, type LucideIcon } from "lucide-react";
 import { arcApi } from "../../services/arcApi";
 import { Badge, Button, Card, Loading, RiskScale, sgd, useAsync } from "../../components/ui";
 import { ROLE_PEOPLE } from "../../layouts/navConfig";
 import { useRole } from "../../layouts/AppShell";
+import { markRead, useNotifications } from "../../services/notificationStore";
+import { setIpsComplete, setWorkflowComplete, useWorkflowStage } from "../../services/workflowStore";
+import type { Client, Role } from "../../types/arc";
 import { fmtDate } from "./rmShared";
 
 const TODAY = new Date("2026-10-17");
 const DAY = 86_400_000;
-const COLS = "md:grid-cols-[1.4fr_1fr_0.8fr_1.1fr_1.1fr_auto] md:items-center md:gap-x-8";
+const COLS = "md:grid-cols-[1.5fr_1fr_0.8fr_1fr_1.1fr_2fr_auto] md:items-center md:gap-x-8";
 
 const TAGLINES = [
   "Great relationships are built one thoughtful conversation at a time.",
@@ -44,6 +48,60 @@ function StatCard({ icon: Icon, label, value, note }: { icon: LucideIcon; label:
       </div>
       <p className="mt-3 text-[44px] font-light leading-[48px] text-ink">{value}</p>
       {note && <p className="mt-3 text-sm text-ink-muted">{note}</p>}
+    </Card>
+  );
+}
+
+function StageBar({ clientId, role }: { clientId: string; role: Role }) {
+  const { kind, steps, percent } = useWorkflowStage(clientId);
+  const complete = percent === 100;
+  const allReviewed = !complete && steps.slice(0, -1).every((x) => x.state === "done");
+  return (
+    <div className="min-w-0" aria-label={`${kind === "ips" ? "IPS" : "Review pack"} workflow ${percent} percent`}>
+      <div className="flex items-center gap-3">
+        <div className="flex h-1.5 min-w-0 flex-1 gap-0.5" aria-hidden="true">
+          {steps.map((st, i) => (
+            <span key={i} className={`h-full flex-1 ${st.state === "done" || complete ? "bg-brand" : st.state === "current" ? "bg-brand/30" : "bg-surface-300"}`} />
+          ))}
+        </div>
+        <span className="text-xs text-ink-muted">{percent}%</span>
+      </div>
+      <div className="mt-2 flex gap-0.5 text-[11px] leading-4 text-ink-muted" aria-hidden="true">
+        {steps.map((st, i) => (
+          <span key={i} className={`flex-1 truncate ${st.state === "current" && !complete ? "text-ink underline underline-offset-4" : ""}`}>{st.role.toUpperCase()}</span>
+        ))}
+      </div>
+      <p className="mt-1 text-xs text-ink-muted">{complete ? "Complete" : steps.find((x) => x.state === "current")?.label}</p>
+      {role === "rm" && allReviewed && (
+        <div className="mt-3"><Button size="sm" onClick={() => (kind === "ips" ? setIpsComplete(clientId) : setWorkflowComplete(clientId))}>Complete workflow</Button></div>
+      )}
+    </div>
+  );
+}
+
+function ClientRow({ c, role }: { c: Client; role: Role }) {
+  const unread = useNotifications(role).filter((n) => n.clientId === c.id);
+  const latest = unread[0];
+  const open = () => unread.forEach((n) => markRead(n.id));
+  return (
+    <Card className={`grid gap-y-4 !px-8 !py-6 ${COLS}`}>
+      <div className="min-w-0">
+        <Link to={`/${role}/clients/${c.id}`} onClick={open} className="text-xl text-ink">{c.name}</Link>
+        {latest && (
+          <p className="mt-2"><span className="inline-flex items-center gap-2 rounded-sm border border-hairline px-2 py-1 text-xs text-ink">
+            <span className="size-2 rounded-full bg-brand" aria-hidden="true" />{latest.kind === "ips" ? "New IPS" : "New Review pack"}
+          </span></p>
+        )}
+      </div>
+      <div><RiskScale value={c.riskCap} /><p className="mt-2 text-xs text-ink-muted">{c.riskCategory}, {c.riskCap} of 5</p></div>
+      <p className="text-sm font-semibold">{sgd(c.aumSgd)}</p>
+      <div className="whitespace-nowrap"><Badge tone="grey"><span className="whitespace-nowrap">{c.status}</span></Badge></div>
+      <div className="text-sm">
+        <p className="font-semibold">{fmtDate(c.nextMeeting)}</p>
+        <p className="mt-1 text-ink-muted">{relative(c.nextMeeting)}</p>
+      </div>
+      <StageBar clientId={c.id} role={role} />
+      <div onClick={open}><Button to={`/${role}/clients/${c.id}`}>Open</Button></div>
     </Card>
   );
 }
@@ -97,26 +155,14 @@ export default function ClientBook() {
       </div>
 
       <div className={`hidden px-8 pb-3 text-sm text-ink-muted md:grid ${COLS}`}>
-        <span>Client</span><span>Risk appetite</span><span>AUM</span><span>Phase</span><span>Next Meeting</span><span className="invisible">Open</span>
+        <span>Client</span><span>Risk appetite</span><span>AUM</span><span>Phase</span><span>Next Meeting</span><span>Stage</span><span className="invisible">Open</span>
       </div>
       <div className="flex flex-col gap-10">
         {groups.map((g) => (
           <section key={g.title} aria-label={`${g.title} clients`}>
             <h3 className="mb-4 text-lg">{g.title} <span className="text-ink-muted">({g.list.length})</span></h3>
             <div className="flex flex-col gap-4">
-        {g.list.map((c) => (
-          <Card key={c.id} className={`grid gap-y-4 !px-8 !py-6 ${COLS}`}>
-            <p className="text-xl text-ink">{c.name}</p>
-            <div><RiskScale value={c.riskCap} /><p className="mt-2 text-xs text-ink-muted">{c.riskCategory}, {c.riskCap} of 5</p></div>
-            <p className="text-sm font-semibold">{sgd(c.aumSgd)}</p>
-            <div className="whitespace-nowrap"><Badge tone="grey"><span className="whitespace-nowrap">{c.status}</span></Badge></div>
-            <div className="text-sm">
-              <p className="font-semibold">{fmtDate(c.nextMeeting)}</p>
-              <p className="mt-1 text-ink-muted">{relative(c.nextMeeting)}</p>
-            </div>
-            <div><Button to={`/${role}/clients/${c.id}`}>Open</Button></div>
-          </Card>
-        ))}
+        {g.list.map((c) => <ClientRow key={c.id} c={c} role={role} />)}
       </div>
           </section>
         ))}
