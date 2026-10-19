@@ -1,0 +1,38 @@
+{
+  "_notice": "ILLUSTRATIVE Portfolio Manager house assumptions for prototype testing. Not produced by the Market Researcher, not a forecast by any real institution.",
+  "label": "Portfolio Manager house assumptions (illustrative)",
+  "as_of": "2026-10-01",
+  "long_term_expected_return": {
+    "_horizon": "7-10 years, annualised, before product fees",
+    "Cash": 2.2,
+    "Fixed income": 3.5,
+    "Equities": 7.0,
+    "Hedge funds": 5.0,
+    "Private markets": 8.5,
+    "Real estate": 6.0,
+    "Gold": 3.5
+  },
+  "scenarios": [
+    {
+      "name": "Expansion",
+      "horizon": "12 months",
+      "narrative": "Growth stays above trend and inflation eases; risk assets rally.",
+      "uses_recession_probability": false,
+      "asset_class_returns": {"Cash": 2.3, "Fixed income": 4.5, "Equities": 16.0, "Hedge funds": 8.0, "Private markets": 14.0, "Real estate": 14.0, "Gold": 2.0}
+    },
+    {
+      "name": "Slowdown (base)",
+      "horizon": "12 months",
+      "narrative": "Growth cools gradually without a recession; modest positive returns.",
+      "uses_recession_probability": false,
+      "asset_class_returns": {"Cash": 2.5, "Fixed income": 3.5, "Equities": 5.0, "Hedge funds": 4.0, "Private markets": 6.0, "Real estate": 4.0, "Gold": 4.0}
+    },
+    {
+      "name": "Recession",
+      "horizon": "12 months",
+      "narrative": "Recession: equities and credit-sensitive assets sell off; government bonds and gold rally.",
+      "uses_recession_probability": true,
+      "asset_class_returns": {"Cash": 2.6, "Fixed income": 5.0, "Equities": -24.0, "Hedge funds": -8.0, "Private markets": -18.0, "Real estate": -22.0, "Gold": 9.0}
+    }
+  ]
+}

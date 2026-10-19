@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { ChevronDown } from "lucide-react";
 import { arcApi } from "../../services/arcApi";
 import { Button, Card, GateChip, Loading, NextAction, PageHeader, Section, Stepper, sgd, sgdFull, useAsync } from "../../components/ui";
@@ -14,12 +14,18 @@ export default function ThreeLBuilder() {
   const ips = useAsync(() => arcApi.getIps(clientId), [clientId]);
   const [amounts, setAmounts] = useState<number[]>([]);
   const [open, setOpen] = useState(false);
+  const navigate = useNavigate();
   useEffect(() => { if (buckets) setAmounts(buckets.map((b) => b.amountSgd)); }, [buckets]);
   if (!client || !buckets || !ips) return <Loading />;
 
   const total = amounts.reduce((a, b) => a + b, 0);
   const diff = client.aumSgd - total;
   const ok = diff === 0;
+  // Save the IC's amounts so the SAA step (and the Portfolio Manager) use them.
+  const continueToSaa = async () => {
+    await arcApi.save3L(clientId, buckets.map((b, i) => ({ ...b, amountSgd: amounts[i] ?? 0, pct: client.aumSgd ? Math.round(((amounts[i] ?? 0) / client.aumSgd) * 100) : 0 })));
+    navigate(`/ic/requests/${clientId}/saa`);
+  };
 
   return (
     <div>
@@ -64,7 +70,7 @@ export default function ThreeLBuilder() {
         </div>
       </Section>
 
-      <NextAction title="Continue to SAA" body="Once the buckets add up, pick a strategic template and fine-tune it." action={<Button to={`/ic/requests/${clientId}/saa`} disabled={!ok}>Continue to SAA</Button>} />
+      <NextAction title="Continue to SAA" body="Once the buckets add up, pick a strategic template and fine-tune it." action={<Button onClick={continueToSaa} disabled={!ok}>Continue to SAA</Button>} />
       <BackLink to="/ic/inbox">Back to inbox</BackLink>
     </div>
   );

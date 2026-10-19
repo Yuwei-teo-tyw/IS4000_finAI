@@ -143,7 +143,7 @@ export const saaTemplates = [
 export const ipsParts: IpsPart[] = [
   { part: 1, title: "Client goals and objectives", owner: "rm", status: "filled", body: "Buy a S$15m home within 12 months (S$3.0m deposit). Retain lifetime income and leave a legacy for two children." },
   { part: 2, title: "3L buckets and explanation", owner: "ic", status: "filled", body: "Liquidity 70%, Longevity 20%, Legacy 10%. Buckets move money to the near-term deposit while keeping long-term income." },
-  { part: 3, title: "Client risk profile", owner: "rm", status: "filled", body: "Balanced. Risk limit 3 of 5. Can tolerate a 12% drawdown; needs high liquidity for 12 months." },
+  { part: 3, title: "Client risk profile", owner: "rm", status: "filled", body: "Balanced. Risk limit 3 of 5. Risk capacity: Moderate. Can tolerate a 12% drawdown; needs high liquidity for 12 months." },
   { part: 4, title: "Strategic Asset Allocation", owner: "ic", status: "filled", body: "Cash 15, Fixed income 35, Equities 30, Hedge funds 5, Private markets 3, Real estate 5, Gold 7." },
   { part: 5, title: "Review rules", owner: "rm", status: "locked", body: "Quarterly review. Rebalance when an asset class drifts more than 5 points from SAA. Benchmark: 40/60 blended index." },
   { part: 6, title: "Signature line", owner: "rm", status: "locked", body: "Signed by RM after client confirmation (G1)." },
@@ -275,7 +275,7 @@ export const ipsPartsByClient: Record<string, IpsPart[]> = {
   dso: [
     { part: 1, title: "Client goals and objectives", owner: "rm", status: "filled", body: "Preserve capital and draw steady income in retirement. Small bequest to grandchildren." },
     { part: 2, title: "3L buckets and explanation", owner: "ic", status: "filled", body: "Liquidity 20%, Longevity 68%, Legacy 12%." },
-    { part: 3, title: "Client risk profile", owner: "rm", status: "filled", body: "Conservative. Risk limit 2 of 5. Can tolerate a 6% drawdown." },
+    { part: 3, title: "Client risk profile", owner: "rm", status: "filled", body: "Conservative. Risk limit 2 of 5. Risk capacity: Moderately low. Can tolerate a 6% drawdown." },
     { part: 4, title: "Strategic Asset Allocation", owner: "ic", status: "filled", body: "Cash 20, Fixed income 48, Equities 18, Hedge funds 2, Private markets 1, Real estate 5, Gold 6." },
     { part: 5, title: "Review rules", owner: "rm", status: "locked", body: "Annual review. Rebalance when drift exceeds 5 points. Benchmark: 20/80 blended index." },
     { part: 6, title: "Signature line", owner: "rm", status: "locked", body: "Signed by RM after client confirmation (G1)." },
@@ -283,7 +283,7 @@ export const ipsPartsByClient: Record<string, IpsPart[]> = {
   jfr: [
     { part: 1, title: "Client goals and objectives", owner: "rm", status: "filled", body: "Grow wealth long term after business sale; pass assets to family." },
     { part: 2, title: "3L buckets and explanation", owner: "ic", status: "blank", body: "" },
-    { part: 3, title: "Client risk profile", owner: "rm", status: "filled", body: "Aggressive. Risk limit 5 of 5. Can tolerate a 30% drawdown." },
+    { part: 3, title: "Client risk profile", owner: "rm", status: "filled", body: "Aggressive. Risk limit 5 of 5. Risk capacity: High. Can tolerate a 30% drawdown." },
     { part: 4, title: "Strategic Asset Allocation", owner: "ic", status: "blank", body: "" },
     { part: 5, title: "Review rules", owner: "rm", status: "locked", body: "Quarterly review. Rebalance when drift exceeds 5 points." },
     { part: 6, title: "Signature line", owner: "rm", status: "locked", body: "Signed by RM after client confirmation (G1)." },
@@ -291,7 +291,7 @@ export const ipsPartsByClient: Record<string, IpsPart[]> = {
   teo: [
     { part: 1, title: "Client goals and objectives", owner: "rm", status: "filled", body: "Grow wealth over 15+ years, fund children's overseas education, build a legacy." },
     { part: 2, title: "3L buckets and explanation", owner: "ic", status: "filled", body: "Liquidity 10%, Longevity 50%, Legacy 40%." },
-    { part: 3, title: "Client risk profile", owner: "rm", status: "filled", body: "Growth. Risk limit 4 of 5. Can tolerate a 20% drawdown." },
+    { part: 3, title: "Client risk profile", owner: "rm", status: "filled", body: "Growth. Risk limit 4 of 5. Risk capacity: Moderately high. Can tolerate a 20% drawdown." },
     { part: 4, title: "Strategic Asset Allocation", owner: "ic", status: "filled", body: "Cash 8, Fixed income 20, Equities 45, Hedge funds 8, Private markets 6, Real estate 6, Gold 7." },
     { part: 5, title: "Review rules", owner: "rm", status: "locked", body: "Quarterly review. Rebalance when drift exceeds 5 points. Benchmark: 70/30 blended index." },
     { part: 6, title: "Signature line", owner: "rm", status: "locked", body: "Signed by RM after client confirmation (G1)." },
@@ -299,13 +299,22 @@ export const ipsPartsByClient: Record<string, IpsPart[]> = {
   sha: [
     { part: 1, title: "Client goals and objectives", owner: "rm", status: "filled", body: "Buy a condo within 2 years, then build retirement savings steadily." },
     { part: 2, title: "3L buckets and explanation", owner: "ic", status: "blank", body: "" },
-    { part: 3, title: "Client risk profile", owner: "rm", status: "filled", body: "Moderate. Risk limit 3 of 5. Can tolerate a 12% drawdown." },
+    { part: 3, title: "Client risk profile", owner: "rm", status: "filled", body: "Moderate. Risk limit 3 of 5. Risk capacity: Moderate. Can tolerate a 12% drawdown." },
     { part: 4, title: "Strategic Asset Allocation", owner: "ic", status: "blank", body: "" },
     { part: 5, title: "Review rules", owner: "rm", status: "locked", body: "Quarterly review. Rebalance when drift exceeds 5 points." },
     { part: 6, title: "Signature line", owner: "rm", status: "locked", body: "Signed by RM after client confirmation (G1)." },
   ],
 };
 
+
+/** Structured mirror of IPS part 3 (risk capacity, drawdown limit) - what the IPS form would store. */
+export const ipsRiskByClient: Record<string, { riskCapacity: string; maxDrawdownPct: number }> = {
+  ser: { riskCapacity: "Moderate", maxDrawdownPct: 12 },
+  dso: { riskCapacity: "Moderately low", maxDrawdownPct: 6 },
+  jfr: { riskCapacity: "High", maxDrawdownPct: 30 },
+  teo: { riskCapacity: "Moderately high", maxDrawdownPct: 20 },
+  sha: { riskCapacity: "Moderate", maxDrawdownPct: 12 },
+};
 
 const gp = (start: number, grow: number, req0: number, reqGrow: number) =>
   Array.from({ length: 35 }, (_, i) => ({

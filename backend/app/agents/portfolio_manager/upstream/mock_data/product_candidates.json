@@ -1,0 +1,933 @@
+{
+  "_notice": "ILLUSTRATIVE MOCK DATA. These are fictional products. Returns, yields, fees, ratings and availability are invented for prototype testing and must not be presented as real product information.",
+  "is_illustrative": true,
+  "as_of_date": "2026-09-30",
+  "base_currency": "SGD",
+  "data_sources": [
+    {
+      "name": "Illustrative mock product shelf for Portfolio Manager prototype",
+      "source_type": "MOCK",
+      "retrieved_at": "2026-09-30T00:00:00Z"
+    }
+  ],
+  "limitations": [
+    "Products are fictional; no live prices, yields, fees or availability.",
+    "Historical returns are invented and are not indicative of any real fund.",
+    "Private-market volatility and drawdown figures are illustrative and understate true economic risk (appraisal-based pricing)."
+  ],
+  "products": [
+    {
+      "product_id": "MOCK-CASH-001",
+      "product_name": "Illustrative SGD Money Market Fund",
+      "asset_class": "Cash",
+      "sub_asset_class": "Cash and money market",
+      "product_type": "Money Market Fund",
+      "issuer": "Illustrative Asset Management",
+      "currency": "SGD",
+      "historical_returns": {
+        "1y": 3.0,
+        "3y": 2.6,
+        "5y": 1.9
+      },
+      "yield_to_maturity": null,
+      "distribution_yield": 2.4,
+      "risk_rating": 1,
+      "volatility": 0.3,
+      "maximum_drawdown": -0.1,
+      "credit_rating": "AA (portfolio average)",
+      "management_fee": 0.15,
+      "transaction_fee": 0.0,
+      "minimum_investment": 1000,
+      "liquidity": "DAILY",
+      "lock_in_period": "none",
+      "duration": 0.2,
+      "maturity_date": null,
+      "geographic_exposure": {
+        "Singapore": 100
+      },
+      "sector_exposure": {
+        "Financials": 100
+      },
+      "currency_hedged": null,
+      "esg_compliant": null,
+      "recommended_horizon": 0,
+      "eligibility_requirements": {
+        "accredited_investor_only": false
+      },
+      "product_source": "MOCK",
+      "as_of_date": "2026-09-30",
+      "data_completeness": "COMPLETE",
+      "is_illustrative": true
+    },
+    {
+      "product_id": "MOCK-CASH-002",
+      "product_name": "Illustrative SGD 6-Month Fixed Deposit",
+      "asset_class": "Cash",
+      "sub_asset_class": "Cash and money market",
+      "product_type": "Fixed Deposit",
+      "issuer": "Illustrative Bank",
+      "currency": "SGD",
+      "historical_returns": null,
+      "yield_to_maturity": 2.3,
+      "distribution_yield": null,
+      "risk_rating": 1,
+      "volatility": 0.0,
+      "maximum_drawdown": 0.0,
+      "credit_rating": null,
+      "management_fee": 0.0,
+      "transaction_fee": 0.0,
+      "minimum_investment": 20000,
+      "liquidity": "AT_MATURITY",
+      "lock_in_period": "6 months",
+      "duration": 0.5,
+      "maturity_date": null,
+      "geographic_exposure": {
+        "Singapore": 100
+      },
+      "sector_exposure": {
+        "Financials": 100
+      },
+      "currency_hedged": null,
+      "esg_compliant": null,
+      "recommended_horizon": 0.5,
+      "eligibility_requirements": {
+        "accredited_investor_only": false
+      },
+      "product_source": "MOCK",
+      "as_of_date": "2026-09-30",
+      "data_completeness": "COMPLETE",
+      "is_illustrative": true
+    },
+    {
+      "product_id": "MOCK-GOVT-001",
+      "product_name": "Illustrative Singapore Government Bond ETF",
+      "asset_class": "Fixed income",
+      "sub_asset_class": "Government bonds",
+      "product_type": "Exchange-Traded Fund",
+      "issuer": "Illustrative Asset Management",
+      "currency": "SGD",
+      "historical_returns": {
+        "1y": 3.4,
+        "3y": 1.2,
+        "5y": 0.8
+      },
+      "yield_to_maturity": 2.8,
+      "distribution_yield": 2.2,
+      "risk_rating": 2,
+      "volatility": 4.5,
+      "maximum_drawdown": -9.8,
+      "credit_rating": "AAA",
+      "management_fee": 0.24,
+      "transaction_fee": 0.1,
+      "minimum_investment": 1000,
+      "liquidity": "DAILY",
+      "lock_in_period": "none",
+      "duration": 6.5,
+      "maturity_date": null,
+      "geographic_exposure": {
+        "Singapore": 100
+      },
+      "sector_exposure": {
+        "Government": 100
+      },
+      "currency_hedged": null,
+      "esg_compliant": null,
+      "recommended_horizon": 3,
+      "eligibility_requirements": {
+        "accredited_investor_only": false
+      },
+      "product_source": "MOCK",
+      "as_of_date": "2026-09-30",
+      "data_completeness": "COMPLETE",
+      "is_illustrative": true
+    },
+    {
+      "product_id": "MOCK-GOVT-002",
+      "product_name": "Illustrative SGD Short-Term Government Bill Fund",
+      "asset_class": "Fixed income",
+      "sub_asset_class": "Government bonds",
+      "product_type": "Unit Trust",
+      "issuer": "Illustrative Asset Management",
+      "currency": "SGD",
+      "historical_returns": {
+        "1y": 3.1,
+        "3y": 2.7,
+        "5y": 2.0
+      },
+      "yield_to_maturity": 2.4,
+      "distribution_yield": null,
+      "risk_rating": 1,
+      "volatility": 0.6,
+      "maximum_drawdown": -0.8,
+      "credit_rating": "AAA",
+      "management_fee": 0.2,
+      "transaction_fee": 0.0,
+      "minimum_investment": 1000,
+      "liquidity": "DAILY",
+      "lock_in_period": "none",
+      "duration": 0.5,
+      "maturity_date": null,
+      "geographic_exposure": {
+        "Singapore": 100
+      },
+      "sector_exposure": {
+        "Government": 100
+      },
+      "currency_hedged": null,
+      "esg_compliant": null,
+      "recommended_horizon": 1,
+      "eligibility_requirements": {
+        "accredited_investor_only": false
+      },
+      "product_source": "MOCK",
+      "as_of_date": "2026-09-30",
+      "data_completeness": "COMPLETE",
+      "is_illustrative": true
+    },
+    {
+      "product_id": "MOCK-GOVT-003",
+      "product_name": "Illustrative US Treasury Bond Fund (SGD-Hedged)",
+      "asset_class": "Fixed income",
+      "sub_asset_class": "Government bonds",
+      "product_type": "Unit Trust",
+      "issuer": "Illustrative Global Investors",
+      "currency": "SGD",
+      "historical_returns": {
+        "1y": 2.9,
+        "3y": -0.4,
+        "5y": 0.2
+      },
+      "yield_to_maturity": 3.4,
+      "distribution_yield": 3.0,
+      "risk_rating": 2,
+      "volatility": 5.8,
+      "maximum_drawdown": -12.5,
+      "credit_rating": "AA+",
+      "management_fee": 0.35,
+      "transaction_fee": 0.0,
+      "minimum_investment": 1000,
+      "liquidity": "DAILY",
+      "lock_in_period": "none",
+      "duration": 6.0,
+      "maturity_date": null,
+      "geographic_exposure": {
+        "United States": 100
+      },
+      "sector_exposure": {
+        "Government": 100
+      },
+      "currency_hedged": true,
+      "esg_compliant": null,
+      "recommended_horizon": 3,
+      "eligibility_requirements": {
+        "accredited_investor_only": false
+      },
+      "product_source": "MOCK",
+      "as_of_date": "2026-09-30",
+      "data_completeness": "COMPLETE",
+      "is_illustrative": true
+    },
+    {
+      "product_id": "MOCK-CORP-001",
+      "product_name": "Illustrative Asia Investment-Grade Bond Fund (SGD-Hedged)",
+      "asset_class": "Fixed income",
+      "sub_asset_class": "Investment-grade corporate bonds",
+      "product_type": "Unit Trust",
+      "issuer": "Illustrative Asset Management",
+      "currency": "SGD",
+      "historical_returns": {
+        "1y": 5.1,
+        "3y": 2.0,
+        "5y": 1.6
+      },
+      "yield_to_maturity": 4.6,
+      "distribution_yield": 4.2,
+      "risk_rating": 2,
+      "volatility": 5.2,
+      "maximum_drawdown": -11.0,
+      "credit_rating": "A- (portfolio average)",
+      "management_fee": 0.55,
+      "transaction_fee": 0.0,
+      "minimum_investment": 1000,
+      "liquidity": "DAILY",
+      "lock_in_period": "none",
+      "duration": 4.8,
+      "maturity_date": null,
+      "geographic_exposure": {
+        "Asia ex-Japan": 85,
+        "Other": 15
+      },
+      "sector_exposure": {
+        "Financials": 35,
+        "Utilities": 15,
+        "Energy": 8,
+        "Industrials": 12,
+        "Real Estate": 10,
+        "Other": 20
+      },
+      "currency_hedged": true,
+      "esg_compliant": false,
+      "recommended_horizon": 3,
+      "eligibility_requirements": {
+        "accredited_investor_only": false
+      },
+      "product_source": "MOCK",
+      "as_of_date": "2026-09-30",
+      "data_completeness": "COMPLETE",
+      "is_illustrative": true
+    },
+    {
+      "product_id": "MOCK-CORP-002",
+      "product_name": "Illustrative Global Investment-Grade Corporate Bond ETF (USD)",
+      "asset_class": "Fixed income",
+      "sub_asset_class": "Investment-grade corporate bonds",
+      "product_type": "Exchange-Traded Fund",
+      "issuer": "Illustrative Global Investors",
+      "currency": "USD",
+      "historical_returns": {
+        "1y": 5.6,
+        "3y": 1.4,
+        "5y": 1.9
+      },
+      "yield_to_maturity": 4.9,
+      "distribution_yield": 4.4,
+      "risk_rating": 3,
+      "volatility": 7.0,
+      "maximum_drawdown": -16.5,
+      "credit_rating": "A",
+      "management_fee": 0.2,
+      "transaction_fee": 0.1,
+      "minimum_investment": 1000,
+      "liquidity": "DAILY",
+      "lock_in_period": "none",
+      "duration": 6.8,
+      "maturity_date": null,
+      "geographic_exposure": {
+        "United States": 60,
+        "Europe": 25,
+        "Other": 15
+      },
+      "sector_exposure": {
+        "Financials": 32,
+        "Industrials": 14,
+        "Utilities": 9,
+        "Energy": 4,
+        "Technology": 10,
+        "Other": 31
+      },
+      "currency_hedged": false,
+      "esg_compliant": true,
+      "recommended_horizon": 4,
+      "eligibility_requirements": {
+        "accredited_investor_only": false
+      },
+      "product_source": "MOCK",
+      "as_of_date": "2026-09-30",
+      "data_completeness": "COMPLETE",
+      "is_illustrative": true
+    },
+    {
+      "product_id": "MOCK-CORP-003",
+      "product_name": "Illustrative Accredited-Investor Senior Bond Note",
+      "asset_class": "Fixed income",
+      "sub_asset_class": "Investment-grade corporate bonds",
+      "product_type": "Structured Note",
+      "issuer": "Illustrative Bank",
+      "currency": "SGD",
+      "historical_returns": null,
+      "yield_to_maturity": 5.4,
+      "distribution_yield": null,
+      "risk_rating": 3,
+      "volatility": 4.0,
+      "maximum_drawdown": -8.0,
+      "credit_rating": "BBB+",
+      "management_fee": 0.0,
+      "transaction_fee": 0.5,
+      "minimum_investment": 200000,
+      "liquidity": "LOCKED",
+      "lock_in_period": "3 years",
+      "duration": 2.8,
+      "maturity_date": "2029-10-15",
+      "geographic_exposure": {
+        "Singapore": 100
+      },
+      "sector_exposure": {
+        "Financials": 100
+      },
+      "currency_hedged": null,
+      "esg_compliant": null,
+      "recommended_horizon": 3,
+      "eligibility_requirements": {
+        "accredited_investor_only": true
+      },
+      "product_source": "MOCK",
+      "as_of_date": "2026-09-30",
+      "data_completeness": "COMPLETE",
+      "is_illustrative": true
+    },
+    {
+      "product_id": "MOCK-EQ-001",
+      "product_name": "Illustrative Global Equity Index ETF (USD)",
+      "asset_class": "Equities",
+      "sub_asset_class": "Diversified equities",
+      "product_type": "Exchange-Traded Fund",
+      "issuer": "Illustrative Global Investors",
+      "currency": "USD",
+      "historical_returns": {
+        "1y": 14.2,
+        "3y": 8.1,
+        "5y": 9.4
+      },
+      "yield_to_maturity": null,
+      "distribution_yield": 1.7,
+      "risk_rating": 4,
+      "volatility": 15.5,
+      "maximum_drawdown": -33.9,
+      "credit_rating": null,
+      "management_fee": 0.2,
+      "transaction_fee": 0.1,
+      "minimum_investment": 1000,
+      "liquidity": "DAILY",
+      "lock_in_period": "none",
+      "duration": null,
+      "maturity_date": null,
+      "geographic_exposure": {
+        "United States": 63,
+        "Europe": 16,
+        "Japan": 6,
+        "Emerging Markets": 10,
+        "Other": 5
+      },
+      "sector_exposure": {
+        "Technology": 24,
+        "Financials": 16,
+        "Healthcare": 11,
+        "Consumer": 15,
+        "Industrials": 11,
+        "Energy": 4.5,
+        "Other": 18.5
+      },
+      "currency_hedged": false,
+      "esg_compliant": false,
+      "recommended_horizon": 7,
+      "eligibility_requirements": {
+        "accredited_investor_only": false
+      },
+      "product_source": "MOCK",
+      "as_of_date": "2026-09-30",
+      "data_completeness": "COMPLETE",
+      "is_illustrative": true
+    },
+    {
+      "product_id": "MOCK-EQ-002",
+      "product_name": "Illustrative Singapore Equity Index ETF",
+      "asset_class": "Equities",
+      "sub_asset_class": "Diversified equities",
+      "product_type": "Exchange-Traded Fund",
+      "issuer": "Illustrative Asset Management",
+      "currency": "SGD",
+      "historical_returns": {
+        "1y": 11.0,
+        "3y": 7.2,
+        "5y": 6.1
+      },
+      "yield_to_maturity": null,
+      "distribution_yield": 4.1,
+      "risk_rating": 4,
+      "volatility": 13.8,
+      "maximum_drawdown": -31.5,
+      "credit_rating": null,
+      "management_fee": 0.3,
+      "transaction_fee": 0.1,
+      "minimum_investment": 1000,
+      "liquidity": "DAILY",
+      "lock_in_period": "none",
+      "duration": null,
+      "maturity_date": null,
+      "geographic_exposure": {
+        "Singapore": 100
+      },
+      "sector_exposure": {
+        "Financials": 45,
+        "Real Estate": 12,
+        "Industrials": 14,
+        "Communication": 10,
+        "Consumer": 8,
+        "Other": 11
+      },
+      "currency_hedged": null,
+      "esg_compliant": false,
+      "recommended_horizon": 7,
+      "eligibility_requirements": {
+        "accredited_investor_only": false
+      },
+      "product_source": "MOCK",
+      "as_of_date": "2026-09-30",
+      "data_completeness": "COMPLETE",
+      "is_illustrative": true
+    },
+    {
+      "product_id": "MOCK-EQ-003",
+      "product_name": "Illustrative Global ESG Leaders Equity Fund (SGD-Hedged)",
+      "asset_class": "Equities",
+      "sub_asset_class": "Diversified equities",
+      "product_type": "Unit Trust",
+      "issuer": "Illustrative Sustainable Investors",
+      "currency": "SGD",
+      "historical_returns": {
+        "1y": 12.8,
+        "3y": 7.4,
+        "5y": 8.6
+      },
+      "yield_to_maturity": null,
+      "distribution_yield": 1.2,
+      "risk_rating": 4,
+      "volatility": 15.0,
+      "maximum_drawdown": -32.0,
+      "credit_rating": null,
+      "management_fee": 0.85,
+      "transaction_fee": 0.0,
+      "minimum_investment": 1000,
+      "liquidity": "DAILY",
+      "lock_in_period": "none",
+      "duration": null,
+      "maturity_date": null,
+      "geographic_exposure": {
+        "United States": 60,
+        "Europe": 22,
+        "Japan": 7,
+        "Other": 11
+      },
+      "sector_exposure": {
+        "Technology": 28,
+        "Healthcare": 14,
+        "Financials": 14,
+        "Consumer": 16,
+        "Industrials": 12,
+        "Energy": 0,
+        "Other": 16
+      },
+      "currency_hedged": true,
+      "esg_compliant": true,
+      "recommended_horizon": 7,
+      "eligibility_requirements": {
+        "accredited_investor_only": false
+      },
+      "product_source": "MOCK",
+      "as_of_date": "2026-09-30",
+      "data_completeness": "COMPLETE",
+      "is_illustrative": true
+    },
+    {
+      "product_id": "MOCK-DIV-001",
+      "product_name": "Illustrative Asia Pacific Dividend Equity Fund",
+      "asset_class": "Equities",
+      "sub_asset_class": "Dividend equities",
+      "product_type": "Unit Trust",
+      "issuer": "Illustrative Asset Management",
+      "currency": "SGD",
+      "historical_returns": {
+        "1y": 9.5,
+        "3y": 6.0,
+        "5y": 5.2
+      },
+      "yield_to_maturity": null,
+      "distribution_yield": 4.8,
+      "risk_rating": 4,
+      "volatility": 14.5,
+      "maximum_drawdown": -30.5,
+      "credit_rating": null,
+      "management_fee": 1.25,
+      "transaction_fee": 0.0,
+      "minimum_investment": 1000,
+      "liquidity": "DAILY",
+      "lock_in_period": "none",
+      "duration": null,
+      "maturity_date": null,
+      "geographic_exposure": {
+        "Australia": 30,
+        "Singapore": 20,
+        "Hong Kong": 20,
+        "Other Asia": 30
+      },
+      "sector_exposure": {
+        "Financials": 30,
+        "Real Estate": 12,
+        "Utilities": 10,
+        "Energy": 6,
+        "Materials": 10,
+        "Other": 32
+      },
+      "currency_hedged": null,
+      "esg_compliant": false,
+      "recommended_horizon": 5,
+      "eligibility_requirements": {
+        "accredited_investor_only": false
+      },
+      "product_source": "MOCK",
+      "as_of_date": "2026-09-30",
+      "data_completeness": "COMPLETE",
+      "is_illustrative": true
+    },
+    {
+      "product_id": "MOCK-DIV-002",
+      "product_name": "Illustrative Global Quality Dividend ETF (SGD-Hedged)",
+      "asset_class": "Equities",
+      "sub_asset_class": "Dividend equities",
+      "product_type": "Exchange-Traded Fund",
+      "issuer": "Illustrative Global Investors",
+      "currency": "SGD",
+      "historical_returns": {
+        "1y": 8.7,
+        "3y": 6.6,
+        "5y": 6.9
+      },
+      "yield_to_maturity": null,
+      "distribution_yield": 3.6,
+      "risk_rating": 3,
+      "volatility": 12.5,
+      "maximum_drawdown": -27.0,
+      "credit_rating": null,
+      "management_fee": 0.45,
+      "transaction_fee": 0.1,
+      "minimum_investment": 1000,
+      "liquidity": "DAILY",
+      "lock_in_period": "none",
+      "duration": null,
+      "maturity_date": null,
+      "geographic_exposure": {
+        "United States": 45,
+        "Europe": 35,
+        "Other": 20
+      },
+      "sector_exposure": {
+        "Healthcare": 18,
+        "Consumer": 22,
+        "Financials": 18,
+        "Industrials": 14,
+        "Energy": 3,
+        "Other": 25
+      },
+      "currency_hedged": true,
+      "esg_compliant": true,
+      "recommended_horizon": 5,
+      "eligibility_requirements": {
+        "accredited_investor_only": false
+      },
+      "product_source": "MOCK",
+      "as_of_date": "2026-09-30",
+      "data_completeness": "COMPLETE",
+      "is_illustrative": true
+    },
+    {
+      "product_id": "MOCK-GOLD-001",
+      "product_name": "Illustrative Physically-Backed Gold ETF (USD)",
+      "asset_class": "Gold",
+      "sub_asset_class": "Gold",
+      "product_type": "Exchange-Traded Fund",
+      "issuer": "Illustrative Commodity Trust",
+      "currency": "USD",
+      "historical_returns": {
+        "1y": 18.0,
+        "3y": 12.5,
+        "5y": 9.0
+      },
+      "yield_to_maturity": null,
+      "distribution_yield": null,
+      "risk_rating": 4,
+      "volatility": 14.0,
+      "maximum_drawdown": -18.0,
+      "credit_rating": null,
+      "management_fee": 0.4,
+      "transaction_fee": 0.1,
+      "minimum_investment": 1000,
+      "liquidity": "DAILY",
+      "lock_in_period": "none",
+      "duration": null,
+      "maturity_date": null,
+      "geographic_exposure": {
+        "Global": 100
+      },
+      "sector_exposure": {
+        "Precious Metals": 100
+      },
+      "currency_hedged": false,
+      "esg_compliant": null,
+      "recommended_horizon": 5,
+      "eligibility_requirements": {
+        "accredited_investor_only": false
+      },
+      "product_source": "MOCK",
+      "as_of_date": "2026-09-30",
+      "data_completeness": "COMPLETE",
+      "is_illustrative": true
+    },
+    {
+      "product_id": "MOCK-REIT-001",
+      "product_name": "Illustrative Singapore REIT Index ETF",
+      "asset_class": "Real estate",
+      "sub_asset_class": "Listed REITs",
+      "product_type": "Exchange-Traded Fund",
+      "issuer": "Illustrative Asset Management",
+      "currency": "SGD",
+      "historical_returns": {
+        "1y": 7.5,
+        "3y": 1.8,
+        "5y": 2.6
+      },
+      "yield_to_maturity": null,
+      "distribution_yield": 5.6,
+      "risk_rating": 4,
+      "volatility": 17.0,
+      "maximum_drawdown": -36.0,
+      "credit_rating": null,
+      "management_fee": 0.5,
+      "transaction_fee": 0.1,
+      "minimum_investment": 1000,
+      "liquidity": "DAILY",
+      "lock_in_period": "none",
+      "duration": null,
+      "maturity_date": null,
+      "geographic_exposure": {
+        "Singapore": 80,
+        "Other Asia": 20
+      },
+      "sector_exposure": {
+        "Real Estate": 100
+      },
+      "currency_hedged": null,
+      "esg_compliant": false,
+      "recommended_horizon": 5,
+      "eligibility_requirements": {
+        "accredited_investor_only": false
+      },
+      "product_source": "MOCK",
+      "as_of_date": "2026-09-30",
+      "data_completeness": "COMPLETE",
+      "is_illustrative": true
+    },
+    {
+      "product_id": "MOCK-REIT-002",
+      "product_name": "Illustrative Asia Real Estate Income Fund",
+      "asset_class": "Real estate",
+      "sub_asset_class": "Listed REITs",
+      "product_type": "Unit Trust",
+      "issuer": "Illustrative Property Investors",
+      "currency": "SGD",
+      "historical_returns": null,
+      "yield_to_maturity": null,
+      "distribution_yield": 5.9,
+      "risk_rating": 4,
+      "volatility": null,
+      "maximum_drawdown": null,
+      "credit_rating": null,
+      "management_fee": null,
+      "transaction_fee": null,
+      "minimum_investment": 5000,
+      "liquidity": "WEEKLY",
+      "lock_in_period": "none",
+      "duration": null,
+      "maturity_date": null,
+      "geographic_exposure": null,
+      "sector_exposure": {
+        "Real Estate": 100
+      },
+      "currency_hedged": null,
+      "esg_compliant": null,
+      "recommended_horizon": 5,
+      "eligibility_requirements": {
+        "accredited_investor_only": false
+      },
+      "product_source": "MOCK",
+      "as_of_date": "2026-03-31",
+      "data_completeness": "PARTIAL",
+      "is_illustrative": true
+    },
+    {
+      "product_id": "MOCK-HF-001",
+      "product_name": "Illustrative Global Multi-Strategy Fund (UCITS, SGD-Hedged)",
+      "asset_class": "Hedge funds",
+      "sub_asset_class": "Multi-strategy (liquid alternative)",
+      "product_type": "UCITS Alternative Fund",
+      "issuer": "Illustrative Alternative Investors",
+      "currency": "SGD",
+      "historical_returns": {
+        "1y": 6.1,
+        "3y": 4.8,
+        "5y": 5.0
+      },
+      "yield_to_maturity": null,
+      "distribution_yield": null,
+      "risk_rating": 3,
+      "volatility": 6.5,
+      "maximum_drawdown": -12.0,
+      "credit_rating": null,
+      "management_fee": 1.5,
+      "transaction_fee": 0.0,
+      "minimum_investment": 10000,
+      "liquidity": "WEEKLY",
+      "lock_in_period": "none",
+      "duration": null,
+      "maturity_date": null,
+      "geographic_exposure": {
+        "United States": 50,
+        "Europe": 30,
+        "Asia": 20
+      },
+      "sector_exposure": {
+        "Diversified": 100
+      },
+      "currency_hedged": true,
+      "esg_compliant": null,
+      "recommended_horizon": 5,
+      "eligibility_requirements": {
+        "accredited_investor_only": false
+      },
+      "product_source": "MOCK",
+      "as_of_date": "2026-09-30",
+      "data_completeness": "COMPLETE",
+      "is_illustrative": true
+    },
+    {
+      "product_id": "MOCK-HF-002",
+      "product_name": "Illustrative Fund of Hedge Funds (Accredited Investors)",
+      "asset_class": "Hedge funds",
+      "sub_asset_class": "Fund of hedge funds",
+      "product_type": "Offshore Fund",
+      "issuer": "Illustrative Alternative Investors",
+      "currency": "USD",
+      "historical_returns": {
+        "1y": 7.4,
+        "3y": 5.6,
+        "5y": 6.2
+      },
+      "yield_to_maturity": null,
+      "distribution_yield": null,
+      "risk_rating": 4,
+      "volatility": 7.0,
+      "maximum_drawdown": -15.0,
+      "credit_rating": null,
+      "management_fee": 1.75,
+      "transaction_fee": 0.0,
+      "minimum_investment": 250000,
+      "liquidity": "QUARTERLY",
+      "lock_in_period": "1 year",
+      "duration": null,
+      "maturity_date": null,
+      "geographic_exposure": {
+        "United States": 60,
+        "Europe": 25,
+        "Asia": 15
+      },
+      "sector_exposure": {
+        "Diversified": 100
+      },
+      "currency_hedged": false,
+      "esg_compliant": null,
+      "recommended_horizon": 5,
+      "eligibility_requirements": {
+        "accredited_investor_only": true
+      },
+      "product_source": "MOCK",
+      "as_of_date": "2026-09-30",
+      "data_completeness": "COMPLETE",
+      "is_illustrative": true
+    },
+    {
+      "product_id": "MOCK-PM-001",
+      "product_name": "Illustrative Semi-Liquid Global Private Equity Fund (SGD-Hedged)",
+      "asset_class": "Private markets",
+      "sub_asset_class": "Private equity (evergreen)",
+      "product_type": "Evergreen Fund",
+      "issuer": "Illustrative Private Capital",
+      "currency": "SGD",
+      "historical_returns": {
+        "1y": 9.8,
+        "3y": 11.2,
+        "5y": null
+      },
+      "yield_to_maturity": null,
+      "distribution_yield": null,
+      "risk_rating": 5,
+      "volatility": 12.0,
+      "maximum_drawdown": -25.0,
+      "credit_rating": null,
+      "management_fee": 1.9,
+      "transaction_fee": 0.0,
+      "minimum_investment": 25000,
+      "liquidity": "QUARTERLY",
+      "lock_in_period": "1 year",
+      "duration": null,
+      "maturity_date": null,
+      "geographic_exposure": {
+        "United States": 55,
+        "Europe": 30,
+        "Asia": 15
+      },
+      "sector_exposure": {
+        "Technology": 30,
+        "Healthcare": 20,
+        "Industrials": 20,
+        "Consumer": 15,
+        "Other": 15
+      },
+      "currency_hedged": true,
+      "esg_compliant": null,
+      "recommended_horizon": 7,
+      "eligibility_requirements": {
+        "accredited_investor_only": false
+      },
+      "product_source": "MOCK",
+      "as_of_date": "2026-09-30",
+      "data_completeness": "COMPLETE",
+      "is_illustrative": true
+    },
+    {
+      "product_id": "MOCK-PM-002",
+      "product_name": "Illustrative Senior Private Credit Fund (Accredited Investors)",
+      "asset_class": "Private markets",
+      "sub_asset_class": "Private credit",
+      "product_type": "Closed-End Fund",
+      "issuer": "Illustrative Private Capital",
+      "currency": "USD",
+      "historical_returns": {
+        "1y": 8.6,
+        "3y": 8.1,
+        "5y": null
+      },
+      "yield_to_maturity": null,
+      "distribution_yield": 7.5,
+      "risk_rating": 4,
+      "volatility": 5.0,
+      "maximum_drawdown": -10.0,
+      "credit_rating": null,
+      "management_fee": 1.5,
+      "transaction_fee": 0.0,
+      "minimum_investment": 200000,
+      "liquidity": "LOCKED",
+      "lock_in_period": "3 years",
+      "duration": null,
+      "maturity_date": null,
+      "geographic_exposure": {
+        "United States": 70,
+        "Europe": 30
+      },
+      "sector_exposure": {
+        "Financials": 20,
+        "Industrials": 30,
+        "Healthcare": 20,
+        "Other": 30
+      },
+      "currency_hedged": false,
+      "esg_compliant": null,
+      "recommended_horizon": 5,
+      "eligibility_requirements": {
+        "accredited_investor_only": true
+      },
+      "product_source": "MOCK",
+      "as_of_date": "2026-09-30",
+      "data_completeness": "COMPLETE",
+      "is_illustrative": true
+    }
+  ]
+}
