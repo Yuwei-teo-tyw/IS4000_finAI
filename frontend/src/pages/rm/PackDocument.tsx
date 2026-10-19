@@ -70,7 +70,7 @@ export function PackDocument({ clientId, clientName, version, pack, approved }: 
   const th = "py-2 pr-4 text-left text-xs font-normal text-ink-muted";
 
   return (
-    <article className="a3-sheet mx-auto aspect-[297/420] w-full min-w-0 max-w-[1123px] border border-hairline bg-surface-100 px-8 py-14 text-ink shadow-card sm:px-16 sm:py-20 lg:px-24 lg:py-24 print:aspect-auto print:border-0 print:shadow-none">
+    <article className="a3-sheet mx-auto aspect-[297/420] w-full min-w-0 max-w-[1123px] border border-hairline bg-surface-100 px-8 py-14 text-ink shadow-card sm:px-16 sm:py-20 lg:px-24 lg:py-24 print:aspect-auto print:border-0 print:p-0 print:shadow-none">
       <style>{A3_PRINT_CSS}</style>
       <header className="mb-16">
         <GenevaMark className="mb-14" />
