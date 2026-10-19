@@ -9,6 +9,7 @@ export const clients: Client[] = [
   { id: "jfr", name: "Jane Fraser", riskCategory: "Aggressive", riskCap: 5, aumSgd: 12_100_000, nextMeeting: "2026-11-14", nextQuarterlyReview: null, status: "Onboarding Phase", ipsVersion: null, sharpe: 0.94, diversificationScore: 57 },
   { id: "teo", name: "Teo Yuwei", riskCategory: "Growth", riskCap: 4, aumSgd: 7_400_000, nextMeeting: "2026-11-05", nextQuarterlyReview: "2027-01-14", status: "Monitoring Phase", ipsVersion: 1, sharpe: 0.88, diversificationScore: 66 },
   { id: "sha", name: "Shane", riskCategory: "Moderate", riskCap: 3, aumSgd: 3_600_000, nextMeeting: "2026-10-30", nextQuarterlyReview: null, status: "Onboarding Phase", ipsVersion: null, sharpe: 0.70, diversificationScore: 68 },
+  { id: "tss", name: "Tan Su Shan", riskCategory: "Growth", riskCap: 4, aumSgd: 6_200_000, nextMeeting: "2026-11-12", nextQuarterlyReview: "2027-01-19", status: "Monitoring Phase", ipsVersion: 1, sharpe: 0.85, diversificationScore: 69 },
 ];
 
 export const holdings: Holding[] = [
@@ -43,6 +44,7 @@ const mkHoldings = (aum: number, w: number[], ytd: number[]): Holding[] =>
   holdings.map((h, i) => ({ ...h, weightPct: w[i], valueSgd: Math.round((aum * w[i]) / 100), returnYtdPct: ytd[i] }));
 
 export const holdingsByClient: Record<string, Holding[]> = {
+  tss: mkHoldings(6_200_000, [6, 12, 10, 22, 16, 8, 5, 6, 5, 10], [2.9, 3.4, 4.1, 14.2, 12.7, 6.3, 5.1, 8.8, 3.0, 18.5]),
   ser: holdings,
   dso: mkHoldings(2_800_000, [20, 30, 20, 4, 3, 8, 2, 1, 5, 7], [2.9, 3.4, 4.1, 14.2, 12.7, 6.3, 5.1, 8.8, 3.0, 18.5]),
   jfr: mkHoldings(12_100_000, [3, 5, 7, 25, 20, 10, 8, 10, 4, 8], [2.9, 3.4, 4.1, 14.2, 12.7, 6.3, 5.1, 8.8, 3.0, 18.5]),
@@ -82,6 +84,12 @@ export const allocationGroupsFor = (clientId: string): AllocationGroup[] => {
 };
 
 export const caseTimelineByClient: Record<string, CaseStep[]> = {
+  tss: [
+    { who: "RM", what: "Quarterly review opened, pack sent to PS", by: "Isabel", state: "done" },
+    { who: "PS", what: "Product list sent (G3)", by: "David", state: "done" },
+    { who: "IC", what: "TAA and sections 2–5 approved (G2)", by: "Wei Lun", state: "done" },
+    { who: "RM", what: "Complete workflow (G4)", by: "Isabel", state: "waiting" },
+  ],
   ser: [
     { who: "RM", what: "Case opened", by: "Isabel", state: "done" },
     { who: "PS", what: "Product list sent (G3)", by: "David", state: "done" },
@@ -155,6 +163,7 @@ export const meetingNotes: MeetingNote[] = [
   { id: "note_0502", sourceFile: "2026-10-13-first-meeting.pdf", originalText: "First meeting with Jane Fraser, 13 October 2026. Attendees: Jane Fraser, Isabel (RM).\n\nJane recently sold her business and has S$12.1m to invest. She described herself as comfortable with large swings in value in exchange for long-term growth, and said she would not need to touch the capital for at least ten years.\n\nShe would like to set up a family foundation within five years and asked how that might affect how the portfolio is structured. We did not go into detail and agreed to revisit it once the IPS is drafted.\n\nOpen question: she did not state how much cash she needs each month. Isabel will ask, run the risk questionnaire, and then send the IPS draft to the Investment Counsellor.", clientId: "jfr", date: "2026-10-13", title: "First meeting", summary: ["Sold his business and has S$12.1m to invest", "Comfortable with large swings for long-term growth", "Wants to start a family foundation within 5 years", "Open question: monthly cash needs not stated"], checklist: [{ text: "Run the risk questionnaire", done: false }, { text: "Ask about monthly cash needs", done: false }, { text: "Send IPS draft to IC", done: false }] },
   { id: "note_0610", sourceFile: "2026-10-02-half-year-review.pdf", originalText: "Half-year review with Teo Yuwei, 2 October 2026. Attendees: Teo Yuwei, Isabel (RM).\n\nTeo is pleased with the growth portfolio, which is up about 9% year to date. His children begin overseas education in four years and he wants to be sure the money will be available when it is needed.\n\nHe is open to adding private markets exposure, provided it does not tie up too much of the portfolio. He also raised a concern about how much of the portfolio sits in US technology shares.\n\nNext steps: review the technology concentration with the Investment Counsellor and prepare an education funding estimate (already drafted).", clientId: "teo", date: "2026-10-02", title: "Half-year review", summary: ["Happy with growth portfolio, up 9% year to date", "Children's overseas education starts in 4 years", "Open to adding private markets exposure", "Worried about US tech concentration"], checklist: [{ text: "Review tech concentration with IC", done: false }, { text: "Prepare education funding estimate", done: true }] },
   { id: "note_0715", sourceFile: "2026-10-09-first-meeting.pdf", originalText: "First meeting with Shane, 9 October 2026. Attendees: Shane, Isabel (RM).\n\nShane would like to buy a condominium within two years. He has a moderate appetite for risk but dislikes large drops in value, especially as the purchase date gets closer. He saves roughly S$8k a month.\n\nOpen question: he has not decided on the expected price of the condo. Isabel will confirm his budget, then send the IPS draft to the Investment Counsellor. The risk questionnaire was completed during the meeting.", clientId: "sha", date: "2026-10-09", title: "First meeting", summary: ["Wants to buy a condo within 2 years", "Moderate risk appetite, dislikes large drops", "Saves roughly S$8k a month", "Open question: expected condo price not stated"], checklist: [{ text: "Run the risk questionnaire", done: true }, { text: "Confirm condo budget", done: false }, { text: "Send IPS draft to IC", done: false }] },
+  { id: "note_0801", sourceFile: "2026-10-14-quarterly-review.pdf", originalText: "Quarterly review with Tan Su Shan, 14 October 2026. Attendees: Tan Su Shan, Isabel (RM).\n\nTan Su Shan is comfortable with her growth portfolio and wants to keep a long horizon. She asked to trim US tech concentration and add some diversifying fixed income, and confirmed her S$0.5m philanthropy pledge for 2030.\n\nIsabel will open the review pack so the Product Specialist and Investment Counsellor can propose the changes.", clientId: "tss", date: "2026-10-14", title: "Quarterly review", summary: ["Comfortable with the growth portfolio", "Trim US tech concentration", "Add diversifying fixed income", "Philanthropy pledge of S$0.5m in 2030"], checklist: [{ text: "Open the review pack", done: true }, { text: "Collect PS and IC sections", done: true }, { text: "Complete the workflow", done: false }] },
 ];
 
 export const gates: Gate[] = [
@@ -169,11 +178,13 @@ export const inboxes: Record<"ic" | "ps", InboxItem[]> = {
     { id: "ic1", clientId: "jfr", clientName: "Jane Fraser", kind: "SAA request", from: "rm", receivedAt: "2026-10-16 09:12", summary: "Onboarding IPS sent. Fill 3L and SAA (parts 2 and 4).", priority: "high", trigger: 1 },
     { id: "ic2", clientId: "ser", clientName: "Sergio Ermotti", kind: "Portfolio adjustment request", from: "ps", receivedAt: "2026-10-14 11:20", summary: "PS approved 4 fixed income products. Propose and approve the TAA.", priority: "high", trigger: 3 },
     { id: "ic3", clientId: "dso", clientName: "David Solomon", kind: "SAA request", from: "rm", receivedAt: "2026-10-12 15:40", summary: "Life event: retirement brought forward. Redo 3L and SAA.", priority: "normal", trigger: 2 },
+    { id: "ic5", clientId: "tss", clientName: "Tan Su Shan", kind: "Portfolio adjustment request", from: "ps", receivedAt: "2026-10-16 16:10", summary: "PS approved the product list. TAA and sections 2–5 sent back to RM.", priority: "normal", trigger: 3 },
     { id: "ic4", clientId: "sha", clientName: "Shane", kind: "SAA request", from: "rm", receivedAt: "2026-10-15 14:25", summary: "Onboarding IPS sent. Fill 3L and SAA (parts 2 and 4).", priority: "normal", trigger: 1 },
   ],
   ps: [
     { id: "ps1", clientId: "ser", clientName: "Sergio Ermotti", kind: "Product-review request", from: "rm", receivedAt: "2026-10-14 08:30", summary: "Quarterly review opened. Research the market and shortlist products.", priority: "high", trigger: 3 },
     { id: "ps2", clientId: "dso", clientName: "David Solomon", kind: "Product-review request", from: "rm", receivedAt: "2026-10-13 10:05", summary: "New CIO House View landed. Check fixed income shelf.", priority: "normal", trigger: 3 },
+    { id: "ps4", clientId: "tss", clientName: "Tan Su Shan", kind: "Product-review request", from: "rm", receivedAt: "2026-10-15 10:20", summary: "Quarterly review opened. Shortlist diversifying fixed income products.", priority: "normal", trigger: 3 },
     { id: "ps3", clientId: "teo", clientName: "Teo Yuwei", kind: "Product-review request", from: "rm", receivedAt: "2026-10-15 09:45", summary: "Concentration in US tech. Shortlist diversifying equity and alternatives products.", priority: "normal", trigger: 3 },
   ],
 };
@@ -236,6 +247,11 @@ export const activity: ActivityEvent[] = [
 
 /* ---------- Per-client 3L, allocation, IPS ---------- */
 export const buckets3LByClient: Record<string, Bucket3L[]> = {
+  tss: [
+    { id: "liquidity", name: "Liquidity", horizon: "0–3 years", amountSgd: 930_000, pct: 15, purpose: "Living costs and a tax cushion" },
+    { id: "longevity", name: "Longevity", horizon: "Lifetime income", amountSgd: 3_100_000, pct: 50, purpose: "Long-run growth for retirement income" },
+    { id: "legacy", name: "Legacy", horizon: "Beyond lifetime", amountSgd: 2_170_000, pct: 35, purpose: "Wealth for family and philanthropy" },
+  ],
   ser: buckets3L,
   dso: [
     { id: "liquidity", name: "Liquidity", horizon: "0–3 years", amountSgd: 560_000, pct: 20, purpose: "Three years of living costs and medical cushion" },
@@ -263,6 +279,7 @@ const rows = (cls: AllocationRow["assetClass"][], saa: number[], cur: number[], 
   cls.map((assetClass, i) => ({ assetClass, saa: saa[i], current: cur[i], oldTaa: oldT[i], newTaa: newT[i], band: 5, reason: `Per IPS [${tag}]` }));
 const CLS = assetClassOrder as unknown as AllocationRow["assetClass"][];
 export const allocationByClient: Record<string, AllocationRow[]> = {
+  tss: rows(CLS, [8, 22, 40, 8, 5, 8, 9], [6, 20, 44, 8, 5, 8, 9], [8, 22, 40, 8, 5, 8, 9], [7, 24, 38, 8, 5, 8, 10], "IPS-v1"),
   ser: allocation,
   dso: rows(CLS, [20, 48, 18, 2, 1, 5, 6], [20, 50, 15, 2, 1, 5, 7], [20, 49, 16, 2, 1, 5, 7], [18, 52, 15, 2, 1, 5, 7], "IPS-v1"),
   jfr: rows(CLS, [5, 15, 50, 8, 8, 6, 8], [3, 12, 55, 8, 10, 4, 8], [5, 15, 50, 8, 8, 6, 8], [4, 14, 52, 8, 8, 6, 8], "IPS-draft"),
@@ -271,6 +288,14 @@ export const allocationByClient: Record<string, AllocationRow[]> = {
 };
 
 export const ipsPartsByClient: Record<string, IpsPart[]> = {
+  tss: [
+    { part: 1, title: "Client goals and objectives", owner: "rm", status: "filled", body: "Grow wealth steadily over 15+ years, support family and give to philanthropy." },
+    { part: 2, title: "3L buckets and explanation", owner: "ic", status: "filled", body: "Liquidity 15%, Longevity 50%, Legacy 35%." },
+    { part: 3, title: "Client risk profile", owner: "rm", status: "filled", body: "Growth. Risk limit 4 of 5. Risk capacity: Moderately high. Can tolerate a 18% drawdown." },
+    { part: 4, title: "Strategic Asset Allocation", owner: "ic", status: "filled", body: "Cash 8, Fixed income 22, Equities 40, Hedge funds 8, Private markets 5, Real estate 8, Gold 9." },
+    { part: 5, title: "Review rules", owner: "rm", status: "locked", body: "Quarterly review. Rebalance when drift exceeds 5 points. Benchmark: 60/40 blended index." },
+    { part: 6, title: "Signature line", owner: "rm", status: "locked", body: "Signed by RM after client confirmation (G1)." },
+  ],
   ser: ipsParts,
   dso: [
     { part: 1, title: "Client goals and objectives", owner: "rm", status: "filled", body: "Preserve capital and draw steady income in retirement. Small bequest to grandchildren." },
@@ -309,6 +334,7 @@ export const ipsPartsByClient: Record<string, IpsPart[]> = {
 
 /** Structured mirror of IPS part 3 (risk capacity, drawdown limit) - what the IPS form would store. */
 export const ipsRiskByClient: Record<string, { riskCapacity: string; maxDrawdownPct: number }> = {
+  tss: { riskCapacity: "Moderately high", maxDrawdownPct: 18 },
   ser: { riskCapacity: "Moderate", maxDrawdownPct: 12 },
   dso: { riskCapacity: "Moderately low", maxDrawdownPct: 6 },
   jfr: { riskCapacity: "High", maxDrawdownPct: 30 },
@@ -324,6 +350,7 @@ const gp = (start: number, grow: number, req0: number, reqGrow: number) =>
   }));
 
 export const goalProjectionByClient: Record<string, GoalProjection> = {
+  tss: { points: gp(6.2, 0.06, 5.6, 0.056), events: [{ year: 2030, label: "Philanthropy pledge" }, { year: 2044, label: "Retirement" }], yearsOnTrack: 8, summary: "Funds last 8 years beyond the target age under the Growth plan." },
   ser: { points: gp(5, 0.052, 4.6, 0.05), events: [{ year: 2027, label: "House deposit" }, { year: 2034, label: "Child's education" }, { year: 2042, label: "Retirement" }], yearsOnTrack: 6, summary: "Funds last 6 years beyond the target age under the current Balanced plan." },
   dso: { points: gp(2.8, 0.036, 2.6, 0.035), events: [{ year: 2029, label: "Retirement" }, { year: 2045, label: "Legacy gift" }], yearsOnTrack: 4, summary: "Funds last 4 years beyond the target age; a small buffer on a conservative path." },
   teo: { points: gp(7.4, 0.07, 6.6, 0.066), events: [{ year: 2031, label: "Business exit" }, { year: 2030, label: "Children's education" }], yearsOnTrack: 9, summary: "Funds last 9 years beyond the target age, helped by the business exit proceeds." },
@@ -383,3 +410,14 @@ export const productCatalogue: { aliases: string[]; row: MarketRow }[] = [
   { aliases: ["nasdaq", "autocall"], row: { assetClass: "Structured products", product: "Autocallable Note on Nasdaq-100", industryFocus: "US technology", top5: ["Nasdaq-100 (underlying)", "Issuer: UBS AG", "Coupon 9.0% p.a.", "Barrier 65%", "Tenor 12 months"], confidencePct: 62,
     ranking: ["High coupon if the index holds up.", "Capital at risk below the 65% barrier.", "Tech concentration adds to existing holdings."] } },
 ];
+
+/** Review pack sections for Tan Su Shan: every section is done; only the RM's final completion remains. */
+export const packSectionsTss: PackSection[] = packSections.map((p) => ({
+  ...p,
+  status: p.n === 7 ? "draft" : "approved",
+  body: p.n === 4 ? "Sharpe 0.85 [CALC-sharpe-v1]. Diversification 69. US tech concentration trimmed in the new TAA."
+    : p.n === 5 ? "Fixed income to 24 (+2); equities to 38; cash to 7 [CALC-taa-v1]."
+    : p.n === 6 ? "3 diversifying fixed income products shortlisted by PS [PRD-FI-007]."
+    : p.n === 7 ? "PS and IC have signed their lines. RM signs and completes the workflow."
+    : p.n === 1 ? "Tan Su Shan, S$6.2m, Growth. IPS v1 active [IPS-v1]." : p.body,
+}));

@@ -37,7 +37,7 @@ export interface MarketView { assetClass: AssetClass; view: "Buy" | "Hold" | "Se
 export type ProductClass = AssetClass | "Structured products";
 export interface Product { id: string; name: string; assetClass: ProductClass; whyBuy: string; feePct: number; stars: number; suitability: string; riskRating: number; tags: string[] }
 
-export interface PackSection { n: number; title: string; owner: Role; gate: GateId | null; status: "draft" | "ready" | "flagged" | "approved"; body: string }
+export interface PackSection { n: number; title: string; owner: Role; gate: GateId | null; status: "draft" | "ready" | "flagged" | "approved"; body: string; /** Display order (IPS workflow sections). */ order?: number }
 export interface Citation { tag: string; what: string; system: string; asOf: string; ref: string }
 export interface ActivityEvent { id: string; at: string; actor: string; role: Role | "system"; text: string }
 export interface MeetingNote { id: string; clientId: string; date: string; title: string; sourceFile: string; originalText: string; summary: string[]; checklist: { text: string; done: boolean }[] }
@@ -63,3 +63,8 @@ export interface MacroBrief { phase: string; asOf: string; events: string[]; vie
 /** One chat turn. `steps` (agents fired, thinking) show only while thinking, never in the final answer. */
 export interface SectionDraft { section: number; title: string; text: string }
 export interface MarketAnswer { summary: string; draft?: SectionDraft; market: MacroBrief | null; rows: MarketRow[]; autoTick: boolean; steps: string[]; tags: string[] }
+
+export type WorkflowKind = "pack" | "ips";
+export type StageState = "done" | "current" | "todo";
+export interface WorkflowStep { role: Role; label: string; state: StageState }
+export interface WorkflowStage { kind: WorkflowKind; steps: WorkflowStep[]; percent: number }

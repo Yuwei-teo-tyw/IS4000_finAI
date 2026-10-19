@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import {
+  BookMarked,
   BookUser,
   ClipboardCheck,
   Inbox,
@@ -48,6 +49,7 @@ export function getNav(role: Role, clientId: string): NavItem[] {
       return [
         { label: "Client Book", to: "/rm/clients", icon: BookUser },
         { label: "AI Assistant", to: "/rm/assistant", icon: Sparkles },
+        { label: "House View Records", to: "/rm/house-view", icon: BookMarked },
       ];
     case "ic":
       return [
@@ -55,18 +57,20 @@ export function getNav(role: Role, clientId: string): NavItem[] {
         { label: "3L And SAA", to: `/ic/requests/${id}/3l`, icon: Layers },
         { label: "Tactical Review", to: `/ic/cases/${id}/taa`, icon: SlidersHorizontal },
         { label: "Review Pack", to: `/ic/cases/${id}/pack`, icon: ClipboardCheck },
+        { label: "House View Records", to: "/ic/house-view", icon: BookMarked },
       ];
     case "ps":
       return [
         { label: "Product Requests", to: "/ps/inbox", icon: Inbox },
         { label: "Client Book", to: "/ps/clients", icon: BookUser },
         { label: "AI Assistant", to: "/ps/assistant", icon: Sparkles },
+        { label: "House View Records", to: "/ps/house-view", icon: BookMarked },
       ];
   }
 }
 
 const STORAGE_KEY = "arc.activeClient";
-const VALID_IDS = ["ser", "dso", "teo", "jfr", "sha"];
+const VALID_IDS = ["ser", "dso", "teo", "jfr", "sha", "tss"];
 const DEFAULT_ID = "ser";
 
 function isValid(id: string | null | undefined): id is string {

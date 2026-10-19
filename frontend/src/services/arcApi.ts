@@ -43,6 +43,21 @@ const buildIpsHistory = (clientId: string): IpsVersion[] => {
 const withEdits = (clientId: string, list: IpsVersion[]): IpsVersion[] =>
   list.map((v) => (ipsEdits[`${clientId}:${v.version}`] ? { ...v, parts: ipsEdits[`${clientId}:${v.version}`] } : v));
 
+const IPS_FLOW_TITLES: Record<number, string> = { 2: "Strategic asset allocation proposal" };
+const buildIpsSections = (clientId: string): PackSection[] => {
+  const parts = m.ipsPartsByClient[clientId] ?? m.ipsParts;
+  return parts
+    .map((p) => ({
+      n: p.part,
+      order: p.part,
+      title: IPS_FLOW_TITLES[p.part] ?? p.title,
+      owner: p.owner,
+      gate: (p.owner === "ic" ? "G2" : "G1") as PackSection["gate"],
+      status: (p.status === "blank" ? "draft" : "ready") as PackSection["status"],
+      body: p.body,
+    }));
+};
+
 export const arcApi = {
   listClients: (): Promise<Client[]> => delay(m.clients),
   getClient: (id: string): Promise<Client | undefined> => delay(m.clients.find((c) => c.id === id)),
@@ -124,7 +139,9 @@ export const arcApi = {
     return { summary, market: wantsMarket ? m.macroBrief : null, rows, autoTick: named.length > 0, steps, tags: ["MKT-0142", "CIO-2026Q4-03"] };
   },
   getHouseViews: (_clientId: string): Promise<HouseView[]> => delay(m.houseViews),
-  getPack: (_clientId: string): Promise<PackSection[]> => delay(m.packSections),
+  getPack: (clientId: string): Promise<PackSection[]> => delay(clientId === "tss" ? m.packSectionsTss : m.packSections),
+  /** IPS creation workflow sections: RM fills parts 1, 3, 5, 6; IC proposes the SAA (parts 2 and 4). Ordered by part number. */
+  getIpsSections: (clientId: string): Promise<PackSection[]> => delay(buildIpsSections(clientId)),
   getCitations: (_clientId: string): Promise<Citation[]> => delay(m.citations),
   getActivity: (_clientId: string): Promise<ActivityEvent[]> => delay(m.activity),
 
