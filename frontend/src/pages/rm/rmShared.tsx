@@ -8,7 +8,7 @@ import { ROLE_PEOPLE } from "../../layouts/navConfig";
 import { BlockEditor, BlockItem, newBlockId, useSectionBlocks } from "../../components/documents/pack";
 import { SaaDonut } from "../../components/documents/ips/charts";
 import { loadPackDrafts, loadRawBlocks, loadSignatures, savePackDraft, subscribePackDrafts, subscribeSignatures, useSectionDone, type PackSignatures as Sigs } from "../../services/packDraftStore";
-import { useAllFinalised, useIcHandover, useReviewRequest } from "../../services/workflowStore";
+import { ipsKey, useAllFinalised, useIcHandover, useIpsIcHandover, useReviewRequest } from "../../services/workflowStore";
 import { arcApi } from "../../services/arcApi";
 import { useAsync } from "../../components/ui";
 
@@ -111,6 +111,13 @@ export const composeProfile = (p: ProfileParts): string =>
 export const parseSaaLines = (s: string): Record<string, number> =>
   Object.fromEntries(toBulletItems(s).flatMap((l) => { const m = l.match(/^(.+?):\s*(\d+(?:\.\d+)?)\s*%/); return m ? [[m[1].trim(), Number(m[2])]] : []; }));
 
+/** Free-text SAA ("Cash 15%, Fixed income 35%" or "Cash: 15%") to a lower-cased asset class -> pct map. */
+export const parseSaaText = (s: string): Record<string, number> => {
+  const out: Record<string, number> = {};
+  for (const m of s.matchAll(/(?:^|[•,.;\n-])\s*([A-Za-z][A-Za-z ]*?)\s*:?\s*(\d+(?:\.\d+)?)\s*%/g)) out[m[1].trim().toLowerCase()] = Number(m[2]);
+  return out;
+};
+
 /** Replace the first text block's text; every other block (including extra text blocks) is kept. */
 export function withText(blocks: PackBlock[], text: string): PackBlock[] {
   const i = blocks.findIndex((b) => b.type === "text");
@@ -153,7 +160,7 @@ export function SectionBlocksBody({ clientId, n, body, chart }: { clientId: stri
 
 export interface SaaEditor { rows: AllocationRow[]; vals: number[]; setVals: (v: number[]) => void }
 
-export function SaaPanel({ saa }: { saa: SaaEditor }) {
+export function SaaPanel({ saa, readOnly = false }: { saa: SaaEditor; readOnly?: boolean }) {
   const total = Math.round(saa.vals.reduce((a, b) => a + b, 0) * 10) / 10;
   const ok = total === 100;
   return (
@@ -165,9 +172,9 @@ export function SaaPanel({ saa }: { saa: SaaEditor }) {
             <li key={r.assetClass} className="flex items-center justify-between gap-4 border-b border-hairline pb-2 text-[15px]">
               <label htmlFor={`saa-${i}`}>{r.assetClass}</label>
               <span className="flex items-center gap-2">
-                <input id={`saa-${i}`} type="number" min={0} max={100} step={1} value={saa.vals[i] ?? 0}
+                <input id={`saa-${i}`} type="number" readOnly={readOnly} min={0} max={100} step={1} value={saa.vals[i] ?? 0}
                   onChange={(e) => saa.setVals(saa.vals.map((v, k) => (k === i ? Math.max(0, Number(e.target.value) || 0) : v)))}
-                  className="w-20 border border-hairline-strong bg-surface-100 px-2 py-1.5 text-right text-[15px] text-ink" />%
+                  className={`w-20 border border-hairline-strong px-2 py-1.5 text-right text-[15px] text-ink ${readOnly ? "bg-surface-200" : "bg-surface-100"}`} />%
               </span>
             </li>
           ))}
@@ -459,21 +466,26 @@ export function SourcesBoard({ clientId, me, editing: editingProp, hideEditButto
  *  - ic sections: IC sent G2 to RM (useIcHandover).
  *  - rm sections: profile (1) once the RM has saved text; sources once the RM sent the request to PS; sign-off once all three signed.
  */
-export function usePackStatus(clientId: string) {
-  const pack = useAsync(() => arcApi.getPack(clientId), [clientId]);
+export function usePackStatus(realClientId: string, workflow: "pack" | "ips" = "pack") {
+  const ips = workflow === "ips";
+  const clientId = ips ? ipsKey(realClientId) : realClientId;
+  const pack = useAsync(() => (ips ? arcApi.getIpsSections(realClientId) : arcApi.getPack(realClientId)), [realClientId, ips]);
   const [drafts, setDrafts] = useState(() => loadPackDrafts(clientId));
   useEffect(() => { setDrafts(loadPackDrafts(clientId)); return subscribePackDrafts(clientId, setDrafts); }, [clientId]);
   const [sigs, setSigs] = useState(() => loadSignatures(clientId));
   useEffect(() => { setSigs(loadSignatures(clientId)); return subscribeSignatures(clientId, setSigs); }, [clientId]);
   const done = useSectionDone(clientId);
-  const sent = !!useReviewRequest(clientId);
-  const finalisedByPs = useAllFinalised().some((f) => f.clientId === clientId);
-  const icHandedOver = !!useIcHandover(clientId);
+  const sent = !!useReviewRequest(realClientId);
+  const finalisedByPs = useAllFinalised().some((f) => f.clientId === realClientId);
+  const icPackHandedOver = !!useIcHandover(realClientId);
+  const icIpsHandedOver = !!useIpsIcHandover(realClientId);
+  const icHandedOver = ips ? icIpsHandedOver : icPackHandedOver;
   const complete: Record<number, boolean> = {};
   (pack ?? []).forEach((x) => {
     const text = (drafts[x.n] ?? x.body).trim();
     const marked = !!done[x.n]?.done;
-    if (x.kind === "signoff") complete[x.n] = ["rm", "ic", "ps"].every((r) => sigs[r]);
+    if (ips) complete[x.n] = marked && !!text && (x.owner !== "ic" || icHandedOver);
+    else if (x.kind === "signoff") complete[x.n] = ["rm", "ic", "ps"].every((r) => sigs[r]);
     else if (isSources(x)) complete[x.n] = marked && (x.owner === "ps" ? finalisedByPs : sent || finalisedByPs);
     else if (x.owner === "ps") complete[x.n] = marked && finalisedByPs && !!text;
     else if (x.owner === "ic") complete[x.n] = marked && icHandedOver && !!text;

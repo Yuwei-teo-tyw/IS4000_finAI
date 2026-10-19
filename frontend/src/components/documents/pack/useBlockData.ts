@@ -8,7 +8,8 @@ export type Slice = { label: string; value: number };
 const r1 = (n: number) => Math.round(n * 10) / 10;
 
 /** Live data for chart/table blocks: current allocation + holdings, with the IC's saved TAA and holding edits applied. */
-export function useBlockData(clientId: string) {
+export function useBlockData(keyOrClientId: string) {
+  const clientId = keyOrClientId.split(":")[0]; // ipsKey(clientId) -> real client id
   const alloc = useAsync(() => arcApi.getAllocation(clientId), [clientId]);
   const holdings = useAsync(() => arcApi.getHoldings(clientId), [clientId]);
   const p = useIcProgress(clientId);

@@ -10,6 +10,7 @@ import IpsDraft from "../pages/rm/IpsDraft";
 import IpsApproval from "../pages/rm/IpsApproval";
 import QuarterlyReviewStart from "../pages/rm/QuarterlyReviewStart";
 import PackReview from "../pages/rm/PackReview";
+import IpsCreationRoute from "../pages/client/IpsCreationRoute";
 import IcInbox from "../pages/ic/IcInbox";
 import ThreeLBuilder from "../pages/ic/ThreeLBuilder";
 import SaaBuilder from "../pages/ic/SaaBuilder";
@@ -35,6 +36,7 @@ const client360 = {
     { path: "documents", element: <ClientDocuments /> },
     { path: "upload-notes", element: <ClientUploadNotes /> },
     { path: "review-pack", element: <PackReview embedded /> },
+    { path: "ips-creation", element: <IpsCreationRoute /> },
     ...["dashboard", "ips", "3l", "allocation", "notes", "history"].map((path) => ({
       path,
       element: <Navigate to="../documents" relative="path" replace />,

@@ -4,6 +4,7 @@ import { GenevaMark } from "../../components/documents/GenevaMark";
 import { ROLE_LABEL, type AllocationRow, type Holding, type PackSection, type Role } from "../../types/arc";
 import { ROLE_PEOPLE } from "../../layouts/navConfig";
 import { loadPackDrafts, loadSignatures, savePackDraft, subscribePackDrafts, subscribeSignatures, usePackHistory, type PackSignature } from "../../services/packDraftStore";
+import { ipsKey } from "../../services/workflowStore";
 import { useRole } from "../../layouts/AppShell";
 import { hasHeadings } from "../../services/packBlocks";
 import { SectionBlocksView, useSeededBlocks, sourcesFor, Tagged, HangList, isSources, isSignoff, fmtDate, usePackStatus, isHiddenFor, PendingBox } from "./rmShared";
@@ -40,9 +41,11 @@ function SectionSign({ g, who }: { g?: PackSignature; who: string }) {
 
 /** Coupling note: reads IC progress (useIcProgress) and ROLE_PEOPLE directly; revisit when a backend pack API exists. */
 /** Single-column printed rendering of the review pack. Reads drafts, signatures and IC progress live; mock text is used only where no draft exists. */
-export function PackDocument({ clientId, clientName, version, pack, approved }: {
-  clientId: string; clientName: string; version: string; pack: PackSection[]; alloc: AllocationRow[] | undefined; holdings: Holding[] | undefined; approved: boolean;
+export function PackDocument({ clientId: realClientId, clientName, version, pack, approved, workflow = "pack" }: {
+  clientId: string; clientName: string; version: string; pack: PackSection[]; alloc: AllocationRow[] | undefined; holdings: Holding[] | undefined; approved: boolean; workflow?: "pack" | "ips";
 }) {
+  const ips = workflow === "ips";
+  const clientId = ips ? ipsKey(realClientId) : realClientId;
   const [drafts, setDrafts] = useState(() => loadPackDrafts(clientId));
   useEffect(() => { setDrafts(loadPackDrafts(clientId)); return subscribePackDrafts(clientId, setDrafts); }, [clientId]);
   const [sigs, setSigs] = useState(() => loadSignatures(clientId));
@@ -54,8 +57,8 @@ export function PackDocument({ clientId, clientName, version, pack, approved }: 
     if (g === "G4") return approved ? "Approved" : "Pending";
     return secs.length && secs.every((x) => x.status === "approved") ? "Approved" : secs.length && secs.every((x) => x.status !== "draft") ? "Ready" : "Pending";
   };
-  const gates = Array.from(new Set(pack.map((x) => x.gate).filter(Boolean) as string[])).sort();
-  const { doneCount, complete } = usePackStatus(clientId);
+  const gates = ips ? [] : Array.from(new Set(pack.map((x) => x.gate).filter(Boolean) as string[])).sort();
+  const { doneCount, complete } = usePackStatus(realClientId, workflow);
   const role = useRole();
   const [editing, setEditing] = useState<number | null>(null);
   const [buf, setBuf] = useState("");
@@ -72,16 +75,16 @@ export function PackDocument({ clientId, clientName, version, pack, approved }: 
     <article className="mx-auto w-full max-w-[820px] bg-surface-100 px-8 py-14 text-ink shadow-card sm:px-16 sm:py-20 print:shadow-none">
       <header className="mb-16">
         <GenevaMark className="mb-14" />
-        <p className={cap}>Quarterly review pack</p>
+        <p className={cap}>{ips ? "Investment policy statement" : "Quarterly review pack"}</p>
         <h1 className="mt-3 text-[40px] font-light leading-[48px]">{clientName}</h1>
         <div className="mt-6 h-px w-full bg-ink" />
         <dl className="mt-2 text-[15px]">
           {[
             ["Client", clientName],
-            ["Review quarter", quarterOf(now)],
+            ...(ips ? [] : [["Review quarter", quarterOf(now)]]),
             ["Date", fmtDate(now.toISOString())],
             ["Version", version],
-            ["Gates", gates.map((g) => `${g} ${gateOf(g).toLowerCase()}`).join("  ·  ")],
+            ...(ips ? [] : [["Gates", gates.map((g) => `${g} ${gateOf(g).toLowerCase()}`).join("  ·  ")]]),
           ].map(([k, v]) => (
             <div key={k} className="flex flex-wrap items-baseline gap-x-6 border-b border-hairline py-3">
               <dt className={`${cap} w-36 shrink-0`}>{k}</dt><dd className="min-w-0 flex-1 [overflow-wrap:anywhere]">{v}</dd>
@@ -154,7 +157,7 @@ export function PackDocument({ clientId, clientName, version, pack, approved }: 
                     {lastBy(x.n) && <p className="no-print mt-3 text-xs text-ink-muted">Last edited by {ROLE_LABEL[lastBy(x.n)!]}</p>}
                   </div>
                 )}
-                {!hidden && !isSignoff(x) && <SectionSign g={sigs[x.owner]} who={ROLE_PEOPLE[x.owner].person} />}
+                {!ips && !hidden && !isSignoff(x) && <SectionSign g={sigs[x.owner]} who={ROLE_PEOPLE[x.owner].person} />}
               </div>
             </section>
           );
@@ -174,7 +177,7 @@ export function PackDocument({ clientId, clientName, version, pack, approved }: 
       )}
 
       <footer className="mt-20 border-t border-hairline pt-4 text-xs text-ink-muted">
-        Geneva  ·  Quarterly Review Pack  ·  {clientName}  ·  {version}  ·  <Tagged text={approved ? "Final" : "Draft, not for client distribution"} />
+        Geneva  ·  {ips ? "Investment Policy Statement" : "Quarterly Review Pack"}  ·  {clientName}  ·  {version}  ·  <Tagged text={approved ? "Final" : "Draft, not for client distribution"} />
       </footer>
     </article>
   );
