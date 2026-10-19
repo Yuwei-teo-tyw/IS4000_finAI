@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import { AlertTriangle, Check, Lock, X } from "lucide-react";
 import { arcApi } from "../../services/arcApi";
 import { Badge, Button, Card, GateChip, Loading, NextAction, PageHeader, useAsync } from "../../components/ui";
-import { ProfileCarousel, ProfileEdit, SectionBlocksView, SectionBody, WordingCompare, composeProfile, packToSections, parseProfile, parseSaaLines, useSeededBlocks, withText, primaryText, fmtDate, SignoffBoxes, SourcesBoard, isSources, usePackStatus, isHiddenFor, PendingBox } from "./rmShared";
+import { ProfileCarousel, SectionBlocksView, SectionBody, WordingCompare, packToSections, useSeededBlocks, withText, primaryText, fmtDate, SignoffBoxes, SourcesBoard, isSources, usePackStatus, isHiddenFor, PendingBox } from "./rmShared";
 import { hasHeadings, parseBlocks, composeBlocks } from "../../services/packBlocks";
 import { PackDocument } from "./PackDocument";
 import { syncPackFromIc } from "../../components/ic/packSync";
@@ -34,8 +34,6 @@ export default function PackReview({ embedded = false, clientId: clientIdProp }:
   const [approved, setApproved] = useState(false);
   const [busy, setBusy] = useState(false);
   const [compare, setCompare] = useState<{ n: number; oldText: string; newText: string } | null>(null);
-  const [saaDraft, setSaaDraft] = useState<number[] | null>(null);
-  const [proposed, setProposed] = useState(false);
   const [polishErr, setPolishErr] = useState("");
   const sent = useReviewRequest(clientId);
   const finalisedByPs = useAllFinalised().some((f) => f.clientId === clientId);
@@ -87,18 +85,6 @@ export default function PackReview({ embedded = false, clientId: clientIdProp }:
   const allComplete = status.doneCount === status.total && status.total > 0;
   const flagged = s.status === "flagged";
   const compareHere = compare && compare.n === s.n ? compare : null;
-
-  const saaRows = alloc ?? [];
-  const proposal = parseSaaLines(parseProfile(textNow).saa);
-  const saaVals = saaDraft ?? saaRows.map((r) => proposal[r.assetClass] ?? r.saa);
-  const saaTotal = Math.round(saaVals.reduce((a, b) => a + b, 0) * 10) / 10;
-  const showSaa = onboarding && s.n === 1 && !!alloc;
-  const proposeSaa = () => {
-    const cur = parseProfile(textNow);
-    const lines = saaRows.map((r, i) => `${r.assetClass}: ${saaVals[i]}%`).join("\n");
-    saveSectionBlocks(clientId, 1, withText(blocks, composeProfile({ ...cur, saa: lines })), role);
-    setProposed(true);
-  };
 
   const runPolish = async () => {
     setBusy(true); setPolishErr("");
@@ -228,15 +214,11 @@ export default function PackReview({ embedded = false, clientId: clientIdProp }:
             <PendingBox owner={s.owner} />
           ) : compareHere ? (
             <WordingCompare oldText={compareHere.oldText} newText={compareHere.newText} onChangeNew={(t) => setCompare({ ...compareHere, newText: t })} onAccept={acceptPolish} onKeep={() => setCompare(null)} />
-          ) : editing && canEdit ? (
-            s.n === 1 ? (
-              <ProfileEdit key={clientId} clientId={clientId} blocks={blocks} onChange={(b) => saveSectionBlocks(clientId, 1, b, role)} />
-            ) : (
-              <BlockEditor clientId={clientId} section={s.n} blocks={blocks} onChange={(b) => saveSectionBlocks(clientId, s.n, b, role)} />
-            )
+          ) : editing && canEdit && s.n !== 1 ? (
+            <BlockEditor clientId={clientId} section={s.n} blocks={blocks} onChange={(b) => saveSectionBlocks(clientId, s.n, b, role)} />
           ) : (
             <div className="text-[17px] leading-8 text-ink-700">
-              {s.n === 1 ? <ProfileCarousel clientId={clientId} blocks={blocks} saa={showSaa ? { rows: saaRows, vals: saaVals, setVals: setSaaDraft } : undefined} />
+              {s.n === 1 ? <ProfileCarousel clientId={clientId} blocks={blocks} canEdit={canEdit} onChange={(b) => saveSectionBlocks(clientId, 1, b, role)} />
                 : isSources(s) ? pageExtras[s.n]
                 : pageExtras[s.n] ? <SectionBody n={s.n} text={textNow} extra={pageExtras[s.n]} />
                 : <SectionBlocksView blocks={blocks} clientId={clientId} />}
@@ -244,14 +226,9 @@ export default function PackReview({ embedded = false, clientId: clientIdProp }:
           )}
           {!hiddenS && !compareHere && (canEdit || canPolish || (isSources(s) && !approved)) && (
             <div className="flex flex-wrap items-center justify-between gap-4 border-t border-hairline pt-8">
-              <div>{(canEdit || isSources(s)) && <Button variant="secondary" onClick={() => setEditing(!editing)}>{editing ? "Done" : isSources(s) ? "Edit sources" : "Edit section"}</Button>}</div>
+              <div>{((canEdit && s.n !== 1) || isSources(s)) && <Button variant="secondary" onClick={() => setEditing(!editing)}>{editing ? "Done" : isSources(s) ? "Edit sources" : "Edit section"}</Button>}</div>
               {polishErr && <span className="text-xs text-negative" role="alert">{polishErr}</span>}
-              {showSaa && canPolish ? (
-                <span className="flex items-center gap-4">
-                  {proposed && <span className="text-xs text-ink-muted" role="status">Proposed SAA saved</span>}
-                  <Button disabled={saaTotal !== 100} onClick={proposeSaa}>Propose SAA</Button>
-                </span>
-              ) : canPolish && <ProfessionaliseButton onClick={runPolish} loading={busy} label="Professionalise" />}
+              {canPolish && <ProfessionaliseButton onClick={runPolish} loading={busy} label="Professionalise" />}
             </div>
           )}
           </div>
