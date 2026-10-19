@@ -3,6 +3,8 @@ import { useParams } from "react-router-dom";
 import { ChevronDown } from "lucide-react";
 import { arcApi } from "../../services/arcApi";
 import { BulletList, Button, Card, GateChip, Loading, NextAction, PageHeader, Section, Stepper, sgdFull, useAsync } from "../../components/ui";
+import { saveIcProgress, useIcProgress } from "../../services/workflowStore";
+import { SavedStatus, useAutoSave } from "../../components/ic/SavedStatus";
 import { Bar, BackLink, Msg, NumInput } from "./icHelpers";
 
 export const IC_STEPS = [{ label: "3L buckets", hint: "IPS part 2" }, { label: "SAA", hint: "IPS part 4" }, { label: "Send back to RM", hint: "Return to RM" }];
@@ -14,7 +16,10 @@ export default function ThreeLBuilder() {
   const ips = useAsync(() => arcApi.getIps(clientId), [clientId]);
   const [amounts, setAmounts] = useState<number[]>([]);
   const [open, setOpen] = useState(false);
-  useEffect(() => { if (buckets) setAmounts(buckets.map((b) => b.amountSgd)); }, [buckets]);
+  const progress = useIcProgress(clientId);
+  useEffect(() => { if (buckets) setAmounts(progress.threeL && progress.threeL.length === buckets.length ? progress.threeL : buckets.map((b) => b.amountSgd)); }, [buckets]); // eslint-disable-line react-hooks/exhaustive-deps
+  const dirty = !!buckets && amounts.length === buckets.length && amounts.some((a, i) => a !== (progress.threeL?.[i] ?? buckets[i].amountSgd));
+  useAutoSave(() => saveIcProgress(clientId, { threeL: amounts }), dirty, amounts);
   if (!client || !buckets || !ips) return <Loading />;
 
   const total = amounts.reduce((a, b) => a + b, 0);
@@ -23,6 +28,7 @@ export default function ThreeLBuilder() {
 
   return (
     <div>
+      <SavedStatus dirty={dirty} savedAt={progress.savedAt} />
       <PageHeader eyebrow={`${client.name} · Request`} title="Build the 3L buckets" subtitle="Split the portfolio into Liquidity, Longevity and Legacy." actions={<GateChip id="G2" state="not_started" />} />
       <Stepper steps={IC_STEPS} current={0} />
       <BackLink to="/ic/inbox">Back to inbox</BackLink>

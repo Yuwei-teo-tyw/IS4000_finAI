@@ -18,6 +18,7 @@ import IcMarketHealth from "../pages/ic/IcMarketHealth";
 import TaaWorkspace from "../pages/ic/TaaWorkspace";
 import IcHoldings from "../pages/ic/IcHoldings";
 import IcPack from "../pages/ic/IcPack";
+import IcIpsSaa from "../pages/ic/IcIpsSaa";
 import PsInbox from "../pages/ps/PsInbox";
 import MarketResearch from "../pages/ps/MarketResearch";
 import FinaliseProducts from "../pages/ps/FinaliseProducts";
@@ -78,6 +79,7 @@ export const router = createBrowserRouter([
       { path: "cases/:clientId/taa", element: <TaaWorkspace /> },
       { path: "cases/:clientId/holdings", element: <IcHoldings /> },
       { path: "cases/:clientId/pack", element: <IcPack /> },
+      { path: "cases/:clientId/ips", element: <IcIpsSaa /> },
     ],
   },
   {

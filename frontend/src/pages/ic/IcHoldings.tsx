@@ -4,7 +4,7 @@ import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import { arcApi } from "../../services/arcApi";
 import { saveIcProgress, useIcProgress } from "../../services/workflowStore";
 import { IcStepper } from "../../components/ic/IcStepper";
-import { SaveProgressButton } from "../../components/ic/SaveProgressButton";
+import { SavedStatus, useAutoSave } from "../../components/ic/SavedStatus";
 import { TaaPie } from "../../components/ic/TaaPie";
 import { Button, DirectionArrow, GateChip, Loading, NextAction, PageHeader, Table, useAsync } from "../../components/ui";
 import { syncPackFromIc } from "../../components/ic/packSync";
@@ -42,6 +42,10 @@ export default function IcHoldings() {
   }, [holdings, progress.holdings]);
   useEffect(() => { if (holdings) setW(base); }, [holdings]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const dirtyNow = !!holdings && holdings.some((h) => (w[h.id] ?? base[h.id]) !== base[h.id]);
+  const saveNow = () => { saveIcProgress(clientId, { holdings: { ...base, ...w } }); syncPackFromIc(clientId); };
+  useAutoSave(saveNow, dirtyNow, w);
+
   if (!holdings || !alloc) return <Loading />;
 
   const taa = alloc.map((r, i) => (progress.taa && progress.taa.length === alloc.length ? progress.taa[i] : r.newTaa));
@@ -51,11 +55,10 @@ export default function IcHoldings() {
   const classSum = (cls: string) => r1(sum(holdings.filter((h) => h.assetClass === cls).map((h) => cur(h.id))));
   const total = r1(sum(holdings.map((h) => cur(h.id))));
   const off = classes.filter((c) => target(c) !== undefined && Math.abs(classSum(c) - target(c)) > 0.05);
-  const dirty = holdings.some((h) => cur(h.id) !== base[h.id]);
-  const save = () => { saveIcProgress(clientId, { holdings: { ...base, ...w } }); syncPackFromIc(clientId); };
 
   return (
     <div>
+      <SavedStatus dirty={dirtyNow} savedAt={progress.savedAt} />
       <IcStepper clientId={clientId} current={3} />
       <BackLink to={`/ic/cases/${clientId}/taa`}>Back to TAA</BackLink>
       <PageHeader eyebrow="Quarterly review" title="Review client individual holdings" subtitle="Adjust each holding's weight so classes follow the TAA." actions={<GateChip id="G2" state="pending" />} />
@@ -101,8 +104,8 @@ export default function IcHoldings() {
           })}
         </div>
       </section>
-      <div className="mb-14 flex justify-end border-t border-hairline pt-8"><SaveProgressButton onSave={save} dirty={dirty} savedAt={progress.savedAt} /></div>
-      <NextAction title="Check the Review Pack" action={<Button variant="primary" onClick={() => { save(); navigate(`/ic/cases/${clientId}/pack`); }}>Check Review Pack</Button>} />
+      <div className="mb-14 border-t border-hairline" />
+      <NextAction title="Check the Review Pack" action={<Button variant="primary" onClick={() => { navigate(`/ic/cases/${clientId}/pack`); }}>Check Review Pack</Button>} />
     </div>
   );
 }

@@ -72,7 +72,7 @@ export const useActiveIps = (clientId: string): number | null => activeIps.use()
 export const setActiveIps = (clientId: string, version: number) => activeIps.write({ ...activeIps.read(), [clientId]: version });
 
 /* ---- 5. IC saved progress per client (products ticked for the TAA, TAA values); section text goes through packDraftStore ---- */
-export interface IcProgress { products?: string[]; taa?: number[]; /** IC's written reason per asset class (keyed by assetClass) for the TAA change */ taaReasons?: Record<string, string>; /** edited holding weights (% of portfolio) by holding id */ holdings?: Record<string, number>; savedAt?: string }
+export interface IcProgress { products?: string[]; taa?: number[]; /** IC's written reason per asset class (keyed by assetClass) for the TAA change */ taaReasons?: Record<string, string>; /** edited holding weights (% of portfolio) by holding id */ holdings?: Record<string, number>; /** onboarding request builders: 3L bucket amounts, SAA split and chosen template */ threeL?: number[]; saa?: number[]; saaTemplate?: string; savedAt?: string }
 const icProgress = createStore<Record<string, IcProgress>>("wf-ic-progress", {});
 export const useIcProgress = (clientId: string): IcProgress => icProgress.use()[clientId] ?? {};
 export const loadIcProgress = (clientId: string): IcProgress => icProgress.read()[clientId] ?? {};
@@ -108,6 +108,7 @@ export const withdrawIpsToIc = (clientId: string) => ipsRequests.write(ipsReques
 
 const ipsIcHandover = createStore<Record<string, IcHandover>>("wf-ips-ic-handover", {});
 export const useIpsIcHandover = (clientId: string): IcHandover | undefined => ipsIcHandover.use()[clientId];
+export const useIpsIcHandovers = (): Record<string, IcHandover> => ipsIcHandover.use();
 export const sendIpsIcToRm = (clientId: string) => {
   recordPackEdit(ipsKey(clientId), 0, "ic", "Handed over to Relationship Manager");
   ipsIcHandover.write({ ...ipsIcHandover.read(), [clientId]: { sentAt: new Date().toISOString() } });

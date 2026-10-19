@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { arcApi } from "../../services/arcApi";
 import { BulletTextarea, Button, CitationTag, GateChip, Loading, NextAction, PageHeader, Section, toBulletItems, useAsync } from "../../components/ui";
-import { SaveProgressButton } from "../../components/ic/SaveProgressButton";
+import { SavedStatus, useAutoSave } from "../../components/ic/SavedStatus";
 import { loadPackDrafts, savePackDraft } from "../../services/packDraftStore";
 import { IcStepper } from "../../components/ic/IcStepper";
 import { TaaPie } from "../../components/ic/TaaPie";
@@ -54,25 +54,28 @@ export default function IcMarketHealth() {
   const pack = useAsync(() => arcApi.getPack(clientId), [clientId]);
   const [step, setStep] = useState(2);
   const [vals, setVals] = useState<Record<number, Record<string, string>>>({});
-  const [dirty, setDirty] = useState(false);
+  const [dirty, setDirty] = useState<Record<number, boolean>>({});
   const [savedAt, setSavedAt] = useState<string | undefined>();
+  const anyDirty = Object.values(dirty).some(Boolean);
   useEffect(() => {
     if (!pack || !alloc) return;
     const d = loadPackDrafts(clientId);
     setVals(Object.fromEntries([2, 3].map((n) => [n, seed(n, d[n] ?? (clientId === "jfr" ? pack.find((s) => s.n === n)?.body : "") ?? "")])));
-    setDirty(false);
+    setDirty({});
   }, [pack, clientId]);
+  const save = () => {
+    [2, 3].filter((n) => dirty[n]).forEach((n) => savePackDraft(clientId, n, composeBlocks(TOPICS[n].map((t) => [t.heading, vals[n]?.[t.heading] ?? ""])), "ic"));
+    setDirty({}); setSavedAt(new Date().toISOString());
+  };
+  useAutoSave(save, anyDirty, vals);
   if (!pack || !alloc) return <Loading />;
   const topics = TOPICS[step];
   const cur = vals[step] ?? {};
   const all = topics.map((t) => cur[t.heading] ?? "").join("\n");
   const { tags } = splitCitations(all);
-  const save = () => {
-    [2, 3].forEach((n) => savePackDraft(clientId, n, composeBlocks(TOPICS[n].map((t) => [t.heading, vals[n]?.[t.heading] ?? ""])), "ic"));
-    setDirty(false); setSavedAt(new Date().toISOString());
-  };
   return (
     <div>
+      <SavedStatus dirty={anyDirty} savedAt={savedAt} />
       <IcStepper clientId={clientId} current={1} />
       <BackLink to={`/ic/cases/${clientId}/products`}>Back</BackLink>
       <PageHeader eyebrow="Quarterly review" title="Market view and portfolio health" actions={<GateChip id="G2" state="pending" />} />
@@ -99,14 +102,13 @@ export default function IcMarketHealth() {
               <label htmlFor={`f-${step}-${t.heading}`} className="block text-base font-normal text-ink">{t.heading}</label>
               <p className="mb-3 mt-1 text-sm font-light text-ink-muted">{t.help}</p>
               <BulletTextarea id={`f-${step}-${t.heading}`} rows={5} value={cur[t.heading] ?? ""}
-                onChange={(v) => { setVals({ ...vals, [step]: { ...cur, [t.heading]: v } }); setDirty(true); }} />
+                onChange={(v) => { setVals({ ...vals, [step]: { ...cur, [t.heading]: v } }); setDirty({ ...dirty, [step]: true }); }} />
             </div>
           ))}
         </div>
         <p className="mt-4 text-xs text-ink-muted">Sources: {tags.map((t) => <CitationTag key={t} tag={t} />)}</p>
       </Section>
       <div className="mb-12 flex flex-wrap items-center gap-4">
-        <SaveProgressButton onSave={save} dirty={dirty} savedAt={savedAt} />
         {step === 2 && <Button variant="secondary" onClick={() => setStep(3)}>Next: portfolio health</Button>}
       </div>
       <NextAction title="Set the tactical allocation" action={<Button variant="primary" onClick={() => nav(`/ic/cases/${clientId}/taa`)}>Continue to TAA</Button>} />

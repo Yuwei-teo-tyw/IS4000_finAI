@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { arcApi } from "../../services/arcApi";
 import { Badge, Button, Card, GateChip, Loading, NextAction, PageHeader, Section, Stepper, Table, useAsync } from "../../components/ui";
+import { saveIcProgress, useIcProgress } from "../../services/workflowStore";
+import { SavedStatus, useAutoSave } from "../../components/ic/SavedStatus";
 import { ASSETS, BackLink, Msg, NumInput, growthLimit, growthShare, sum } from "./icHelpers";
 import { IC_STEPS } from "./ThreeLBuilder";
 
@@ -15,7 +17,16 @@ export default function SaaBuilder() {
   const [tid, setTid] = useState("C");
   const [vals, setVals] = useState<number[]>([]);
   const [sent, setSent] = useState(false);
-  useEffect(() => { if (templates) setVals([...templates.find((t) => t.id === "C")!.split]); }, [templates]);
+  const progress = useIcProgress(clientId);
+  useEffect(() => {
+    if (!templates) return;
+    const t0 = progress.saaTemplate && templates.some((t) => t.id === progress.saaTemplate) ? progress.saaTemplate : "C";
+    setTid(t0);
+    setVals(progress.saa && progress.saa.length === ASSETS.length ? progress.saa : [...templates.find((t) => t.id === t0)!.split]);
+  }, [templates]); // eslint-disable-line react-hooks/exhaustive-deps
+  const baseSplit = progress.saa && progress.saa.length === ASSETS.length ? progress.saa : templates?.find((t) => t.id === (progress.saaTemplate ?? "C"))?.split;
+  const dirty = !!baseSplit && vals.length === ASSETS.length && ((progress.saaTemplate ?? "C") !== tid || vals.some((v, i) => v !== baseSplit[i]));
+  useAutoSave(() => saveIcProgress(clientId, { saa: vals, saaTemplate: tid }), dirty, [vals, tid]);
   if (!client || !templates) return <Loading />;
 
   const tpl = templates.find((t) => t.id === tid)!;
@@ -29,6 +40,7 @@ export default function SaaBuilder() {
 
   return (
     <div>
+      <SavedStatus dirty={dirty} savedAt={progress.savedAt} />
       <PageHeader eyebrow={`${client.name} · Request`} title="Build the SAA" subtitle="Choose a template to start." actions={<GateChip id="G2" state={sent ? "pending" : "not_started"} />} />
       <Stepper steps={IC_STEPS} current={sent ? 2 : 1} />
       <BackLink to={`/ic/requests/${clientId}/3l`}>Back to 3L</BackLink>

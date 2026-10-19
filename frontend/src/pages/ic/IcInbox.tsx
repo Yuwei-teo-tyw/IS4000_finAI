@@ -1,7 +1,7 @@
 import InboxList, { type InboxRow } from "../../components/inbox/InboxList";
 import { arcApi } from "../../services/arcApi";
 import { useAsync } from "../../components/ui";
-import { useAllFinalised } from "../../services/workflowStore";
+import { useAllFinalised, useIpsIcHandovers, useIpsRequests } from "../../services/workflowStore";
 import { setActiveClientId } from "../../layouts/navConfig";
 
 const isOnboarding = (kind?: string) => /^onboarding/i.test(kind ?? "");
@@ -10,6 +10,8 @@ export default function IcInbox() {
   const clients = useAsync(() => arcApi.listClients());
   const seeded = useAsync(() => arcApi.getInbox("ic"));
   const finalised = useAllFinalised();
+  const ipsRequests = useIpsRequests();
+  const ipsSent = useIpsIcHandovers();
   const items: InboxRow[] | null = clients && seeded
     ? [
         ...seeded.flatMap((s) => {
@@ -23,13 +25,18 @@ export default function IcInbox() {
             ? [{ id: c.id, clientId: c.id, clientName: c.name, priority: "normal" as const, nextMeeting: c.nextMeeting, kind: "Quarterly review" }]
             : [];
         }),
+        // IPS requests handed over by the RM: their own rows, separate from review-pack requests.
+        ...ipsRequests.flatMap((q) => {
+          const c = clients.find((x) => x.id === q.clientId);
+          return c ? [{ id: `ips-${c.id}`, clientId: c.id, clientName: c.name, priority: "normal" as const, nextMeeting: c.nextMeeting, kind: ipsSent[c.id] ? "IPS: sent to RM" : "IPS: propose SAA", finished: !!ipsSent[c.id] }] : [];
+        }),
       ]
     : null;
   return (
     <InboxList items={items} eyebrow="Investment Counsellor" title="Your inbox"
       listTitle="Requests"
-      openTo={(i) => (isOnboarding(i.kind) ? `/ic/requests/${i.clientId}/3l` : `/ic/cases/${i.clientId}/products`)}
-      onOpen={(i) => setActiveClientId(i.clientId)}
+      openTo={(i) => (i.id.startsWith("ips-") ? `/ic/cases/${i.clientId}/ips` : isOnboarding(i.kind) ? `/ic/requests/${i.clientId}/3l` : `/ic/cases/${i.clientId}/products`)}
+      onOpen={(i) => setActiveClientId(i.clientId)} showFilter finishedLabel="Sent"
       openedNote="Waiting for IC" highNote="Do these first" />
   );
 }

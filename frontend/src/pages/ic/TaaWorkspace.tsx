@@ -4,7 +4,7 @@ import { arcApi } from "../../services/arcApi";
 import { AlertTriangle, ChevronDown, ChevronRight } from "lucide-react";
 import { syncPackFromIc } from "../../components/ic/packSync";
 import { TaaPie } from "../../components/ic/TaaPie";
-import { SaveProgressButton } from "../../components/ic/SaveProgressButton";
+import { SavedStatus, useAutoSave } from "../../components/ic/SavedStatus";
 import { saveIcProgress, useIcProgress } from "../../services/workflowStore";
 import { Badge, BulletList, DirectionArrow, BulletTextarea, Button, CitationTag, GateChip, Loading, NextAction, PageHeader, Section, useAsync } from "../../components/ui";
 import { IcStepper } from "../../components/ic/IcStepper";
@@ -23,17 +23,17 @@ export default function TaaWorkspace() {
   const [open, setOpen] = useState<Record<string, boolean>>({});
   useEffect(() => { if (rows) setReasons(Object.fromEntries(rows.map((r) => [r.assetClass, progress.taaReasons?.[r.assetClass] ?? r.reason]))); }, [rows]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (rows) setVals(saved && saved.length === rows.length ? saved : rows.map((r) => r.newTaa)); }, [rows]); // eslint-disable-line react-hooks/exhaustive-deps
+  const baseNow = rows ? (saved && saved.length === rows.length ? saved : rows.map((r) => r.newTaa)) : [];
+  const dirtyNow = !!rows && vals.length > 0 && (vals.some((v, i) => v !== baseNow[i]) || rows.some((r) => (reasons[r.assetClass] ?? r.reason) !== (progress.taaReasons?.[r.assetClass] ?? r.reason)));
+  useAutoSave(() => { saveIcProgress(clientId, { taa: vals, taaReasons: reasons }); syncPackFromIc(clientId); }, dirtyNow, [vals, reasons]);
   if (!rows) return <Loading />;
 
   const out = rows.filter((r, i) => Math.abs(vals[i] - r.saa) > r.band);
   const total = sum(vals);
-  const base = saved && saved.length === rows.length ? saved : rows.map((r) => r.newTaa);
-  const savedReason = (r: { assetClass: string; reason: string }) => progress.taaReasons?.[r.assetClass] ?? r.reason;
-  const dirty = vals.length > 0 && (vals.some((v, i) => v !== base[i]) || rows.some((r) => (reasons[r.assetClass] ?? r.reason) !== savedReason(r)));
-  const save = () => { saveIcProgress(clientId, { taa: vals, taaReasons: reasons }); syncPackFromIc(clientId); };
 
   return (
     <div>
+      <SavedStatus dirty={dirtyNow} savedAt={progress.savedAt} />
       <IcStepper clientId={clientId} current={2} />
       <BackLink to={`/ic/cases/${clientId}/market-health`}>Back to market view and portfolio health</BackLink>
       <PageHeader eyebrow="Quarterly review" title="Tactical asset allocation" actions={<GateChip id="G2" state="pending" />} />
@@ -113,10 +113,9 @@ export default function TaaWorkspace() {
           </div>
         </div>
       </Section>
-      <div className="mt-8"><SaveProgressButton onSave={save} dirty={dirty} savedAt={progress.savedAt} /></div>
       <div className="mt-10" />
       <NextAction title="Next: review client holdings"
-        action={<Button variant="primary" onClick={() => { save(); navigate(`/ic/cases/${clientId}/holdings`); }}>Review Client Individual Holdings</Button>} />
+        action={<Button variant="primary" onClick={() => { navigate(`/ic/cases/${clientId}/holdings`); }}>Review Client Individual Holdings</Button>} />
     </div>
   );
 }

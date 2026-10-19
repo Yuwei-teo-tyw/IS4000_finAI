@@ -5,6 +5,7 @@ import type { DocSection } from "../../components/export/CompiledDocument";
 import { parseBlocks, hasHeadings, composeBlocks } from "../../services/packBlocks";
 import { ROLE_LABEL, type AllocationRow, type IpsPart, type PackBlock, type PackSection, type Role } from "../../types/arc";
 import { ROLE_PEOPLE } from "../../layouts/navConfig";
+import { useRole } from "../../layouts/AppShell";
 import { BlockEditor, BlockItem, newBlockId, useSectionBlocks } from "../../components/documents/pack";
 import { SaaDonut } from "../../components/documents/ips/charts";
 import { loadPackDrafts, loadRawBlocks, loadSignatures, savePackDraft, subscribePackDrafts, subscribeSignatures, useSectionDone, type PackSignatures as Sigs } from "../../services/packDraftStore";
@@ -469,14 +470,15 @@ export function usePackStatus(clientId: string) {
   const sent = !!useReviewRequest(clientId);
   const finalisedByPs = useAllFinalised().some((f) => f.clientId === clientId);
   const icHandedOver = !!useIcHandover(clientId);
+  const viewer = useRole(); // a role always sees the ticks for sections it has marked done itself
   const complete: Record<number, boolean> = {};
   (pack ?? []).forEach((x) => {
     const text = (drafts[x.n] ?? x.body).trim();
     const marked = !!done[x.n]?.done;
     if (x.kind === "signoff") complete[x.n] = ["rm", "ic", "ps"].every((r) => sigs[r]);
-    else if (isSources(x)) complete[x.n] = marked && (x.owner === "ps" ? finalisedByPs : sent || finalisedByPs);
-    else if (x.owner === "ps") complete[x.n] = marked && finalisedByPs && !!text;
-    else if (x.owner === "ic") complete[x.n] = marked && icHandedOver && !!text;
+    else if (isSources(x)) complete[x.n] = marked && (x.owner === "ps" ? finalisedByPs || viewer === "ps" : sent || finalisedByPs || viewer === "rm");
+    else if (x.owner === "ps") complete[x.n] = marked && (finalisedByPs || viewer === "ps") && !!text;
+    else if (x.owner === "ic") complete[x.n] = marked && (icHandedOver || viewer === "ic") && !!text;
     else complete[x.n] = marked && !!text;
   });
   const total = pack?.length ?? 0;
