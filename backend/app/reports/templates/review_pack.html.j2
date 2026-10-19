@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{{ doc.title }} · {{ doc.client_name }}</title>
+<style>
+  :root { --ink:#1c1c1c; --muted:#5c5a55; --hair:#dcdad3; --brand:#e60000; --neg:#b3001b; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:#fff; color:var(--ink); font-family:'Source Sans 3','Frutiger','Segoe UI',system-ui,sans-serif; font-weight:300; }
+  article { max-width:980px; margin:0 auto; padding:56px 56px 40px; }
+  .brand { font-size:13px; letter-spacing:.3em; text-transform:uppercase; margin-bottom:40px; }
+  h1 { font-size:34px; line-height:40px; font-weight:300; margin:0; overflow-wrap:anywhere; }
+  .rule { height:1px; background:var(--brand); margin:16px 0 24px; }
+  dl.meta { display:grid; grid-template-columns:repeat(3,1fr); gap:24px; margin:0 0 48px; }
+  dt { font-size:12px; text-transform:uppercase; letter-spacing:.12em; color:var(--muted); }
+  dd { margin:4px 0 0; font-size:16px; }
+  .draft { border:1px dashed var(--neg); color:var(--neg); text-align:center; padding:14px 24px; margin-bottom:32px; font-size:13px; letter-spacing:.2em; text-transform:uppercase; }
+  .draft small { display:block; margin-top:4px; letter-spacing:0; text-transform:none; font-size:12px; }
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:48px 48px; }
+  section { min-width:0; break-inside:avoid; }
+  section.wide { grid-column:1 / -1; }
+  .head { display:flex; justify-content:space-between; align-items:baseline; gap:12px; border-top:1px solid var(--ink); padding-top:14px; }
+  h2 { font-size:22px; font-weight:300; margin:0; }
+  h2 .n { font-size:14px; color:var(--muted); margin-right:12px; }
+  .status { border:1px solid var(--ink); padding:3px 12px; font-size:11px; letter-spacing:.14em; text-transform:uppercase; white-space:nowrap; }
+  .status.pending { border-style:dashed; border-color:var(--neg); color:var(--neg); }
+  .owner { font-size:12px; color:var(--muted); margin:8px 0 18px; }
+  .body { font-size:15px; line-height:28px; overflow-wrap:anywhere; }
+  .body ul { margin:0; padding-left:20px; } .body li { margin-bottom:6px; }
+  .cite { font-size:11px; background:#f3f2ee; padding:1px 6px; margin-left:4px; font-family:ui-monospace,Menlo,monospace; }
+  .placeholder { border:1px dashed var(--hair); background:#f9f9f7; text-align:center; color:var(--muted); font-size:14px; padding:40px 24px; }
+  /* text + chart side by side */
+  .with-chart { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.5fr); gap:40px; align-items:start; }
+  .chart-title { font-size:12px; text-transform:uppercase; letter-spacing:.12em; color:var(--muted); margin:0 0 12px; }
+  .saa-grid { display:grid; grid-template-columns:190px 1fr; gap:24px; }
+  .legend, .bands { list-style:none; margin:0; padding:0; font-size:13px; }
+  .legend li { display:flex; align-items:center; gap:8px; margin-top:4px; } .legend b { margin-left:auto; font-weight:300; }
+  .legend i, .chart-key i { display:inline-block; width:12px; height:12px; }
+  .bands li { border-bottom:1px solid var(--hair); padding:0 0 8px; margin-bottom:8px; } .bands span { color:var(--muted); }
+  .taa-row { display:grid; grid-template-columns:110px 1fr 90px; gap:10px; align-items:center; font-size:13px; margin-bottom:8px; }
+  .taa-bars .bar { height:8px; margin:2px 0; } .bar.old, i.old { background:#d0cec5; } .bar.new, i.new { background:#a06a50; }
+  .taa-val { text-align:right; } .chart-key { font-size:12px; color:var(--muted); } .chart-key i { margin:0 4px 0 12px; }
+  .sigs { display:grid; grid-template-columns:repeat(3,1fr); gap:32px; margin-top:24px; }
+  .sig-label { font-size:12px; text-transform:uppercase; letter-spacing:.12em; color:var(--muted); }
+  .sig-box { height:100px; margin-top:10px; border:1px dashed #858279; background:#f9f9f7; display:flex; align-items:center; justify-content:center; overflow:hidden; font-size:12px; color:var(--muted); }
+  .sig-box.signed { border:1px solid var(--hair); background:#fff; } .sig-box img { max-width:100%; max-height:100%; }
+  .sig-when { font-size:11px; color:var(--muted); margin-top:6px; }
+  footer { margin-top:56px; border-top:1px solid var(--hair); padding-top:14px; font-size:12px; color:var(--muted); }
+  @media (max-width:760px) { .grid, .with-chart, .saa-grid { grid-template-columns:1fr; } article { padding:32px 20px; } }
+  @media print { article { padding:0; max-width:none; } @page { margin:16mm; } }
+</style>
+</head>
+<body>
+{% set pending = sections | rejectattr('complete') | list %}
+<article>
+  <div class="brand">Geneva</div>
+  {% if pending %}
+  <div class="draft">Draft, incomplete
+    <small>{{ pending | length }} section{{ 's' if pending | length > 1 }} still to be completed by {{ pending | map(attribute='owner_label') | unique | join(' and ') }}.</small>
+  </div>
+  {% endif %}
+  <h1>{{ doc.title }}</h1>
+  <div class="rule"></div>
+  <dl class="meta">
+    <div><dt>Client</dt><dd>{{ doc.client_name }}</dd></div>
+    <div><dt>Version</dt><dd>{{ doc.version }}</dd></div>
+    <div><dt>Date</dt><dd>{{ doc.date }}</dd></div>
+  </dl>
+
+  <div class="grid">
+  {% for s in sections %}
+    <section class="{{ 'wide' if s.wide }}">
+      <div class="head">
+        <h2><span class="n">{{ '%02d' | format(s.n) }}</span>{{ s.title }}</h2>
+        <span class="status {{ '' if s.complete else 'pending' }}">{{ 'Complete' if s.complete else 'Pending' }}</span>
+      </div>
+      <p class="owner">{{ s.owner_label }}</p>
+
+      {% if not s.complete %}
+        <div class="placeholder">To be completed by {{ s.owner_label }}</div>
+      {% else %}
+        {# text placeholder #}
+        {% macro text_block() %}
+          <div class="body">
+            <ul>{% for line in s.text | bullets %}<li>{{ line | tagged }}</li>{% endfor %}</ul>
+          </div>
+        {% endmacro %}
+
+        {% if s.chart %}
+          {# chart placeholder: text and chart side by side #}
+          <div class="with-chart">{{ text_block() }}<div>{{ chart(s.chart) }}</div></div>
+        {% else %}
+          {{ text_block() }}
+        {% endif %}
+
+        {% if s.kind == 'signoff' %}
+          <div class="sigs">
+          {% for role, label in [('ps','Product Specialist'),('ic','Investment Counsellor'),('rm','Relationship Manager')] %}
+            <div>
+              <div class="sig-label">{{ label }}</div>
+              {% if role in signatures %}
+                <div class="sig-box signed"><img src="{{ signatures[role].data_url }}" alt="Signature, {{ label }}"></div>
+                <div class="sig-when">{{ signatures[role].signed_at }}</div>
+              {% else %}<div class="sig-box">Not yet signed</div>{% endif %}
+            </div>
+          {% endfor %}
+          </div>
+        {% endif %}
+      {% endif %}
+    </section>
+  {% endfor %}
+  </div>
+
+  <footer>Geneva · {{ doc.title }} · {{ doc.client_name }} · {{ doc.version }} · {{ 'Draft, not for client distribution' if pending else 'Final' }}</footer>
+</article>
+</body>
+</html>
