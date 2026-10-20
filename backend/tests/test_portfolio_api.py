@@ -2,7 +2,7 @@
 Portfolio Manager HTTP contract: health, generate, retrieval, request
 validation and error handling.
 """
-from portfolio_helpers import BASE, GENERATE, assert_reconciles, make_client, offered, request_with, sample_request
+from portfolio_helpers import BASE, GENERATE, assert_reconciles, make_client, mock_products, offered, request_with, sample_request
 
 
 def test_health():
@@ -99,7 +99,7 @@ def test_validation_errors_do_not_echo_client_values():
 def test_response_includes_candidate_shelf_with_screening_outcomes():
     body = make_client().post(GENERATE, json=request_with("PM-CAND")).json()
     cands = {c["product_id"]: c for c in body["candidate_products"]}
-    assert len(cands) == 20  # every product the Product Specialist supplied
+    assert len(cands) == len(mock_products()["products"])  # every product on the shared shelf
     assert cands["MOCK-CORP-003"]["screening_status"] == "EXCLUDED"
     assert "accredited" in cands["MOCK-CORP-003"]["exclusion_reason"]
     selected = {s["product_id"] for o in offered(body) for s in o["product_selections"]}

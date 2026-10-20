@@ -17,6 +17,7 @@ from app.agents.portfolio_manager.explain.llm_client import LLMUnavailable
 from app.agents.portfolio_manager.schemas.upstream import UpstreamResult
 from app.agents.portfolio_manager.service import PortfolioService
 from app.agents.portfolio_manager.upstream import market_analysis, product_specialist
+from app.agents.product_recommender import shelf
 from app.endpoints.portfolio_manager import install_validation_handler, router
 
 SAMPLE_REQUEST = (Path(__file__).resolve().parent.parent / "app" / "agents" / "portfolio_manager"
@@ -69,7 +70,7 @@ def mock_market() -> dict:
 
 
 def mock_products() -> dict:
-    return json.loads(product_specialist._MOCK_PATH.read_text(encoding="utf-8"))
+    return json.loads(shelf.SHELF_PATH.read_text(encoding="utf-8"))
 
 
 def market_fetcher_from(raw_or_exc):

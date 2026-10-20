@@ -1,11 +1,11 @@
 {
-  "_notice": "ILLUSTRATIVE MOCK DATA. These are fictional products. Returns, yields, fees, ratings and availability are invented for prototype testing and must not be presented as real product information.",
+  "_notice": "ILLUSTRATIVE MOCK DATA. These are fictional products. Returns, yields, fees, ratings and availability are invented for prototype testing and must not be presented as real product information. This is the single shelf shared by the Product Recommender and the Portfolio Manager.",
   "is_illustrative": true,
   "as_of_date": "2026-09-30",
   "base_currency": "SGD",
   "data_sources": [
     {
-      "name": "Illustrative mock product shelf for Portfolio Manager prototype",
+      "name": "Illustrative mock product shelf (Product Recommender)",
       "source_type": "MOCK",
       "retrieved_at": "2026-09-30T00:00:00Z"
     }
@@ -57,7 +57,10 @@
       "product_source": "MOCK",
       "as_of_date": "2026-09-30",
       "data_completeness": "COMPLETE",
-      "is_illustrative": true
+      "is_illustrative": true,
+      "why_buy": "Daily dealing and a stable value make it a home for cash that may be needed soon.",
+      "suitability_note": "Suits any risk level; yield falls as policy rates are cut.",
+      "rating": 4
     },
     {
       "product_id": "MOCK-CASH-002",
@@ -96,7 +99,10 @@
       "product_source": "MOCK",
       "as_of_date": "2026-09-30",
       "data_completeness": "COMPLETE",
-      "is_illustrative": true
+      "is_illustrative": true,
+      "why_buy": "Locks in today's deposit rate for six months with no price risk.",
+      "suitability_note": "Funds are tied up until maturity; suits a known cash need beyond six months.",
+      "rating": 3
     },
     {
       "product_id": "MOCK-GOVT-001",
@@ -139,7 +145,10 @@
       "product_source": "MOCK",
       "as_of_date": "2026-09-30",
       "data_completeness": "COMPLETE",
-      "is_illustrative": true
+      "is_illustrative": true,
+      "why_buy": "Singapore government credit with medium duration, in the client's base currency.",
+      "suitability_note": "Price moves with SGD rates; no currency risk for SGD clients.",
+      "rating": 4
     },
     {
       "product_id": "MOCK-GOVT-002",
@@ -182,7 +191,10 @@
       "product_source": "MOCK",
       "as_of_date": "2026-09-30",
       "data_completeness": "COMPLETE",
-      "is_illustrative": true
+      "is_illustrative": true,
+      "why_buy": "Very short government bills: low price risk and daily dealing.",
+      "suitability_note": "A cash alternative for conservative clients; little upside if rates fall.",
+      "rating": 4
     },
     {
       "product_id": "MOCK-GOVT-003",
@@ -225,7 +237,10 @@
       "product_source": "MOCK",
       "as_of_date": "2026-09-30",
       "data_completeness": "COMPLETE",
-      "is_illustrative": true
+      "is_illustrative": true,
+      "why_buy": "US Treasury duration with the currency risk hedged back to SGD.",
+      "suitability_note": "Benefits most if US rates fall; hedging cost reduces the yield.",
+      "rating": 4
     },
     {
       "product_id": "MOCK-CORP-001",
@@ -274,7 +289,10 @@
       "product_source": "MOCK",
       "as_of_date": "2026-09-30",
       "data_completeness": "COMPLETE",
-      "is_illustrative": true
+      "is_illustrative": true,
+      "why_buy": "Asian investment-grade income, hedged to SGD.",
+      "suitability_note": "Adds credit risk over government bonds; not ESG-screened.",
+      "rating": 4
     },
     {
       "product_id": "MOCK-CORP-002",
@@ -324,7 +342,10 @@
       "product_source": "MOCK",
       "as_of_date": "2026-09-30",
       "data_completeness": "COMPLETE",
-      "is_illustrative": true
+      "is_illustrative": true,
+      "why_buy": "Broad global investment-grade credit at low cost, with an ESG screen.",
+      "suitability_note": "Unhedged USD exposure adds currency risk for SGD clients.",
+      "rating": 4
     },
     {
       "product_id": "MOCK-CORP-003",
@@ -363,7 +384,10 @@
       "product_source": "MOCK",
       "as_of_date": "2026-09-30",
       "data_completeness": "COMPLETE",
-      "is_illustrative": true
+      "is_illustrative": true,
+      "why_buy": "Higher fixed yield from a senior note held to maturity.",
+      "suitability_note": "Accredited investors only; three-year lock-in.",
+      "rating": 3
     },
     {
       "product_id": "MOCK-EQ-001",
@@ -416,7 +440,10 @@
       "product_source": "MOCK",
       "as_of_date": "2026-09-30",
       "data_completeness": "COMPLETE",
-      "is_illustrative": true
+      "is_illustrative": true,
+      "why_buy": "Core developed-market equity exposure in one low-cost holding.",
+      "suitability_note": "Unhedged USD; technology-heavy; large swings in sell-offs.",
+      "rating": 5
     },
     {
       "product_id": "MOCK-EQ-002",
@@ -464,7 +491,10 @@
       "product_source": "MOCK",
       "as_of_date": "2026-09-30",
       "data_completeness": "COMPLETE",
-      "is_illustrative": true
+      "is_illustrative": true,
+      "why_buy": "Singapore equities with a high dividend yield and no currency risk.",
+      "suitability_note": "Concentrated in banks and REITs.",
+      "rating": 3
     },
     {
       "product_id": "MOCK-EQ-003",
@@ -516,7 +546,10 @@
       "product_source": "MOCK",
       "as_of_date": "2026-09-30",
       "data_completeness": "COMPLETE",
-      "is_illustrative": true
+      "is_illustrative": true,
+      "why_buy": "Global equities with an ESG screen, hedged to SGD.",
+      "suitability_note": "Higher fee than index funds; growth and technology tilt.",
+      "rating": 4
     },
     {
       "product_id": "MOCK-DIV-001",
@@ -567,7 +600,10 @@
       "product_source": "MOCK",
       "as_of_date": "2026-09-30",
       "data_completeness": "COMPLETE",
-      "is_illustrative": true
+      "is_illustrative": true,
+      "why_buy": "Asia Pacific dividend payers for equity income.",
+      "suitability_note": "Regional concentration; not ESG-screened.",
+      "rating": 3
     },
     {
       "product_id": "MOCK-DIV-002",
@@ -617,7 +653,10 @@
       "product_source": "MOCK",
       "as_of_date": "2026-09-30",
       "data_completeness": "COMPLETE",
-      "is_illustrative": true
+      "is_illustrative": true,
+      "why_buy": "Quality dividend payers, hedged to SGD, with lower swings than broad equities.",
+      "suitability_note": "Lags in strong growth-led rallies.",
+      "rating": 4
     },
     {
       "product_id": "MOCK-GOLD-001",
@@ -660,7 +699,10 @@
       "product_source": "MOCK",
       "as_of_date": "2026-09-30",
       "data_completeness": "COMPLETE",
-      "is_illustrative": true
+      "is_illustrative": true,
+      "why_buy": "Physical gold as a diversifier when real yields fall or markets are stressed.",
+      "suitability_note": "Unhedged USD; no income.",
+      "rating": 4
     },
     {
       "product_id": "MOCK-REIT-001",
@@ -704,7 +746,10 @@
       "product_source": "MOCK",
       "as_of_date": "2026-09-30",
       "data_completeness": "COMPLETE",
-      "is_illustrative": true
+      "is_illustrative": true,
+      "why_buy": "Singapore REIT income with daily dealing.",
+      "suitability_note": "Sensitive to interest rates; concentrated in one market.",
+      "rating": 3
     },
     {
       "product_id": "MOCK-REIT-002",
@@ -741,7 +786,10 @@
       "product_source": "MOCK",
       "as_of_date": "2026-03-31",
       "data_completeness": "PARTIAL",
-      "is_illustrative": true
+      "is_illustrative": true,
+      "why_buy": "Asian property income from an actively managed fund.",
+      "suitability_note": "Weekly dealing; risk data incomplete.",
+      "rating": 2
     },
     {
       "product_id": "MOCK-HF-001",
@@ -786,7 +834,10 @@
       "product_source": "MOCK",
       "as_of_date": "2026-09-30",
       "data_completeness": "COMPLETE",
-      "is_illustrative": true
+      "is_illustrative": true,
+      "why_buy": "Liquid multi-strategy alternative that aims for returns with low links to equities.",
+      "suitability_note": "High fee; weekly dealing.",
+      "rating": 3
     },
     {
       "product_id": "MOCK-HF-002",
@@ -831,7 +882,10 @@
       "product_source": "MOCK",
       "as_of_date": "2026-09-30",
       "data_completeness": "COMPLETE",
-      "is_illustrative": true
+      "is_illustrative": true,
+      "why_buy": "Diversified hedge-fund exposure across managers.",
+      "suitability_note": "Accredited investors only; one-year lock-in; quarterly dealing.",
+      "rating": 3
     },
     {
       "product_id": "MOCK-PM-001",
@@ -880,7 +934,10 @@
       "product_source": "MOCK",
       "as_of_date": "2026-09-30",
       "data_completeness": "COMPLETE",
-      "is_illustrative": true
+      "is_illustrative": true,
+      "why_buy": "Private equity growth through an evergreen, semi-liquid structure.",
+      "suitability_note": "Highest risk on the shelf; one-year lock-in; appraisal-based pricing understates swings.",
+      "rating": 3
     },
     {
       "product_id": "MOCK-PM-002",
@@ -927,7 +984,150 @@
       "product_source": "MOCK",
       "as_of_date": "2026-09-30",
       "data_completeness": "COMPLETE",
-      "is_illustrative": true
+      "is_illustrative": true,
+      "why_buy": "High contractual income from senior private loans.",
+      "suitability_note": "Accredited investors only; three-year lock-in; unhedged USD.",
+      "rating": 3
+    },
+    {
+      "product_id": "MOCK-CASH-003",
+      "product_name": "Illustrative USD Money Market Fund",
+      "asset_class": "Cash",
+      "sub_asset_class": "Cash and money market",
+      "product_type": "Money Market Fund",
+      "issuer": "Illustrative Asset Management",
+      "currency": "USD",
+      "historical_returns": {
+        "1y": 4.6,
+        "3y": 4.1,
+        "5y": 2.8
+      },
+      "yield_to_maturity": null,
+      "distribution_yield": 4.2,
+      "risk_rating": 1,
+      "volatility": 0.3,
+      "maximum_drawdown": -0.1,
+      "credit_rating": "AA (portfolio average)",
+      "management_fee": 0.2,
+      "transaction_fee": 0.0,
+      "minimum_investment": 1000,
+      "liquidity": "DAILY",
+      "lock_in_period": "none",
+      "duration": 0.2,
+      "maturity_date": null,
+      "geographic_exposure": {
+        "United States": 100
+      },
+      "sector_exposure": {
+        "Financials": 100
+      },
+      "currency_hedged": false,
+      "esg_compliant": null,
+      "recommended_horizon": 0,
+      "eligibility_requirements": {
+        "accredited_investor_only": false
+      },
+      "product_source": "MOCK",
+      "as_of_date": "2026-09-30",
+      "data_completeness": "COMPLETE",
+      "is_illustrative": true,
+      "why_buy": "USD cash with a higher yield than SGD cash.",
+      "suitability_note": "Unhedged USD; for clients with USD spending or a USD allocation.",
+      "rating": 4
+    },
+    {
+      "product_id": "MOCK-GOLD-002",
+      "product_name": "Illustrative Gold Fund (SGD-Hedged)",
+      "asset_class": "Gold",
+      "sub_asset_class": "Gold",
+      "product_type": "Unit Trust",
+      "issuer": "Illustrative Commodity Trust",
+      "currency": "SGD",
+      "historical_returns": {
+        "1y": 14.2,
+        "3y": 10.1,
+        "5y": 8.0
+      },
+      "yield_to_maturity": null,
+      "distribution_yield": null,
+      "risk_rating": 4,
+      "volatility": 13.5,
+      "maximum_drawdown": -19.0,
+      "credit_rating": null,
+      "management_fee": 0.6,
+      "transaction_fee": 0.1,
+      "minimum_investment": 1000,
+      "liquidity": "DAILY",
+      "lock_in_period": "none",
+      "duration": null,
+      "maturity_date": null,
+      "geographic_exposure": {
+        "Global": 100
+      },
+      "sector_exposure": {
+        "Precious Metals": 100
+      },
+      "currency_hedged": true,
+      "esg_compliant": null,
+      "recommended_horizon": 5,
+      "eligibility_requirements": {
+        "accredited_investor_only": false
+      },
+      "product_source": "MOCK",
+      "as_of_date": "2026-09-30",
+      "data_completeness": "COMPLETE",
+      "is_illustrative": true,
+      "why_buy": "Gold exposure with the USD risk hedged back to SGD.",
+      "suitability_note": "Hedging cost reduces returns; no income.",
+      "rating": 3
+    },
+    {
+      "product_id": "MOCK-REIT-003",
+      "product_name": "Illustrative Global REIT Fund (SGD-Hedged)",
+      "asset_class": "Real estate",
+      "sub_asset_class": "Listed REITs",
+      "product_type": "Unit Trust",
+      "issuer": "Illustrative Asset Management",
+      "currency": "SGD",
+      "historical_returns": {
+        "1y": 6.0,
+        "3y": 1.5,
+        "5y": 2.9
+      },
+      "yield_to_maturity": null,
+      "distribution_yield": 4.4,
+      "risk_rating": 4,
+      "volatility": 16.0,
+      "maximum_drawdown": -34.0,
+      "credit_rating": null,
+      "management_fee": 0.75,
+      "transaction_fee": 0.1,
+      "minimum_investment": 1000,
+      "liquidity": "DAILY",
+      "lock_in_period": "none",
+      "duration": null,
+      "maturity_date": null,
+      "geographic_exposure": {
+        "United States": 55,
+        "Europe": 20,
+        "Asia Pacific": 25
+      },
+      "sector_exposure": {
+        "Real Estate": 100
+      },
+      "currency_hedged": true,
+      "esg_compliant": false,
+      "recommended_horizon": 5,
+      "eligibility_requirements": {
+        "accredited_investor_only": false
+      },
+      "product_source": "MOCK",
+      "as_of_date": "2026-09-30",
+      "data_completeness": "COMPLETE",
+      "is_illustrative": true,
+      "why_buy": "Global listed property income across regions, hedged to SGD.",
+      "suitability_note": "Sensitive to interest rates; higher fee than the index ETF.",
+      "rating": 3
     }
   ]
 }
