@@ -9,9 +9,21 @@ from datetime import datetime, timezone
 from typing import Callable, Optional
 
 from app.agents.portfolio_manager.engine.profile_assessment import assess_profile
+from app.agents.portfolio_manager.schemas.client import ClientProfile
 from app.agents.portfolio_manager.schemas.upstream import UpstreamResult
-from app.agents.portfolio_manager.taxonomy import RISK_LEVEL_LABELS, parse_asset_class
+from app.agents.portfolio_manager.taxonomy import (
+    ASSET_CLASS_ORDER,
+    RISK_LEVEL_LABELS,
+    AssetClass,
+    parse_asset_class,
+)
+from app.agents.portfolio_manager.upstream.market_analysis import fetch_market_analysis
 from app.agents.product_recommender import ranking
+from app.agents.product_recommender.asset_views.builder import build_view, headline_only
+from app.agents.product_recommender.asset_views.schemas import (
+    AssetClassHeadline,
+    AssetClassView,
+)
 from app.agents.product_recommender.config import Settings, get_settings
 from app.agents.product_recommender.explain import deterministic_reason
 from app.agents.product_recommender.house_view import HOUSE_VIEW_SOURCE, load_house_view
@@ -37,6 +49,18 @@ class ShelfUnavailable(RuntimeError):
     """No usable product shelf, so nothing can be recommended."""
 
 
+class UnknownAssetClass(ValueError):
+    """The asset class is not one of the seven in the taxonomy."""
+
+
+def parse_asset_class_slug(label: str) -> AssetClass:
+    """'fixed-income', 'Fixed income' and 'fixed_income' all name the same class."""
+    ac = parse_asset_class(label.replace("-", " ").replace("_", " "))
+    if ac is None:
+        raise UnknownAssetClass(label)
+    return ac
+
+
 def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -56,17 +80,37 @@ class ProductRecommenderService:
         clock: Callable[[], datetime] = _utcnow,
         shelf_loader: Callable[[], UpstreamResult] = load_shelf,
         house_view_loader: Callable[[], HouseView] = load_house_view,
+        market_fetcher: Callable = fetch_market_analysis,
     ):
         self.settings = settings or get_settings()
         self.clock = clock
         self.shelf_loader = shelf_loader
         self.house_view_loader = house_view_loader
+        self.market_fetcher = market_fetcher
 
     def shelf(self) -> UpstreamResult:
         return self.shelf_loader()
 
     def house_view(self) -> HouseView:
         return self.house_view_loader()
+
+    async def asset_class_view(self, asset_class: str, client_id: Optional[str] = None,
+                               profile: Optional[ClientProfile] = None) -> AssetClassView:
+        """The agent's own view on one asset class beside the CIO's, from the latest Market Researcher run."""
+        ac = parse_asset_class_slug(asset_class)
+        hv = self.house_view_loader()
+        shelf_res = self.shelf_loader()
+        products = list(shelf_res.data.products) if shelf_res.data is not None else []
+        market_res = await self.market_fetcher(profile.base_currency if profile else None)
+        return build_view(ac, market_res, hv, products, self.clock(), self.settings,
+                          shelf_illustrative=bool(shelf_res.data and shelf_res.data.is_illustrative),
+                          client_id=client_id, profile=profile)
+
+    async def asset_class_headlines(self) -> list[AssetClassHeadline]:
+        """CIO and agent stance for all seven classes; cheap, no narrative."""
+        hv = self.house_view_loader()
+        market_res = await self.market_fetcher(None)
+        return [headline_only(ac, market_res, hv) for ac in ASSET_CLASS_ORDER]
 
     def recommend(self, req: RecommendRequest) -> RecommendResponse:
         now = self.clock()
