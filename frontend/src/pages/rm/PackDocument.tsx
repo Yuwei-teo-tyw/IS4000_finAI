@@ -9,6 +9,7 @@ import { hasHeadings } from "../../services/packBlocks";
 import { SectionBlocksView, useSeededBlocks, sourcesFor, Tagged, HangList, isSources, isSignoff, fmtDate, usePackStatus, isHiddenFor, PendingBox } from "./rmShared";
 
 const ROLES: Role[] = ["rm", "ic", "ps"];
+const A3_PRINT_CSS = "@page a3 { size: A3; margin: 18mm; } @media print { .a3-sheet { page: a3; max-width: none; } }";
 const cap = "text-[12px] uppercase tracking-[0.14em] text-ink-muted";
 const quarterOf = (d: Date) => `Q${Math.floor(d.getMonth() / 3) + 1} ${d.getFullYear()}`;
 const fmtWhen = (iso: string) => new Date(iso).toLocaleString("en-SG", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -69,7 +70,8 @@ export function PackDocument({ clientId, clientName, version, pack, approved }: 
   const th = "py-2 pr-4 text-left text-xs font-normal text-ink-muted";
 
   return (
-    <article className="mx-auto w-full max-w-[820px] bg-surface-100 px-8 py-14 text-ink shadow-card sm:px-16 sm:py-20 print:shadow-none">
+    <article className="a3-sheet mx-auto aspect-[297/420] w-full min-w-0 max-w-[1123px] border border-hairline bg-surface-100 px-8 py-14 text-ink shadow-card sm:px-16 sm:py-20 lg:px-24 lg:py-24 print:aspect-auto print:border-0 print:p-0 print:shadow-none">
+      <style>{A3_PRINT_CSS}</style>
       <header className="mb-16">
         <GenevaMark className="mb-14" />
         <p className={cap}>Quarterly review pack</p>
