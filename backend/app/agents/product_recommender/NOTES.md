@@ -40,10 +40,21 @@ Plan: `product_recommender_agent.md` (repo root). This file records what was fou
 
 ## Findings for later milestones
 
-- **David Solomon (`dso`) is risk level 1 in the backend, not 2.** The frontend sends `risk_appetite: "Conservative"` with `risk_tolerance_score: 2`, and `taxonomy` maps "Conservative" to 1. `assess_profile` takes the lower. The PM sees the same level, so the agents agree; the frontend's displayed limit of 2 does not. Fix in the frontend milestone by sending a label that matches `riskCap`, or decide that the label wins.
-- The PM's `samples/sample_response.json` was not regenerated after the shelf grew from 20 to 23 products and the fee term went. It is documentation, not a test fixture.
-- **Asset-class views (§6):** the Market Researcher is US-only. SORA, SGS yields, STI and USD/SGD are the obvious additions for SGD clients.
+- **Resolved in milestone 9: David Solomon (`dso`) risk level.** The frontend sent `risk_appetite: "Conservative"` with `risk_tolerance_score: 2`, and "Conservative" maps to 1, so both agents assessed him at 1. The shared profile builder (`arcApi.buildClientProfile`) now sends the backend label for the IPS risk limit (2 → "Moderately conservative"), so both agents assess the limit the screen shows.
+- The PM's `samples/sample_response.json` was not regenerated after the shelf grew to 23 products and the fee term went. It is documentation, not a test fixture.
 - The house view's `interpreted` and `not_covered` entries (cash, hedge funds, private markets) should be confirmed against the page 14 chart by a person.
+- **Not ours, but it blocks testing:** `frontend/src/layouts/navConfig.ts` has `VALID_IDS = ["jdi", "jfr", "dso"]`. There is no `jdi` client, and `ser`, `teo` and `sha` are missing, so the active-client switcher can only select Jane Fraser or David Solomon.
+- `MarketRow.confidencePct` is a mock-era idea. Rows from the recommender fill it with the product rating × 20, and `FinaliseProducts` and `FinalisedTable` still label it "confidence". It should become "product rating" or be removed.
+
+## Asset-class views (milestone 7)
+
+- **Data:** the latest Market Researcher run through the PM's `fetch_market_analysis()` (one seam for both agents). That is still the illustrative mock, which now carries the ~30 series the views map to. The added values are invented to fit the mock's story and remain labelled mock. A live run needs `FRED_API_KEY`.
+- **Files:** `config.py` (indicator and segment mapping, cut-offs), `scoring.py` (headline, segments, what-if rescoring; the plan's `signals.py`, `segments.py` and `scenarios.py` in one module), `shelf_lens.py`, `builder.py`, `schemas.py`.
+- **Score:** a weighted mean of per-series readings in [-1, 1] plus a regime tilt. It is reproducible from the response's own snapshot; a test checks this. Buy at ≥ +0.20 and Sell at ≤ -0.20. **These cut-offs are not calibrated yet** (open question 11 in the plan); calibrate them against stored Market Researcher runs once live runs exist.
+- **Segments are relative:** Most / Least preferred means at least 0.15 above / below the class's own score. This matches how CIO segment preferences read, and makes "every segment Most preferred under a Sell" impossible.
+- **Scenarios and watch items use 3-month moves only.** Levels sit in a 10-year range and change slowly, so they make poor triggers. Hedge funds and private markets have only level signals, so their watch item says so.
+- **No LLM prose yet.** The plan's LLM explanations and guardrail are still open; all text is deterministic (`narrative_source: "deterministic"`).
+- **Frontend:** a chat card for "What's the view on X?" (one class named, no product wording). Full analysis at `/ps/asset-views/:assetClass` with Overview, Market, Risks, Products and Sources tabs and Accept / Edit (stored per client in `workflowStore`, sent nowhere). An overview at `/ps/asset-views` and a sixth PS nav link.
 
 ## Status
 
@@ -55,7 +66,7 @@ Plan: `product_recommender_agent.md` (repo root). This file records what was fou
 | 4 Ranking | Done: `ranking.py`, PM fee term removed, fee-invariance tests for both agents |
 | 5 Recommend endpoint | Done: deterministic reasons, `POST /recommend` |
 | 6 LLM explanations | Not started |
-| 7 Asset-class views | Not started |
+| 7 Asset-class views | Done (backend, frontend); LLM prose not started |
 | 8 PM switch-over | Done early (with milestone 2) |
-| 9 Frontend | Not started |
+| 9 Frontend | Done: shelf, house view, recommendations, finalise-by-chat through the gate, asset-class views |
 | 10 README | Not started |

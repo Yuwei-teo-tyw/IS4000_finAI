@@ -51,3 +51,46 @@ export interface PrResponse {
   missing_information: string[];
   limitations: string[];
 }
+
+/* ---- Asset-class views: the agent's own view beside the CIO's (asset_views/schemas.py) ---- */
+export type PrSegmentView = "Most preferred" | "Neutral" | "Least preferred";
+export type PrAgreement = "aligned" | "differs" | "opposed";
+export interface PrRef { text: string; refs: string[] }
+export interface PrSnapshotItem {
+  id: string; name: string; value: number; unit: string; change_1m: number | null; change_3m: number | null; percentile_10y: number | null;
+  observation_date: string; stale: boolean; basis: "level" | "change" | "relative"; reading: number; contribution: number; weight: number;
+  effect: "supports" | "weighs" | "neutral"; why: string;
+}
+export interface PrAgentView {
+  label: string; view: PrView; confidence: PrConfidence; score: number; thesis: string; thesis_points: PrRef[];
+  regime: { phase: string | null; confidence: string | null; tilt: number | null; run_id: string | null };
+  coverage: { mapped: number; available: number }; insufficient_evidence: boolean;
+}
+export interface PrSegment { group: string; segment: string; view: PrSegmentView; score: number | null; reason: string; refs: string[] }
+export interface PrScenario { case: "base" | "upside" | "downside"; description: string; trigger: { indicator: string; condition: string } | null; stance_implication: string }
+export interface PrImplementationProduct {
+  product_id: string; product_name: string; segment: string; risk_rating: number | null; liquidity: string | null; currency: string; currency_hedged: boolean | null;
+}
+export interface PrClientLens {
+  client_id: string; risk_level: number | null; eligible: number; excluded: Record<string, number>; accessible_segments: string[]; current_weight_pct: number | null;
+}
+/** One asset class: the CIO house view entry (`cio_view`, reported verbatim) and the agent's own analysis beside it. */
+export interface PrAssetView {
+  asset_class: string; generated_at: string; is_illustrative: boolean;
+  cio_view: PrAssetClassView;
+  agent_view: PrAgentView | null; agent_view_unavailable_reason: string | null;
+  agreement: { status: PrAgreement; explanation: string | null } | null;
+  snapshot: PrSnapshotItem[]; segments: PrSegment[]; drivers: PrRef[]; scenarios: PrScenario[]; watch_items: PrRef[]; risks: PrRef[];
+  implementation: { products: PrImplementationProduct[]; fees: { min_pct: number | null; median_pct: number | null; max_pct: number | null; display_only: true } };
+  client_lens: PrClientLens | null;
+  narrative_source: "llm" | "deterministic";
+  caveats: string[];
+  data_quality: {
+    market_source: string; market_status: string; market_researcher_run_id: string | null; market_as_of: string | null; market_quality: string | null;
+    stale_indicators: string[]; missing_indicators: string[]; house_view_as_of: string;
+  };
+}
+export interface PrAssetClassHeadline {
+  asset_class: string; cio_view: PrView; cio_term: string; cio_confidence: PrConfidence;
+  agent_view: PrView | null; agent_confidence: PrConfidence | null; agreement: PrAgreement | null;
+}

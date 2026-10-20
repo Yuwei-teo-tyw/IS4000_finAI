@@ -3,7 +3,9 @@ import { Check, ChevronDown, ArrowUp, MessageSquarePlus, Search, Trash2 } from "
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import type { Client } from "../../types/arc";
 import { pathForClient, setActiveClientId } from "../../layouts/navConfig";
-import { arcApi, ProductRecommenderError, shortlistRow } from "../../services/arcApi";
+import { arcApi, assetClassSlug, ProductRecommenderError, shortlistRow } from "../../services/arcApi";
+import { RefLine, ViewHeadline } from "../ps/AssetViewParts";
+import type { PrAssetView } from "../../types/productRecommender";
 import { findProducts } from "../../utils/productMatch";
 import { toggleSelection, useActiveIps, useSelection, loadSelection, saveSelection } from "../../services/workflowStore";
 import type { MacroView, MarketAnswer, MarketRow, Role } from "../../types/arc";
@@ -30,6 +32,8 @@ const SEEDED: Record<Role, string[]> = {
     "What is the CIO House View?",
     "What is the current economic cycle and the CIO view per asset class?",
     "What is the top 5 ranking for equities and why?",
+    "What's the view on fixed income?",
+    "How does gold look for this client?",
   ],
   rm: ["Summarise the client's IPS", "What are the client's goals?", "Review the IPS", "Summarise the meeting notes", "What did the client say in the last meeting?", "Write the latest client profile + goals section formally in bullet points", "Why is portfolio health flagged?", "Explain the old vs new TAA"],
   ic: ["Analyse this client's portfolio strengths and weaknesses", "Which holdings move together?", "Compare the old and new TAA", "Propose a TAA", "Summarise the client's IPS", "How are the markets today, and what is the regime, according to the CIO House View and the web?", "Edit the client's individual holdings"],
@@ -46,7 +50,40 @@ interface Recommend {
   shortlist: { row: MarketRow; riskRating: number; reason: string; fee: number | null; notes: string[] }[];
   excluded: { name: string; reason: string }[];
 }
-interface Msg { from: "user" | "agent"; text: string; answer?: MarketAnswer; finalise?: string[]; recommend?: Recommend }
+interface Msg { from: "user" | "agent"; text: string; answer?: MarketAnswer; finalise?: string[]; recommend?: Recommend; assetView?: PrAssetView }
+
+/* ---- PS asset-class view: "What's the view on fixed income?" (one class named, view wording, no product wording) ---- */
+const ASSET_WORDS: [RegExp, string][] = [
+  [/\bfixed income\b|\bbonds?\b/i, "Fixed income"], [/\bequit(?:y|ies)\b|\bstocks?\b/i, "Equities"], [/\bcash\b|\bmoney market\b/i, "Cash"],
+  [/\bgold\b/i, "Gold"], [/\breal estate\b|\breits?\b|\bproperty\b/i, "Real estate"], [/\bhedge funds?\b/i, "Hedge funds"],
+  [/\bprivate (?:markets?|equity|credit)\b/i, "Private markets"],
+];
+const ASSET_VIEW_WORDS = /\b(view|outlook|look(?:s|ing)?|good time|stance|think|attractive|analysis|analy[sz]e)\b/i;
+const NOT_ASSET_VIEW = /\b(products?|etfs?|shortlist|top \d|ranking|recommend|finali[sz]e|suits?)\b|house view|cio view/i;
+function askedAssetClass(text: string): string | null {
+  if (!ASSET_VIEW_WORDS.test(text) || NOT_ASSET_VIEW.test(text)) return null;
+  const hits = ASSET_WORDS.filter(([re]) => re.test(text));
+  return hits.length === 1 ? hits[0][1] : null;
+}
+
+function AssetViewCard({ v, clientId }: { v: PrAssetView; clientId: string }) {
+  return (
+    <div className="min-w-0 space-y-6 font-light">
+      <p className="text-[22px] leading-9 tracking-tight text-ink">{`${v.asset_class}: the agent's own view beside the CIO house view.`}</p>
+      <ViewHeadline v={v} compact />
+      {v.agent_view && (
+        <>
+          <p className="text-[17px] leading-7 text-ink-700">{v.agent_view.thesis}</p>
+          <ul className="list-disc space-y-2 pl-5 text-[16px] leading-7 text-ink-700">{v.agent_view.thesis_points.slice(0, 3).map((p) => <li key={p.text}><RefLine r={p} /></li>)}</ul>
+        </>
+      )}
+      <div className="flex flex-wrap items-center justify-between gap-4 rounded-sm border border-hairline-strong px-5 py-3">
+        <p className="text-sm text-ink-700">Segments, market snapshot, scenarios, risks and products are in the full analysis, with Accept and Edit.</p>
+        <Button variant="primary" size="sm" to={`/ps/asset-views/${assetClassSlug(v.asset_class)}?client=${clientId}`}>Open full analysis</Button>
+      </div>
+    </div>
+  );
+}
 
 const MATCH_INTENT = /read client ips.*(research market|match products)/i;
 /** Agent failures are shown, never replaced with mock answers. */
@@ -360,6 +397,29 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
       }
       return;
     }
+    const assetClass = role === "ps" ? askedAssetClass(text) : null;
+    if (assetClass) {
+      try {
+        const v = await arcApi.getAssetClassView(assetClass, clientId);
+        const steps = [
+          "Intent parser is reading your request…",
+          "Product Recommender fired",
+          `Reading the CIO House View on ${assetClass.toLowerCase()}…`,
+          `Scoring ${v.agent_view?.coverage.available ?? 0} market series from the latest Market Researcher run…`,
+          "Checking segments, scenarios and risks…",
+          "Consolidating…",
+        ];
+        setWorking({ chatId: id, steps, shown: 0 });
+        for (let i = 1; i <= steps.length; i++) { setWorking({ chatId: id, steps, shown: i }); await pause(600, 1000); }
+        patch(id, (c) => ({ ...c, messages: [...c.messages, { from: "agent", text: "", assetView: v }] }));
+        appendChatContext(clientId, role, { q: text, a: `${v.asset_class}: CIO ${v.cio_view.view} (${v.cio_view.cio_term}); agent ${v.agent_view?.view ?? "unavailable"}. ${v.agent_view?.thesis ?? ""}` });
+      } catch (e) {
+        patch(id, (c) => ({ ...c, messages: [...c.messages, { from: "agent", text: failText(e) }] }));
+      } finally {
+        setWorking((w) => (w?.chatId === id ? null : w));
+      }
+      return;
+    }
     if (role === "ps" && FINALISE_INTENT.test(text)) {
       let reply: string; let names: string[] | undefined;
       try {
@@ -492,6 +552,7 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
                     </div>
                   )}
                   {m.recommend && <RecommendView r={m.recommend} picked={pickedNames} onToggle={toggle} clientId={clientId} />}
+                  {m.assetView && <AssetViewCard v={m.assetView} clientId={clientId} />}
                   {m.answer && <AnswerView a={m.answer} picked={pickedNames} onToggle={toggle} clientId={clientId} role={role} />}
                 </div>
               ))}

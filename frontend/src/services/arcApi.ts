@@ -13,7 +13,7 @@ import type {
   MarketView, HouseView, PackRenderInput, MarketAnswer, MeetingNote, IpsVersion, PackSection, Product, ProductClass, Role, AllocationGroup, CorrelationMatrix, GoalProjection, SectionDraft,
 } from "../types/arc";
 import type { PmClientProfile, PmInputField, PmInputs, PmRequest, PmResponse } from "../types/portfolio";
-import type { PrHouseView, PrOptions, PrRequest, PrResponse, PrShelf, PrShelfProduct, PrShortlistItem } from "../types/productRecommender";
+import type { PrAssetClassHeadline, PrAssetView, PrHouseView, PrOptions, PrRequest, PrResponse, PrShelf, PrShelfProduct, PrShortlistItem } from "../types/productRecommender";
 
 const delay = <T,>(v: T, ms = 150) => new Promise<T>((r) => setTimeout(() => r(v), ms));
 
@@ -154,6 +154,10 @@ export const arcApi = {
   getProducts: async (_clientId: string): Promise<Product[]> => (await getShelf()).products.map(toProduct),
   /** Suitability gate + ranked shortlist for one client, from the Product Recommender. Never approves anything. */
   recommendProducts: (clientId: string, options: PrOptions = {}): Promise<PrResponse> => recommendProducts(clientId, options),
+  /** CIO and agent stance for all seven asset classes (no narrative). */
+  getAssetClassViews: (): Promise<PrAssetClassHeadline[]> => prFetch<PrAssetClassHeadline[]>("/asset-class-views"),
+  /** The agent's own view on one asset class beside the CIO's; with a client, adds what that client can access. */
+  getAssetClassView: (assetClass: string, clientId?: string): Promise<PrAssetView> => getAssetClassView(assetClass, clientId),
   /** Mock rewrite of lay-language text into professional bullets. Replace with a LangGraph run. */
   professionalise: (input: ProfessionaliseInput): Promise<{ id: string; text: string }[]> =>
     new Promise((res) => setTimeout(() => res(input.items.map((it) => ({ id: it.id, text: professionaliseText(input, it) }))), 1500)),
@@ -659,4 +663,19 @@ async function recommendProducts(clientId: string, options: PrOptions = {}): Pro
     && r.shortlist.every((s) => s.costs?.display_only === true && typeof s.reason?.text === "string");
   if (!ok) throw new ProductRecommenderError("INVALID_RESPONSE", "The Product Recommender's response did not match the expected format.");
   return r;
+}
+
+/** "Fixed income" -> "fixed-income" (the backend accepts either). */
+export const assetClassSlug = (assetClass: string) => assetClass.toLowerCase().replace(/\s+/g, "-");
+
+async function getAssetClassView(assetClass: string, clientId?: string): Promise<PrAssetView> {
+  const path = `/asset-class-views/${encodeURIComponent(assetClassSlug(assetClass))}`;
+  const v = clientId
+    ? await prFetch<PrAssetView>(path, { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ client_id: clientId, client_profile: (await buildClientProfile(clientId)).profile }) })
+    : await prFetch<PrAssetView>(path);
+  if (!v.cio_view || !Array.isArray(v.segments) || v.implementation?.fees?.display_only !== true) {
+    throw new ProductRecommenderError("INVALID_RESPONSE", "The asset-class view did not match the expected format.");
+  }
+  return v;
 }

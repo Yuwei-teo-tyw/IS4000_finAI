@@ -154,3 +154,15 @@ export const activateIps = (clientId: string, version: number): boolean => {
   activated.write({ ...activated.read(), [clientId]: true });
   return true;
 };
+
+/* ---- 8. Asset-class views the PS accepted (or edited, then accepted), per client; key "_" when no client ---- */
+export interface AcceptedAssetView { text: string; agentView: string; cioView: string; acceptedAt: string; edited: boolean }
+const assetViews = createStore<Record<string, Record<string, AcceptedAssetView>>>("wf-asset-views", {});
+export const useAcceptedAssetView = (clientId: string | null, assetClass: string): AcceptedAssetView | undefined =>
+  assetViews.use()[clientId ?? "_"]?.[assetClass];
+/** Stores the PS's accepted text for reuse (pack section 5, product reasons). Sends nothing anywhere. */
+export const acceptAssetView = (clientId: string | null, assetClass: string, view: Omit<AcceptedAssetView, "acceptedAt">) => {
+  const key = clientId ?? "_";
+  const all = assetViews.read();
+  assetViews.write({ ...all, [key]: { ...all[key], [assetClass]: { ...view, acceptedAt: new Date().toISOString() } } });
+};
