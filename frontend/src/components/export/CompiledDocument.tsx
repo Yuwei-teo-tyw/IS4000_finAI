@@ -20,7 +20,8 @@ export function CompiledDocument({ docTitle, clientName, version, date, sections
   const pending = sections.filter((s) => !s.complete);
   const draft = pending.length > 0;
   return (
-    <article className="mx-auto w-full min-w-0 max-w-full border border-hairline bg-surface-100 px-6 py-10 text-ink shadow-card sm:px-14 sm:py-14 md:max-w-5xl print:shadow-none">
+    <article className="a3-sheet mx-auto aspect-[297/420] w-full min-w-0 max-w-[1123px] border border-hairline bg-surface-100 px-6 py-10 text-ink shadow-card sm:px-14 sm:py-14 lg:px-24 lg:py-20 print:aspect-auto print:border-0 print:p-0 print:shadow-none">
+      <style>{"@page a3 { size: A3; margin: 18mm; } @media print { .a3-sheet { page: a3; max-width: none; } }"}</style>
       <header className="mb-12">
         <GenevaMark className="mb-10" />
         {draft && (
