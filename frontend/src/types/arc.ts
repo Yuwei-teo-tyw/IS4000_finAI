@@ -35,9 +35,7 @@ export interface InboxItem {
 
 export interface MarketView { assetClass: AssetClass; view: "Buy" | "Hold" | "Sell"; explanation: string; confidence: "High" | "Medium" | "Low"; tags: string[] }
 export type ProductClass = AssetClass | "Structured products";
-export interface Product { id: string; name: string; assetClass: ProductClass; whyBuy: string; feePct: number; stars: number; suitability: string; riskRating: number; tags: string[];
-  /** Professional PS rationale, "• ... [TAG]" bullets (>=5). Seeded for client jfr. */
-  psReason?: string }
+export interface Product { id: string; name: string; assetClass: ProductClass; whyBuy: string; /** Management fee, for information only; null when the shelf has no fee data. */ feePct: number | null; stars: number; suitability: string; riskRating: number; tags: string[] }
 
 export interface PackSection { n: number; title: string; owner: Role; gate: GateId | null; status: "draft" | "ready" | "flagged" | "approved"; body: string;
   /** Chart placeholder the compiled document renders beside this section's text. */
@@ -63,7 +61,9 @@ export interface GoalProjection {
 
 export interface HouseView { id: string; month: string; issuedOn: string; author: string; file: string | null }
 
-export interface MarketRow { assetClass: string; product: string; industryFocus: string; top5: string[]; confidencePct: number; ranking: string[] }
+export interface MarketRow { assetClass: string; product: string; industryFocus: string; top5: string[]; confidencePct: number; ranking: string[];
+  /** Product Recommender's cited reason ("• ... [TAG]." bullets) when the row came from a recommendation. */
+  agentReason?: string }
 export interface MacroView { assetClass: string; view: "Buy" | "Hold" | "Sell"; industry: string; direction: "Up" | "Flat" | "Down"; note: string }
 export interface MacroBrief { phase: string; asOf: string; events: string[]; views: MacroView[] }
 /** One chat turn. `steps` (agents fired, thinking) show only while thinking, never in the final answer. */

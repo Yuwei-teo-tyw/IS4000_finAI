@@ -1,0 +1,75 @@
+{
+  "_notice": "Curated by hand from house_views/UBS House View for August 2026.pdf. The report rates asset classes Attractive / Neutral / Unattractive; `view` maps these to Buy / Hold / Sell. Entries with basis 'interpreted' are read from the report's prose, not a stated rating, and should be confirmed against the asset class preferences chart (page 14), whose positions are not machine-readable.",
+  "as_of": "2026-07-15",
+  "source_document": "UBS House View, Investment Strategy Guide, August 2026 (CIO GWM)",
+  "is_illustrative": false,
+  "views": [
+    {
+      "asset_class": "Cash",
+      "view": "Hold",
+      "confidence": "Low",
+      "rationale": "Cash is not rated in the report's text; the report prefers using today's elevated yields to lock in bond income.",
+      "citation_id": "HV-2026-08-p10",
+      "cio_term": "Not stated",
+      "basis": "not_covered"
+    },
+    {
+      "asset_class": "Fixed income",
+      "view": "Buy",
+      "confidence": "High",
+      "rationale": "Fixed income is rated Attractive: elevated yields lock in durable income, with a preference for quality short- and medium-maturity bonds and a complementary role for high yield and emerging market credit.",
+      "citation_id": "HV-2026-08-p10",
+      "cio_term": "Attractive",
+      "basis": "rated"
+    },
+    {
+      "asset_class": "Equities",
+      "view": "Buy",
+      "confidence": "High",
+      "rationale": "Global equities are rated Attractive: strong earnings are broadening beyond AI, with a diversified core across preferred regions, sectors and return drivers.",
+      "citation_id": "HV-2026-08-p18",
+      "cio_term": "Attractive",
+      "basis": "rated"
+    },
+    {
+      "asset_class": "Gold",
+      "view": "Hold",
+      "confidence": "Medium",
+      "rationale": "Gold is rated Neutral: a useful strategic diversifier supported by central bank demand, but its upside looks capped in the coming months as higher real yields and a firmer US dollar weigh on it.",
+      "citation_id": "HV-2026-08-p22",
+      "cio_term": "Neutral",
+      "basis": "rated"
+    },
+    {
+      "asset_class": "Real estate",
+      "view": "Hold",
+      "confidence": "Medium",
+      "rationale": "Real estate equities were reduced to Neutral as the report turns more pro-cyclical; selected real estate is still suggested within a diversified alternatives allocation.",
+      "citation_id": "HV-2026-08-p18",
+      "cio_term": "Neutral",
+      "basis": "rated"
+    },
+    {
+      "asset_class": "Hedge funds",
+      "view": "Buy",
+      "confidence": "Medium",
+      "rationale": "Wide gaps in stock performance and higher stock-bond correlations favour skilled hedge fund managers; the report suggests diversified multi-strategy exposure.",
+      "citation_id": "HV-2026-08-p11",
+      "cio_term": "Consider diversified multi-strategy exposure",
+      "basis": "interpreted"
+    },
+    {
+      "asset_class": "Private markets",
+      "view": "Buy",
+      "confidence": "Low",
+      "rationale": "The report suggests diversified private markets exposure to broaden return sources, stressing manager selection, liquidity, fees and vintage diversification, sized to the investor's tolerance for illiquidity.",
+      "citation_id": "HV-2026-08-p11",
+      "cio_term": "Consider diversified exposure",
+      "basis": "interpreted"
+    }
+  ],
+  "limitations": [
+    "The report is US-focused (USD rates, US equities); views are applied to SGD-based clients without a Singapore-specific overlay.",
+    "Hedge funds and private markets are not rated in the report; their views are read from the alternatives commentary."
+  ]
+}

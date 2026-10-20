@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom";
 import {
   BookUser,
   Inbox,
+  Layers,
   Library,
   ScrollText,
   Sparkles,
@@ -62,6 +63,7 @@ export function getNav(role: Role, _clientId: string): NavItem[] {
         { label: "AI Assistant", to: "/ps/assistant", icon: Sparkles },
         { label: "House View Records", to: "/ps/house-views", icon: ScrollText },
         { label: "Product Shelf", to: "/ps/shelf", icon: Library },
+        { label: "Asset Class Views", to: "/ps/asset-views", icon: Layers },
       ];
   }
 }

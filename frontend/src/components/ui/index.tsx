@@ -23,6 +23,19 @@ export function useAsync<T>(fn: () => Promise<T>, deps: unknown[] = []) {
   return data;
 }
 
+/** Like useAsync, but also reports a failure (e.g. a backend agent that is not running) instead of loading forever. */
+export function useAsyncResult<T>(fn: () => Promise<T>, deps: unknown[] = []) {
+  const [state, setState] = useState<{ data?: T; error?: Error }>({});
+  useEffect(() => {
+    let live = true;
+    setState({});
+    fn().then((data) => live && setState({ data }), (error) => live && setState({ error: error instanceof Error ? error : new Error(String(error)) }));
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, deps);
+  return state;
+}
+
 /** Lux: one display heading + a short brand rule. Light weight, never bold. */
 export function PageHeader({ eyebrow, title, subtitle, actions }: { eyebrow?: string; title: string; subtitle?: string; actions?: ReactNode }) {
   return (

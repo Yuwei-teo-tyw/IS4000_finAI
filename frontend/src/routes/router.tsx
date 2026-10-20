@@ -23,6 +23,8 @@ import MarketResearch from "../pages/ps/MarketResearch";
 import FinaliseProducts from "../pages/ps/FinaliseProducts";
 import HouseViewRecords from "../pages/ps/HouseViewRecords";
 import ProductShelfPage from "../pages/ps/ProductShelfPage";
+import AssetClassViews from "../pages/ps/AssetClassViews";
+import AssetClassViewPage from "../pages/ps/AssetClassViewPage";
 import ClientLayout from "../pages/client/ClientLayout";
 import ClientOverview from "../pages/client/ClientOverview";
 import ClientDocuments from "../pages/client/ClientDocuments";
@@ -94,6 +96,8 @@ export const router = createBrowserRouter([
       { path: "assistant", element: <MarketResearch /> },
       { path: "house-views", element: <HouseViewRecords /> },
       { path: "shelf", element: <ProductShelfPage /> },
+      { path: "asset-views", element: <AssetClassViews /> },
+      { path: "asset-views/:assetClass", element: <AssetClassViewPage /> },
       client360,
       { path: "cases/:clientId/market", element: <Navigate to="/ps/assistant" replace /> },
       { path: "cases/:clientId/finalise", element: <FinaliseProducts /> },

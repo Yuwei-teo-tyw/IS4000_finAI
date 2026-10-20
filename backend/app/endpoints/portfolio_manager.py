@@ -93,13 +93,16 @@ async def get_portfolio(
     return proposal
 
 
-def install_validation_handler(app: FastAPI) -> None:
-    """On Portfolio Manager routes, report where and why validation failed but
-    never echo the submitted values back. Other routes keep FastAPI's default."""
+def install_validation_handler(app: FastAPI, extra_prefixes: tuple[str, ...] = ()) -> None:
+    """On Portfolio Manager routes (and any `extra_prefixes`, e.g. other agents
+    that take client profiles), report where and why validation failed but
+    never echo the submitted values back. Other routes keep FastAPI's default.
+    An app has one handler for this exception, so install it once with every prefix."""
+    prefixes = (PREFIX, *extra_prefixes)
 
     @app.exception_handler(RequestValidationError)
     async def _handler(request: Request, exc: RequestValidationError):
-        if not request.url.path.startswith(PREFIX):
+        if not request.url.path.startswith(prefixes):
             return await request_validation_exception_handler(request, exc)
         errors = [
             {"loc": list(e.get("loc", [])), "msg": e.get("msg", ""), "type": e.get("type", "")}

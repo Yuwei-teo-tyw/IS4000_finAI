@@ -7,11 +7,13 @@
 import * as m from "../mock/data";
 import { getActiveIps, isActivated, isIpsReturned, loadIcProgress } from "./workflowStore";
 import { bulletLines, toBulletItems } from "../utils/bullets";
+import { findProducts } from "../utils/productMatch";
 import type {
-  ActivityEvent, AllocationRow, Bucket3L, Client, Gate, Holding, InboxItem, IpsPart,
-  MarketView, HouseView, PackRenderInput, MarketAnswer, MeetingNote, IpsVersion, PackSection, Product, Role, AllocationGroup, CorrelationMatrix, GoalProjection, SectionDraft,
+  ActivityEvent, AllocationRow, Bucket3L, Client, Gate, Holding, InboxItem, IpsPart, MacroBrief, MarketRow,
+  MarketView, HouseView, PackRenderInput, MarketAnswer, MeetingNote, IpsVersion, PackSection, Product, ProductClass, Role, AllocationGroup, CorrelationMatrix, GoalProjection, SectionDraft,
 } from "../types/arc";
-import type { PmInputField, PmInputs, PmRequest, PmResponse } from "../types/portfolio";
+import type { PmClientProfile, PmInputField, PmInputs, PmRequest, PmResponse } from "../types/portfolio";
+import type { PrAssetClassHeadline, PrAssetView, PrHouseView, PrOptions, PrRequest, PrResponse, PrShelf, PrShelfProduct, PrShortlistItem } from "../types/productRecommender";
 
 const delay = <T,>(v: T, ms = 150) => new Promise<T>((r) => setTimeout(() => r(v), ms));
 
@@ -144,47 +146,75 @@ export const arcApi = {
   getGates: (_clientId: string): Promise<Gate[]> => delay(m.gates),
   getInbox: (role: Exclude<Role, "rm">): Promise<InboxItem[]> => delay(m.inboxes[role]),
   getMarketCycle: () => delay(m.marketCycle),
-  getMarketViews: (_clientId: string): Promise<MarketView[]> => delay(m.marketViews),
-  /** Each product carries `psReason` (professional PS rationale, "• ... [TAG]" bullets). */
-  getProducts: (_clientId: string): Promise<Product[]> => delay(m.products),
+  /** CIO view per asset class, from the Product Recommender's curated house view (one copy shared with the ranker). */
+  getMarketViews: async (_clientId: string): Promise<MarketView[]> => (await getHouseView()).views.map((v) => ({
+    assetClass: v.asset_class as MarketView["assetClass"], view: v.view, explanation: v.rationale, confidence: v.confidence, tags: [v.citation_id],
+  })),
+  /** The shared product shelf (Product Recommender). Fees are for information only. */
+  getProducts: async (_clientId: string): Promise<Product[]> => (await getShelf()).products.map(toProduct),
+  /** Suitability gate + ranked shortlist for one client, from the Product Recommender. Never approves anything. */
+  recommendProducts: (clientId: string, options: PrOptions = {}): Promise<PrResponse> => recommendProducts(clientId, options),
+  /** CIO and agent stance for all seven asset classes (no narrative). */
+  getAssetClassViews: (): Promise<PrAssetClassHeadline[]> => prFetch<PrAssetClassHeadline[]>("/asset-class-views"),
+  /** The agent's own view on one asset class beside the CIO's; with a client, adds what that client can access. */
+  getAssetClassView: (assetClass: string, clientId?: string): Promise<PrAssetView> => getAssetClassView(assetClass, clientId),
   /** Mock rewrite of lay-language text into professional bullets. Replace with a LangGraph run. */
   professionalise: (input: ProfessionaliseInput): Promise<{ id: string; text: string }[]> =>
     new Promise((res) => setTimeout(() => res(input.items.map((it) => ({ id: it.id, text: professionaliseText(input, it) }))), 1500)),
-  /** Mock intent parser: decides which agents fire and what the reply contains. Replace with a LangGraph run. */
-  askMarketResearch: async (_clientId: string, question: string, _systemPrompt = "", ipsVersion: number | null = null): Promise<MarketAnswer> => {
+  /** PS research chat. Market cycle and events are still mock (Market Researcher seam); CIO views and products come from the Product Recommender. */
+  askMarketResearch: async (clientId: string, question: string, _systemPrompt = "", ipsVersion: number | null = null): Promise<MarketAnswer> => {
     const t = question.toLowerCase();
     const ipsNote = ipsVersion ? ` Using IPS v${ipsVersion}.` : "";
     const houseView = /house view|cio view|what is the cio/.test(t) && !/product|fund|etf|note|suit|recommend|top 5|ranking/.test(t);
-    const universe = [...m.marketRows, ...m.productCatalogue.map((c) => c.row)].filter((r, i, all) => all.findIndex((x) => x.product === r.product) === i);
-    const named = m.productCatalogue.filter((c) => c.aliases.some((a) => t.includes(a))).map((c) => c.row);
-    const cls = /equit|stock/.test(t) ? "Equities" : /fixed|bond/.test(t) ? "Fixed income" : /altern|infra|hedge/.test(t) ? "Alternatives" : null;
-    const wantsProducts = named.length > 0 || /product|fund|etf|note|suit|recommend|shortlist|top 5|ranking|fit|compare/.test(t);
-    const wantsMarket = /macro|cycle|market|economy|cio|view|outlook|compare|suit|direction/.test(t) || !wantsProducts;
-    const rows = !wantsProducts ? [] : named.length ? named : cls ? universe.filter((r) => r.assetClass === cls) : universe;
+    const [brief, shelf] = await Promise.all([cioBrief(), getShelf()]);
+    const hvTags = [...new Set((await getHouseView()).views.map((v) => v.citation_id))];
     if (houseView) {
-      const hv = m.macroBrief;
-      await delay(null);
+      const pos = (view: string) => brief.views.filter((v) => v.view === view).map((v) => v.assetClass.toLowerCase()).join(", ") || "none";
       return {
-        summary: `The CIO House View for ${hv.asOf} puts the economy in a ${hv.phase.toLowerCase()} phase. The CIO is positive on ${hv.views.filter((v) => v.view === "Buy").map((v) => v.assetClass.toLowerCase()).join(", ")}, neutral on ${hv.views.filter((v) => v.view === "Hold").map((v) => v.assetClass.toLowerCase()).join(", ")} and negative on ${hv.views.filter((v) => v.view === "Sell").map((v) => v.assetClass.toLowerCase()).join(", ")}.${ipsNote}`,
-        market: hv, rows: [], autoTick: false, tags: ["CIO-2026Q4-03", "HV-2026-09"],
+        summary: `The CIO House View as of ${brief.asOf} puts the economy in a ${brief.phase.toLowerCase()} phase. The CIO is positive on ${pos("Buy")}, neutral on ${pos("Hold")} and negative on ${pos("Sell")}.${ipsNote}`,
+        market: brief, rows: [], autoTick: false, tags: hvTags,
         steps: ["Intent parser is reading your request…", "Market Research Agent fired", "Reading the latest CIO House View…", "Mapping Buy, Hold and Sell views per asset class…", "Thinking…", "Consolidating…"],
       };
     }
+    const named = findProducts(t, shelf.products, (p) => p.product_name, (p) => p.product_id);
+    const classes = /equit|stock/.test(t) ? ["Equities"] : /fixed|bond/.test(t) ? ["Fixed income"] : /altern|hedge/.test(t) ? ["Hedge funds", "Private markets"]
+      : /private/.test(t) ? ["Private markets"] : /reit|real estate|property/.test(t) ? ["Real estate"] : /gold/.test(t) ? ["Gold"] : /\bcash\b|money market/.test(t) ? ["Cash"] : null;
+    const wantsProducts = named.length > 0 || /product|fund|etf|note|suit|recommend|shortlist|top 5|ranking|fit|compare/.test(t);
+    const wantsMarket = /macro|cycle|market|economy|cio|view|outlook|compare|suit|direction/.test(t) || !wantsProducts;
     const agents = [wantsMarket && "Market Research Agent", wantsProducts && "Product Recommender"].filter(Boolean) as string[];
     const steps = [
       "Intent parser is reading your request…",
       `${agents.join(" and ")} fired`,
       ...(wantsMarket ? ["Searching the web for macroeconomic events…"] : []),
-      ...(wantsProducts ? [named.length ? `Checking ${named.length} requested product${named.length === 1 ? "" : "s"} against the IPS…` : "Screening products against the risk limit…"] : []),
+      ...(wantsProducts ? [named.length ? `Checking ${named.length} requested product${named.length === 1 ? "" : "s"} against the suitability gate…` : "Running the suitability gate, then ranking by fit and house view…"] : []),
       "Thinking…",
       "Consolidating…",
     ];
-    await delay(null);
-    const summary = (named.length
-      ? `I checked the ${named.length} product${named.length === 1 ? "" : "s"} you asked for. They are ticked as considerations. Untick any you do not want.`
-      : wantsProducts ? "Here are the best-fit products, grouped by asset class. Tick the ones to consider. Rankings use suitability first. Fees were not used to rank."
-      : "Here is the current market picture.") + ipsNote;
-    return { summary, market: wantsMarket ? m.macroBrief : null, rows, autoTick: named.length > 0, steps, tags: ["MKT-0142", "CIO-2026Q4-03"] };
+    if (!wantsProducts) {
+      return { summary: `Here is the current market picture.${ipsNote}`, market: brief, rows: [], autoTick: false, steps, tags: hvTags };
+    }
+    const rec = await recommendProducts(clientId, { top_n: 5, asset_classes: named.length ? null : classes, named_products: named.map((p) => p.product_id) });
+    let rows: MarketRow[];
+    let summary: string;
+    if (named.length) {
+      const ok = rec.named_products.filter((n) => n.status === "shortlisted" || n.status === "eligible");
+      const no = rec.named_products.filter((n) => n.status === "excluded");
+      rows = ok.map((n) => {
+        const item = rec.shortlist.find((s) => s.product.product_id === n.product_id);
+        const p = shelf.products.find((x) => x.product_id === n.product_id)!;
+        return item ? shortlistRow(item) : { ...shelfRow(p), ranking: [n.reason] };
+      });
+      summary = [
+        ok.length ? `${ok.length} of the ${named.length} product${named.length === 1 ? "" : "s"} you asked about pass the suitability gate. They are ticked as considerations; untick any you do not want.` : "",
+        ...no.map((n) => `${shelf.products.find((p) => p.product_id === n.product_id)?.product_name ?? n.query} is not suitable: ${n.reason}`),
+      ].filter(Boolean).join(" ");
+    } else {
+      rows = rec.shortlist.map(shortlistRow);
+      summary = rows.length
+        ? "Here are the best-fit products after the suitability gate, grouped by asset class. Tick the ones to consider. Fees were not used to rank."
+        : `No product passes the suitability gate for this client${classes ? ` in ${classes.join(" and ").toLowerCase()}` : ""}.${rec.missing_information.length ? ` Missing from the profile: ${rec.missing_information.join(", ")}.` : ""}`;
+    }
+    return { summary: summary + ipsNote, market: wantsMarket ? brief : null, rows, autoTick: rows.length > 0 && named.length > 0, steps, tags: hvTags };
   },
   getHouseViews: (_clientId: string): Promise<HouseView[]> => delay(m.houseViews),
   getPack: (_clientId: string): Promise<PackSection[]> => delay([...m.packSections].sort((a, b) => (a.order ?? a.n) - (b.order ?? b.n))),
@@ -233,9 +263,9 @@ const sgdM = (n: number) => `S$${(n / 1_000_000).toFixed(1)}m`;
 async function answerAsAgent(role: Role, clientId: string, message: string): Promise<AgentReply> {
   const t = message.toLowerCase();
   const agent = routeAgent(message);
-  const [client, goals, notes, ips, alloc, products] = await Promise.all([
+  const [client, goals, notes, ips, alloc] = await Promise.all([
     arcApi.getClient(clientId), arcApi.getGoalProjection(clientId), arcApi.getMeetingNotes(clientId),
-    arcApi.getIps(clientId), arcApi.getAllocation(clientId), arcApi.getProducts(clientId),
+    arcApi.getIps(clientId), arcApi.getAllocation(clientId),
   ]);
   const name = client?.name ?? "the client";
   const base = { role, clientId, agent };
@@ -245,10 +275,11 @@ async function answerAsAgent(role: Role, clientId: string, message: string): Pro
     const pf = ["Reading the client's holdings…", "Running portfolio analytics…"];
     if (/market.*(today|regime)|regime/.test(t) && /house view|cio|web|market/.test(t)) {
       const mb = m.macroBrief;
-      const cio = m.marketViews.map((v) => `${v.assetClass}: ${v.view} [${v.tags.find((x) => x.startsWith("CIO-")) ?? v.tags[0]}]`);
+      const hv = await getHouseView();
+      const cio = hv.views.map((v) => `${v.asset_class}: ${v.view} (${v.cio_term}) [${v.citation_id}]`);
       const web = mb.events.map((e, i) => `${e} [MKT-0142-${i + 1}]`);
-      const reply = `Market regime: ${mb.phase}, as of ${mb.asOf} [MKT-0142].\nFrom the CIO House View:\n${bullets(cio)}\nFrom the web:\n${bullets(web)}`;
-      return done(reply, ["MKT-0142", "CIO-2026Q4-03", "CIO-2026Q4-05"], ["Reading the macro brief…", "Reading the CIO House View…", "Scanning online macro events…", "Drafting summary by source…"]);
+      const reply = `Market regime: ${mb.phase}, as of ${mb.asOf} [MKT-0142].\nFrom the CIO House View (${hv.as_of}):\n${bullets(cio)}\nFrom the web:\n${bullets(web)}`;
+      return done(reply, ["MKT-0142", ...new Set(hv.views.map((v) => v.citation_id))], ["Reading the macro brief…", "Reading the CIO House View…", "Scanning online macro events…", "Drafting summary by source…"]);
     }
     if (/\bedit\b.*holdings?|holdings?.*\bedit/.test(t)) {
       const holdings = await arcApi.getHoldings(clientId);
@@ -373,25 +404,27 @@ async function answerAsAgent(role: Role, clientId: string, message: string): Pro
   }
 
   if (agent === "Product Agent") {
-    const named = products.find((p) => t.includes(p.name.toLowerCase()) || /pimco|balanced income/.test(t));
-    if (/suits?|fits?|why/.test(t) && (named || /etf|fund/.test(t))) {
-      const cap = client?.riskCap ?? 3;
-      const cycle = await arcApi.getMarketCycle();
-      const views = await arcApi.getMarketViews(clientId);
-      const p = named ?? products[1] ?? products[0];
-      const fiView = views.find((v) => v.assetClass === p.assetClass);
+    // Suitability and ranking come from the Product Recommender; nothing is judged here.
+    const products = await arcApi.getProducts(clientId);
+    const named = findProducts(t, products, (p) => p.name, (p) => p.id)[0];
+    if (/suits?|fits?|why/.test(t) && named) {
+      const [rec, cycle, views] = await Promise.all([
+        recommendProducts(clientId, { named_products: [named.id] }), arcApi.getMarketCycle(), arcApi.getMarketViews(clientId),
+      ]);
+      const result = rec.named_products[0];
+      const view = views.find((v) => v.assetClass === named.assetClass);
       const items = [
-        `Profile: ${name} is ${client?.riskCategory ?? "n/a"} with a risk limit of ${cap}. ${p.name} is rated ${p.riskRating}, ${p.riskRating <= cap ? "inside the limit" : "above the limit"}.`,
-        `Suitability: ${clip(p.suitability, 120)}.`,
-        `Macro: the cycle is ${cycle.phase}. The house view on ${p.assetClass.toLowerCase()} is ${fiView?.view ?? "n/a"}. ${fiView ? clip(fiView.explanation, 110) : ""}`,
-        `Fee ${p.feePct.toFixed(2)}% is shown for information and was not used to rank.`,
+        `Suitability gate: ${result?.status === "excluded" ? "not suitable" : "suitable"} for ${name} (risk level ${rec.client_summary.risk_level ?? "unknown"}). ${result?.reason ?? ""}`,
+        `Product: ${named.name}, risk ${named.riskRating} of 5. ${clip(named.suitability, 120)}`,
+        `Macro: the cycle is ${cycle.phase}. The house view on ${named.assetClass.toLowerCase()} is ${view?.view ?? "n/a"}. ${view ? clip(view.explanation, 110) : ""}`,
+        `${named.feePct === null ? "No fee data" : `Fee ${named.feePct.toFixed(2)}%`} is shown for information and was not used to rank.`,
       ];
-      return done(`Fit check for ${p.name}:\n${bullets(items)}`, [...p.tags.slice(0, 1), ...(fiView?.tags.slice(0, 1) ?? [])], ["Reading the client's profile and IPS…", "Running the suitability gate…", "Checking the house view…", "Drafting explanation…"]);
+      return done(`Fit check for ${named.name}:\n${bullets(items)}`, [named.id, ...(view?.tags.slice(0, 1) ?? [])], ["Reading the client's profile and IPS…", "Running the suitability gate…", "Checking the house view…", "Drafting explanation…"]);
     }
-    const cap = client?.riskCap;
-    const fit = products.filter((p) => cap === undefined || p.riskRating <= cap).slice(0, 4);
-    const reply = `Products that fit ${name}'s risk limit:\n${bullets(fit.map((p) => `${p.name} (${p.assetClass}, risk ${p.riskRating}): ${clip(p.suitability, 90)}`))}`;
-    return done(reply, fit[0]?.tags.slice(0, 1) ?? [], ["Reading the product list…", "Checking the risk limit…", "Drafting shortlist…"]);
+    const rec = await recommendProducts(clientId, { top_n: 4 });
+    const fit = rec.shortlist.map((s) => `${s.product.product_name} (${s.product.asset_class}, risk ${s.product.risk_rating}): ${clip(s.product.why_buy ?? "", 90)}`);
+    const reply = `Best-fit products for ${name} after the suitability gate:\n${bullets(fit.length ? fit : ["No product passes the suitability gate for this client."])}`;
+    return done(reply, [...new Set(rec.shortlist.flatMap((s) => s.reason.citations))].slice(0, 3), ["Reading the product shelf…", "Running the suitability gate…", "Ranking by fit and house view…", "Drafting shortlist…"]);
   }
 
   return done(`I can help with ${name}'s IPS, goals, meeting notes, TAA or products. Try one of the suggested questions.`, [], ["Understanding the question…", "Drafting reply…"]);
@@ -426,10 +459,17 @@ const shortS = (n: number) => `S$${(n / 1_000_000).toFixed(2)}m`;
  * - Anything not captured (age, income, expenses, accredited status...) is left
  *   out so the agent reports it as missing instead of the UI guessing.
  */
-async function buildPortfolioInputs(clientId: string): Promise<PmInputs> {
-  const [client, buckets, alloc, goals, inbox] = await Promise.all([
-    arcApi.getClient(clientId), arcApi.get3L(clientId), arcApi.getAllocation(clientId),
-    arcApi.getGoalProjection(clientId), arcApi.getInbox("ic"),
+/**
+ * The backend's risk label for each IPS risk limit (taxonomy.RISK_LEVEL_LABELS). The UI's five risk
+ * categories are bands ("Conservative" covers limits 1 and 2), so sending the category would make the
+ * backend read a limit-2 client as level 1. The IPS limit is the precise value, so its label is sent.
+ */
+const RISK_LABEL_FOR_LIMIT: Record<number, string> = { 1: "Conservative", 2: "Moderately conservative", 3: "Balanced", 4: "Growth", 5: "Aggressive" };
+
+/** Shared by the Portfolio Manager and the Product Recommender so both agents see the same client. */
+async function buildClientProfile(clientId: string) {
+  const [client, buckets, alloc, goals] = await Promise.all([
+    arcApi.getClient(clientId), arcApi.get3L(clientId), arcApi.getAllocation(clientId), arcApi.getGoalProjection(clientId),
   ]);
   if (!client) throw new Error(`Unknown client ${clientId}`);
   const risk = m.ipsRiskByClient[clientId];
@@ -438,8 +478,27 @@ async function buildPortfolioInputs(clientId: string): Promise<PmInputs> {
   const dated = goals.events.map((e) => ({ ...e, years: e.year - year })).sort((a, b) => a.years - b.years);
   const near = dated.filter((e) => e.years <= 3);
   const later = dated.filter((e) => e.years > 3);
-  const request = inbox.find((i) => i.clientId === clientId);
   const current = Object.fromEntries(alloc.map((r) => [r.assetClass, r.current]));
+  const profile: PmClientProfile = {
+    client_id: clientId,
+    base_currency: "SGD",
+    total_aum: client.aumSgd,
+    investable_assets: client.aumSgd,
+    minimum_cash_reserve: liquidity,
+    planned_withdrawals: 0,
+    risk_appetite: RISK_LABEL_FOR_LIMIT[client.riskCap] ?? client.riskCategory,
+    risk_tolerance_score: client.riskCap,
+    risk_capacity: risk?.riskCapacity ?? null,
+    maximum_acceptable_drawdown: risk?.maxDrawdownPct ?? null,
+    financial_goals: later.map((e) => ({ goal: e.label, years_to_goal: e.years, priority: /retire/i.test(e.label) ? "High" : "Medium", currency: "SGD" })),
+    current_asset_allocation: current,
+  };
+  return { client, risk, liquidity, near, later, alloc, profile };
+}
+
+async function buildPortfolioInputs(clientId: string): Promise<PmInputs> {
+  const [{ client, risk, liquidity, near, later, alloc, profile }, inbox] = await Promise.all([buildClientProfile(clientId), arcApi.getInbox("ic")]);
+  const request = inbox.find((i) => i.clientId === clientId);
 
   const fields: PmInputField[] = [
     { label: "Portfolio", value: shortS(client.aumSgd), source: "Client record" },
@@ -464,20 +523,7 @@ async function buildPortfolioInputs(clientId: string): Promise<PmInputs> {
     request: {
       client_id: clientId,
       trigger: request ? { requirement_change: request.kind, reason_for_review: request.summary, effective_date: new Date().toISOString().slice(0, 10) } : null,
-      client_profile: {
-        client_id: clientId,
-        base_currency: "SGD",
-        total_aum: client.aumSgd,
-        investable_assets: client.aumSgd,
-        minimum_cash_reserve: liquidity,
-        planned_withdrawals: 0,
-        risk_appetite: client.riskCategory,
-        risk_tolerance_score: client.riskCap,
-        risk_capacity: risk?.riskCapacity ?? null,
-        maximum_acceptable_drawdown: risk?.maxDrawdownPct ?? null,
-        financial_goals: later.map((e) => ({ goal: e.label, years_to_goal: e.years, priority: /retire/i.test(e.label) ? "High" : "Medium", currency: "SGD" })),
-        current_asset_allocation: current,
-      },
+      client_profile: profile,
     },
   };
 }
@@ -512,4 +558,124 @@ async function generatePortfolioProposals(req: PmRequest): Promise<PmResponse> {
     && r.portfolio_options.every((o) => typeof o?.option_id === "string" && Array.isArray(o?.asset_allocation) && Array.isArray(o?.product_selections));
   if (!ok) throw new PortfolioManagerError("INVALID_RESPONSE", "The Portfolio Manager's response did not match the expected format.");
   return r as PmResponse;
+}
+
+/* ---------- Product Recommender agent (real backend) ---------- */
+
+const PR_URL = `${API_BASE}/agents/product-recommender`;
+const PR_TIMEOUT_MS = 30_000;
+
+/** No mock fallback: the PS must never approve a list the agent did not produce. */
+export class ProductRecommenderError extends Error {
+  kind: "UNREACHABLE" | "TIMEOUT" | "REJECTED" | "SERVER" | "INVALID_RESPONSE";
+  details: string[];
+  constructor(kind: ProductRecommenderError["kind"], message: string, details: string[] = []) {
+    super(message);
+    this.kind = kind;
+    this.details = details;
+  }
+}
+
+async function prFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(`${PR_URL}${path}`, { ...init, signal: AbortSignal.timeout(PR_TIMEOUT_MS) });
+  } catch (err) {
+    if (err instanceof DOMException && (err.name === "TimeoutError" || err.name === "AbortError")) {
+      throw new ProductRecommenderError("TIMEOUT", "The Product Recommender did not respond in time.");
+    }
+    throw new ProductRecommenderError("UNREACHABLE", `Cannot reach the Product Recommender at ${API_BASE}.`, [
+      "Start the backend: cd backend, then uvicorn app.app:app --reload",
+    ]);
+  }
+  const json: unknown = await res.json().catch(() => null);
+  if (!res.ok) {
+    const detail = (json as { detail?: unknown } | null)?.detail;
+    if (res.status === 422 && Array.isArray(detail)) {
+      throw new ProductRecommenderError("REJECTED", "The Product Recommender rejected the inputs.",
+        detail.map((d: { loc?: unknown[]; msg?: string }) => `${(d.loc ?? []).filter((x) => x !== "body").join(" › ")}: ${d.msg ?? "invalid"}`));
+    }
+    throw new ProductRecommenderError("SERVER", `The Product Recommender returned an error (${typeof detail === "string" ? detail : `HTTP ${res.status}`}).`);
+  }
+  if (json === null || typeof json !== "object") throw new ProductRecommenderError("INVALID_RESPONSE", "The Product Recommender's response was not JSON.");
+  return json as T;
+}
+
+/** Cached for the session; a failed call is not cached, so the next call retries. */
+const once = <T,>(load: () => Promise<T>) => {
+  let p: Promise<T> | null = null;
+  return () => (p ??= load().catch((e) => { p = null; throw e; }));
+};
+
+const getShelf = once(async () => {
+  const s = await prFetch<PrShelf>("/shelf");
+  if (!Array.isArray(s.products)) throw new ProductRecommenderError("INVALID_RESPONSE", "The product shelf did not match the expected format.");
+  return s;
+});
+
+const getHouseView = once(async () => {
+  const hv = await prFetch<PrHouseView>("/house-view");
+  if (!Array.isArray(hv.views)) throw new ProductRecommenderError("INVALID_RESPONSE", "The house view did not match the expected format.");
+  return hv;
+});
+
+const toProduct = (p: PrShelfProduct): Product => ({
+  id: p.product_id,
+  name: p.product_name,
+  assetClass: p.asset_class as ProductClass,
+  whyBuy: p.why_buy ?? "",
+  feePct: p.management_fee,
+  stars: p.rating ?? 0,
+  suitability: p.suitability_note ?? "",
+  // The backend excludes a product with no risk rating; treat it as the highest risk here too.
+  riskRating: p.risk_rating ?? 5,
+  tags: [p.product_id],
+});
+
+/** A shortlist item as a chat row; carries the agent's cited reason through to the finalise page. */
+export function shortlistRow(s: PrShortlistItem): MarketRow {
+  const lines = toBulletItems(s.reason.text);
+  return {
+    assetClass: s.product.asset_class, product: s.product.product_name, industryFocus: s.product.why_buy ?? s.product.sub_asset_class ?? "",
+    top5: [], confidencePct: (s.product.rating ?? 0) * 20, ranking: lines, agentReason: s.reason.text,
+  };
+}
+
+const shelfRow = (p: PrShelfProduct): MarketRow => ({
+  assetClass: p.asset_class, product: p.product_name, industryFocus: p.why_buy ?? p.sub_asset_class ?? "", top5: [], confidencePct: (p.rating ?? 0) * 20, ranking: [],
+});
+
+/** Mock cycle phase and events (Market Researcher seam) with the CIO views from the curated house view. */
+async function cioBrief(): Promise<MacroBrief> {
+  const hv = await getHouseView();
+  const direction = { Buy: "Up", Hold: "Flat", Sell: "Down" } as const;
+  return {
+    ...m.macroBrief,
+    views: hv.views.map((v) => ({ assetClass: v.asset_class, view: v.view, industry: v.cio_term, direction: direction[v.view], note: v.rationale })),
+  };
+}
+
+async function recommendProducts(clientId: string, options: PrOptions = {}): Promise<PrResponse> {
+  const { profile } = await buildClientProfile(clientId);
+  const body: PrRequest = { request_id: `PS-${clientId}-${Date.now()}`, client_id: clientId, client_profile: profile, options };
+  const r = await prFetch<PrResponse>("/recommend", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const ok = Array.isArray(r.shortlist) && Array.isArray(r.excluded) && Array.isArray(r.named_products) && !!r.client_summary
+    && r.shortlist.every((s) => s.costs?.display_only === true && typeof s.reason?.text === "string");
+  if (!ok) throw new ProductRecommenderError("INVALID_RESPONSE", "The Product Recommender's response did not match the expected format.");
+  return r;
+}
+
+/** "Fixed income" -> "fixed-income" (the backend accepts either). */
+export const assetClassSlug = (assetClass: string) => assetClass.toLowerCase().replace(/\s+/g, "-");
+
+async function getAssetClassView(assetClass: string, clientId?: string): Promise<PrAssetView> {
+  const path = `/asset-class-views/${encodeURIComponent(assetClassSlug(assetClass))}`;
+  const v = clientId
+    ? await prFetch<PrAssetView>(path, { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ client_id: clientId, client_profile: (await buildClientProfile(clientId)).profile }) })
+    : await prFetch<PrAssetView>(path);
+  if (!v.cio_view || !Array.isArray(v.segments) || v.implementation?.fees?.display_only !== true) {
+    throw new ProductRecommenderError("INVALID_RESPONSE", "The asset-class view did not match the expected format.");
+  }
+  return v;
 }
