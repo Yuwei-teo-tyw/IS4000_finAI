@@ -4,7 +4,7 @@
  */
 import { useSyncExternalStore } from "react";
 import type { MarketRow } from "../types/arc";
-import { recordPackEdit } from "./packDraftStore";
+import { recordPackEdit, saveSignature, setSectionDone } from "./packDraftStore";
 
 /** One-time reset of stale demo state in this tab, so Jane Fraser and David Solomon start from the seeded zero progress. Bump SEED_VERSION to reset again. */
 const SEED_VERSION = "2";
@@ -57,6 +57,11 @@ export const toggleSelection = (clientId: string, row: MarketRow) => {
   saveSelection(clientId, cur.some((r) => r.product === row.product) ? cur.filter((r) => r.product !== row.product) : [...cur, row]);
 };
 
+/* ---- 2b. PS reasons typed on the finalise page, kept until sent so navigating away does not lose them (key = product name) ---- */
+const psReasons = createStore<Record<string, Record<string, string>>>("wf-ps-reasons", {});
+export const usePsReasons = (clientId: string): Record<string, string> => psReasons.use()[clientId] ?? {};
+export const savePsReasons = (clientId: string, reasons: Record<string, string>) => psReasons.write({ ...psReasons.read(), [clientId]: reasons });
+
 /* ---- 3. PS finalised list sent to IC (G3), each product with the PS's typed reason ---- */
 export interface FinalisedItem extends MarketRow { reason: string }
 export interface FinalisedList { clientId: string; sentAt: string; items: FinalisedItem[] }
@@ -66,6 +71,20 @@ export const useAllFinalised = (): FinalisedList[] => Object.values(finalised.us
 export const sendFinalised = (clientId: string, items: FinalisedItem[]) => {
   recordPackEdit(clientId, 0, "ps", "Handed over to Investment Counsellor");
   finalised.write({ ...finalised.read(), [clientId]: { clientId, sentAt: new Date().toISOString(), items } });
+};
+/**
+ * PS edits a list already sent: G3 reopens. Upstream edits reset downstream gates, so the IC handover (G2) is withdrawn,
+ * which also puts G4 back to pending, and the PS signs again. The sent reasons are kept as the starting draft.
+ */
+export const reopenFinalised = (clientId: string) => {
+  const cur = finalised.read()[clientId];
+  if (!cur) return;
+  savePsReasons(clientId, { ...psReasons.read()[clientId], ...Object.fromEntries(cur.items.map((i) => [i.product, i.reason])) });
+  finalised.write(Object.fromEntries(Object.entries(finalised.read()).filter(([id]) => id !== clientId)));
+  withdrawIcToRm(clientId);
+  saveSignature(clientId, "ps", null);
+  setSectionDone(clientId, 5, false, "ps");
+  recordPackEdit(clientId, 0, "ps", "Reopened product list (G3), G2 and G4 reset");
 };
 
 /* ---- 4. Active IPS version per client (used by the chatbot: "Using IPS v2") ---- */

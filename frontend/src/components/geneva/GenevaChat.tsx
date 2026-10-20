@@ -62,8 +62,16 @@ async function buildRecommendation(clientId: string, ipsVersion: number | null):
   const viewOf = (cls: string) => view(cls)?.view ?? "Hold";
   const tagOf = (cls: string) => view(cls)?.tags.find((t) => t.startsWith("CIO-")) ?? "CIO-2026Q4-03";
   const within = products.filter((p) => p.riskRating <= cap), above = products.filter((p) => p.riskRating > cap);
-  const score = (p: typeof products[number]) => p.stars * 10 + ({ Buy: 8, Hold: 3, Sell: -6 }[viewOf(p.assetClass)] ?? 0) + (p.riskRating / cap) * (cap >= 4 ? 8 : 3) - p.feePct * 3 + (wantsIncome && /income|dividend|yield|bond/i.test(p.name + p.whyBuy) ? 5 : 0);
-  const top = [...within].sort((a, b) => score(b) - score(a)).slice(0, 5);
+  // Suitability first: only products within the risk limit are ranked, by fit to the client's preference, then the CIO view,
+  // then use of the risk budget. Stars only break near-ties. The fee is shown for transparency and is never part of the score.
+  const prefFit = (p: typeof products[number]) => {
+    const text = `${p.name} ${p.whyBuy} ${p.suitability}`;
+    if (wantsIncome) return /income|dividend|yield|bond/i.test(text) ? 12 : 0;
+    if (wantsLegacy || cap >= 4) return /equit|growth|diversif/i.test(text) || p.assetClass === "Equities" ? 12 : 0;
+    return p.riskRating <= 2 ? 12 : 0;
+  };
+  const score = (p: typeof products[number]) => prefFit(p) + ({ Buy: 8, Hold: 3, Sell: -6 }[viewOf(p.assetClass)] ?? 0) + (p.riskRating / cap) * (cap >= 4 ? 6 : 2) + p.stars;
+  const top = [...within].sort((a, b) => score(b) - score(a) || a.name.localeCompare(b.name)).slice(0, 5);
   const shortlist = top.map((p) => ({
     row: { assetClass: p.assetClass, product: p.name, industryFocus: p.tags[0] ?? "", top5: [], confidencePct: Math.round(p.stars * 20), ranking: [] } as MarketRow,
     riskRating: p.riskRating,

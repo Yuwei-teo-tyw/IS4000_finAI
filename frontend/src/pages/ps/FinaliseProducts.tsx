@@ -7,7 +7,8 @@ import { ProfessionaliseButton } from "../../components/geneva/ProfessionaliseBu
 import { WordingCompare } from "../rm/rmShared";
 import { getChatContext } from "../../services/chatContextStore";
 import { ClientStrip, PS_STEPS, loadSelection, saveSelection } from "./psShared";
-import { sendFinalised } from "../../services/workflowStore";
+import { reopenFinalised, savePsReasons, sendFinalised, useFinalised, usePsReasons } from "../../services/workflowStore";
+import { FinalisedTable } from "../../components/ps/FinalisedTable";
 import { savePackDraft, setSectionDone, useSignatures } from "../../services/packDraftStore";
 import { toBulletItems } from "../../utils/bullets";
 
@@ -40,10 +41,13 @@ const IC_RECEIVES = [
 ];
 const SENT_NOTES = [
   "The IC can now propose the tactical allocation.",
-  "If you edit this list after sending, G3 reopens.",
-  "G2 and G4 are reset, so the IC and RM approve again.",
   "The Relationship Manager is notified once the IC completes the pack.",
   "Your reasons stay attached to each product for audit.",
+];
+const REOPEN_NOTES = [
+  "G3 reopens and the list leaves the IC's inbox until you send it again.",
+  "G2 and G4 are reset, so the IC and RM approve again.",
+  "Your signature is cleared. Your sent reasons are kept as the starting draft.",
 ];
 
 export default function FinaliseProducts() {
@@ -55,11 +59,15 @@ export default function FinaliseProducts() {
   /** Per-box Geneva state: loading flag and the proposed professional wording awaiting Accept / Keep mine. */
   const [busy, setBusy] = useState<Record<string, boolean>>({});
   const [proposal, setProposal] = useState<Record<string, string>>({});
-  const [sent, setSent] = useState(false);
+  const sentList = useFinalised(clientId);
+  const [reopening, setReopening] = useState(false);
   const [editingReason, setEditingReason] = useState<string | null>(null);
-  const [reasons, setReasons] = useState<Record<string, string>>({});
+  /** Persisted per client so typed reasons survive leaving the page; cleared on send, restored from the sent list on reopen. */
+  const reasons = usePsReasons(clientId);
+  const setReasons = (next: Record<string, string> | ((r: Record<string, string>) => Record<string, string>)) =>
+    savePsReasons(clientId, typeof next === "function" ? next(reasons) : next);
 
-  const [all] = useState(() => loadSelection(clientId));
+  const [all, setAll] = useState(() => loadSelection(clientId));
   const [ticked, setTicked] = useState<string[]>(() => all.map((r) => r.product));
   const list = all.filter((r) => ticked.includes(r.product));
   /** Professional baseline: seeded Product.psReason when the product is on the shelf, else a generic suitability draft. */
@@ -85,7 +93,20 @@ export default function FinaliseProducts() {
     const body = items.map((i) => `• ${i.product}: ${toBulletItems(i.reason)[0] ?? i.industryFocus}`).join("\n");
     savePackDraft(clientId, 5, body, "ps");
     setSectionDone(clientId, 5, true, "ps");
-    setSent(true);
+    savePsReasons(clientId, {});
+    setPhase("reasons");
+    setConfirm(false);
+  };
+  const reopen = () => {
+    if (!sentList) return;
+    const sentNames = sentList.items.map((i) => i.product);
+    // Bring back any sent product that was dropped from the chat selection since, so it can still be edited.
+    const merged = [...loadSelection(clientId).filter((r) => !sentNames.includes(r.product)), ...sentList.items.map((i) => ({ assetClass: i.assetClass, product: i.product, industryFocus: i.industryFocus, top5: i.top5, confidencePct: i.confidencePct, ranking: i.ranking }))];
+    saveSelection(clientId, merged);
+    setAll(merged);
+    setTicked(sentNames);
+    reopenFinalised(clientId);
+    setReopening(false);
   };
   const toggle = (name: string) => setTicked((cur) => {
     const next = cur.includes(name) ? cur.filter((x) => x !== name) : [...cur, name];
@@ -93,16 +114,32 @@ export default function FinaliseProducts() {
     return next;
   });
 
-  if (sent) {
+  if (sentList) {
     return (
       <div>
         <PageHeader eyebrow="Product review · Done" title="Sent to the Investment Counsellor" actions={<GateChip id="G3" state="approved" />} />
         <Stepper steps={PS_STEPS} current={2} />
         <Card accent className="mb-12 !p-10">
-          <h2 className="text-2xl">{list.length} products approved for {client?.name ?? "the client"}</h2>
+          <h2 className="text-2xl">{sentList.items.length} products approved for {client?.name ?? "the client"}</h2>
           <BulletList className="mt-3 max-w-2xl !text-base" text={SENT_NOTES.map((n) => `• ${n}`).join("\n")} />
           <div className="mt-8"><Button to="/ps/inbox">Back to inbox</Button></div>
         </Card>
+        <Section title="Sent list" hint="Click a product to read your reason.">
+          <FinalisedTable clientId={clientId} expandable />
+        </Section>
+        {reopening ? (
+          <Card className="mb-12 !p-8">
+            <h2 className="text-xl">Edit the sent list?</h2>
+            <BulletList className="mt-3 !text-base" text={REOPEN_NOTES.map((n) => `• ${n}`).join("\n")} />
+            <div className="mt-6 flex flex-wrap gap-4">
+              <Button variant="secondary" onClick={reopen}>Reopen G3 and edit</Button>
+              <Button variant="ghost" onClick={() => setReopening(false)}>Cancel</Button>
+            </div>
+          </Card>
+        ) : (
+          <NextAction title="Need to change the list?" body="Editing reopens G3 and resets G2 and G4."
+            action={<Button variant="secondary" onClick={() => setReopening(true)}>Edit list</Button>} />
+        )}
       </div>
     );
   }
