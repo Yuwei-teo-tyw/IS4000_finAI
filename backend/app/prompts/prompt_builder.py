@@ -7,7 +7,7 @@ changing a prompt is a reviewable YAML diff rather than a code diff.
 Usage:
     from app.prompts.prompt_builder import get_prompt
 
-    system_text = get_prompt("finance.system")
+    system_text = get_prompt("general.system")
     note = get_prompt("shared.regenerate_note", feedback="too vague")
 
 Version pinning: each key's YAML entry has a `latest` pointer used by
@@ -15,7 +15,7 @@ default. Override a specific key's version via the PROMPT_VERSION_OVERRIDES
 env var (a JSON object mapping key -> version) for a rollback or an A/B
 test without touching code:
 
-    PROMPT_VERSION_OVERRIDES='{"finance.system": "v2"}'
+    PROMPT_VERSION_OVERRIDES='{"general.system": "v1"}'
 
 get_prompt_version(key) returns which version was actually resolved, so
 callers can attach it to trace metadata (e.g. Langfuse) for prompt-level

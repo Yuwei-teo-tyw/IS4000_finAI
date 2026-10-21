@@ -2,7 +2,7 @@
 Triage Agent - Routes requests to appropriate specialists or provides general assistance.
 
 Routing uses `with_structured_output` (a real LangChain/Groq feature) instead
-of asking the model to emit a magic string like "ROUTE_TO_FINANCE" and then
+of asking the model to emit a magic string like "ROUTE_TO_MARKET" and then
 substring-matching it - that's brittle since a normal answer could coincidentally
 contain the substring, and there's no schema validation.
 
@@ -19,17 +19,16 @@ from app.prompts.prompt_builder import get_prompt
 
 class RoutingDecision(BaseModel):
     """Routing decision for an incoming user message."""
-    destination: Literal["finance", "market", "general", "meta"] = Field(
+    destination: Literal["market", "general", "meta"] = Field(
         description=(
             "'market' for questions about current macro/economic conditions - interest rates and "
             "Treasury yields, inflation, jobs data, the economic cycle or recession risk, or overall "
             "market conditions right now, "
-            "'finance' for other investment/budgeting/personal-finance questions, "
             "'meta' if the user is asking what this assistant/platform can do, which specialists or "
             "agents are available, or for help/options about the platform itself rather than asking "
             "an actual question, "
-            "'general' for everything else (general knowledge, programming, conversation, creative requests, "
-            "current events/weather/real-time info)."
+            "'general' for everything else (other investment/budgeting/personal-finance questions, general "
+            "knowledge, programming, conversation, creative requests, current events/weather/real-time info)."
         )
     )
 
@@ -37,7 +36,7 @@ class RoutingDecision(BaseModel):
 class TriageAgent:
     """
     AI-powered triage agent that intelligently routes requests to the
-    Finance, Market Researcher, or General specialist.
+    Market Researcher or General specialist.
     """
 
     def __init__(self):
@@ -59,11 +58,11 @@ class TriageAgent:
         # here before routing; it misfired on anything containing the word "help",
         # e.g. "I need coding help" - replaced with a 'meta' routing destination so
         # the same classifier handles it instead of a separate keyword pass.)
+        prompt = [SystemMessage(content=get_prompt("triage.routing_system"))]
+        if state.get("client_context"):
+            prompt.append(SystemMessage(content=state["client_context"]))
         try:
-            decision = await self.router.ainvoke([
-                SystemMessage(content=get_prompt("triage.routing_system")),
-                HumanMessage(content=latest_message),
-            ])
+            decision = await self.router.ainvoke(prompt + [HumanMessage(content=latest_message)])
             destination = decision.destination
         except Exception as e:
             print(f"TRIAGE: routing error: {e}")
@@ -84,24 +83,19 @@ class TriageAgent:
             return {
                 "current_agent": "market_researcher",
                 "next_agent": "market_researcher",
+                "scope_checked": True,
                 "conversation_ended": False,
                 "handoff_message": "I'll connect you with our Market Researcher, which pulls live macro and market data.",
             }
 
-        if destination == "finance":
-            return {
-                "current_agent": "finance",
-                "next_agent": "finance",
-                "conversation_ended": False,
-                "handoff_message": "I'll connect you with our Finance Expert to help with your financial question.",
-            }
-
-        # Hand off to the General Assistant, which has live web search
+        # Hand off to the General Assistant, which also takes personal-finance
+        # and investment-concept questions, and has live web search
         # (tavily_search) for real-time questions - weather, current events,
         # scores - that a plain, tool-less generation couldn't reliably answer.
         return {
             "current_agent": "general",
             "next_agent": "general",
+            "scope_checked": True,
             "conversation_ended": False,
             "handoff_message": None,
         }

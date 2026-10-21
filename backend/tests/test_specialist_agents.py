@@ -1,100 +1,44 @@
 """
-Finance/General specialist nodes: the scope check that hands a
-message back to triage when it doesn't belong here, and the tool-calling
+General specialist node: the scope check that hands a message back to
+triage when it belongs with the Market Researcher, and the tool-calling
 decision the underlying LLM makes (search vs. direct answer) once in scope.
 """
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
-import app.agents.nodes.finance as finance_module
 import app.agents.nodes.general as general_module
-from app.agents.nodes.finance import FinanceExpert
-from app.agents.nodes.finance import ScopeCheck as FinanceScopeCheck
 from app.agents.nodes.general import GeneralAssistant
 from app.agents.nodes.general import ScopeCheck as GeneralScopeCheck
 
 from conftest import FakeLLM, run_async
 
 
-# --- Finance ------------------------------------------------------------
-
-def _make_finance(monkeypatch, fake_llm):
-    monkeypatch.setattr(finance_module, "get_groq_model", lambda: fake_llm)
-    return FinanceExpert()
-
-
-def test_finance_out_of_scope_hands_back_to_triage(monkeypatch):
-    fake_llm = FakeLLM(FinanceScopeCheck(in_scope=False))
-    agent = _make_finance(monkeypatch, fake_llm)
-    state = {"messages": [HumanMessage(content="how do I center a div?")]}
-
-    result = run_async(agent.run(state))
-
-    assert result["current_agent"] == "triage"
-
-
-def test_finance_expands_jargon_before_scope_check(monkeypatch):
-    fake_llm = FakeLLM(
-        FinanceScopeCheck(in_scope=True),
-        AIMessage(content="A P/E ratio compares price to earnings."),
-    )
-    agent = _make_finance(monkeypatch, fake_llm)
-    state = {"messages": [HumanMessage(content="what's a good p/e for a growth stock?")]}
-
-    run_async(agent.run(state))
-
-    scope_check_messages = fake_llm.calls[0]
-    human_turn = next(m for m in scope_check_messages if m.type == "human")
-    assert "price-to-earnings ratio" in human_turn.content
-
-
-def test_finance_emits_action_tool_call_for_money_moving_request(monkeypatch):
-    fake_llm = FakeLLM(
-        FinanceScopeCheck(in_scope=True),
-        AIMessage(
-            content="",
-            tool_calls=[{
-                "name": "propose_financial_action",
-                "args": {"action_type": "transfer", "amount": 500, "description": "move $500 to savings"},
-                "id": "c1",
-            }],
-        ),
-    )
-    agent = _make_finance(monkeypatch, fake_llm)
-    state = {"messages": [HumanMessage(content="move $500 from checking to savings")]}
-
-    result = run_async(agent.run(state))
-
-    assert result["messages"][0].tool_calls[0]["name"] == "propose_financial_action"
-
-
-def test_finance_response_carries_disclaimer(monkeypatch):
-    fake_llm = FakeLLM(
-        FinanceScopeCheck(in_scope=True),
-        AIMessage(content="Diversification reduces risk."),
-    )
-    agent = _make_finance(monkeypatch, fake_llm)
-    state = {"messages": [HumanMessage(content="how should I diversify?")]}
-
-    result = run_async(agent.run(state))
-
-    assert result["finance_response"]["data"]["disclaimer"]
-
-
-# --- General --------------------------------------------------------------
-
 def _make_general(monkeypatch, fake_llm):
     monkeypatch.setattr(general_module, "get_groq_model", lambda: fake_llm)
     return GeneralAssistant()
 
 
-def test_general_hands_back_to_triage_when_topic_shifts_to_finance(monkeypatch):
-    fake_llm = FakeLLM(GeneralScopeCheck(destination="finance"))
+def test_general_hands_back_to_triage_when_topic_shifts_to_market(monkeypatch):
+    fake_llm = FakeLLM(GeneralScopeCheck(destination="market"))
     agent = _make_general(monkeypatch, fake_llm)
-    state = {"messages": [HumanMessage(content="actually, should I invest in bonds?")]}
+    state = {"messages": [HumanMessage(content="actually, are recession risks rising right now?")]}
 
     result = run_async(agent.run(state))
 
     assert result["current_agent"] == "triage"
+
+
+def test_general_answers_personal_finance_questions(monkeypatch):
+    fake_llm = FakeLLM(
+        GeneralScopeCheck(destination="general"),
+        AIMessage(content="A P/E ratio compares a share price to earnings per share."),
+    )
+    agent = _make_general(monkeypatch, fake_llm)
+    state = {"messages": [HumanMessage(content="what's a P/E ratio?")]}
+
+    result = run_async(agent.run(state))
+
+    assert result["current_agent"] == "general"
+    assert "P/E" in result["messages"][0].content
 
 
 def test_general_answers_when_in_scope(monkeypatch):
@@ -125,3 +69,24 @@ def test_general_resuming_after_tool_skips_scope_check(monkeypatch):
     result = run_async(agent.run(state))
 
     assert result["messages"][0].content == "It's sunny and 72F today."
+
+
+def test_general_skips_scope_check_once_routing_is_settled(monkeypatch):
+    fake_llm = FakeLLM(AIMessage(content="Hello!"))
+    agent = _make_general(monkeypatch, fake_llm)
+    state = {"messages": [HumanMessage(content="hi")], "scope_checked": True}
+
+    result = run_async(agent.run(state))
+
+    assert len(fake_llm.calls) == 1  # answer only, no scope check
+    assert result["current_agent"] == "general"
+
+
+def test_scope_check_sees_the_workspace_context(monkeypatch):
+    fake_llm = FakeLLM(GeneralScopeCheck(destination="general"), AIMessage(content="ok"))
+    agent = _make_general(monkeypatch, fake_llm)
+    state = {"messages": [HumanMessage(content="is this suitable for her?")], "client_context": "CTX: Mei Tan"}
+
+    run_async(agent.run(state))
+
+    assert any("Mei Tan" in m.content for m in fake_llm.calls[0])

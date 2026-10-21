@@ -1,35 +1,32 @@
 """
 End-to-end tests through the real compiled graph (`build_graph`), backed by
 an in-memory checkpointer instead of Postgres. Every LLM-backed node
-(triage/finance/general/market_researcher/eval) is monkeypatched to a `FakeLLM`
+(triage/general/market_researcher/eval) is monkeypatched to a `FakeLLM`
 queued with the exact sequence of structured/tool-call responses that
-scenario needs - everything else (pii_guard, routing, tool execution,
-human_approval) runs for real.
+scenario needs - everything else (pii_guard, routing, tool execution)
+runs for real.
 
 `tavily_search` runs for real too, but with TAVILY_API_KEY deliberately
 unset, so it returns a deterministic error string instead of making a
 network call - the tool-calling loop only cares that the graph round-trips
 through ToolNode and back, not what the search actually returned.
 
-Together these four tests cover the graph's main regression surface: the
-general assistant's tool-calling loop, the finance compliance-driven regenerate
-loop, the human-approval interrupt/resume loop, and PII redaction running
-before any specialist ever sees the raw message.
+Together these tests cover the graph's main regression surface: the
+general assistant's tool-calling loop, the compliance-driven regenerate
+loop, PII redaction running before any specialist ever sees the raw
+message, and a specialist handoff settling in one hop.
 """
 from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.checkpoint.memory import InMemorySaver
-from langgraph.types import Command
 
 import app.agents.nodes.context_manager as context_manager_module
 import app.agents.nodes.eval_agent as eval_module
-import app.agents.nodes.finance as finance_module
 import app.agents.nodes.general as general_module
 import app.agents.nodes.market_researcher as market_researcher_module
 import app.agents.nodes.triage as triage_module
 from app.agents.graph import build_graph
 from app.agents.nodes.eval_agent import ComplianceCheck, EvalVerdict
-from app.agents.nodes.finance import ScopeCheck as FinanceScopeCheck
-from app.agents.nodes.general import ScopeCheck as GeneralScopeCheck
+from app.agents.nodes.market_researcher import MarketScope
 from app.agents.nodes.triage import RoutingDecision
 
 from conftest import FakeLLM, run_async
@@ -40,7 +37,6 @@ def _patch_all_llms(monkeypatch):
     keyed by node name, so each test fills in only the queues it needs."""
     fakes = {
         "triage": FakeLLM(),
-        "finance": FakeLLM(),
         "general": FakeLLM(),
         "market_researcher": FakeLLM(),
         "eval": FakeLLM(),
@@ -50,7 +46,6 @@ def _patch_all_llms(monkeypatch):
         "context_manager": FakeLLM(),
     }
     monkeypatch.setattr(triage_module, "get_groq_model", lambda: fakes["triage"])
-    monkeypatch.setattr(finance_module, "get_groq_model", lambda: fakes["finance"])
     monkeypatch.setattr(general_module, "get_groq_model", lambda: fakes["general"])
     monkeypatch.setattr(market_researcher_module, "get_groq_model", lambda: fakes["market_researcher"])
     monkeypatch.setattr(eval_module, "get_groq_model", lambda: fakes["eval"])
@@ -67,12 +62,11 @@ def test_general_tool_calling_loop_end_to_end(monkeypatch):
     fakes = _patch_all_llms(monkeypatch)
 
     fakes["triage"].queue(RoutingDecision(destination="general"))
-    fakes["general"].queue(
-        GeneralScopeCheck(destination="general"),
+    fakes["general"].queue(  # triage just routed here - no scope check
         AIMessage(content="", tool_calls=[{"name": "tavily_search", "args": {"query": "python 3.13"}, "id": "c1"}]),
         AIMessage(content="Python 3.13 shipped a JIT compiler."),
     )
-    fakes["eval"].queue(EvalVerdict(verdict="approve", feedback=""))
+    fakes["eval"].queue(EvalVerdict(verdict="approve", feedback=""), ComplianceCheck(compliant=True, severity="none"))
 
     app = _graph()
     config = {"configurable": {"thread_id": "general-tool-loop"}}
@@ -86,14 +80,13 @@ def test_general_tool_calling_loop_end_to_end(monkeypatch):
     assert "TAVILY_API_KEY" in tool_messages[0].content  # real tool ran, no key configured
 
 
-def test_finance_compliance_regenerate_loop_end_to_end(monkeypatch):
+def test_compliance_regenerate_loop_end_to_end(monkeypatch):
     fakes = _patch_all_llms(monkeypatch)
 
-    fakes["triage"].queue(RoutingDecision(destination="finance"))
-    fakes["finance"].queue(
-        FinanceScopeCheck(in_scope=True),
+    fakes["triage"].queue(RoutingDecision(destination="general"))
+    fakes["general"].queue(  # triage just routed here - no scope check
         AIMessage(content="This fund guarantees a 20% return, no risk at all."),
-        FinanceScopeCheck(in_scope=True),  # scope check re-runs on the regenerate pass
+        # still no scope check on the regenerate pass
         AIMessage(content="Past performance doesn't guarantee future returns; diversify and consider your risk tolerance."),
     )
     fakes["eval"].queue(
@@ -104,7 +97,7 @@ def test_finance_compliance_regenerate_loop_end_to_end(monkeypatch):
     )
 
     app = _graph()
-    config = {"configurable": {"thread_id": "finance-compliance"}}
+    config = {"configurable": {"thread_id": "general-compliance"}}
     result = run_async(app.ainvoke({"messages": [HumanMessage(content="is this fund a sure thing?")]}, config=config))
 
     final_ai = [m for m in result["messages"] if m.type == "ai" and m.content][-1]
@@ -114,49 +107,14 @@ def test_finance_compliance_regenerate_loop_end_to_end(monkeypatch):
     assert not any("no risk at all" in (m.content or "") for m in result["messages"])
 
 
-def test_human_approval_interrupt_and_resume_end_to_end(monkeypatch):
-    fakes = _patch_all_llms(monkeypatch)
-
-    fakes["triage"].queue(RoutingDecision(destination="finance"))
-    fakes["finance"].queue(
-        FinanceScopeCheck(in_scope=True),
-        AIMessage(
-            content="",
-            tool_calls=[{
-                "name": "propose_financial_action",
-                "args": {"action_type": "transfer", "amount": 500, "description": "move $500 to savings"},
-                "id": "act-1",
-            }],
-        ),
-        # resuming after the ToolMessage from human_approval - no second scope check
-        AIMessage(content="Done - I've submitted the transfer for approval and it's been approved."),
-    )
-    fakes["eval"].queue(EvalVerdict(verdict="approve", feedback=""))
-
-    app = _graph()
-    config = {"configurable": {"thread_id": "human-approval"}}
-
-    paused = run_async(app.ainvoke({"messages": [HumanMessage(content="move $500 to savings")]}, config=config))
-    assert "__interrupt__" in paused
-    assert paused["__interrupt__"][0].value["action"]["action_type"] == "transfer"
-
-    resumed = run_async(app.ainvoke(Command(resume=True), config=config))
-
-    final_ai = [m for m in resumed["messages"] if m.type == "ai" and m.content][-1]
-    assert "approved" in final_ai.content.lower()
-    tool_messages = [m for m in resumed["messages"] if m.type == "tool"]
-    assert any("User approved" in m.content for m in tool_messages)
-
-
 def test_pii_is_redacted_before_any_specialist_sees_it(monkeypatch):
     fakes = _patch_all_llms(monkeypatch)
 
     fakes["triage"].queue(RoutingDecision(destination="general"))
-    fakes["general"].queue(
-        GeneralScopeCheck(destination="general"),
+    fakes["general"].queue(  # triage just routed here - no scope check
         AIMessage(content="I can't help verify SSNs, but I can answer general questions."),
     )
-    fakes["eval"].queue(EvalVerdict(verdict="approve", feedback=""))
+    fakes["eval"].queue(EvalVerdict(verdict="approve", feedback=""), ComplianceCheck(compliant=True, severity="none"))
 
     app = _graph()
     config = {"configurable": {"thread_id": "pii-redaction"}}
@@ -170,6 +128,27 @@ def test_pii_is_redacted_before_any_specialist_sees_it(monkeypatch):
     assert all("123-45-6789" not in (m.content or "") for m in human_messages)
     assert any("[REDACTED-SSN]" in (m.content or "") for m in human_messages)
 
-    # confirm the specialist's own scope-check prompt never saw the raw SSN
-    scope_check_call = fakes["general"].calls[0]
-    assert not any("123-45-6789" in (m.content or "") for m in scope_check_call)
+    # confirm neither triage's nor the specialist's prompt ever saw the raw SSN
+    for call in fakes["triage"].calls + fakes["general"].calls:
+        assert not any("123-45-6789" in (m.content or "") for m in call)
+
+
+def test_handoff_from_resumed_specialist_routes_once_without_bouncing(monkeypatch):
+    fakes = _patch_all_llms(monkeypatch)
+    app = _graph()
+    config = {"configurable": {"thread_id": "no-bounce"}}
+    # the session already belongs to the market researcher from an earlier turn
+    run_async(app.aupdate_state(config, {"messages": [], "current_agent": "market_researcher"}))
+
+    fakes["market_researcher"].queue(MarketScope(in_scope=False))
+    fakes["triage"].queue(RoutingDecision(destination="general"))
+    # general answers straight away - triage just routed here, so no second scope check
+    fakes["general"].queue(AIMessage(content="Bonds pay fixed coupons; prices fall when yields rise."))
+    fakes["eval"].queue(EvalVerdict(verdict="approve", feedback=""), ComplianceCheck(compliant=True, severity="none"))
+
+    result = run_async(app.ainvoke(
+        {"messages": [HumanMessage(content="how do bonds work?")], "scope_checked": False}, config=config))
+
+    assert result["current_agent"] == "general"
+    assert len(fakes["triage"].calls) == 1
+    assert len(fakes["general"].calls) == 1

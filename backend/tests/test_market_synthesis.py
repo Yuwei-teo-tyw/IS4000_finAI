@@ -23,6 +23,8 @@ from app.agents.market_researcher.synthesis import (
     template_synthesis,
 )
 
+from app.prompts.prompt_builder import get_prompt
+
 from conftest import FakeLLM, run_async
 
 
@@ -110,12 +112,44 @@ def test_unsupported_labels_trigger_retry(monkeypatch):
     assert "YTD" in fake.calls[1][-1].content
 
 
-def test_retry_includes_rejected_draft(monkeypatch):
+def test_retry_quotes_rejected_draft_in_the_user_turn(monkeypatch):
+    # Replaying the draft as a plain-JSON assistant turn led the model to answer the
+    # retry in plain JSON too (Groq 400 tool_use_failed) - so no assistant turn here.
     fake = FakeLLM(draft("Yields at 6.75%."), draft("Yields at 5.19% [DGS10]."))
     monkeypatch.setattr(synthesis_module, "get_groq_model", lambda: fake)
     run_async(synthesize(make_output()))
     retry_messages = fake.calls[1]
-    assert retry_messages[-2].type == "ai" and "6.75" in retry_messages[-2].content
+    assert not any(m.type == "ai" for m in retry_messages)
+    assert retry_messages[-1].type == "human" and "Previous draft" in retry_messages[-1].content
+    assert "Yields at 6.75%." in retry_messages[-1].content
+
+
+def test_payload_is_followed_by_the_label_reminder(monkeypatch):
+    fake = FakeLLM(draft("Late expansion, low confidence: 10Y at 5.19% [DGS10]."))
+    monkeypatch.setattr(synthesis_module, "get_groq_model", lambda: fake)
+    run_async(synthesize(make_output()))
+    assert fake.calls[0][-1].content.rstrip().endswith(
+        get_prompt("market_researcher.synthesis_label_reminder").rstrip())
+
+
+TOOL_USE_FAILED = RuntimeError("Error code: 400 - {'error': {'code': 'tool_use_failed'}}")
+
+
+def test_tool_use_failed_is_re_asked_once(monkeypatch):
+    fake = FakeLLM(draft("Yields at 6.75%."), TOOL_USE_FAILED, draft("Yields at 5.19% [DGS10]."))
+    monkeypatch.setattr(synthesis_module, "get_groq_model", lambda: fake)
+    out = make_output()
+    run_async(synthesize(out))
+    assert out.narrative == "Yields at 5.19% [DGS10]." and not out.data_quality.notes
+    assert len(fake.calls) == 3
+
+
+def test_tool_use_failed_twice_falls_back_to_template(monkeypatch):
+    fake = FakeLLM(TOOL_USE_FAILED, TOOL_USE_FAILED)
+    monkeypatch.setattr(synthesis_module, "get_groq_model", lambda: fake)
+    out = make_output()
+    run_async(synthesize(out))
+    assert "LLM call failed" in out.data_quality.notes[0] and len(fake.calls) == 2
 
 
 DECOMP = {"name": "core_cpi_momentum", "annualized_3m_pct": 3.41, "avg_mom_12m_pct": 0.24,

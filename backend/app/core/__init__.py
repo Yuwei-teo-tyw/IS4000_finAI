@@ -22,5 +22,8 @@ def get_groq_model() -> ChatGroq:
             api_key=api_key,
             temperature=0.1,
             max_tokens=1024,
+            # LangChain's default is 2 silent retries per call, which multiplies
+            # every node's calls under Groq rate limiting (429s).
+            max_retries=1,
         )
     return _llm

@@ -8,12 +8,9 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
-import app.agents.nodes.finance as finance_module
 import app.agents.nodes.general as general_module
 import app.endpoints as endpoints_module
 from app.agents.client_context import MAX_FIELD_CHARS, context_details, format_client_context
-from app.agents.nodes.finance import FinanceExpert
-from app.agents.nodes.finance import ScopeCheck as FinanceScopeCheck
 from app.agents.nodes.general import GeneralAssistant
 from app.agents.nodes.general import ScopeCheck as GeneralScopeCheck
 from app.prompts.prompt_builder import get_prompt
@@ -60,13 +57,13 @@ def _system_texts(call) -> list[str]:
     return [m.content for m in call if isinstance(m, SystemMessage)]
 
 
-def test_finance_includes_context_note(monkeypatch):
-    llm = FakeLLM(FinanceScopeCheck(in_scope=True), AIMessage(content="Balanced investors often..."))
-    monkeypatch.setattr(finance_module, "get_groq_model", lambda: llm)
+def test_general_includes_context_note(monkeypatch):
+    llm = FakeLLM(GeneralScopeCheck(destination="general"), AIMessage(content="Balanced investors often..."))
+    monkeypatch.setattr(general_module, "get_groq_model", lambda: llm)
     note = format_client_context(CTX)
-    run_async(FinanceExpert().run({"messages": [HumanMessage(content="Is a 60/40 mix sensible?")], "client_context": note}))
+    run_async(GeneralAssistant().run({"messages": [HumanMessage(content="Is a 60/40 mix sensible?")], "client_context": note}))
     assert note in _system_texts(llm.calls[1])                      # the answering call, not the scope check
-    assert _system_texts(llm.calls[1])[0] == get_prompt("finance.system")
+    assert _system_texts(llm.calls[1])[0] == get_prompt("general.system")
 
 
 def test_general_without_context_is_unchanged(monkeypatch):
@@ -87,8 +84,8 @@ class FakeGraph:
 
     async def process_message(self, message, session_id="default", websocket_client=None, context=None):
         self.calls.append({"message": message, "session_id": session_id, "context": context})
-        return {"message": f"answer to {message}", "agent_name": "Finance Expert",
-                "finance_response": {"message_result": "", "data": {}}, "requires_confirmation": False}
+        return {"message": f"answer to {message}", "agent_name": "General Assistant",
+                "market_research_response": {"message_result": "", "data": {}}}
 
 
 def _client(monkeypatch):

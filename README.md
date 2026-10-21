@@ -1,16 +1,16 @@
 # Multi-Agent Triage System
 
-A sophisticated multi-agent conversational AI system built with FastAPI backend and React frontend. The system intelligently routes user queries to specialized agents based on intent analysis, providing expert responses for financial questions and live macro/market research, and a general-purpose assistant for everything else - all through a central triage agent.
+A sophisticated multi-agent conversational AI system built with FastAPI backend and React frontend. The system intelligently routes user queries to specialized agents based on intent analysis, providing live macro/market research, and a general-purpose assistant for everything else (including personal-finance and investment-concept questions) - all through a central triage agent.
 
 ## 🏗️ Architecture
 
 The system is built on a real **LangGraph `StateGraph`** with conditional edges and a checkpointer - not a hand-rolled loop:
 
 - **🧠 Triage Agent**: routes requests using structured output (`with_structured_output`), not string-matching
-- **💰 Finance Expert** / **🤖 General Assistant**: specialists with a bound `tavily_search` tool - the model itself decides when to search based on its system prompt, executed via LangGraph's `ToolNode`. Each also runs its own structured scope check per new message, so a topic drift mid-conversation hands back to triage instead of getting stuck answering out-of-lane questions.
-  - **Finance** additionally has two tools: `propose_financial_action` (any money-moving action, gated by human approval - see below) and `generate_client_report` (a currently-placeholder tool for producing a client-ready document; see Functional Placeholders below).
-  - Programming questions go to the General Assistant; there is no separate technical specialist.
-  - Finance also runs incoming queries through a small glossary (`agents/finance_glossary.py`) that expands common shorthand/acronyms (P/E, YoY, EBITDA, etc.) before scope-checking, so jargon-heavy questions still classify correctly.
+- **🤖 General Assistant**: the catch-all specialist, with a bound `tavily_search` tool - the model itself decides when to search based on its system prompt, executed via LangGraph's `ToolNode`. It runs a structured scope check on each new message of a resumed session, so a drift to a market-conditions question hands back to triage instead of getting stuck answering out-of-lane questions (skipped when triage has just routed the message, so the two can't bounce it back and forth).
+  - Personal-finance, budgeting and investment-concept questions go to the General Assistant; there is no separate finance specialist.
+  - Programming questions go to the General Assistant too; there is no separate technical specialist.
+- **📈 Market Researcher**: current macro and market conditions, via the market researcher pipeline - see the Market Researcher section below.
 - **🔄 State Management & Persistence**: session state (including full message history) persisted via LangGraph's `AsyncPostgresSaver`, keyed by session ID (LangGraph's `thread_id`) - conversations survive backend restarts, not just reconnects. A separate lightweight `sessions` table drives a ChatGPT-style sidebar without needing to decode LangGraph's own storage format - see the "Postgres Schema" section below.
 - **🗂️ Session Sidebar**: `components/Sidebar/Sidebar.tsx` lists past conversations (title, last-active time), sorted most-recent-first - new chat, switch between sessions, delete. The active session id is kept in `localStorage` so a page reload resumes the same chat instead of starting fresh.
 - **⚡ Real-time Communication**: WebSocket-based chat with agent handoff notifications
@@ -19,18 +19,16 @@ The system is built on a real **LangGraph `StateGraph`** with conditional edges 
 Two subagents wrap the core flow:
 
 - **🧹 Context Manager**: runs at the start of every turn; once the conversation gets large, it summarizes the older portion and drops it from state (via LangGraph's `RemoveMessage`), keeping a fixed window of recent messages verbatim - so long conversations don't blow past the model's context window.
-- **✅ Eval Agent**: reviews every specialist/triage response before it ships. It can `approve` it, `flag` it with a visible caveat, or `regenerate` it with feedback (capped retries, so it never loops forever). For finance responses specifically, it also runs a **compliance pass** - see below.
+- **✅ Eval Agent**: reviews every specialist/triage response before it ships. It can `approve` it, `flag` it with a visible caveat, or `regenerate` it with feedback (capped retries, so it never loops forever). For General Assistant and Market Researcher responses, it also runs a **compliance pass** - see below. Market Researcher answers skip the quality verdict and are never regenerated, since they are a deterministic render that a re-run can't change.
 
 Several more pieces are in as functional placeholders, ready to harden before this handles anything beyond a demo:
 
 - **🔒 PII Guard**: scans every incoming user message for likely SSNs, emails, and account/card numbers (credit cards are Luhn-validated to cut down false positives) and redacts them *before* they ever reach an LLM call or get persisted to state. This is a regex-based first pass - swap in something like Microsoft Presidio or a hosted DLP API before relying on it for real compliance guarantees. See `nodes/pii_guard.py`.
-- **⚖️ Compliance check**: a second structured check inside the eval agent, finance responses only - looks for unqualified "guaranteed returns" language, missing disclaimers, or responses that read as personalized advice rather than general education. Can force a regenerate (rewrite needed) or a flag (just needs a disclaimer). This is an LLM judgment call, not a substitute for a real compliance review process (licensed-advisor sign-off, a maintained rules engine, an audit trail) before production use. See `nodes/eval_agent.py`.
-- **🛑 Human-in-the-loop approval**: any money-moving action (trade, transfer, rebalance) goes through a `propose_financial_action` tool that's gated by a hard `interrupt()` - the graph pauses mid-turn and won't proceed until the user explicitly confirms. The tool itself is currently inert (it returns a description, it doesn't touch any real account); the approval gate is real and should stay in front of an actual brokerage/banking integration later, not be removed. See `nodes/human_approval.py`. The WebSocket protocol pauses with `requires_confirmation: true` + a `pending_action` payload; the frontend swaps the normal message box for an explicit Approve/Decline prompt (`components/Chat/ApprovalPrompt.tsx`) rather than leaving free text open - typing a plain reply while paused here wouldn't work anyway, since LangGraph just re-triggers the same interrupt on anything that isn't the exact `{"action": "confirm_financial_action", "approved": true|false}` payload.
-- **📄 Client-ready report generation**: `generate_client_report`, bound only to the Finance Expert, is meant to turn a conversation's findings/recommendations into a formatted, downloadable document (PDF, Markdown, etc.). The output format and generation logic are undecided, so calling it today just returns a stub string. See `agents/report_generator.py`.
+- **⚖️ Compliance check**: a second structured check inside the eval agent, for General Assistant and Market Researcher responses - looks for unqualified "guaranteed returns" language, missing disclaimers, or responses that read as personalized advice rather than general education. Can force a regenerate (rewrite needed) or a flag (just needs a disclaimer). This is an LLM judgment call, not a substitute for a real compliance review process (licensed-advisor sign-off, a maintained rules engine, an audit trail) before production use. See `nodes/eval_agent.py`.
 
-> **Observability**: Langfuse tracing is wired in (`app/core/tracing.py`) - every turn is traced as one tree per session (triage/finance/general/market-researcher/eval/context-manager LLM calls all nest under it automatically via LangGraph's callback propagation, no per-node code needed). Configure via the standard env vars (`LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_HOST`); with them unset, tracing silently no-ops rather than breaking anything.
+> **Observability**: Langfuse tracing is wired in (`app/core/tracing.py`) - every turn is traced as one tree per session (triage/general/market-researcher/eval/context-manager LLM calls all nest under it automatically via LangGraph's callback propagation, no per-node code needed). Configure via the standard env vars (`LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_HOST`); with them unset, tracing silently no-ops rather than breaking anything.
 
-> **Prompt versioning**: every prompt in this project lives in `app/prompts/prompts.yaml`, loaded through `app/prompts/prompt_builder.py` (`get_prompt("agent.key")`) instead of being hardcoded in each node file. Each key keeps every version it's ever had plus a `latest` pointer; pin a specific key to an older/newer version without a code change via `PROMPT_VERSION_OVERRIDES='{"finance.system": "v2"}'` - useful for rollback or an A/B test tied to `get_prompt_version(key)` in your eval/tracing metadata.
+> **Prompt versioning**: every prompt in this project lives in `app/prompts/prompts.yaml`, loaded through `app/prompts/prompt_builder.py` (`get_prompt("agent.key")`) instead of being hardcoded in each node file. Each key keeps every version it's ever had plus a `latest` pointer; pin a specific key to an older/newer version without a code change via `PROMPT_VERSION_OVERRIDES='{"general.system": "v2"}'` - useful for rollback or an A/B test tied to `get_prompt_version(key)` in your eval/tracing metadata.
 
 Graph shape (built with LangGraph's `StateGraph` - see `agents/graph.py`):
 
@@ -40,33 +38,22 @@ flowchart TD
     pii_guard --> context_manager[🧹 context_manager]
 
     context_manager -->|new session| triage[🧠 triage]
-    context_manager -->|resuming| finance[💰 finance]
     context_manager -->|resuming| general[🤖 general]
     context_manager -->|resuming| market_researcher[📈 market_researcher]
 
-    triage -->|finance| finance
     triage -->|general| general
     triage -->|market| market_researcher
     triage -->|meta / canned reply| END1([END])
 
-    finance -->|tool call| finance_tools[finance_tools]
-    finance -->|money-moving action| human_approval[🛑 human_approval]
-    finance -->|now out of scope| triage
-    finance -->|final answer| eval[✅ eval]
-    finance_tools --> finance
-    human_approval -->|resume with decision| finance
-
     general -->|tool call| general_tools[general_tools]
     general -->|now out of scope| triage
-    general -->|final answer| eval
+    general -->|final answer| eval[✅ eval]
     general_tools --> general
 
     market_researcher -->|now out of scope| triage
     market_researcher -->|rendered result| eval
 
-    eval -->|regenerate| finance
     eval -->|regenerate| general
-    eval -->|regenerate| market_researcher
     eval -->|regenerate| triage
     eval -->|approve / flag| END2([END])
 ```
@@ -90,9 +77,9 @@ Written by `touch_session()` on every WebSocket turn (see `endpoints/__init__.py
 
 These four tables are created and fully managed by LangGraph (`checkpointer.setup()` runs once in `app.py`'s lifespan) - nothing in this codebase writes to them directly:
 
-- **`checkpoints`** - one row **per graph step**, not per session. A single turn walks through several nodes (`pii_guard → context_manager → triage → finance → eval → ...`), and each transition writes a new row linked to the previous one via `parent_checkpoint_id` - a version chain, not one row per conversation. A single exchange can easily produce 5-10+ rows here.
-- **`checkpoint_blobs`** - the actual `AgentState` field values (`messages`, `finance_response`, etc. - one row per `(channel, version)`), msgpack-serialized. This is where message history actually lives byte-for-byte.
-- **`checkpoint_writes`** - staged writes for a step before they're committed as the next checkpoint; also backs the `human_approval` node's `interrupt()`/resume mechanism.
+- **`checkpoints`** - one row **per graph step**, not per session. A single turn walks through several nodes (`pii_guard → context_manager → triage → general → eval → ...`), and each transition writes a new row linked to the previous one via `parent_checkpoint_id` - a version chain, not one row per conversation. A single exchange can easily produce 5-10+ rows here.
+- **`checkpoint_blobs`** - the actual `AgentState` field values (`messages`, `market_research_response`, etc. - one row per `(channel, version)`), msgpack-serialized. This is where message history actually lives byte-for-byte.
+- **`checkpoint_writes`** - staged writes for a step before they're committed as the next checkpoint.
 - **`checkpoint_migrations`** - the checkpointer's own internal schema-version bookkeeping.
 
 `MultiAgentGraph.get_history()` (`agents/graph.py`) never queries these tables directly - it calls LangGraph's own `graph.aget_state(config)`, which reconstructs the latest `AgentState` from the blobs for you.
@@ -158,7 +145,7 @@ The same pipeline is also reachable from the chat:
 
 - **Triage** has a `market` route. Questions about current macro or market conditions go to a **📈 Market Researcher** node. The node runs the pipeline with the validated narrative and renders the result as Markdown: the phase, events (each with a cited "Why:" line and decomposition when available), a headline table, sources and a disclaimer. The answer still passes through `eval`, including the compliance pass.
 - **Source links open a side panel.** Clicking a news link in a Market Researcher reply opens a reader view of the article (extracted text, plus the agent's summary and tags) instead of leaving the chat. Sites that block this fall back to the summary and an "Open original" button.
-- **The Finance Expert is separate.** It has no access to the market researcher's tools or data. Its scope check hands questions about current macro or market conditions back to triage, which routes them to the Market Researcher.
+- **The General Assistant is separate.** It has no access to the market researcher's tools or data. Its scope check hands questions about current macro or market conditions back to triage, which routes them to the Market Researcher.
 
 ### Dev tools
 
@@ -281,9 +268,7 @@ The mapping from captured data to agent inputs is in `buildPortfolioInputs` in `
 │   │   ├── agents/
 │   │   │   ├── graph.py                 # Multi-agent orchestration (StateGraph) + get_history()
 │   │   │   ├── state.py                 # Agent state schema
-│   │   │   ├── tools.py                 # Agent tools (search, propose action, generate report)
-│   │   │   ├── report_generator.py      # Placeholder client-report generation logic
-│   │   │   ├── finance_glossary.py      # Financial shorthand/acronym -> full term mapping
+│   │   │   ├── tools.py                 # Agent tools (web search)
 │   │   │   ├── market_researcher/       # Market researcher agent (HTTP-orchestrated; see its NOTES.md)
 │   │   │   │   ├── service.py           # Pipeline: fetch -> features -> events -> regime -> JSON file
 │   │   │   │   ├── adapters/            # FRED, yfinance, Tavily news (retry/backoff/rate limits)
@@ -294,12 +279,11 @@ The mapping from captured data to agent inputs is in `buildPortfolioInputs` in `
 │   │   │   │   └── backtest.py          # Regime backtest vs NBER -> backtest_report.md
 │   │   │   └── nodes/
 │   │   │       ├── triage.py            # Main routing agent
-│   │   │       ├── finance.py           # Finance expert
-│   │   │       ├── general.py           # General-purpose assistant
+│   │   │       ├── general.py           # General-purpose assistant (incl. personal finance)
+│   │   │       ├── market_researcher.py # Chat node for the market researcher pipeline
 │   │   │       ├── context_manager.py   # Conversation compaction
-│   │   │       ├── eval_agent.py        # Response review + finance compliance pass
-│   │   │       ├── pii_guard.py         # Inbound PII scan/redaction
-│   │   │       └── human_approval.py    # Money-moving action approval gate
+│   │   │       ├── eval_agent.py        # Response review + compliance pass
+│   │   │       └── pii_guard.py         # Inbound PII scan/redaction
 │   │   ├── core/
 │   │   │   ├── constants.py             # Model constants
 │   │   │   ├── tracing.py               # Langfuse tracing setup
@@ -321,7 +305,7 @@ The mapping from captured data to agent inputs is in `buildPortfolioInputs` in `
 │   │   │   │   ├── ChatContainer.tsx    # Main chat interface + session/sidebar state
 │   │   │   │   ├── MessageList.tsx      # Message display component
 │   │   │   │   ├── MessageInput.tsx     # User input component
-│   │   │   │   ├── ApprovalPrompt.tsx   # HITL Approve/Decline UI (see human_approval.py)
+│   │   │   │   ├── ApprovalPrompt.tsx   # Approve/Decline UI (unused: the backend no longer pauses for approval)
 │   │   │   │   ├── AgentBadge.tsx       # Agent identification UI
 │   │   │   │   ├── SearchIndicator.tsx  # "Searching..." status indicator
 │   │   │   │   └── TypingIndicator.tsx  # Typing/response-pending indicator
@@ -416,7 +400,7 @@ npm run dev
 
 ### How search actually gets triggered
 
-The Finance Expert and General Assistant each have `tavily_search` bound as a real tool via `bind_tools()` - **the model decides for itself**, per its system prompt, whether a question depends on information that could have changed recently (current prices, versions, news, recent releases) versus stable, well-known facts it can just answer directly. There's no keyword list or regex gating this - it's a genuine LLM tool-calling decision, and the frontend's search indicator reflects whether a search actually happened that turn, not a client-side guess.
+The General Assistant has `tavily_search` bound as a real tool via `bind_tools()` - **the model decides for itself**, per its system prompt, whether a question depends on information that could have changed recently (current prices, versions, news, recent releases) versus stable, well-known facts it can just answer directly. There's no keyword list or regex gating this - it's a genuine LLM tool-calling decision, and the frontend's search indicator reflects whether a search actually happened that turn, not a client-side guess.
 
 ### Example Interactions
 
@@ -432,25 +416,17 @@ the yield-curve recession probability, notable events, a headline indicator tabl
 
 ```
 User: "What's a good P/E for a growth stock?"
-Finance Expert: Shorthand ("P/E") is expanded via the finance glossary before scope-checking, then answered
-with an educational disclaimer.
+General Assistant: Answers as general education, with a not-personalized-advice caveat
 ```
 
 ```
 User: "What's the current Tesla stock performance?"
-Finance Expert: 🌐 Searches for current market data, then answers with a disclaimer
+General Assistant: 🌐 Searches for current prices and news, then answers with a disclaimer
 ```
 
 ```
 User: "Buy $500 of VOO"
-Finance Expert: calls propose_financial_action instead of just describing it -> the message box is replaced
-with an Approve/Decline prompt; nothing proceeds until you click one (nothing is actually wired to a broker yet)
-```
-
-```
-User: "Put together a report I can send my accountant"
-Finance Expert: calls generate_client_report -> currently returns a placeholder response, since document
-generation isn't implemented yet
+General Assistant: Explains it can't place trades or move money
 ```
 
 #### 🤖 General Conversations
@@ -490,8 +466,7 @@ Restart the whole app       -> reopen the browser, your last active session and 
 - **Multi-turn Dialogues**: Specialists can handle follow-up questions in their domain without re-routing through triage
 - **Intelligent Routing**: LLM-based intent analysis (structured output, not string-matching) ensures accurate agent selection
 - **Real-time Web Search**: Tavily integration, model-decided per turn, for current information and market data
-- **Human-in-the-Loop Safety**: money-moving finance actions pause for an explicit Approve/Decline in the UI before proceeding
-- **Response Review**: every final answer passes through an eval agent (approve/flag/regenerate) before it ships, with an extra compliance pass for finance
+- **Response Review**: every final answer passes through an eval agent (approve/flag/regenerate) before it ships, with an extra compliance pass for General Assistant and Market Researcher answers
 - **PII Redaction**: likely SSNs, emails, and card/account numbers are stripped from incoming messages before they reach any LLM call
 - **Real-time Updates**: WebSocket notifications for agent transitions and search status
 - **Error Handling**: Graceful fallbacks and error recovery
@@ -509,5 +484,5 @@ Restart the whole app       -> reopen the browser, your last active session and 
 
 - **Add endpoints**: Extend `backend/app/endpoints/`
 - **Modify state**: Update `AgentState` in `state.py`
-- **Add tools**: Implement agent capabilities in `tools.py` (bind them in the relevant node's `bind_tools()` call and add them to that agent's `ToolNode` in `graph.py`); put non-trivial tool logic in its own module (e.g. `report_generator.py`) rather than inline in the `@tool` function
+- **Add tools**: Implement agent capabilities in `tools.py` (bind them in the relevant node's `bind_tools()` call and add them to that agent's `ToolNode` in `graph.py`); put non-trivial tool logic in its own module rather than inline in the `@tool` function
 - **Extend the `sessions` table**: add columns/queries in `core/db.py` - it's a plain `psycopg` pool, no ORM/migration framework, so schema changes are just SQL you run once (`CREATE TABLE IF NOT EXISTS`/`ALTER TABLE`) in that module. Don't touch LangGraph's own `checkpoint*` tables directly - go through `AsyncPostgresSaver`'s API instead (`graph.aget_state()`, `checkpointer.adelete_thread()`, etc.), since it owns their format.

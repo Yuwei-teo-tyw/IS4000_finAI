@@ -60,7 +60,6 @@ async def langgraph_websocket(websocket: WebSocket):
             await websocket.send_text(json.dumps({
                 "message": get_prompt("triage.introduction"),
                 "agent_name": "Triage Agent",
-                "finance_response": {"message_result": "", "data": {}},
                 "market_research_response": {"message_result": "", "data": {}},
             }, ensure_ascii=False))
         except Exception as e:
@@ -92,17 +91,11 @@ async def langgraph_websocket(websocket: WebSocket):
                     continue
 
                 # Try to parse as JSON
-                confirmation_approved = None  # None = not a confirmation payload
                 turn_context = None  # Geneva workspace context (role + client), see agents/client_context.py
                 try:
                     message_data = json.loads(data)
-                    if message_data.get("action") == "confirm_financial_action":
-                        # Response to a human-approval gate pause (see agents/nodes/human_approval.py)
-                        confirmation_approved = bool(message_data.get("approved", False))
-                        user_message = None
-                    else:
-                        user_message = message_data.get("message", "")
-                        turn_context = message_data.get("context")
+                    user_message = message_data.get("message", "")
+                    turn_context = message_data.get("context")
                 except json.JSONDecodeError as e:
                     print(f"JSON decode error: {e}, treating as plain text")
                     # If it's not JSON, treat the entire data as the message
@@ -110,7 +103,7 @@ async def langgraph_websocket(websocket: WebSocket):
 
                 print(f"Processed message in session {session_id}: '{user_message}'")
 
-                if confirmation_approved is None and not user_message:
+                if not user_message:
                     print("No message content found, skipping...")
                     continue
 
@@ -135,7 +128,7 @@ async def langgraph_websocket(websocket: WebSocket):
 
                 continue
 
-            if confirmation_approved is not None or user_message:
+            if user_message:
                 # Bump the session's position in the sidebar (and title it,
                 # the first time round) on any real activity in it.
                 try:
@@ -145,20 +138,13 @@ async def langgraph_websocket(websocket: WebSocket):
 
                 # Process with LangGraph
                 try:
-                    if confirmation_approved is not None:
-                        print(f"Resuming session {session_id} with approved={confirmation_approved}")
-                        result = await graph.confirm_pending_action(
-                            session_id=session_id,
-                            approved=confirmation_approved,
-                        )
-                    else:
-                        print(f"Processing message '{user_message}' with session {session_id}")
-                        result = await graph.process_message(
-                            message=user_message,
-                            session_id=session_id,  # Use unique session ID
-                            websocket_client=None,  # Don't pass websocket to avoid conflicts
-                            context=turn_context,
-                        )
+                    print(f"Processing message '{user_message}' with session {session_id}")
+                    result = await graph.process_message(
+                        message=user_message,
+                        session_id=session_id,  # Use unique session ID
+                        websocket_client=None,  # Don't pass websocket to avoid conflicts
+                        context=turn_context,
+                    )
 
                     print(f"Graph result: agent={result.get('agent_name')}, message='{result.get('message', '')[:100]}...'")
 
@@ -193,10 +179,7 @@ async def langgraph_websocket(websocket: WebSocket):
                     response_data = {
                         "message": str(result.get("message", "No response generated")),
                         "agent_name": str(result.get("agent_name", "System")),
-                        "finance_response": result.get("finance_response", {"message_result": "", "data": {}}),
                         "market_research_response": result.get("market_research_response", {"message_result": "", "data": {}}),
-                        "requires_confirmation": bool(result.get("requires_confirmation", False)),
-                        "pending_action": result.get("pending_action"),
                     }
 
                     # Ensure all parts are JSON serializable
@@ -211,7 +194,6 @@ async def langgraph_websocket(websocket: WebSocket):
                         simple_response = {
                             "message": "Response generated but couldn't be sent properly",
                             "agent_name": "System",
-                                        "finance_response": {"message_result": "", "data": {}}
                         }
                         await websocket.send_text(json.dumps(simple_response))
 
@@ -222,7 +204,6 @@ async def langgraph_websocket(websocket: WebSocket):
                     error_response = {
                         "message": "I apologize, but I encountered an error processing your request.",
                         "agent_name": "System",
-                                "finance_response": {"message_result": "", "data": {}}
                     }
                     try:
                         await websocket.send_text(json.dumps(error_response))
