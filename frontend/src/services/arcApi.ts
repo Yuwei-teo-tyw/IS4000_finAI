@@ -262,7 +262,12 @@ async function answerPsLocally(clientId: string, question: string, ipsVersion: n
       ? "Here are the best-fit products after the suitability gate, grouped by asset class. Tick the ones to consider. Fees were not used to rank."
       : `No product passes the suitability gate for this client${classes ? ` in ${classes.join(" and ").toLowerCase()}` : ""}.${rec.missing_information.length ? ` Missing from the profile: ${rec.missing_information.join(", ")}.` : ""}`;
   }
-  return { summary: summary + ipsNote, market: wantsMarket ? brief : null, rows, autoTick: rows.length > 0 && named.length > 0, steps, tags: hvTags };
+  const shown = rows.filter((r) => r.agentReason).length;
+  const reasonsBy = !shown ? ""
+    : rec.shortlist.some((s) => s.reason.source === "llm")
+      ? " The reasons are written by AI from the engine's facts and checked against them; the ranking is the engine's."
+      : " The reasons are rule-based.";
+  return { summary: summary + reasonsBy + ipsNote, market: wantsMarket ? brief : null, rows, autoTick: rows.length > 0 && named.length > 0, steps, tags: hvTags };
 }
 
 export type AgentName = "Profiling Agent" | "Portfolio Agent" | "Product Agent" | "Orchestrator";

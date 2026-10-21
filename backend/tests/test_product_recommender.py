@@ -64,7 +64,7 @@ def request(client_id="ser", options=None, request_id=None, **overrides) -> Reco
 
 
 def service(**kw) -> ProductRecommenderService:
-    return ProductRecommenderService(settings=Settings(), clock=lambda: FIXED_NOW, **kw)
+    return ProductRecommenderService(settings=Settings(llm_enabled=False), clock=lambda: FIXED_NOW, **kw)
 
 
 def shelf_products() -> list[ShelfProduct]:

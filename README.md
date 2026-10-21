@@ -231,6 +231,64 @@ Both functions are marked `# INPUT API HERE`.
 
 The mapping from captured data to agent inputs is in `buildPortfolioInputs` in `frontend/src/services/arcApi.ts`. The frontend calls `VITE_API_BASE`, which defaults to `http://localhost:8000`.
 
+## 🧺 Product Recommender Agent
+
+`backend/app/agents/product_recommender/` drafts a product shortlist for one client, for a Product Specialist (PS) to review. It also gives its own Buy / Hold / Sell view on each of the seven asset classes, shown beside the CIO house view and never instead of it. It never approves anything: the PS approves at gate G3 in the UI. The plan is `product_recommender_agent.md`; decisions and deviations are in the agent's `NOTES.md`.
+
+> **Core rule: the engine decides, the LLM only writes.**
+> The suitability gate, the ranking, which products are shortlisted, and every stance and number in an asset-class view come from code. If configured, the LLM rewrites the explanation text from those facts. A guardrail rejects any text that adds a number, product or citation that was not in its input, mentions fees, gives advice, claims a guarantee, or contradicts a stance. Rejected text is replaced by the rule-based version.
+
+**How a recommendation is made**
+
+1. **Shelf:** one product shelf, `data/shelf.json` (23 illustrative products, at least 2 per asset class), shared with the Portfolio Manager.
+2. **Suitability gate:** every hard check must pass. A product that fails is excluded with a code and a reason: `RISK_ABOVE_LIMIT`, `RISK_UNKNOWN`, `LIQUIDITY`, `LIQUIDITY_NEED`, `CURRENCY`, `RESTRICTED`, `SECTOR_EXCLUDED`, `ESG`, `ELIGIBILITY`, `NOT_PREFERRED`, `DATA_INVALID` (`DRAWDOWN` only with `RECOMMENDER_DRAWDOWN_HARD_LIMIT=true`). Unknown data is never a pass, and no score can rescue an excluded product.
+3. **Ranking:** each eligible product gets named score components: `objective_fit`, `house_view`, `risk_budget_use`, `horizon_match`, `currency_fit`, `data_quality` and `rating`. Ties break by product id, so the order is reproducible. **Fees never rank**: they are returned in a separate `costs` block marked `display_only`.
+4. **Reasons:** 3 to 5 cited bullets per shortlisted product, ending with `[HV-...]` (house view page) or the product id (its factsheet).
+
+**Asset-class views.** The agent's view on a class comes from the latest Market Researcher run. Each mapped series is read as a level (where it sits in its 10-year range), a 3-month change, or a 3-month move relative to another series. The reading is clipped to [-1, 1], signed by whether it helps the class, weighted, and tilted by the cycle regime. A score of +0.20 or more is Buy and -0.20 or less is Sell (not calibrated yet). A segment is Most or Least preferred when it sits 0.15 above or below its class's score. The mapping is in `asset_views/config.py`; the scoring is in `asset_views/scoring.py`.
+
+**Endpoints.** The main app serves these under `/agents/product-recommender`; the routes live in `app/endpoints/product_recommender.py`.
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /agents/product-recommender/health` | Shelf and house-view status |
+| `GET /agents/product-recommender/shelf` | Every product on the shelf (fees for information only) |
+| `GET /agents/product-recommender/house-view` | The CIO house view per asset class, with page citations |
+| `POST /agents/product-recommender/recommend` | Gate, rank and explain products for one client (`client_id`, `client_profile`, optional `options`) |
+| `GET /agents/product-recommender/asset-class-views` | The CIO and agent stance for all seven classes (no prose) |
+| `GET /agents/product-recommender/asset-class-views/{asset_class}` | The full view on one class: snapshot, segments, scenarios, risks and implementation |
+| `POST /agents/product-recommender/asset-class-views/{asset_class}` | The same, with a client lens (which products and segments this client can access) |
+
+`{asset_class}` takes a slug such as `fixed-income` or `real-estate`.
+
+**LLM text**
+
+- **Who wrote it:** each reason has `source: "llm" | "deterministic"`; each view has `narrative_source`. Both responses carry `explanation_status`, saying whether the LLM was used and why not.
+- **What the LLM is sent:** only engine facts, with the rule-based text as its draft. No client id, name or score is sent, and no fee figures.
+- **Fallback:** a product or text item that fails the guardrail is retried once, with the violations listed. If it fails again, it keeps its rule-based text. A provider error is retried once; a timeout is not. Without `GROQ_API_KEY` everything is rule-based.
+- **Prompts:** `product_recommender.*` in `app/prompts/prompts.yaml`. Each call is traced in Langfuse, when configured, with its prompt versions.
+- **Caching:** view prose is cached in memory per class, Market Researcher run, house-view date and client, so a page reload makes no LLM call.
+- **Settings:**
+
+  | Variable | Default | Effect |
+  |---|---|---|
+  | `RECOMMENDER_LLM_ENABLED` | `true` | `false` forces rule-based text even with a key |
+  | `RECOMMENDER_LLM_MODEL` | `CURRENT_MODEL` | Groq model id |
+  | `RECOMMENDER_LLM_TIMEOUT_SECONDS` | `30` | Per-call timeout before falling back |
+  | `RECOMMENDER_LLM_MAX_TOKENS` | `6000` | Includes a reasoning model's hidden reasoning; 2000 is too few for a 5-product shortlist |
+  | `RECOMMENDER_LIQUIDITY_NEED_MONTHS` | `12` | A dated withdrawal within this window triggers the liquidity-need check |
+  | `RECOMMENDER_DRAWDOWN_HARD_LIMIT` | `false` | `true` turns the single-product drawdown check into an exclusion |
+  | `PRODUCT_DATA_STALE_AFTER_DAYS` | `90` | Product data older than this is flagged stale (shared with the PM) |
+
+**Tests:** `cd backend && pytest tests/test_product_recommender.py tests/test_product_recommender_llm.py tests/test_asset_class_views.py`. These run offline: the LLM is faked or switched off, and the clock is fixed.
+
+**In the frontend**
+
+- **PS AI assistant (Geneva chat):** ask for product recommendations to get the ranked shortlist, with reasons, exclusions and a line saying whether the reasons were written by AI or by rules. "What's the view on fixed income?" gives the asset-class card.
+- **Asset views:** `/ps/asset-views` shows all seven classes; `/ps/asset-views/:assetClass` shows one class in full, with Overview, Market, Risks, Products and Sources tabs.
+
+Data goes through `recommendProducts` and the asset-view calls in `frontend/src/services/arcApi.ts`.
+
 ## 🔧 Technology Stack
 
 ### Backend
@@ -277,6 +335,12 @@ The mapping from captured data to agent inputs is in `buildPortfolioInputs` in `
 │   │   │   │   ├── runs.py              # Run registry + background runner behind the endpoint
 │   │   │   │   ├── config.py            # Series, watchlist, thresholds, regime weights, TTLs
 │   │   │   │   └── backtest.py          # Regime backtest vs NBER -> backtest_report.md
+│   │   │   ├── product_recommender/     # Product shortlist + asset-class views (see its NOTES.md)
+│   │   │   │   ├── data/                # shelf.json, house_view.json
+│   │   │   │   ├── suitability.py / ranking.py           # Hard gate, fee-free scoring
+│   │   │   │   ├── explain.py           # Rule-based reasons + LLM rewrite
+│   │   │   │   ├── llm.py / guardrails.py                # LLM call, retry, fallback; text checks
+│   │   │   │   └── asset_views/         # Agent view per asset class (scoring, builder, narrative)
 │   │   │   └── nodes/
 │   │   │       ├── triage.py            # Main routing agent
 │   │   │       ├── general.py           # General-purpose assistant (incl. personal finance)
@@ -294,7 +358,8 @@ The mapping from captured data to agent inputs is in `buildPortfolioInputs` in `
 │   │   │   └── prompt_builder.py        # get_prompt()/get_prompt_version() loader
 │   │   └── endpoints/
 │   │       ├── __init__.py              # WebSocket route + /sessions REST routes
-│   │       └── market_researcher.py     # /agents/market-researcher/* (runs, latest, schema, health)
+│   │       ├── market_researcher.py     # /agents/market-researcher/* (runs, latest, schema, health)
+│   │       └── product_recommender.py   # /agents/product-recommender/* (recommend, asset-class views)
 │   └── requirements.txt                 # Python dependencies
 ├── frontend/
 │   ├── Dockerfile

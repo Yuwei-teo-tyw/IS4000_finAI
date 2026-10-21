@@ -94,7 +94,7 @@ async def house_view(service: ProductRecommenderService = Depends(get_service)) 
 async def recommend(body: RecommendRequest, service: ProductRecommenderService = Depends(get_service)) -> RecommendResponse:
     """Gate, rank and explain products for one client. Never approves anything."""
     try:
-        return service.recommend(body)
+        return await service.recommend_explained(body)
     except ShelfUnavailable as e:
         raise HTTPException(status_code=503, detail=str(e))
     except HouseViewError as e:

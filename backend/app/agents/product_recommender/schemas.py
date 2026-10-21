@@ -15,6 +15,7 @@ from typing import Literal, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.agents.portfolio_manager.schemas.client import _ID_PATTERN, ClientProfile
+from app.agents.portfolio_manager.schemas.response import ExplanationStatus
 from app.agents.portfolio_manager.schemas.upstream import ProductCandidate, SourceRef
 
 View = Literal["Buy", "Hold", "Sell"]
@@ -174,3 +175,5 @@ class RecommendResponse(BaseModel):
     named_products: list[NamedProductResult]
     missing_information: list[str]
     limitations: list[str]
+    explanation_status: Optional[ExplanationStatus] = Field(
+        default=None, description="Who wrote the reasons: the LLM (checked by the guardrail) or the rule-based fallback.")

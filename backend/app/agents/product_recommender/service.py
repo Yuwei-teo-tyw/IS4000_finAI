@@ -1,14 +1,19 @@
 """
 Product Recommender service: shelf -> suitability gate -> ranking -> reasons.
 
-Deterministic end to end. Every product considered ends up in exactly one
-of shortlist, eligible_not_shortlisted or excluded.
+`recommend` is deterministic end to end. Every product considered ends up in
+exactly one of shortlist, eligible_not_shortlisted or excluded.
+`recommend_explained` and `asset_class_view` then let the LLM rewrite the
+text only; what is recommended, and every stance and number, stays as the
+engine computed it.
 """
 import uuid
+from collections import OrderedDict
 from datetime import datetime, timezone
 from typing import Callable, Optional
 
 from app.agents.portfolio_manager.engine.profile_assessment import assess_profile
+from app.agents.portfolio_manager.explain.llm_client import get_llm
 from app.agents.portfolio_manager.schemas.client import ClientProfile
 from app.agents.portfolio_manager.schemas.upstream import UpstreamResult
 from app.agents.portfolio_manager.taxonomy import (
@@ -20,12 +25,13 @@ from app.agents.portfolio_manager.taxonomy import (
 from app.agents.portfolio_manager.upstream.market_analysis import fetch_market_analysis
 from app.agents.product_recommender import ranking
 from app.agents.product_recommender.asset_views.builder import build_view, headline_only
+from app.agents.product_recommender.asset_views.narrative import llm_narrative
 from app.agents.product_recommender.asset_views.schemas import (
     AssetClassHeadline,
     AssetClassView,
 )
 from app.agents.product_recommender.config import Settings, get_settings
-from app.agents.product_recommender.explain import deterministic_reason
+from app.agents.product_recommender.explain import deterministic_reason, llm_reasons
 from app.agents.product_recommender.house_view import HOUSE_VIEW_SOURCE, load_house_view
 from app.agents.product_recommender.schemas import (
     ClientSummary,
@@ -73,6 +79,9 @@ def costs(prod: ShelfProduct) -> Costs:
     return Costs(management_fee_pct=prod.management_fee, transaction_fee_pct=prod.transaction_fee)
 
 
+VIEW_CACHE_SIZE = 64
+
+
 class ProductRecommenderService:
     def __init__(
         self,
@@ -81,12 +90,16 @@ class ProductRecommenderService:
         shelf_loader: Callable[[], UpstreamResult] = load_shelf,
         house_view_loader: Callable[[], HouseView] = load_house_view,
         market_fetcher: Callable = fetch_market_analysis,
+        llm_factory: Callable = get_llm,
     ):
         self.settings = settings or get_settings()
         self.clock = clock
         self.shelf_loader = shelf_loader
         self.house_view_loader = house_view_loader
         self.market_fetcher = market_fetcher
+        self.llm_factory = llm_factory
+        # LLM narratives per (class, market run, house view date, client), so a page reload costs no LLM call.
+        self._narratives: OrderedDict[tuple, AssetClassView] = OrderedDict()
 
     def shelf(self) -> UpstreamResult:
         return self.shelf_loader()
@@ -102,15 +115,31 @@ class ProductRecommenderService:
         shelf_res = self.shelf_loader()
         products = list(shelf_res.data.products) if shelf_res.data is not None else []
         market_res = await self.market_fetcher(profile.base_currency if profile else None)
-        return build_view(ac, market_res, hv, products, self.clock(), self.settings,
+        view = build_view(ac, market_res, hv, products, self.clock(), self.settings,
                           shelf_illustrative=bool(shelf_res.data and shelf_res.data.is_illustrative),
                           client_id=client_id, profile=profile)
+        run_id = view.data_quality.market_researcher_run_id
+        key = (ac, run_id, hv.as_of, client_id)
+        if run_id and (cached := self._narratives.get(key)):
+            self._narratives.move_to_end(key)
+            return cached.model_copy(update={"generated_at": view.generated_at})
+        view = await llm_narrative(view, self.settings, self.llm_factory)
+        if run_id and view.narrative_source == "llm":
+            self._narratives[key] = view
+            if len(self._narratives) > VIEW_CACHE_SIZE:
+                self._narratives.popitem(last=False)
+        return view
 
     async def asset_class_headlines(self) -> list[AssetClassHeadline]:
         """CIO and agent stance for all seven classes; cheap, no narrative."""
         hv = self.house_view_loader()
         market_res = await self.market_fetcher(None)
         return [headline_only(ac, market_res, hv) for ac in ASSET_CLASS_ORDER]
+
+    async def recommend_explained(self, req: RecommendRequest) -> RecommendResponse:
+        """`recommend`, then LLM-written reasons for the shortlist where they pass the guardrail."""
+        resp, _ = await llm_reasons(self.recommend(req), self.settings, self.llm_factory)
+        return resp
 
     def recommend(self, req: RecommendRequest) -> RecommendResponse:
         now = self.clock()

@@ -31,8 +31,9 @@ class _StructuredOutput:
     def __init__(self, fake):
         self._fake = fake
 
-    async def ainvoke(self, messages):
+    async def ainvoke(self, messages, config=None):
         self._fake.calls.append(list(messages))
+        self._fake.configs.append(config)
         return self._fake._pop()
 
 
@@ -61,6 +62,7 @@ class FakeLLM:
     def __init__(self, *responses):
         self._queue = list(responses)
         self.calls = []
+        self.configs = []  # the `config` passed with each structured-output call, if any
 
     def queue(self, *responses):
         self._queue.extend(responses)

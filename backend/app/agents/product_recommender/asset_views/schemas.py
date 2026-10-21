@@ -2,8 +2,8 @@
 Contract for an asset-class view: the agent's own Buy / Hold / Sell view in
 the CIO's format, beside the CIO house view, with the analysis behind it.
 
-Every stance and number here is computed deterministically; any prose that
-an LLM adds later must match them (see explain.py guardrails).
+Every stance and number here is computed deterministically; the prose an
+LLM writes must match them (see narrative.py and guardrails.py).
 """
 from datetime import date, datetime
 from typing import Literal, Optional
@@ -11,6 +11,7 @@ from typing import Literal, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.agents.portfolio_manager.schemas.client import _ID_PATTERN, ClientProfile
+from app.agents.portfolio_manager.schemas.response import ExplanationStatus
 from app.agents.product_recommender.schemas import AssetClassHouseView, Confidence, View
 
 SegmentView = Literal["Most preferred", "Neutral", "Least preferred"]
@@ -151,6 +152,7 @@ class AssetClassView(BaseModel):
     implementation: Implementation
     client_lens: Optional[ClientLens] = None
     narrative_source: Literal["llm", "deterministic"] = "deterministic"
+    explanation_status: Optional[ExplanationStatus] = None
     caveats: list[str]
     data_quality: DataQuality
 
