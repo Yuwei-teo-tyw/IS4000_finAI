@@ -7,8 +7,9 @@ app (app/app.py) under /agents/portfolio-manager.
     python -m app.agents.portfolio_manager serve          # port 8000, like the main app
 
 `generate` runs one request and prints the response JSON. `serve` starts a
-dev server with only the Portfolio Manager routes (same paths as the main
-app), which needs no Postgres - handy when the full stack isn't running.
+dev server with only the Portfolio Manager and Product Recommender routes
+(same paths as the main app; the PM reads the recommender's shelf), which
+needs no Postgres - handy when the full stack isn't running.
 """
 import argparse
 import asyncio
@@ -26,7 +27,7 @@ def _parse_args() -> argparse.Namespace:
     gen = sub.add_parser("generate", help="Generate proposals for one request JSON file and print the response.")
     gen.add_argument("request", type=Path, help="Path to a PortfolioGenerateRequest JSON file")
     gen.add_argument("--no-llm", action="store_true", help="Use deterministic explanations only")
-    srv = sub.add_parser("serve", help="Dev server with only the Portfolio Manager routes (no Postgres).")
+    srv = sub.add_parser("serve", help="Dev server with the Portfolio Manager and Product Recommender routes (no Postgres).")
     srv.add_argument("--host", default="127.0.0.1")
     srv.add_argument("--port", type=int, default=8000)
     srv.add_argument("--no-llm", action="store_true", help="Use deterministic explanations only")
@@ -46,9 +47,10 @@ def _dev_app():
     from fastapi import FastAPI
     from fastapi.middleware.cors import CORSMiddleware
 
+    from app.endpoints import product_recommender
     from app.endpoints.portfolio_manager import install_validation_handler, router
 
-    app = FastAPI(title="Portfolio Manager Agent (dev)", version="0.2.0")
+    app = FastAPI(title="Portfolio Manager + Product Recommender (dev)", version="0.2.0")
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[f"http://{h}:{p}" for h in ("localhost", "127.0.0.1") for p in (5173, 5174, 3000)],
@@ -56,7 +58,8 @@ def _dev_app():
         allow_headers=["*"],
     )
     app.include_router(router)
-    install_validation_handler(app)
+    app.include_router(product_recommender.router)
+    install_validation_handler(app, extra_prefixes=(product_recommender.PREFIX,))
     return app
 
 

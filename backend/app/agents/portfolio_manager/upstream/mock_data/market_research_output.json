@@ -255,6 +255,185 @@
       "stale": false,
       "source": "FRED (illustrative mock)",
       "source_url": "https://fred.stlouisfed.org/series/NFCI"
+    },
+    {
+      "id": "DGS3MO",
+      "name": "3-Month Treasury Yield",
+      "category": "rates",
+      "value": 3.97,
+      "unit": "%",
+      "observation_date": "2026-10-14",
+      "changes": {
+        "1m": 0.18,
+        "3m": 0.24,
+        "1y": -0.41
+      },
+      "percentile_10y": 74.0,
+      "zscore_10y": 0.9,
+      "stats_window_years": 10.0,
+      "signal": "tightening",
+      "stale": false,
+      "source": "FRED (illustrative mock)",
+      "source_url": "https://fred.stlouisfed.org/series/DGS3MO"
+    },
+    {
+      "id": "DGS2",
+      "name": "2-Year Treasury Yield",
+      "category": "rates",
+      "value": 4.41,
+      "unit": "%",
+      "observation_date": "2026-10-14",
+      "changes": {
+        "1m": 0.19,
+        "3m": 0.38,
+        "1y": 0.22
+      },
+      "percentile_10y": 86.0,
+      "zscore_10y": 1.2,
+      "stats_window_years": 10.0,
+      "signal": "tightening",
+      "stale": false,
+      "source": "FRED (illustrative mock)",
+      "source_url": "https://fred.stlouisfed.org/series/DGS2"
+    },
+    {
+      "id": "DGS30",
+      "name": "30-Year Treasury Yield",
+      "category": "rates",
+      "value": 5.36,
+      "unit": "%",
+      "observation_date": "2026-10-14",
+      "changes": {
+        "1m": 0.2,
+        "3m": 0.58,
+        "1y": 1.02
+      },
+      "percentile_10y": 99.0,
+      "zscore_10y": 1.9,
+      "stats_window_years": 10.0,
+      "signal": "tightening",
+      "stale": false,
+      "source": "FRED (illustrative mock)",
+      "source_url": "https://fred.stlouisfed.org/series/DGS30"
+    },
+    {
+      "id": "DFII10",
+      "name": "10-Year TIPS Real Yield",
+      "category": "rates",
+      "value": 2.62,
+      "unit": "%",
+      "observation_date": "2026-10-14",
+      "changes": {
+        "1m": 0.15,
+        "3m": 0.44,
+        "1y": 0.71
+      },
+      "percentile_10y": 97.0,
+      "zscore_10y": 1.7,
+      "stats_window_years": 10.0,
+      "signal": "tightening",
+      "stale": false,
+      "source": "FRED (illustrative mock)",
+      "source_url": "https://fred.stlouisfed.org/series/DFII10"
+    },
+    {
+      "id": "T10YIE",
+      "name": "10-Year Breakeven Inflation",
+      "category": "inflation",
+      "value": 2.57,
+      "unit": "%",
+      "observation_date": "2026-10-14",
+      "changes": {
+        "1m": 0.07,
+        "3m": 0.2,
+        "1y": 0.45
+      },
+      "percentile_10y": 68.0,
+      "zscore_10y": 0.6,
+      "stats_window_years": 10.0,
+      "signal": "inflationary",
+      "stale": false,
+      "source": "FRED (illustrative mock)",
+      "source_url": "https://fred.stlouisfed.org/series/T10YIE"
+    },
+    {
+      "id": "BAMLC0A0CM",
+      "name": "US Investment Grade OAS",
+      "category": "credit",
+      "value": 0.84,
+      "unit": "pp",
+      "observation_date": "2026-10-14",
+      "changes": {
+        "1m": 0.02,
+        "3m": 0.05,
+        "1y": -0.12
+      },
+      "percentile_10y": 12.0,
+      "zscore_10y": -1.1,
+      "stats_window_years": 10.0,
+      "signal": "neutral",
+      "stale": false,
+      "source": "FRED (illustrative mock)",
+      "source_url": "https://fred.stlouisfed.org/series/BAMLC0A0CM"
+    },
+    {
+      "id": "BAMLH0A0HYM2",
+      "name": "US High Yield OAS",
+      "category": "credit",
+      "value": 2.95,
+      "unit": "pp",
+      "observation_date": "2026-10-14",
+      "changes": {
+        "1m": 0.06,
+        "3m": 0.18,
+        "1y": -0.35
+      },
+      "percentile_10y": 10.0,
+      "zscore_10y": -1.2,
+      "stats_window_years": 10.0,
+      "signal": "neutral",
+      "stale": false,
+      "source": "FRED (illustrative mock)",
+      "source_url": "https://fred.stlouisfed.org/series/BAMLH0A0HYM2"
+    },
+    {
+      "id": "VIXCLS",
+      "name": "CBOE Volatility Index (VIX)",
+      "category": "sentiment",
+      "value": 15.8,
+      "unit": "index",
+      "observation_date": "2026-10-14",
+      "changes": {
+        "1m": -1.2,
+        "3m": 0.9,
+        "1y": -2.4
+      },
+      "percentile_10y": 41.0,
+      "zscore_10y": -0.3,
+      "stats_window_years": 10.0,
+      "signal": "neutral",
+      "stale": false,
+      "source": "FRED (illustrative mock)",
+      "source_url": "https://fred.stlouisfed.org/series/VIXCLS"
+    },
+    {
+      "id": "STLFSI4",
+      "name": "St. Louis Fed Financial Stress Index",
+      "category": "financial_conditions",
+      "value": -0.62,
+      "unit": "index",
+      "observation_date": "2026-10-14",
+      "changes": {
+        "1m": 0.03,
+        "3m": 0.08
+      },
+      "percentile_10y": 26.0,
+      "zscore_10y": -0.6,
+      "stats_window_years": 10.0,
+      "signal": "easing",
+      "stale": false,
+      "source": "FRED (illustrative mock)",
+      "source_url": "https://fred.stlouisfed.org/series/STLFSI4"
     }
   ],
   "market_snapshot": [
@@ -299,6 +478,406 @@
       "stale": false,
       "source": "Yahoo Finance (illustrative mock)",
       "source_url": "https://fred.stlouisfed.org/series/GLD"
+    },
+    {
+      "id": "QQQ",
+      "name": "Nasdaq-100 ETF",
+      "category": "equity",
+      "value": 612.3,
+      "unit": "USD",
+      "observation_date": "2026-10-15",
+      "changes": {
+        "1m": 2.9,
+        "3m": 4.6,
+        "1y": 21.8
+      },
+      "percentile_10y": null,
+      "zscore_10y": null,
+      "stats_window_years": null,
+      "signal": "neutral",
+      "stale": false,
+      "source": "Yahoo Finance (illustrative mock)",
+      "source_url": "https://finance.yahoo.com/quote/QQQ"
+    },
+    {
+      "id": "IWM",
+      "name": "Russell 2000 ETF",
+      "category": "equity",
+      "value": 241.7,
+      "unit": "USD",
+      "observation_date": "2026-10-15",
+      "changes": {
+        "1m": -0.8,
+        "3m": -1.4,
+        "1y": 7.9
+      },
+      "percentile_10y": null,
+      "zscore_10y": null,
+      "stats_window_years": null,
+      "signal": "neutral",
+      "stale": false,
+      "source": "Yahoo Finance (illustrative mock)",
+      "source_url": "https://finance.yahoo.com/quote/IWM"
+    },
+    {
+      "id": "EFA",
+      "name": "Developed ex-US Equity ETF",
+      "category": "equity",
+      "value": 92.4,
+      "unit": "USD",
+      "observation_date": "2026-10-15",
+      "changes": {
+        "1m": 1.2,
+        "3m": 2.1,
+        "1y": 12.6
+      },
+      "percentile_10y": null,
+      "zscore_10y": null,
+      "stats_window_years": null,
+      "signal": "neutral",
+      "stale": false,
+      "source": "Yahoo Finance (illustrative mock)",
+      "source_url": "https://finance.yahoo.com/quote/EFA"
+    },
+    {
+      "id": "EEM",
+      "name": "Emerging Markets Equity ETF",
+      "category": "equity",
+      "value": 51.9,
+      "unit": "USD",
+      "observation_date": "2026-10-15",
+      "changes": {
+        "1m": 1.9,
+        "3m": 3.4,
+        "1y": 15.2
+      },
+      "percentile_10y": null,
+      "zscore_10y": null,
+      "stats_window_years": null,
+      "signal": "neutral",
+      "stale": false,
+      "source": "Yahoo Finance (illustrative mock)",
+      "source_url": "https://finance.yahoo.com/quote/EEM"
+    },
+    {
+      "id": "XLK",
+      "name": "Technology Sector ETF",
+      "category": "equity_sector",
+      "value": 288.1,
+      "unit": "USD",
+      "observation_date": "2026-10-15",
+      "changes": {
+        "1m": 3.4,
+        "3m": 5.8,
+        "1y": 26.4
+      },
+      "percentile_10y": null,
+      "zscore_10y": null,
+      "stats_window_years": null,
+      "signal": "neutral",
+      "stale": false,
+      "source": "Yahoo Finance (illustrative mock)",
+      "source_url": "https://finance.yahoo.com/quote/XLK"
+    },
+    {
+      "id": "XLF",
+      "name": "Financials Sector ETF",
+      "category": "equity_sector",
+      "value": 56.2,
+      "unit": "USD",
+      "observation_date": "2026-10-15",
+      "changes": {
+        "1m": 1.8,
+        "3m": 4.1,
+        "1y": 19.0
+      },
+      "percentile_10y": null,
+      "zscore_10y": null,
+      "stats_window_years": null,
+      "signal": "neutral",
+      "stale": false,
+      "source": "Yahoo Finance (illustrative mock)",
+      "source_url": "https://finance.yahoo.com/quote/XLF"
+    },
+    {
+      "id": "XLE",
+      "name": "Energy Sector ETF",
+      "category": "equity_sector",
+      "value": 97.3,
+      "unit": "USD",
+      "observation_date": "2026-10-15",
+      "changes": {
+        "1m": 2.6,
+        "3m": 3.9,
+        "1y": 6.1
+      },
+      "percentile_10y": null,
+      "zscore_10y": null,
+      "stats_window_years": null,
+      "signal": "neutral",
+      "stale": false,
+      "source": "Yahoo Finance (illustrative mock)",
+      "source_url": "https://finance.yahoo.com/quote/XLE"
+    },
+    {
+      "id": "XLV",
+      "name": "Health Care Sector ETF",
+      "category": "equity_sector",
+      "value": 158.4,
+      "unit": "USD",
+      "observation_date": "2026-10-15",
+      "changes": {
+        "1m": 0.9,
+        "3m": 2.2,
+        "1y": 8.7
+      },
+      "percentile_10y": null,
+      "zscore_10y": null,
+      "stats_window_years": null,
+      "signal": "neutral",
+      "stale": false,
+      "source": "Yahoo Finance (illustrative mock)",
+      "source_url": "https://finance.yahoo.com/quote/XLV"
+    },
+    {
+      "id": "XLY",
+      "name": "Consumer Discretionary Sector ETF",
+      "category": "equity_sector",
+      "value": 231.6,
+      "unit": "USD",
+      "observation_date": "2026-10-15",
+      "changes": {
+        "1m": 1.1,
+        "3m": 2.6,
+        "1y": 14.3
+      },
+      "percentile_10y": null,
+      "zscore_10y": null,
+      "stats_window_years": null,
+      "signal": "neutral",
+      "stale": false,
+      "source": "Yahoo Finance (illustrative mock)",
+      "source_url": "https://finance.yahoo.com/quote/XLY"
+    },
+    {
+      "id": "XLP",
+      "name": "Consumer Staples Sector ETF",
+      "category": "equity_sector",
+      "value": 79.8,
+      "unit": "USD",
+      "observation_date": "2026-10-15",
+      "changes": {
+        "1m": -0.6,
+        "3m": -1.1,
+        "1y": 3.2
+      },
+      "percentile_10y": null,
+      "zscore_10y": null,
+      "stats_window_years": null,
+      "signal": "neutral",
+      "stale": false,
+      "source": "Yahoo Finance (illustrative mock)",
+      "source_url": "https://finance.yahoo.com/quote/XLP"
+    },
+    {
+      "id": "XLI",
+      "name": "Industrials Sector ETF",
+      "category": "equity_sector",
+      "value": 151.2,
+      "unit": "USD",
+      "observation_date": "2026-10-15",
+      "changes": {
+        "1m": 2.2,
+        "3m": 4.4,
+        "1y": 18.1
+      },
+      "percentile_10y": null,
+      "zscore_10y": null,
+      "stats_window_years": null,
+      "signal": "neutral",
+      "stale": false,
+      "source": "Yahoo Finance (illustrative mock)",
+      "source_url": "https://finance.yahoo.com/quote/XLI"
+    },
+    {
+      "id": "XLU",
+      "name": "Utilities Sector ETF",
+      "category": "equity_sector",
+      "value": 81.5,
+      "unit": "USD",
+      "observation_date": "2026-10-15",
+      "changes": {
+        "1m": 0.4,
+        "3m": 1.8,
+        "1y": 11.4
+      },
+      "percentile_10y": null,
+      "zscore_10y": null,
+      "stats_window_years": null,
+      "signal": "neutral",
+      "stale": false,
+      "source": "Yahoo Finance (illustrative mock)",
+      "source_url": "https://finance.yahoo.com/quote/XLU"
+    },
+    {
+      "id": "XLB",
+      "name": "Materials Sector ETF",
+      "category": "equity_sector",
+      "value": 95.7,
+      "unit": "USD",
+      "observation_date": "2026-10-15",
+      "changes": {
+        "1m": 0.7,
+        "3m": 1.3,
+        "1y": 5.6
+      },
+      "percentile_10y": null,
+      "zscore_10y": null,
+      "stats_window_years": null,
+      "signal": "neutral",
+      "stale": false,
+      "source": "Yahoo Finance (illustrative mock)",
+      "source_url": "https://finance.yahoo.com/quote/XLB"
+    },
+    {
+      "id": "XLRE",
+      "name": "Real Estate Sector ETF",
+      "category": "equity_sector",
+      "value": 41.3,
+      "unit": "USD",
+      "observation_date": "2026-10-15",
+      "changes": {
+        "1m": -1.7,
+        "3m": -3.2,
+        "1y": -1.8
+      },
+      "percentile_10y": null,
+      "zscore_10y": null,
+      "stats_window_years": null,
+      "signal": "neutral",
+      "stale": false,
+      "source": "Yahoo Finance (illustrative mock)",
+      "source_url": "https://finance.yahoo.com/quote/XLRE"
+    },
+    {
+      "id": "XLC",
+      "name": "Communication Services Sector ETF",
+      "category": "equity_sector",
+      "value": 112.9,
+      "unit": "USD",
+      "observation_date": "2026-10-15",
+      "changes": {
+        "1m": 2.4,
+        "3m": 4.9,
+        "1y": 22.7
+      },
+      "percentile_10y": null,
+      "zscore_10y": null,
+      "stats_window_years": null,
+      "signal": "neutral",
+      "stale": false,
+      "source": "Yahoo Finance (illustrative mock)",
+      "source_url": "https://finance.yahoo.com/quote/XLC"
+    },
+    {
+      "id": "TLT",
+      "name": "20+ Year Treasury ETF",
+      "category": "rates",
+      "value": 81.2,
+      "unit": "USD",
+      "observation_date": "2026-10-15",
+      "changes": {
+        "1m": -2.4,
+        "3m": -6.9,
+        "1y": -12.4
+      },
+      "percentile_10y": null,
+      "zscore_10y": null,
+      "stats_window_years": null,
+      "signal": "neutral",
+      "stale": false,
+      "source": "Yahoo Finance (illustrative mock)",
+      "source_url": "https://finance.yahoo.com/quote/TLT"
+    },
+    {
+      "id": "IEF",
+      "name": "7-10 Year Treasury ETF",
+      "category": "rates",
+      "value": 90.1,
+      "unit": "USD",
+      "observation_date": "2026-10-15",
+      "changes": {
+        "1m": -1.3,
+        "3m": -3.8,
+        "1y": -6.0
+      },
+      "percentile_10y": null,
+      "zscore_10y": null,
+      "stats_window_years": null,
+      "signal": "neutral",
+      "stale": false,
+      "source": "Yahoo Finance (illustrative mock)",
+      "source_url": "https://finance.yahoo.com/quote/IEF"
+    },
+    {
+      "id": "LQD",
+      "name": "Investment Grade Corporate Bond ETF",
+      "category": "credit",
+      "value": 102.6,
+      "unit": "USD",
+      "observation_date": "2026-10-15",
+      "changes": {
+        "1m": -1.1,
+        "3m": -3.1,
+        "1y": -4.2
+      },
+      "percentile_10y": null,
+      "zscore_10y": null,
+      "stats_window_years": null,
+      "signal": "neutral",
+      "stale": false,
+      "source": "Yahoo Finance (illustrative mock)",
+      "source_url": "https://finance.yahoo.com/quote/LQD"
+    },
+    {
+      "id": "HYG",
+      "name": "High Yield Corporate Bond ETF",
+      "category": "credit",
+      "value": 78.4,
+      "unit": "USD",
+      "observation_date": "2026-10-15",
+      "changes": {
+        "1m": 0.2,
+        "3m": 0.4,
+        "1y": 3.9
+      },
+      "percentile_10y": null,
+      "zscore_10y": null,
+      "stats_window_years": null,
+      "signal": "neutral",
+      "stale": false,
+      "source": "Yahoo Finance (illustrative mock)",
+      "source_url": "https://finance.yahoo.com/quote/HYG"
+    },
+    {
+      "id": "DX-Y.NYB",
+      "name": "US Dollar Index",
+      "category": "fx",
+      "value": 104.8,
+      "unit": "index",
+      "observation_date": "2026-10-15",
+      "changes": {
+        "1m": 0.9,
+        "3m": 1.8,
+        "1y": 3.6
+      },
+      "percentile_10y": null,
+      "zscore_10y": null,
+      "stats_window_years": null,
+      "signal": "neutral",
+      "stale": false,
+      "source": "Yahoo Finance (illustrative mock)",
+      "source_url": "https://finance.yahoo.com/quote/DX-Y.NYB"
     }
   ],
   "news": [

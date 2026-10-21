@@ -19,6 +19,8 @@ from app.endpoints.review_pack import router as review_pack_router  # noqa: E402
 from app.endpoints.market_researcher import ui_router as market_researcher_ui_router  # noqa: E402
 from app.endpoints.portfolio_manager import router as portfolio_manager_router  # noqa: E402
 from app.endpoints.portfolio_manager import install_validation_handler as install_pm_validation_handler  # noqa: E402
+from app.endpoints.product_recommender import PREFIX as PRODUCT_RECOMMENDER_PREFIX  # noqa: E402
+from app.endpoints.product_recommender import router as product_recommender_router  # noqa: E402
 from app.agents.market_researcher.cache import PostgresCache, init_market_tables  # noqa: E402
 from app.agents.market_researcher.runs import MarketResearchRunner, PostgresRunRegistry  # noqa: E402
 from app.agents.market_researcher.service import MarketResearchService  # noqa: E402
@@ -65,7 +67,8 @@ app.include_router(review_pack_router)
 app.include_router(market_researcher_router)
 app.include_router(market_researcher_ui_router)
 app.include_router(portfolio_manager_router)
-install_pm_validation_handler(app)
+app.include_router(product_recommender_router)
+install_pm_validation_handler(app, extra_prefixes=(PRODUCT_RECOMMENDER_PREFIX,))
 
 
 @app.get("/")
@@ -75,4 +78,5 @@ async def root():
         "websocket": "/agents/langgraph",
         "market_researcher": "/agents/market-researcher",
         "portfolio_manager": "/agents/portfolio-manager",
+        "product_recommender": "/agents/product-recommender",
     }

@@ -1,6 +1,6 @@
 import type {
   ActivityEvent, AllocationRow, Bucket3L, Citation, Client, Gate, Holding, InboxItem, IpsPart,
-  MarketView, HouseView, MarketRow, MacroBrief, MeetingNote, PackSection, Product, CaseStep, AllocationGroup, GoalProjection,
+  HouseView, MacroBrief, MeetingNote, PackSection, CaseStep, AllocationGroup, GoalProjection,
 } from "../types/arc";
 
 export const clients: Client[] = [
@@ -179,33 +179,6 @@ export const inboxes: Record<"ic" | "ps", InboxItem[]> = {
 };
 
 export const marketCycle = { phase: "Late expansion", tag: "MKT-0142", asOf: "2026-10-14" };
-export const marketViews: MarketView[] = [
-  { assetClass: "Fixed income", view: "Buy", explanation: "Growth is slowing, so rates are likely to fall. High-grade bonds lock in today's yield.", confidence: "High", tags: ["CIO-2026Q4-03", "MKT-0142"] },
-  { assetClass: "Equities", view: "Hold", explanation: "Profits are solid but prices are high for late expansion.", confidence: "Medium", tags: ["CIO-2026Q4-05", "MKT-0142"] },
-  { assetClass: "Cash", view: "Sell", explanation: "Cash yields fall when rate cuts come.", confidence: "Medium", tags: ["CIO-2026Q4-02"] },
-  { assetClass: "Gold", view: "Hold", explanation: "Supports the portfolio if growth surprises on the downside.", confidence: "Medium", tags: ["CIO-2026Q4-09"] },
-];
-
-export const products: Product[] = [
-  { id: "PRD-FI-007", name: "SGD Investment Grade Bond Fund", assetClass: "Fixed income", whyBuy: "Fits the Buy view on fixed income. Rated 2 of 5 for risk, below Sergio Ermotti's limit of 3. Daily dealing fits the Liquidity bucket.", feePct: 0.55, stars: 5, suitability: "Inside risk limit, fits Liquidity bucket", riskRating: 2, tags: ["MKT-0142", "IPS-v2"] },
-  { id: "PRD-FI-011", name: "Global Aggregate Bond ETF", assetClass: "Fixed income", whyBuy: "Wide mix of bonds lowers single-issuer risk.", feePct: 0.2, stars: 4, suitability: "Fits Longevity bucket, small currency risk", riskRating: 2, tags: ["CIO-2026Q4-03"] },
-  { id: "PRD-FI-004", name: "Short-Duration Treasury Fund", assetClass: "Fixed income", whyBuy: "Less hit if rates rise.", feePct: 0.3, stars: 4, suitability: "Equal fit to row 2, shortest duration on the shelf", riskRating: 1, tags: ["MKT-0142"] },
-  { id: "PRD-FI-015", name: "Asia High Yield Bond Fund", assetClass: "Fixed income", whyBuy: "Higher income.", feePct: 0.95, stars: 3, suitability: "Risk rating 3 is at the limit, adds Asia credit concentration", riskRating: 3, tags: ["MKT-0142"] },
-  { id: "PRD-FI-018", name: "Franklin Templeton Global Bond Fund", assetClass: "Fixed income", whyBuy: "Broad government and corporate bonds across regions.", feePct: 0.75, stars: 3, suitability: "Inside risk limit, unhedged currency exposure", riskRating: 2, tags: ["MKT-0142"] },
-  { id: "PRD-EQ-021", name: "iShares Core MSCI World ETF", assetClass: "Equities", whyBuy: "Low-cost exposure to developed-market shares.", feePct: 0.2, stars: 5, suitability: "Core holding, tech-heavy weights", riskRating: 3, tags: ["CIO-2026Q4-05"] },
-  { id: "PRD-EQ-024", name: "Fidelity Global Dividend Fund", assetClass: "Equities", whyBuy: "Dividend payers tend to hold up better late in the cycle.", feePct: 0.95, stars: 4, suitability: "Income tilt, fits Longevity bucket", riskRating: 3, tags: ["CIO-2026Q4-05"] },
-  { id: "PRD-EQ-027", name: "BlackRock Global Allocation Fund", assetClass: "Equities", whyBuy: "Flexible mix of shares, bonds and cash managed by one team.", feePct: 1.05, stars: 4, suitability: "Multi-asset, moderate swings", riskRating: 3, tags: ["MKT-0142"] },
-  { id: "PRD-EQ-031", name: "Franklin Technology Fund", assetClass: "Equities", whyBuy: "Concentrated growth in technology companies.", feePct: 1.2, stars: 3, suitability: "Adds sector concentration, above Balanced limits", riskRating: 4, tags: ["CIO-2026Q4-05"] },
-  { id: "PRD-HF-033", name: "Man AHL Diversified", assetClass: "Hedge funds", whyBuy: "Trend-following strategy that can gain when markets fall.", feePct: 1.8, stars: 3, suitability: "Diversifier, limited daily liquidity", riskRating: 4, tags: ["MKT-0142"] },
-  { id: "PRD-HF-036", name: "BlackRock Event Driven Equity Fund", assetClass: "Hedge funds", whyBuy: "Profits from mergers and corporate events, low link to markets.", feePct: 1.6, stars: 3, suitability: "Monthly dealing, suits Longevity bucket", riskRating: 4, tags: ["MKT-0142"] },
-  { id: "PRD-PM-041", name: "Blackstone Private Equity Strategies Fund", assetClass: "Private markets", whyBuy: "Access to private companies not available in public markets.", feePct: 1.25, stars: 3, suitability: "Long lock-up, only for Legacy bucket", riskRating: 4, tags: ["CIO-2026Q4-09"] },
-  { id: "PRD-RE-044", name: "Fidelity Asia Pacific Property Fund", assetClass: "Real estate", whyBuy: "Rental income from listed property across Asia.", feePct: 1.1, stars: 3, suitability: "Income with inflation link, moderate risk", riskRating: 3, tags: ["MKT-0142"] },
-  { id: "PRD-GD-047", name: "SPDR Gold Shares", assetClass: "Gold", whyBuy: "Simple exposure to the gold price as a portfolio hedge.", feePct: 0.4, stars: 4, suitability: "Supports the Hold view on gold", riskRating: 3, tags: ["CIO-2026Q4-09"] },
-  { id: "PRD-CS-050", name: "UBS SGD Money Market Fund", assetClass: "Cash", whyBuy: "Daily access to cash with a money-market yield.", feePct: 0.25, stars: 4, suitability: "Fits Liquidity bucket, yield falls with rate cuts", riskRating: 1, tags: ["CIO-2026Q4-02"] },
-  { id: "PRD-SP-053", name: "Capital-Protected Equity-Linked Note", assetClass: "Structured products", whyBuy: "Keeps the invested amount at maturity and shares part of any equity gain.", feePct: 0.8, stars: 3, suitability: "3-year term, issuer credit risk", riskRating: 3, tags: ["MKT-0142"] },
-  { id: "PRD-SP-056", name: "Autocallable Note on Nasdaq-100", assetClass: "Structured products", whyBuy: "Pays a fixed coupon and can end early if the index holds up.", feePct: 0.9, stars: 2, suitability: "Capital at risk if the index falls sharply", riskRating: 4, tags: ["MKT-0142"] },
-];
-
 export const packSections: PackSection[] = [
   { n: 1, title: "Latest Client's Profile + Goals", owner: "rm", gate: "G4", status: "draft", body: "Sergio Ermotti, S$5.0m, Balanced. IPS v2 approved 2026-09-20 following the house purchase [NOTE-2026-09-12] [IPS-v2]." },
   { n: 2, title: "Market view", owner: "ic", gate: "G2", status: "ready", body: "Late expansion [MKT-0142]. Buy fixed income, hold equities and gold, sell cash [CIO-2026Q4-03]." },
@@ -340,15 +313,7 @@ export const houseViews: HouseView[] = [
   { id: "HV-2026-04", month: "April 2026", issuedOn: "2026-04-14", author: "UBS Chief Investment Office", file: null },
 ];
 
-export const marketRows: MarketRow[] = [
-  { assetClass: "Fixed income", product: "PIMCO Balanced Income Fund", industryFocus: "Government and investment-grade credit", top5: ["US Treasury 10Y", "SGS 10Y Bond", "Microsoft Corp bond", "Apple Inc bond", "DBS Group bond"], confidencePct: 99,
-    ranking: ["1. US Treasury 10Y: highest quality, locks in today's yield before rate cuts.", "2. SGS 10Y Bond: SGD-denominated, no currency risk for the client.", "3. Microsoft Corp bond: strong balance sheet, small spread pick-up.", "4. Apple Inc bond: similar credit quality, adds diversification.", "5. DBS Group bond: local bank credit, within the risk limit."] },
-  { assetClass: "Equities", product: "Global Quality Equity Fund", industryFocus: "Mostly concentrated on tech", top5: ["Microsoft", "Apple", "NVIDIA", "Alphabet", "Amazon"], confidencePct: 90,
-    ranking: ["1. Microsoft: steady profit growth, supports the Hold view on equities.", "2. Apple: strong cash generation, defensive for late expansion.", "3. NVIDIA: high growth but adds concentration, ranked lower for risk.", "4. Alphabet: diversified earnings, fair valuation.", "5. Amazon: cyclical exposure, ranked last in late expansion."] },
-  { assetClass: "Alternatives", product: "Asia Infrastructure Income Fund", industryFocus: "Infrastructure and real assets", top5: ["CapitaLand Ascendas REIT", "Singapore Power", "Changi Airport Group", "PSA International", "Keppel Infrastructure"], confidencePct: 80,
-    ranking: ["1. CapitaLand Ascendas REIT: stable rental income, inflation linked.", "2. Singapore Power: regulated returns with low volatility.", "3. Changi Airport Group: recovery in travel, moderate risk.", "4. PSA International: trade exposure, ranked lower on cycle risk.", "5. Keppel Infrastructure: smaller scale, lower liquidity."] },
-];
-
+/** Market Researcher seam (cycle phase and events). `views` is filled at runtime from the backend CIO house view. */
 export const macroBrief: MacroBrief = {
   phase: "Late expansion", asOf: "2026-10-14",
   events: [
@@ -357,29 +322,6 @@ export const macroBrief: MacroBrief = {
     "China adds property support measures, Asia credit spreads tighten",
     "Oil steady near US$78 as supply stays balanced",
   ],
-  views: [
-    { assetClass: "Fixed income", view: "Buy", industry: "Government and investment-grade credit", direction: "Up", note: "Rate cuts lift bond prices." },
-    { assetClass: "Equities", view: "Hold", industry: "Quality tech and healthcare", direction: "Flat", note: "Profits solid, prices already high." },
-    { assetClass: "Alternatives", view: "Hold", industry: "Infrastructure and trend-following", direction: "Up", note: "Diversifies late-cycle risk." },
-    { assetClass: "Cash", view: "Sell", industry: "Money market", direction: "Down", note: "Yields fall as rates are cut." },
-    { assetClass: "Gold", view: "Hold", industry: "Precious metals", direction: "Flat", note: "Hedge if growth slows faster." },
-  ],
+  views: [],
 };
 
-/** Mock product universe the intent parser can match by name. */
-export const productCatalogue: { aliases: string[]; row: MarketRow }[] = [
-  { aliases: ["pimco"], row: { assetClass: "Fixed income", product: "PIMCO Balanced Income & Growth Fund", industryFocus: "Investment-grade credit with an equity sleeve", top5: ["US Treasury 10Y", "SGS 10Y Bond", "Microsoft Corp bond", "Apple Inc bond", "DBS Group bond"], confidencePct: 96,
-    ranking: ["Fits the Buy view on fixed income as rates fall.", "Risk rating 2 sits inside the client's limit.", "Equity sleeve adds some growth for the Longevity bucket.", "Monthly income suits the client's stated cash needs."] } },
-  { aliases: ["ishare", "blackrock"], row: { assetClass: "Fixed income", product: "BlackRock iShares Core Global Aggregate Bond ETF", industryFocus: "Global government and corporate bonds", top5: ["US Treasury 5Y", "German Bund 10Y", "Japan JGB 10Y", "UK Gilt 10Y", "Apple Inc bond"], confidencePct: 92,
-    ranking: ["Very low fee and daily liquidity.", "Broad mix lowers single-issuer risk.", "Small currency exposure to flag with the client.", "Matches the Buy view on high-grade bonds."] } },
-  { aliases: ["equity linked", "equity-linked", "eln", "dbs"], row: { assetClass: "Structured products", product: "Equity-Linked Note on DBS Group", industryFocus: "Singapore banks", top5: ["DBS Group (underlying)", "Issuer: UBS AG", "Coupon 7.2% p.a.", "Strike 90%", "Tenor 6 months"], confidencePct: 78,
-    ranking: ["Pays a high coupon while DBS stays above the strike.", "Capital at risk if DBS falls below 90%.", "Concentrated in one bank, so keep the size small.", "Risk rating 3 is at the client's limit."] } },
-  { aliases: ["fidelity"], row: { assetClass: "Equities", product: "Fidelity Global Dividend Fund", industryFocus: "Dividend payers, mostly defensive sectors", top5: ["Unilever", "Roche", "Procter & Gamble", "Taiwan Semiconductor", "Deutsche Boerse"], confidencePct: 88,
-    ranking: ["Dividend payers hold up better late in the cycle.", "Fits the Hold view on equities with lower swings.", "Income suits the Longevity bucket."] } },
-  { aliases: ["franklin"], row: { assetClass: "Fixed income", product: "Franklin Templeton Global Bond Fund", industryFocus: "Sovereign bonds across regions", top5: ["US Treasury 10Y", "Korea KTB 10Y", "India G-Sec 10Y", "Brazil NTN-F", "Norway NGB 10Y"], confidencePct: 74,
-    ranking: ["Adds emerging-market yield.", "Unhedged currency risk lowers the rank.", "Inside the risk limit."] } },
-  { aliases: ["man ahl", "hedge"], row: { assetClass: "Alternatives", product: "Man AHL Diversified", industryFocus: "Trend-following futures", top5: ["US Treasury futures", "S&P 500 futures", "Gold futures", "EUR/USD", "Brent crude futures"], confidencePct: 70,
-    ranking: ["Can gain when markets fall, useful late in the cycle.", "Limited liquidity, Longevity bucket only.", "Risk rating 4 is above a Balanced limit, needs IC sign-off."] } },
-  { aliases: ["nasdaq", "autocall"], row: { assetClass: "Structured products", product: "Autocallable Note on Nasdaq-100", industryFocus: "US technology", top5: ["Nasdaq-100 (underlying)", "Issuer: UBS AG", "Coupon 9.0% p.a.", "Barrier 65%", "Tenor 12 months"], confidencePct: 62,
-    ranking: ["High coupon if the index holds up.", "Capital at risk below the 65% barrier.", "Tech concentration adds to existing holdings."] } },
-];

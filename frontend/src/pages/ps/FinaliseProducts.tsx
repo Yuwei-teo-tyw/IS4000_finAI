@@ -53,7 +53,6 @@ const REOPEN_NOTES = [
 export default function FinaliseProducts() {
   const { clientId = "jfr" } = useParams();
   const client = useAsync(() => arcApi.getClient(clientId), [clientId]);
-  const products = useAsync(() => arcApi.getProducts(clientId), [clientId]);
   const [confirm, setConfirm] = useState(false);
   const [phase, setPhase] = useState<"reasons" | "preview">("reasons");
   /** Per-box Geneva state: loading flag and the proposed professional wording awaiting Accept / Keep mine. */
@@ -70,8 +69,8 @@ export default function FinaliseProducts() {
   const [all, setAll] = useState(() => loadSelection(clientId));
   const [ticked, setTicked] = useState<string[]>(() => all.map((r) => r.product));
   const list = all.filter((r) => ticked.includes(r.product));
-  /** Professional baseline: seeded Product.psReason when the product is on the shelf, else a generic suitability draft. */
-  const baseline = (r: (typeof all)[number]) => (clientId === "jfr" ? products?.find((x) => x.name === r.product)?.psReason : undefined)?.trim() || draftReason(r);
+  /** Baseline: the Product Recommender's cited reason when the product was ticked from a recommendation, else a generic suitability draft. */
+  const baseline = (r: (typeof all)[number]) => r.agentReason?.trim() || draftReason(r);
   const [activeProduct, setActiveProduct] = useState<string | null>(null);
   const current = list.find((r) => r.product === activeProduct) ?? list[0];
   const typed = (name: string) => (reasons[name] ?? "").trim().length > 0;
