@@ -40,6 +40,10 @@ export type PrExclusionCode =
 export interface PrExclusion { product_id: string; product_name: string; asset_class: string; code: PrExclusionCode; reason: string }
 export interface PrNamedProduct { query: string; product_id: string | null; status: "shortlisted" | "eligible" | "excluded" | "not_found"; reason: string }
 
+/** Who wrote the text: the LLM (from engine facts, checked by the guardrail) or the rule-based fallback. */
+export interface PrExplanationStatus {
+  source: "LLM" | "DETERMINISTIC_FALLBACK" | "DETERMINISTIC"; llm_attempted: boolean; llm_succeeded: boolean; model: string | null; detail: string;
+}
 export interface PrResponse {
   request_id: string; client_id: string; generated_at: string; is_illustrative: boolean; sources: Record<string, string>;
   client_summary: { risk_level: number | null; risk_category: string | null; objective: string; shortest_horizon_years: number | null; base_currency: string | null };
@@ -50,6 +54,7 @@ export interface PrResponse {
   named_products: PrNamedProduct[];
   missing_information: string[];
   limitations: string[];
+  explanation_status: PrExplanationStatus | null;
 }
 
 /* ---- Asset-class views: the agent's own view beside the CIO's (asset_views/schemas.py) ---- */
@@ -84,6 +89,7 @@ export interface PrAssetView {
   implementation: { products: PrImplementationProduct[]; fees: { min_pct: number | null; median_pct: number | null; max_pct: number | null; display_only: true } };
   client_lens: PrClientLens | null;
   narrative_source: "llm" | "deterministic";
+  explanation_status: PrExplanationStatus | null;
   caveats: string[];
   data_quality: {
     market_source: string; market_status: string; market_researcher_run_id: string | null; market_as_of: string | null; market_quality: string | null;

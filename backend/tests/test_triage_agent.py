@@ -1,6 +1,6 @@
 """
 TriageAgent routing decisions - the structured `RoutingDecision` output
-drives handoff to finance/market_researcher/general, a canned intro for 'meta'
+drives handoff to market_researcher/general, a canned intro for 'meta'
 questions, and a safe 'general' fallback if the routing call itself fails.
 """
 from langchain_core.messages import HumanMessage
@@ -16,15 +16,15 @@ def _make_agent(monkeypatch, fake_llm):
     return TriageAgent()
 
 
-def test_routes_to_finance(monkeypatch):
-    fake_llm = FakeLLM(RoutingDecision(destination="finance"))
+def test_personal_finance_routes_to_general(monkeypatch):
+    fake_llm = FakeLLM(RoutingDecision(destination="general"))
     agent = _make_agent(monkeypatch, fake_llm)
     state = {"messages": [HumanMessage(content="should I max out my 401k?")]}
 
     result = run_async(agent.run(state))
 
-    assert result["current_agent"] == "finance"
-    assert result["next_agent"] == "finance"
+    assert result["current_agent"] == "general"
+    assert result["next_agent"] == "general"
 
 
 def test_routes_to_general(monkeypatch):

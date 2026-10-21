@@ -1,8 +1,8 @@
 """
 Optional chat trigger for the market researcher: the MarketResearcher
 graph node, the end-to-end triage -> market_researcher -> eval path, the
-deterministic renderer, and the Finance Expert staying separate (it has
-no access to the market researcher).
+deterministic renderer, and the General Assistant staying separate (it
+has no access to the market researcher).
 The pipeline runs for real against the stubbed providers from
 test_market_service; every LLM is a FakeLLM.
 """
@@ -14,13 +14,13 @@ from langgraph.checkpoint.memory import InMemorySaver
 import app.agents.market_researcher.news_tagging as tagging_module
 import app.agents.market_researcher.synthesis as synthesis_module
 import app.agents.nodes.market_researcher as node_module
-import app.agents.nodes.finance as finance_module
+import app.agents.nodes.general as general_module
 import app.agents.tools as tools_module
 from app.agents.graph import build_graph
 from app.agents.market_researcher.news_tagging import NewsTagBatch
 from app.agents.market_researcher.render import render_markdown
 from app.agents.market_researcher.schemas import Event, EventExplanation, MarketResearchRequest
-from app.agents.nodes.eval_agent import ComplianceCheck, EvalVerdict
+from app.agents.nodes.eval_agent import ComplianceCheck
 from app.agents.nodes.market_researcher import MarketResearcher, MarketScope
 from app.agents.nodes.triage import RoutingDecision
 
@@ -42,6 +42,15 @@ def test_node_out_of_scope_hands_back_to_triage(monkeypatch, tmp_path):
     result = run_async(node.run({"messages": [HumanMessage(content="write me a poem")]}))
     assert result["next_agent"] == "triage" and "messages" not in result
 
+
+def test_node_does_not_hand_back_after_triage_routed_here(monkeypatch, tmp_path):
+    # triage already chose this node - a disagreeing scope call must not bounce it back
+    _quiet_pipeline_llms(monkeypatch)
+    monkeypatch.setattr(node_module, "get_groq_model", lambda: FakeLLM(MarketScope(in_scope=False)))
+    node = MarketResearcher(service=make_service(tmp_path))
+    state = {"messages": [HumanMessage(content="how is oil affecting inflation?")], "scope_checked": True}
+    result = run_async(node.run(state))
+    assert result["current_agent"] == "market_researcher" and result["messages"]
 
 def test_node_runs_pipeline_and_renders(monkeypatch, tmp_path):
     _quiet_pipeline_llms(monkeypatch)
@@ -78,7 +87,7 @@ def test_triage_to_market_researcher_end_to_end(monkeypatch, tmp_path):
     monkeypatch.setattr(node_module, "MarketResearchService", lambda: make_service(tmp_path))
     fakes["triage"].queue(RoutingDecision(destination="market"))
     fakes["market_researcher"].queue(MarketScope(in_scope=True, focus=["recession"]))
-    fakes["eval"].queue(EvalVerdict(verdict="approve", feedback=""), ComplianceCheck(compliant=True, severity="none"))
+    fakes["eval"].queue(ComplianceCheck(compliant=True, severity="none"))  # no quality pass for a rendered answer
 
     app = build_graph(InMemorySaver())
     config = {"configurable": {"thread_id": "market-e2e"}}
@@ -92,7 +101,7 @@ def test_triage_to_market_researcher_end_to_end(monkeypatch, tmp_path):
     assert any("Assistant response to review" in str(call) for call in fakes["eval"].calls)
 
 
-def test_finance_has_no_access_to_market_researcher(monkeypatch):
+def test_general_has_no_access_to_market_researcher(monkeypatch):
     bound = []
 
     class RecordingLLM(FakeLLM):
@@ -101,14 +110,14 @@ def test_finance_has_no_access_to_market_researcher(monkeypatch):
             return super().bind_tools(tools)
 
     _patch_all_llms(monkeypatch)  # build_graph() constructs every node
-    monkeypatch.setattr(finance_module, "get_groq_model", lambda: RecordingLLM())
-    finance_module.FinanceExpert()
+    monkeypatch.setattr(general_module, "get_groq_model", lambda: RecordingLLM())
+    general_module.GeneralAssistant()
     assert "market_research" not in bound and "tavily_search" in bound
     assert not hasattr(tools_module, "market_research")
 
     graph = build_graph(InMemorySaver())
-    finance_tool_node = graph.nodes["finance_tools"].bound
-    assert "market_research" not in finance_tool_node.tools_by_name
+    general_tool_node = graph.nodes["general_tools"].bound
+    assert "market_research" not in general_tool_node.tools_by_name
 
 
 def test_renderer_uses_only_output_values(monkeypatch, tmp_path):

@@ -2,62 +2,12 @@
 Tools for the LangGraph agents.
 
 `tavily_search` is a real LangChain tool: it's bound to the LLM with
-`.bind_tools()` in each specialist node, and the model itself decides
+`.bind_tools()` in the General Assistant node, and the model itself decides
 whether/when to call it based on the conversation - no keyword heuristics.
 """
 import os
 import requests
 from langchain_core.tools import tool
-
-from app.agents.report_generator import generate_report
-
-
-@tool
-def generate_client_report(report_type: str, title: str, summary: str) -> str:
-    """
-    Generate a client-ready, formatted report (e.g. PDF) summarizing the
-    financial analysis or recommendations discussed in the conversation.
-
-    Use this when the user asks for a document, report, or summary they
-    can save, share, or download, rather than continuing the discussion
-    in chat.
-
-    PLACEHOLDER: the underlying document-generation logic (PDF/formatting)
-    is undecided and not yet implemented - calling this returns a stub
-    response. Wire the real generator into report_generator.py once the
-    output format is decided; the tool-calling contract here won't need
-    to change.
-
-    Args:
-        report_type: desired output format, e.g. "pdf", "markdown", "summary"
-        title: a short, descriptive title for the report
-        summary: the financial analysis/content to include in the report
-    """
-    return generate_report(report_type, title, summary)
-
-
-@tool
-def propose_financial_action(action_type: str, amount: float, description: str) -> str:
-    """
-    Propose a financial action that would move real money - placing a trade,
-    transferring funds, rebalancing a portfolio, etc. Use this instead of
-    just describing the action in text whenever the user asks you to
-    actually *do* something with their money, not just discuss it.
-
-    Calling this does NOT execute anything by itself - it only registers
-    the proposed action. A human-approval gate sits in front of it in the
-    graph and requires explicit user confirmation before anything proceeds.
-
-    PLACEHOLDER: there is no real brokerage/banking integration behind this
-    yet. When one exists, wire the actual API call in behind the same
-    approval gate rather than removing it.
-
-    Args:
-        action_type: e.g. "buy", "sell", "transfer", "rebalance"
-        amount: dollar amount involved
-        description: a precise, human-readable description of exactly what would happen
-    """
-    return f"PROPOSED (not executed): {action_type} - {description} - ${amount:,.2f}"
 
 
 @tool

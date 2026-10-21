@@ -10,15 +10,21 @@ the text used - a value in the payload (also as x100, for probabilities
 written as % and pp changes written as bp). Dates, years, tenors ("10Y",
 "3 months") and indicator ids are ignored. The payload includes the validated
 event explanations and decompositions, so their numbers are allowed too. It also rejects wording the
-data can't back ("YTD", "record high"). On failure the model gets one
-retry with the problems listed; if that fails too, a
-deterministic template narrative is used and `data_quality.notes` says so.
+data can't back ("YTD", "record high"); a label reminder follows the
+payload, since that wording is the most common first-draft failure. On
+failure the model gets one retry with the problems listed and its draft
+quoted in the same user turn (not replayed as a plain-text assistant turn,
+which led the model to answer the retry in plain JSON instead of the tool
+call - Groq's 400 tool_use_failed). Each call is re-asked once if that 400
+still happens. If the retry fails validation too, a deterministic template
+narrative is used and `data_quality.notes` says so.
 """
 import json
+import logging
 import re
 from typing import Any, Iterable, Optional
 
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
 
 from app.agents.market_researcher.news_tagging import with_max_tokens
@@ -27,6 +33,8 @@ from app.core import get_groq_model
 from app.prompts.prompt_builder import get_prompt
 
 SYNTHESIS_MAX_TOKENS = 6000
+
+logger = logging.getLogger("market_researcher")
 
 
 class Implication(BaseModel):
@@ -243,24 +251,40 @@ def _apply(output: MarketResearchOutput, s: SynthesisOut, implications: Optional
     output.narrative = s.narrative
 
 
+async def _invoke(writer, messages: list) -> SynthesisOut:
+    """One structured call, re-asked once if Groq rejects the output because the
+    model answered in plain text instead of the tool call (400 tool_use_failed).
+    Other errors are not retried here."""
+    try:
+        return await writer.ainvoke(messages)
+    except Exception as e:
+        if "tool_use_failed" not in str(e):
+            raise
+        logger.info("stage=synthesis re-asking after tool_use_failed")
+        return await writer.ainvoke(messages)
+
+
 async def synthesize(output: MarketResearchOutput) -> None:
     """Fill the narrative fields on `output` in place."""
     payload = build_payload(output)
     allowed = allowed_numbers(payload)
     messages = [
         SystemMessage(content=get_prompt("market_researcher.synthesis_system")),
-        HumanMessage(content=json.dumps(payload, default=str)),
+        HumanMessage(content=json.dumps(payload, default=str)
+                     + "\n\n" + get_prompt("market_researcher.synthesis_label_reminder")),
     ]
     try:
         writer = with_max_tokens(get_groq_model(), SYNTHESIS_MAX_TOKENS).with_structured_output(SynthesisOut)
-        draft = await writer.ainvoke(messages)
+        draft = await _invoke(writer, messages)
         found = problems(_texts(draft), allowed, payload)
         if found:
             note = "; ".join(found)
-            messages.append(AIMessage(content=draft.model_dump_json()))  # let it revise, not start over
+            # The draft goes inside the user turn so the model revises it rather
+            # than starting over, without a plain-JSON assistant turn to imitate.
             messages.append(HumanMessage(content=get_prompt(
-                "market_researcher.synthesis_retry_note", problems=note, numbers=note)))
-            draft = await writer.ainvoke(messages)
+                "market_researcher.synthesis_retry_note",
+                problems=note, numbers=note, draft=draft.model_dump_json())))
+            draft = await _invoke(writer, messages)
             found = problems(_texts(draft), allowed, payload)
         if not found:
             _apply(output, draft, {i.area: i.text for i in draft.implications})

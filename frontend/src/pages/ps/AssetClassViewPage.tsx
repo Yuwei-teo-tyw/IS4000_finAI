@@ -114,7 +114,9 @@ function Sources({ v }: { v: PrAssetView }) {
         ...(d.stale_indicators.length ? [`• Stale: ${d.stale_indicators.join(", ")}.`] : []),
         ...(d.missing_indicators.length ? [`• Missing: ${d.missing_indicators.join(", ")}.`] : []),
         ...v.caveats.map((c) => `• ${c}`),
-        `• Generated ${new Date(v.generated_at).toLocaleString()}; text is ${v.narrative_source}.`,
+        `• Generated ${new Date(v.generated_at).toLocaleString()}. ${v.narrative_source === "llm"
+          ? "Text written by AI from the engine's analysis and checked against it; every stance and number is the engine's."
+          : "Text is rule-based."}`,
       ].join("\n")} />
     </Section>
   );

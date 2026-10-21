@@ -4,7 +4,7 @@ Langfuse tracing setup.
 Langfuse's LangChain/LangGraph integration is a single `CallbackHandler`
 passed into the top-level `graph.ainvoke(..., config={"callbacks": [...]})`
 call - LangGraph propagates callbacks through its execution context
-automatically, so every node's LLM calls (triage, finance, general, eval,
+automatically, so every node's LLM calls (triage, general, market_researcher, eval,
 context manager, compliance check) get traced as one tree per turn without
 needing to touch every node file individually.
 

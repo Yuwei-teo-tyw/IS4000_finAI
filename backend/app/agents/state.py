@@ -22,7 +22,6 @@ class AgentState(TypedDict):
     messages: Annotated[List[BaseMessage], add_messages]
     current_agent: Optional[str]
     next_agent: Optional[str]
-    finance_response: Optional[Dict[str, Any]]
     market_research_response: Optional[Dict[str, Any]]
     conversation_ended: bool
     handoff_message: Optional[str]
@@ -33,15 +32,5 @@ class AgentState(TypedDict):
     eval_retry_count: int
     skip_eval: bool                    # True only for canned/templated responses (e.g. the intro)
     pii_redacted: bool                 # True if PIIGuard scrubbed something from the latest message
-
-
-class FinanceResponseData(TypedDict):
-    message_result: str
-    data: Dict[str, Any]
-
-
-class SystemResponse(TypedDict):
-    finance_response: FinanceResponseData
-    message: str
-    agent_name: Optional[str]
-    info_message: Optional[str]
+    client_context: Optional[str]      # Geneva workspace note for this turn (role + client), see client_context.py
+    scope_checked: bool                # True once this turn's routing is settled (triage routed, or a scope check passed)
