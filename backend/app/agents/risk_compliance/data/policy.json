@@ -1,0 +1,54 @@
+{
+  "_notice": "PLACEHOLDER policy. Every threshold, effect and disclaimer phrase below is an illustrative default chosen for the prototype, not a house policy. TODO: replace with values signed off by the policy owner (Risk / Compliance) and bump policy_version before any real use.",
+  "policy_id": "arc-risk-compliance",
+  "policy_version": "2026.10-placeholder",
+  "thresholds": {
+    "escalate_missing_fields": [
+      "financial_goals",
+      "financial_goals[*].years_to_goal"
+    ],
+    "min_horizon_years_by_risk_level": {"1": 0, "2": 1, "3": 3, "4": 5, "5": 7},
+    "profile_stale_after_days": 365,
+    "product_stale_after_days": 90,
+    "market_stale_after_days": 30,
+    "allocation_sum_tolerance_pct": 0.5,
+    "band_tolerance_pct": 0.0,
+    "growth_ceiling_tolerance_pct": 0.0,
+    "default_max_single_product_pct": 25.0,
+    "default_max_currency_exposure_pct": 30.0,
+    "complete_section_statuses": ["ready", "approved"],
+    "required_prior_gates": ["G1", "G2", "G3"],
+    "required_disclaimer_phrases": [
+      "not a guarantee",
+      "not guaranteed",
+      "past performance is not",
+      "not personalised advice",
+      "not personalized advice"
+    ]
+  },
+  "rules": {
+    "READY.REQUIRED_FIELD": {"effect": "NEEDS_INFO", "description": "A field this policy needs before any advice is missing."},
+    "READY.HORIZON_VS_RISK": {"effect": "CONDITION", "description": "The shortest goal horizon is below the minimum for the client's effective risk level."},
+    "DATA.PROFILE_STALE": {"effect": "NEEDS_INFO", "description": "The client profile is older than the policy allows, or its as-of date is unknown."},
+    "DATA.PRODUCTS_STALE": {"effect": "NEEDS_INFO", "description": "Product data in the pack is older than the policy allows, or its as-of date is unknown."},
+    "DATA.MARKET_STALE": {"effect": "NEEDS_INFO", "description": "Market data in the pack is older than the policy allows, or its as-of date is unknown."},
+    "ALLOC.MISSING": {"effect": "NEEDS_INFO", "description": "The pack has no allocation to check."},
+    "ALLOC.UNKNOWN_CLASS": {"effect": "NEEDS_INFO", "description": "An allocation row names an asset class outside the taxonomy."},
+    "ALLOC.SUM": {"effect": "BLOCK", "description": "The new TAA does not sum to 100%."},
+    "ALLOC.BAND": {"effect": "BLOCK", "description": "A new TAA weight is outside its SAA band."},
+    "ALLOC.GROWTH_CEILING": {"effect": "BLOCK", "description": "The new TAA's growth-asset share is above the ceiling for the client's risk level and horizon."},
+    "ALLOC.NOT_PREFERRED": {"effect": "BLOCK", "description": "The new TAA puts weight in an asset class outside the client's preferred classes."},
+    "PROD.UNVERIFIED": {"effect": "NEEDS_INFO", "description": "A recommended product cannot be found on the product shelf, so it cannot be checked."},
+    "PROD.SUITABILITY": {"effect": "BLOCK", "description": "A recommended product fails the shared suitability gate."},
+    "PROD.CLASS_NOT_ALLOCATED": {"effect": "CONDITION", "description": "A recommended product's asset class has no weight in the new TAA."},
+    "PROD.WEIGHTS_MISSING": {"effect": "NOTE", "description": "Product weights were not supplied, so single-product and currency caps cannot be checked."},
+    "PROD.SINGLE_CAP": {"effect": "BLOCK", "description": "One product's weight is above the single-product cap."},
+    "PROD.FX_CAP": {"effect": "BLOCK", "description": "Unhedged foreign-currency products exceed the currency exposure cap."},
+    "PACK.SECTION_INCOMPLETE": {"effect": "NEEDS_INFO", "description": "A pack section is not marked complete or has no text."},
+    "PACK.SECTION_FLAGGED": {"effect": "BLOCK", "description": "A pack section is flagged for attention."},
+    "PACK.PRIOR_GATE": {"effect": "BLOCK", "description": "An earlier gate has not been approved."},
+    "TEXT.CLAIM": {"effect": "BLOCK", "description": "Pack text makes a guarantee, risk-free, certainty, optimality, live-data or execution claim."},
+    "TEXT.DISCLAIMER": {"effect": "CONDITION", "description": "No section carries a required disclaimer."},
+    "TEXT.NUMBERS": {"effect": "NOTE", "description": "Pack text states a figure that does not match any checked figure."}
+  }
+}
