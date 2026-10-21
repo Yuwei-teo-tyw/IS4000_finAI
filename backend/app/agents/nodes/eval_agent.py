@@ -13,14 +13,26 @@ This is architecturally a separate agent (its own LLM call, its own node in
 the graph) that the main agent's output is routed through - not a helper
 function called inline by the specialists.
 
-For finance responses specifically, a second structured check runs
-alongside the quality verdict: a compliance pass looking for things like
+For responses that can touch financial topics (General Assistant, which
+takes personal-finance questions, and Market Researcher), a second
+structured check runs alongside the quality verdict: a compliance pass
+looking for things like
 unqualified "guaranteed returns" language, missing disclaimers, or
 responses that read as personalized advice rather than general education.
 This is a placeholder implementation - it catches obvious cases via an LLM
 judgment call, not a substitute for a real compliance review process
 (licensed-advisor sign-off, a maintained rules engine, logged audit trail,
 etc.) before this is used for anything beyond a demo/prototype.
+
+Market Researcher answers get the compliance pass only. Their content is a
+deterministic render of the pipeline output (the node ignores eval
+feedback), so a quality verdict can't improve them and a regenerate would
+just re-run the whole pipeline to produce the same text - a needs_rewrite
+there is downgraded to a flag.
+
+When the Geneva workspace sent a client context this turn, both reviewers
+see it, so an answer tailored to that adviser and client isn't mistaken
+for personalized advice or an off-topic reply.
 """
 from typing import Dict, Any, Literal, Optional
 from pydantic import BaseModel, Field
@@ -46,7 +58,7 @@ class EvalVerdict(BaseModel):
 
 
 class ComplianceCheck(BaseModel):
-    """Placeholder compliance pass for finance responses only."""
+    """Placeholder compliance pass for General Assistant and Market Researcher responses."""
     compliant: bool = Field(
         description=(
             "False if the response contains unqualified 'guaranteed returns'/'risk-free' style "
@@ -73,10 +85,21 @@ class EvalAgent:
         self.evaluator = self.llm.with_structured_output(EvalVerdict)
         self.compliance_checker = self.llm.with_structured_output(ComplianceCheck)
 
-    async def _check_compliance(self, response_text: str) -> Optional[ComplianceCheck]:
+    @staticmethod
+    def _workspace_notes(state: AgentState) -> list[SystemMessage]:
+        """The turn's Geneva workspace context plus how to judge with it, or nothing."""
+        if not state.get("client_context"):
+            return []
+        return [
+            SystemMessage(content=state["client_context"]),
+            SystemMessage(content=get_prompt("eval.workspace_note")),
+        ]
+
+    async def _check_compliance(self, response_text: str, state: AgentState) -> Optional[ComplianceCheck]:
         try:
             return await self.compliance_checker.ainvoke([
                 SystemMessage(content=get_prompt("eval.compliance_system")),
+                *self._workspace_notes(state),
                 HumanMessage(content=f"Assistant response to review:\n\n{response_text}"),
             ])
         except Exception as e:
@@ -100,26 +123,35 @@ class EvalAgent:
             print(f"EVAL: max regenerations ({MAX_REGENERATIONS}) reached, approving as-is")
             return {"eval_verdict": "approve", "eval_retry_count": 0, "eval_feedback": None}
 
-        try:
-            result = await self.evaluator.ainvoke([
-                SystemMessage(content=get_prompt("eval.quality_system")),
-                HumanMessage(content=(
-                    f"User asked: {latest_user_message}\n\n"
-                    f"Assistant responded: {latest_response.content}"
-                )),
-            ])
-            verdict, feedback = result.verdict, result.feedback
-        except Exception as e:
-            print(f"EVAL: evaluation call failed, approving by default: {e}")
-            verdict, feedback = "approve", ""
+        rendered = state.get("current_agent") == "market_researcher"
 
-        # Compliance pass - finance responses only. Can only make things stricter
-        # than the quality verdict (approve -> flag/regenerate), never looser.
+        if rendered:
+            verdict, feedback = "approve", ""  # see module docstring - no quality pass
+        else:
+            try:
+                result = await self.evaluator.ainvoke([
+                    SystemMessage(content=get_prompt("eval.quality_system")),
+                    *self._workspace_notes(state),
+                    HumanMessage(content=(
+                        f"User asked: {latest_user_message}\n\n"
+                        f"Assistant responded: {latest_response.content}"
+                    )),
+                ])
+                verdict, feedback = result.verdict, result.feedback
+            except Exception as e:
+                print(f"EVAL: evaluation call failed, approving by default: {e}")
+                verdict, feedback = "approve", ""
+
+        # Compliance pass - general and market responses only. Can only make things
+        # stricter than the quality verdict (approve -> flag/regenerate), never looser.
         compliance = None
-        if state.get("current_agent") in ("finance", "market_researcher") and verdict != "regenerate":
-            compliance = await self._check_compliance(latest_response.content)
+        if state.get("current_agent") in ("general", "market_researcher") and verdict != "regenerate":
+            compliance = await self._check_compliance(latest_response.content, state)
 
-        if compliance and compliance.severity == "needs_rewrite":
+        if compliance and compliance.severity == "needs_rewrite" and rendered:
+            verdict = "flag"  # a re-run would render the same text
+            feedback = compliance.issue or "This is general market information, not personalized financial advice."
+        elif compliance and compliance.severity == "needs_rewrite":
             verdict = "regenerate"
             feedback = f"[Compliance] {compliance.issue or 'Contains non-compliant language.'}"
         elif compliance and compliance.severity == "needs_disclaimer" and verdict == "approve":

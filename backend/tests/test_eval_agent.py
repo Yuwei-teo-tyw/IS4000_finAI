@@ -1,9 +1,9 @@
 """
 EvalAgent: the quality verdict (approve/regenerate/flag), the regeneration
-cap, and the finance-only compliance pass layered on top - which can only
-make a quality verdict *stricter* (approve -> flag/regenerate), never
-looser, and only runs for finance responses that didn't already fail
-quality review.
+cap, and the compliance pass layered on top - which can only make a
+quality verdict *stricter* (approve -> flag/regenerate), never looser, and
+only runs for general/market responses that didn't already fail quality
+review.
 """
 from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.graph.message import RemoveMessage
@@ -32,11 +32,11 @@ def _state(current_agent="general", **overrides):
     return base
 
 
-def test_approve_non_finance_skips_compliance_pass(monkeypatch):
+def test_approve_triage_response_skips_compliance_pass(monkeypatch):
     fake_llm = FakeLLM(EvalVerdict(verdict="approve", feedback=""))
     agent = _make_agent(monkeypatch, fake_llm)
 
-    result = run_async(agent.run(_state(current_agent="general")))
+    result = run_async(agent.run(_state(current_agent="triage")))
 
     assert result["eval_verdict"] == "approve"
     assert result["eval_retry_count"] == 0
@@ -80,42 +80,42 @@ def test_max_regenerations_reached_approves_without_calling_llm(monkeypatch):
     assert fake_llm.calls == []
 
 
-def test_finance_compliance_needs_rewrite_overrides_approve_to_regenerate(monkeypatch):
+def test_compliance_needs_rewrite_overrides_approve_to_regenerate(monkeypatch):
     fake_llm = FakeLLM(
         EvalVerdict(verdict="approve", feedback=""),
         ComplianceCheck(compliant=False, severity="needs_rewrite", issue="promises guaranteed 20% returns"),
     )
     agent = _make_agent(monkeypatch, fake_llm)
 
-    result = run_async(agent.run(_state(current_agent="finance")))
+    result = run_async(agent.run(_state(current_agent="general")))
 
     assert result["eval_verdict"] == "regenerate"
     assert "[Compliance]" in result["eval_feedback"]
     assert "guaranteed 20% returns" in result["eval_feedback"]
 
 
-def test_finance_compliance_needs_disclaimer_overrides_approve_to_flag(monkeypatch):
+def test_compliance_needs_disclaimer_overrides_approve_to_flag(monkeypatch):
     fake_llm = FakeLLM(
         EvalVerdict(verdict="approve", feedback=""),
         ComplianceCheck(compliant=False, severity="needs_disclaimer", issue="reads as personalized advice"),
     )
     agent = _make_agent(monkeypatch, fake_llm)
 
-    result = run_async(agent.run(_state(current_agent="finance")))
+    result = run_async(agent.run(_state(current_agent="general")))
 
     assert result["eval_verdict"] == "flag"
     flagged = next(m for m in result["messages"] if isinstance(m, AIMessage))
     assert "reads as personalized advice" in flagged.content
 
 
-def test_finance_compliance_none_severity_leaves_approve_untouched(monkeypatch):
+def test_compliance_none_severity_leaves_approve_untouched(monkeypatch):
     fake_llm = FakeLLM(
         EvalVerdict(verdict="approve", feedback=""),
         ComplianceCheck(compliant=True, severity="none"),
     )
     agent = _make_agent(monkeypatch, fake_llm)
 
-    result = run_async(agent.run(_state(current_agent="finance")))
+    result = run_async(agent.run(_state(current_agent="general")))
 
     assert result["eval_verdict"] == "approve"
 
@@ -124,7 +124,7 @@ def test_compliance_pass_skipped_when_quality_already_regenerates(monkeypatch):
     fake_llm = FakeLLM(EvalVerdict(verdict="regenerate", feedback="unhelpful"))
     agent = _make_agent(monkeypatch, fake_llm)
 
-    result = run_async(agent.run(_state(current_agent="finance")))
+    result = run_async(agent.run(_state(current_agent="general")))
 
     assert result["eval_verdict"] == "regenerate"
     assert result["eval_feedback"] == "unhelpful"  # not the [Compliance]-prefixed message
@@ -135,7 +135,7 @@ def test_compliance_check_failure_does_not_block_approval(monkeypatch):
     fake_llm = FakeLLM(EvalVerdict(verdict="approve", feedback=""), RuntimeError("groq down"))
     agent = _make_agent(monkeypatch, fake_llm)
 
-    result = run_async(agent.run(_state(current_agent="finance")))
+    result = run_async(agent.run(_state(current_agent="general")))
 
     assert result["eval_verdict"] == "approve"
 
@@ -153,7 +153,33 @@ def test_no_human_or_ai_messages_approves_trivially(monkeypatch):
     fake_llm = FakeLLM()
     agent = _make_agent(monkeypatch, fake_llm)
 
-    result = run_async(agent.run({"messages": [], "current_agent": "finance", "eval_retry_count": 0}))
+    result = run_async(agent.run({"messages": [], "current_agent": "general", "eval_retry_count": 0}))
 
     assert result["eval_verdict"] == "approve"
     assert fake_llm.calls == []
+
+
+def test_market_researcher_skips_quality_pass_and_never_regenerates(monkeypatch):
+    # A rendered answer can't change on a re-run, so a needs_rewrite only flags it.
+    fake_llm = FakeLLM(ComplianceCheck(compliant=False, severity="needs_rewrite", issue="reads as advice"))
+    agent = _make_agent(monkeypatch, fake_llm)
+
+    result = run_async(agent.run(_state(current_agent="market_researcher")))
+
+    assert result["eval_verdict"] == "flag"
+    assert len(fake_llm.calls) == 1  # compliance only
+    assert "Assistant response to review" in fake_llm.calls[0][-1].content
+
+
+def test_reviewers_see_the_workspace_context(monkeypatch):
+    fake_llm = FakeLLM(
+        EvalVerdict(verdict="approve", feedback=""),
+        ComplianceCheck(compliant=True, severity="none"),
+    )
+    agent = _make_agent(monkeypatch, fake_llm)
+
+    run_async(agent.run(_state(current_agent="general", client_context="CTX: client in focus is Mei Tan")))
+
+    assert len(fake_llm.calls) == 2
+    for call in fake_llm.calls:
+        assert any("Mei Tan" in m.content for m in call)

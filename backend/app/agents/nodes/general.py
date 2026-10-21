@@ -1,19 +1,23 @@
 """
-General Assistant Agent - handles general knowledge, conversation, and
-creative requests that don't need the Finance or Market Researcher specialists.
+General Assistant Agent - handles personal-finance and investment-concept
+questions, general knowledge, conversation, and creative requests that don't
+need the Market Researcher.
 
-Mirrors finance.py's pattern in two ways:
+Two parts:
 1. Real tool-calling for search (`tavily_search`) instead of answering from
    static knowledge alone, so time-sensitive questions (weather, current
    events, scores, recent releases) get an actual answer instead of a stale
    or hallucinated one.
 2. A structured scope check, run once per new user message. Sessions resume
    directly on "general" turn after turn (see entry_router in graph.py) once
-   triage first routes here, so if the topic then shifts to a financial
-   question mid-conversation, this is what hands back to triage to
-   re-route - without it the conversation would get stuck narrating a
-   handoff ("I'll connect you with our Finance Expert...") that never
-   actually happens.
+   triage first routes here, so if the topic then shifts to a read on
+   current macro/market conditions mid-conversation, this is what hands
+   back to triage to re-route to the Market Researcher - without it the
+   conversation would get stuck narrating a handoff that never actually
+   happens. It's skipped once this turn's routing is settled (triage just
+   routed here, or an eval regenerate) - re-checking would repeat the
+   classification, and a disagreement with triage would bounce the message
+   between the two indefinitely.
 
 All prompt text lives in app/prompts/prompts.yaml, loaded via prompt_builder.
 """
@@ -27,17 +31,18 @@ from app.prompts.prompt_builder import get_prompt
 
 
 class ScopeCheck(BaseModel):
-    destination: Literal["finance", "general"] = Field(
+    destination: Literal["market", "general"] = Field(
         description=(
-            "'finance' if this message is actually an investment/market/budgeting/financial question, "
-            "'general' if it genuinely belongs here (general knowledge, programming, conversation, creative requests, "
-            "current events/weather/real-time info)."
+            "'market' if this message asks for a read on current macro or market conditions (rates, yields, "
+            "inflation, jobs, the economic cycle, recession risk, what is driving markets now), "
+            "'general' if it belongs here (personal-finance, budgeting and investment-concept questions, general "
+            "knowledge, programming, conversation, creative requests, current events/weather/real-time info)."
         )
     )
 
 
 class GeneralAssistant:
-    """Catch-all agent for general knowledge, conversation, and creative requests."""
+    """Catch-all agent for personal finance, general knowledge, conversation, and creative requests."""
 
     def __init__(self):
         self.llm = get_groq_model()
@@ -51,21 +56,22 @@ class GeneralAssistant:
         # check (already done this turn) and just continue generating.
         resuming_after_tool = bool(messages) and messages[-1].type == "tool"
 
-        if not resuming_after_tool:
+        # Also skipped once this turn's routing is settled (see module docstring).
+        if not resuming_after_tool and not state.get("scope_checked"):
             human_messages = [m for m in messages if m.type == "human"]
             latest_message = human_messages[-1].content if human_messages else ""
 
+            prompt = [SystemMessage(content=get_prompt("general.scope_check_system"))]
+            if state.get("client_context"):
+                prompt.append(SystemMessage(content=state["client_context"]))
             try:
-                scope = await self.scope_checker.ainvoke([
-                    SystemMessage(content=get_prompt("general.scope_check_system")),
-                    HumanMessage(content=latest_message),
-                ])
+                scope = await self.scope_checker.ainvoke(prompt + [HumanMessage(content=latest_message)])
                 destination = scope.destination
             except Exception as e:
                 print(f"GENERAL: scope check failed: {e}")
                 destination = "general"
 
-            if destination == "finance":
+            if destination == "market":
                 return {
                     "current_agent": "triage",
                     "next_agent": "triage",
@@ -73,7 +79,10 @@ class GeneralAssistant:
                     "handoff_message": "That's outside my area - let me hand you back to the triage agent.",
                 }
 
-        history = [SystemMessage(content=get_prompt("general.system"))] + list(messages)
+        history = [SystemMessage(content=get_prompt("general.system"))]
+        if state.get("client_context"):
+            history.append(SystemMessage(content=state["client_context"]))
+        history += list(messages)
 
         eval_feedback = state.get("eval_feedback")
         if eval_feedback:
@@ -89,6 +98,7 @@ class GeneralAssistant:
             "messages": [response],
             "current_agent": "general",
             "next_agent": None,
+            "scope_checked": True,
             "conversation_ended": False,
             "handoff_message": None,
             "skip_eval": False,

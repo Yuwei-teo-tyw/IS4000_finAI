@@ -85,3 +85,17 @@ export type PackBlock = { id: string } & (
   | { type: "chart"; chart: "saa" | "taa" | "holdings" | "allocation"; clientId?: string; caption?: string; snapshot?: { label: string; value: number }[] }
   | { type: "table"; table: "taa" | "holdings"; caption?: string }
 );
+
+/* ---- Geneva chat <-> LangGraph backend (services/genevaBackend.ts) ---- */
+/** Workspace context sent with a Geneva turn; the backend turns it into one system note (backend agents/client_context.py). */
+export interface GenevaContext { role: Role; client_id: string; client_name?: string; risk_category?: string; ips_version?: number | null }
+/** A money-moving action the backend paused on; nothing happens until the user approves. */
+export interface GenevaPendingAction { action_type?: string; amount?: number; description?: string }
+/** One backend reply: Markdown text, plus an approval request when an action is proposed. `runId` is set when a Market Researcher run is cited. */
+export interface GenevaReply { text: string; runId: string | null; requiresConfirmation: boolean; pendingAction: GenevaPendingAction | null }
+/** Reader view of a source article a Market Researcher run cited (GET /agents/market-researcher/articles). */
+export interface GenevaArticle {
+  url: string; source: string | null; title: string | null; published: string | null; author: string | null;
+  summary: string | null; topics: string[]; sentiment: "risk_on" | "risk_off" | "neutral" | null;
+  market_impact: "low" | "medium" | "high" | null; status: "ok" | "unavailable"; reason: string | null; paragraphs: string[];
+}

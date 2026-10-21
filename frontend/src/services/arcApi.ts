@@ -8,9 +8,11 @@ import * as m from "../mock/data";
 import { getActiveIps, isActivated, isIpsReturned, loadIcProgress } from "./workflowStore";
 import { bulletLines, toBulletItems } from "../utils/bullets";
 import { findProducts } from "../utils/productMatch";
+import { askBackend, confirmBackendAction, fetchBackendArticle, newSessionId } from "./genevaBackend";
+export { GenevaBackendError } from "./genevaBackend";
 import type {
   ActivityEvent, AllocationRow, Bucket3L, Client, Gate, Holding, InboxItem, IpsPart, MacroBrief, MarketRow,
-  MarketView, HouseView, PackRenderInput, MarketAnswer, MeetingNote, IpsVersion, PackSection, Product, ProductClass, Role, AllocationGroup, CorrelationMatrix, GoalProjection, SectionDraft,
+  MarketView, HouseView, PackRenderInput, MarketAnswer, MeetingNote, IpsVersion, PackSection, Product, ProductClass, Role, AllocationGroup, CorrelationMatrix, GoalProjection, SectionDraft, GenevaArticle, GenevaContext, GenevaReply,
 } from "../types/arc";
 import type { PmClientProfile, PmInputField, PmInputs, PmRequest, PmResponse } from "../types/portfolio";
 import type { PrAssetClassHeadline, PrAssetView, PrHouseView, PrOptions, PrRequest, PrResponse, PrShelf, PrShelfProduct, PrShortlistItem } from "../types/productRecommender";
@@ -161,66 +163,34 @@ export const arcApi = {
   /** Mock rewrite of lay-language text into professional bullets. Replace with a LangGraph run. */
   professionalise: (input: ProfessionaliseInput): Promise<{ id: string; text: string }[]> =>
     new Promise((res) => setTimeout(() => res(input.items.map((it) => ({ id: it.id, text: professionaliseText(input, it) }))), 1500)),
-  /** PS research chat. Market cycle and events are still mock (Market Researcher seam); CIO views and products come from the Product Recommender. */
-  askMarketResearch: async (clientId: string, question: string, _systemPrompt = "", ipsVersion: number | null = null): Promise<MarketAnswer> => {
-    const t = question.toLowerCase();
-    const ipsNote = ipsVersion ? ` Using IPS v${ipsVersion}.` : "";
-    const houseView = /house view|cio view|what is the cio/.test(t) && !/product|fund|etf|note|suit|recommend|top 5|ranking/.test(t);
-    const [brief, shelf] = await Promise.all([cioBrief(), getShelf()]);
-    const hvTags = [...new Set((await getHouseView()).views.map((v) => v.citation_id))];
-    if (houseView) {
-      const pos = (view: string) => brief.views.filter((v) => v.view === view).map((v) => v.assetClass.toLowerCase()).join(", ") || "none";
-      return {
-        summary: `The CIO House View as of ${brief.asOf} puts the economy in a ${brief.phase.toLowerCase()} phase. The CIO is positive on ${pos("Buy")}, neutral on ${pos("Hold")} and negative on ${pos("Sell")}.${ipsNote}`,
-        market: brief, rows: [], autoTick: false, tags: hvTags,
-        steps: ["Intent parser is reading your request…", "Market Research Agent fired", "Reading the latest CIO House View…", "Mapping Buy, Hold and Sell views per asset class…", "Thinking…", "Consolidating…"],
-      };
-    }
-    const named = findProducts(t, shelf.products, (p) => p.product_name, (p) => p.product_id);
-    const classes = /equit|stock/.test(t) ? ["Equities"] : /fixed|bond/.test(t) ? ["Fixed income"] : /altern|hedge/.test(t) ? ["Hedge funds", "Private markets"]
-      : /private/.test(t) ? ["Private markets"] : /reit|real estate|property/.test(t) ? ["Real estate"] : /gold/.test(t) ? ["Gold"] : /\bcash\b|money market/.test(t) ? ["Cash"] : null;
-    const wantsProducts = named.length > 0 || /product|fund|etf|note|suit|recommend|shortlist|top 5|ranking|fit|compare/.test(t);
-    const wantsMarket = /macro|cycle|market|economy|cio|view|outlook|compare|suit|direction/.test(t) || !wantsProducts;
-    const agents = [wantsMarket && "Market Research Agent", wantsProducts && "Product Recommender"].filter(Boolean) as string[];
-    const steps = [
-      "Intent parser is reading your request…",
-      `${agents.join(" and ")} fired`,
-      ...(wantsMarket ? ["Searching the web for macroeconomic events…"] : []),
-      ...(wantsProducts ? [named.length ? `Checking ${named.length} requested product${named.length === 1 ? "" : "s"} against the suitability gate…` : "Running the suitability gate, then ranking by fit and house view…"] : []),
-      "Thinking…",
-      "Consolidating…",
-    ];
-    if (!wantsProducts) {
-      return { summary: `Here is the current market picture.${ipsNote}`, market: brief, rows: [], autoTick: false, steps, tags: hvTags };
-    }
-    const rec = await recommendProducts(clientId, { top_n: 5, asset_classes: named.length ? null : classes, named_products: named.map((p) => p.product_id) });
-    let rows: MarketRow[];
-    let summary: string;
-    if (named.length) {
-      const ok = rec.named_products.filter((n) => n.status === "shortlisted" || n.status === "eligible");
-      const no = rec.named_products.filter((n) => n.status === "excluded");
-      rows = ok.map((n) => {
-        const item = rec.shortlist.find((s) => s.product.product_id === n.product_id);
-        const p = shelf.products.find((x) => x.product_id === n.product_id)!;
-        return item ? shortlistRow(item) : { ...shelfRow(p), ranking: [n.reason] };
-      });
-      summary = [
-        ok.length ? `${ok.length} of the ${named.length} product${named.length === 1 ? "" : "s"} you asked about pass the suitability gate. They are ticked as considerations; untick any you do not want.` : "",
-        ...no.map((n) => `${shelf.products.find((p) => p.product_id === n.product_id)?.product_name ?? n.query} is not suitable: ${n.reason}`),
-      ].filter(Boolean).join(" ");
-    } else {
-      rows = rec.shortlist.map(shortlistRow);
-      summary = rows.length
-        ? "Here are the best-fit products after the suitability gate, grouped by asset class. Tick the ones to consider. Fees were not used to rank."
-        : `No product passes the suitability gate for this client${classes ? ` in ${classes.join(" and ").toLowerCase()}` : ""}.${rec.missing_information.length ? ` Missing from the profile: ${rec.missing_information.join(", ")}.` : ""}`;
-    }
-    const shown = rows.filter((r) => r.agentReason).length;
-    const reasonsBy = !shown ? ""
-      : rec.shortlist.some((s) => s.reason.source === "llm")
-        ? " The reasons are written by AI from the engine's facts and checked against them; the ranking is the engine's."
-        : " The reasons are rule-based.";
-    return { summary: summary + reasonsBy + ipsNote, market: wantsMarket ? brief : null, rows, autoTick: rows.length > 0 && named.length > 0, steps, tags: hvTags };
+  /**
+   * Geneva chat, local half: client-data and workflow intents answered from the workspace (IPS, goals, notes,
+   * holdings/TAA, pack drafts, CIO house view, product tables). Returns null when the question is not one of
+   * those; the chat then sends it to the LangGraph backend (`askBackend`).
+   */
+  answerLocally: async (role: Role, clientId: string, text: string, ipsVersion: number | null = null): Promise<MarketAnswer | null> => {
+    if (role === "ps") return answerPsLocally(clientId, text, ipsVersion);
+    const r = await answerAsAgent(role, clientId, text);
+    if (!r) return null;
+    const reply = ipsVersion && !r.draft ? `Using IPS v${ipsVersion}.\n${r.reply}` : r.reply;
+    return {
+      summary: reply, draft: r.draft, market: null, rows: [], autoTick: false, tags: r.tags,
+      steps: ["Intent parser is reading your request…", `${r.agent} fired`, ...r.steps, "Consolidating…"],
+    };
   },
+  /** Geneva chat, backend half: one turn of the LangGraph assistant, with the role and client as workspace context. */
+  askBackend: async (role: Role, clientId: string, sessionId: string, text: string, ipsVersion: number | null = null): Promise<GenevaReply> => {
+    const c = await arcApi.getClient(clientId);
+    const context: GenevaContext = { role, client_id: clientId, client_name: c?.name, risk_category: c?.riskCategory, ips_version: ipsVersion };
+    return askBackend(sessionId, text, context);
+  },
+  /** Approve or decline the money-moving action the backend paused on. */
+  confirmBackendAction: (sessionId: string, approved: boolean): Promise<GenevaReply> => confirmBackendAction(sessionId, approved),
+  /** One backend session per Geneva chat. */
+  newChatSession: (role: Role, clientId: string): string => newSessionId(role, clientId),
+  /** Reader view of a source a Market Researcher run cited. */
+  getArticle: (runId: string, url: string, signal?: AbortSignal): Promise<GenevaArticle> => fetchBackendArticle(runId, url, signal),
+
   getHouseViews: (_clientId: string): Promise<HouseView[]> => delay(m.houseViews),
   getPack: (_clientId: string): Promise<PackSection[]> => delay([...m.packSections].sort((a, b) => (a.order ?? a.n) - (b.order ?? b.n))),
   /** Backend Jinja render of the compiled pack: RM's current text in, standalone HTML out (same HTML feeds the PDF). */
@@ -238,12 +208,67 @@ export const arcApi = {
   },
   getActivity: (_clientId: string): Promise<ActivityEvent[]> => delay(m.activity),
 
-  /** Agent seam: replace with a LangGraph run. Returns an intent-routed mock reply for now. */
-  askAgent: async (role: Role, clientId: string, message: string, ipsVersion: number | null = null): Promise<AgentReply> => {
-    const r = await answerAsAgent(role, clientId, message);
-    return ipsVersion && !r.draft ? { ...r, reply: `Using IPS v${ipsVersion}.\n${r.reply}` } : r;
-  },
 };
+
+/** PS research chat, local half: CIO house view and product tables (Product Recommender). Null = ask the backend. */
+async function answerPsLocally(clientId: string, question: string, ipsVersion: number | null): Promise<MarketAnswer | null> {
+  const t = question.toLowerCase();
+  const ipsNote = ipsVersion ? ` Using IPS v${ipsVersion}.` : "";
+  const houseView = /house view|cio view|what is the cio/.test(t) && !/product|fund|etf|note|suit|recommend|top 5|ranking/.test(t);
+  const [brief, shelf] = await Promise.all([cioBrief(), getShelf()]);
+  const hvTags = [...new Set((await getHouseView()).views.map((v) => v.citation_id))];
+  if (houseView) {
+    const pos = (view: string) => brief.views.filter((v) => v.view === view).map((v) => v.assetClass.toLowerCase()).join(", ") || "none";
+    return {
+      summary: `The CIO House View as of ${brief.asOf} puts the economy in a ${brief.phase.toLowerCase()} phase. The CIO is positive on ${pos("Buy")}, neutral on ${pos("Hold")} and negative on ${pos("Sell")}.${ipsNote}`,
+      market: brief, rows: [], autoTick: false, tags: hvTags,
+      steps: ["Intent parser is reading your request…", "Market Research Agent fired", "Reading the latest CIO House View…", "Mapping Buy, Hold and Sell views per asset class…", "Thinking…", "Consolidating…"],
+    };
+  }
+  const named = findProducts(t, shelf.products, (p) => p.product_name, (p) => p.product_id);
+  const classes = /equit|stock/.test(t) ? ["Equities"] : /fixed|bond/.test(t) ? ["Fixed income"] : /altern|hedge/.test(t) ? ["Hedge funds", "Private markets"]
+    : /private/.test(t) ? ["Private markets"] : /reit|real estate|property/.test(t) ? ["Real estate"] : /gold/.test(t) ? ["Gold"] : /\bcash\b|money market/.test(t) ? ["Cash"] : null;
+  const wantsProducts = named.length > 0 || /product|fund|etf|note|suit|recommend|shortlist|top 5|ranking|fit|compare/.test(t);
+  const wantsMarket = /macro|cycle|market|economy|cio|view|outlook|compare|suit|direction/.test(t) || !wantsProducts;
+  const agents = [wantsMarket && "Market Research Agent", wantsProducts && "Product Recommender"].filter(Boolean) as string[];
+  const steps = [
+    "Intent parser is reading your request…",
+    `${agents.join(" and ")} fired`,
+    ...(wantsMarket ? ["Searching the web for macroeconomic events…"] : []),
+    ...(wantsProducts ? [named.length ? `Checking ${named.length} requested product${named.length === 1 ? "" : "s"} against the suitability gate…` : "Running the suitability gate, then ranking by fit and house view…"] : []),
+    "Thinking…",
+    "Consolidating…",
+  ];
+  // Plain market questions go to the real Market Researcher via the LangGraph backend.
+  if (!wantsProducts) return null;
+  const rec = await recommendProducts(clientId, { top_n: 5, asset_classes: named.length ? null : classes, named_products: named.map((p) => p.product_id) });
+  let rows: MarketRow[];
+  let summary: string;
+  if (named.length) {
+    const ok = rec.named_products.filter((n) => n.status === "shortlisted" || n.status === "eligible");
+    const no = rec.named_products.filter((n) => n.status === "excluded");
+    rows = ok.map((n) => {
+      const item = rec.shortlist.find((s) => s.product.product_id === n.product_id);
+      const p = shelf.products.find((x) => x.product_id === n.product_id)!;
+      return item ? shortlistRow(item) : { ...shelfRow(p), ranking: [n.reason] };
+    });
+    summary = [
+      ok.length ? `${ok.length} of the ${named.length} product${named.length === 1 ? "" : "s"} you asked about pass the suitability gate. They are ticked as considerations; untick any you do not want.` : "",
+      ...no.map((n) => `${shelf.products.find((p) => p.product_id === n.product_id)?.product_name ?? n.query} is not suitable: ${n.reason}`),
+    ].filter(Boolean).join(" ");
+  } else {
+    rows = rec.shortlist.map(shortlistRow);
+    summary = rows.length
+      ? "Here are the best-fit products after the suitability gate, grouped by asset class. Tick the ones to consider. Fees were not used to rank."
+      : `No product passes the suitability gate for this client${classes ? ` in ${classes.join(" and ").toLowerCase()}` : ""}.${rec.missing_information.length ? ` Missing from the profile: ${rec.missing_information.join(", ")}.` : ""}`;
+  }
+  const shown = rows.filter((r) => r.agentReason).length;
+  const reasonsBy = !shown ? ""
+    : rec.shortlist.some((s) => s.reason.source === "llm")
+      ? " The reasons are written by AI from the engine's facts and checked against them; the ranking is the engine's."
+      : " The reasons are rule-based.";
+  return { summary: summary + reasonsBy + ipsNote, market: wantsMarket ? brief : null, rows, autoTick: rows.length > 0 && named.length > 0, steps, tags: hvTags };
+}
 
 export type AgentName = "Profiling Agent" | "Portfolio Agent" | "Product Agent" | "Orchestrator";
 export interface AgentReply { role: Role; clientId: string; reply: string; tags: string[]; agent: AgentName; steps: string[]; draft?: SectionDraft }
@@ -265,7 +290,8 @@ const clip = (s: string, n = 160) => { const x = firstLine(s); return x.length >
 
 const sgdM = (n: number) => `S$${(n / 1_000_000).toFixed(1)}m`;
 
-async function answerAsAgent(role: Role, clientId: string, message: string): Promise<AgentReply> {
+/** RM/IC chat, local half. Null = not a client-data or workflow question; Geneva sends it to the backend. */
+async function answerAsAgent(role: Role, clientId: string, message: string): Promise<AgentReply | null> {
   const t = message.toLowerCase();
   const agent = routeAgent(message);
   const [client, goals, notes, ips, alloc] = await Promise.all([
@@ -432,7 +458,7 @@ async function answerAsAgent(role: Role, clientId: string, message: string): Pro
     return done(reply, [...new Set(rec.shortlist.flatMap((s) => s.reason.citations))].slice(0, 3), ["Reading the product shelf…", "Running the suitability gate…", "Ranking by fit and house view…", "Drafting shortlist…"]);
   }
 
-  return done(`I can help with ${name}'s IPS, goals, meeting notes, TAA or products. Try one of the suggested questions.`, [], ["Understanding the question…", "Drafting reply…"]);
+  return null;
 }
 
 /* ---------- Portfolio Manager agent (real backend) ---------- */
