@@ -19,6 +19,16 @@ shared:
         template: |
           Note: your previous response to this same question was rejected by quality review for this reason: {feedback}. Produce an improved response that addresses this.
 
+  client_context:
+    latest: v2
+    versions:
+      v1:
+        template: |
+          Workspace context for this turn, supplied by the Geneva adviser workspace (not typed by the user): {details}. Use it to tailor the answer to this adviser and client. You do not have the client's IPS, holdings, meeting notes or portfolio data; if the question needs them, say so and suggest checking the client's documents in the workspace instead of guessing.
+      v2:
+        template: |
+          Workspace context for this turn, supplied by the Geneva adviser workspace (not typed by the user): {details}. The user is the bank's authorised adviser for this client, working inside the bank's own workspace, so referring to these details (name, risk category, IPS version) is expected and is not a privacy issue. Use them to tailor the answer; your audience is a professional adviser, not the end client. You do not have the client's IPS, holdings, meeting notes or portfolio data; if the question needs them, say so and suggest checking the client's documents in the workspace instead of guessing.
+
 triage:
   introduction:
     latest: v1

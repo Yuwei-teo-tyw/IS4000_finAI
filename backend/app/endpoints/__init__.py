@@ -51,7 +51,10 @@ async def langgraph_websocket(websocket: WebSocket):
     # Only greet on a genuinely new session - a resumed one already has its
     # history loaded by the frontend via GET /sessions/{id}/messages, so
     # re-sending the intro here would just duplicate it on every reconnect.
-    is_new_session = not await graph.get_history(session_id)
+    # `greet=false` lets a client that renders its own empty state (the Geneva
+    # chat) skip the intro, so its first reply is always the answer it asked for.
+    greet = websocket.query_params.get("greet", "true").lower() not in ("0", "false", "no")
+    is_new_session = greet and not await graph.get_history(session_id)
     if is_new_session:
         try:
             await websocket.send_text(json.dumps({
@@ -90,6 +93,7 @@ async def langgraph_websocket(websocket: WebSocket):
 
                 # Try to parse as JSON
                 confirmation_approved = None  # None = not a confirmation payload
+                turn_context = None  # Geneva workspace context (role + client), see agents/client_context.py
                 try:
                     message_data = json.loads(data)
                     if message_data.get("action") == "confirm_financial_action":
@@ -98,6 +102,7 @@ async def langgraph_websocket(websocket: WebSocket):
                         user_message = None
                     else:
                         user_message = message_data.get("message", "")
+                        turn_context = message_data.get("context")
                 except json.JSONDecodeError as e:
                     print(f"JSON decode error: {e}, treating as plain text")
                     # If it's not JSON, treat the entire data as the message
@@ -151,7 +156,8 @@ async def langgraph_websocket(websocket: WebSocket):
                         result = await graph.process_message(
                             message=user_message,
                             session_id=session_id,  # Use unique session ID
-                            websocket_client=None  # Don't pass websocket to avoid conflicts
+                            websocket_client=None,  # Don't pass websocket to avoid conflicts
+                            context=turn_context,
                         )
 
                     print(f"Graph result: agent={result.get('agent_name')}, message='{result.get('message', '')[:100]}...'")

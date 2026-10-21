@@ -33,6 +33,7 @@ class AgentState(TypedDict):
     eval_retry_count: int
     skip_eval: bool                    # True only for canned/templated responses (e.g. the intro)
     pii_redacted: bool                 # True if PIIGuard scrubbed something from the latest message
+    client_context: Optional[str]      # Geneva workspace note for this turn (role + client), see client_context.py
 
 
 class FinanceResponseData(TypedDict):

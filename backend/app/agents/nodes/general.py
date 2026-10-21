@@ -73,7 +73,10 @@ class GeneralAssistant:
                     "handoff_message": "That's outside my area - let me hand you back to the triage agent.",
                 }
 
-        history = [SystemMessage(content=get_prompt("general.system"))] + list(messages)
+        history = [SystemMessage(content=get_prompt("general.system"))]
+        if state.get("client_context"):
+            history.append(SystemMessage(content=state["client_context"]))
+        history += list(messages)
 
         eval_feedback = state.get("eval_feedback")
         if eval_feedback:

@@ -148,6 +148,10 @@ Operational details:
 - **Limits:** concurrency is capped (`MARKET_RESEARCH_MAX_CONCURRENT_RUNS`, default 2). Identical in-flight requests share one run.
 - **Regions:** only `US` is supported for now; other regions return 422.
 
+### Geneva chat (adviser workspace)
+
+The Geneva chat in the RM / IC / PS workspace (`frontend/src/components/geneva/GenevaChat.tsx`) uses the same LangGraph backend as `/legacy-chat`, over `ws://…/agents/langgraph?session_id=…&greet=false`. Client-data and workflow questions (IPS, goals, notes, holdings, TAA, pack drafts, CIO house view, products) are answered from the workspace. Other questions go to the backend, along with the adviser's role and the client in focus as `context`. The backend turns that context into a system note for the specialists (`app/agents/client_context.py`, prompt `shared.client_context`). Approval pauses for money-moving actions and Market Researcher source links (reader panel) work in Geneva too.
+
 ### Chat access (optional)
 
 The same pipeline is also reachable from the chat:

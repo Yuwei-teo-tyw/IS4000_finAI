@@ -41,7 +41,7 @@ process restarts and is shared across workers) and injected into
 module - Postgres needs an open connection managed for the app's whole
 lifetime, which doesn't fit a plain module-level singleton.
 """
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from langchain_core.messages import HumanMessage
 from langgraph.graph import StateGraph, START, END
 from langgraph.prebuilt import ToolNode
@@ -49,6 +49,7 @@ from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.types import Command
 
 from app.agents.state import AgentState
+from app.agents.client_context import format_client_context
 from app.agents.nodes.triage import TriageAgent
 from app.agents.nodes.finance import FinanceExpert
 from app.agents.nodes.general import GeneralAssistant
@@ -250,12 +251,15 @@ class MultiAgentGraph:
         message: str,
         session_id: str = "default",
         websocket_client: Any = None,
+        context: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         config = build_trace_config(session_id, RECURSION_LIMIT)
 
         try:
+            # client_context is set on every turn (None when absent) so a
+            # previous turn's workspace context never lingers in the session.
             result_state = await self.graph.ainvoke(
-                {"messages": [HumanMessage(content=message)]},
+                {"messages": [HumanMessage(content=message)], "client_context": format_client_context(context)},
                 config=config,
             )
             return self._extract_result(result_state)

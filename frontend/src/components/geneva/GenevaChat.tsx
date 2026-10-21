@@ -1,18 +1,19 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, ChevronDown, ArrowUp, MessageSquarePlus, Search, Trash2 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import type { Client } from "../../types/arc";
 import { pathForClient, setActiveClientId } from "../../layouts/navConfig";
-import { arcApi, assetClassSlug, ProductRecommenderError, shortlistRow } from "../../services/arcApi";
+import { arcApi, assetClassSlug, GenevaBackendError, ProductRecommenderError, shortlistRow } from "../../services/arcApi";
 import { RefLine, ViewHeadline } from "../ps/AssetViewParts";
 import type { PrAssetView } from "../../types/productRecommender";
 import { findProducts } from "../../utils/productMatch";
 import { toggleSelection, useActiveIps, useSelection, loadSelection, saveSelection } from "../../services/workflowStore";
-import type { MacroView, MarketAnswer, MarketRow, Role } from "../../types/arc";
+import type { GenevaPendingAction, GenevaReply, MacroView, MarketAnswer, MarketRow, Role } from "../../types/arc";
 import { Badge, BulletList, Button, CitationTag, DirectionArrow, Table, toBulletItems } from "../ui";
-import { loadSystemPrompt } from "../settings/SettingsDialog";
 import { savePackDraft } from "../../services/packDraftStore";
 import { appendChatContext } from "../../services/chatContextStore";
+import { GenevaMarkdown, Tagged, type SourceRef } from "./GenevaMarkdown";
+import { GenevaArticlePanel } from "./GenevaArticlePanel";
 
 /** Plain-text digest of an answer (no markup) for the research context store. */
 function answerPlainText(a: MarketAnswer): string {
@@ -34,9 +35,10 @@ const SEEDED: Record<Role, string[]> = {
     "What is the top 5 ranking for equities and why?",
     "What's the view on fixed income?",
     "How does gold look for this client?",
+    "How is oil affecting the inflation outlook?",
   ],
-  rm: ["Summarise the client's IPS", "What are the client's goals?", "Review the IPS", "Summarise the meeting notes", "What did the client say in the last meeting?", "Write the latest client profile + goals section formally in bullet points", "Why is portfolio health flagged?", "Explain the old vs new TAA"],
-  ic: ["Analyse this client's portfolio strengths and weaknesses", "Which holdings move together?", "Compare the old and new TAA", "Propose a TAA", "Summarise the client's IPS", "How are the markets today, and what is the regime, according to the CIO House View and the web?", "Edit the client's individual holdings"],
+  rm: ["Summarise the client's IPS", "What are the client's goals?", "Review the IPS", "Summarise the meeting notes", "What did the client say in the last meeting?", "Write the latest client profile + goals section formally in bullet points", "Why is portfolio health flagged?", "Explain the old vs new TAA", "Are recession risks rising right now?"],
+  ic: ["Analyse this client's portfolio strengths and weaknesses", "Which holdings move together?", "Compare the old and new TAA", "Propose a TAA", "Summarise the client's IPS", "How are the markets today, and what is the regime, according to the CIO House View and the web?", "Edit the client's individual holdings", "Why are Treasury yields moving this week?"],
 };
 const HEADING: Record<Role, string> = { ps: "What would you like to research?", rm: "How can I help with this client?", ic: "How can I help with this portfolio?" };
 const PLACEHOLDER: Record<Role, string> = { ps: "Ask about markets or products", rm: "Ask about the IPS, goals or meetings", ic: "Ask about the portfolio or TAA" };
@@ -50,7 +52,12 @@ interface Recommend {
   shortlist: { row: MarketRow; riskRating: number; reason: string; fee: number | null; notes: string[] }[];
   excluded: { name: string; reason: string }[];
 }
-interface Msg { from: "user" | "agent"; text: string; answer?: MarketAnswer; finalise?: string[]; recommend?: Recommend; assetView?: PrAssetView }
+/** `reply` = a LangGraph answer (Markdown); `approval` = a money-moving action the backend paused on, waiting for the user. */
+interface Msg {
+  from: "user" | "agent"; text: string; answer?: MarketAnswer; finalise?: string[]; recommend?: Recommend; assetView?: PrAssetView;
+  reply?: { text: string; runId: string | null };
+  approval?: { action: GenevaPendingAction | null; status: "pending" | "approved" | "declined" };
+}
 
 /* ---- PS asset-class view: "What's the view on fixed income?" (one class named, view wording, no product wording) ---- */
 const ASSET_WORDS: [RegExp, string][] = [
@@ -89,7 +96,12 @@ const MATCH_INTENT = /read client ips.*(research market|match products)/i;
 /** Agent failures are shown, never replaced with mock answers. */
 const failText = (e: unknown) => e instanceof ProductRecommenderError
   ? [e.message, ...e.details].join(" ")
+  : e instanceof GenevaBackendError ? e.message
   : `Something went wrong: ${e instanceof Error ? e.message : String(e)}`;
+/** Thinking steps for a backend turn: the backend reports no progress, so only the order is shown, not agents. */
+const BACKEND_STEPS = ["Intent parser is reading your request…", "Thinking…", "Consolidating…"];
+/** Plain text of a Markdown answer for the research context store. */
+const markdownPlain = (md: string) => md.replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/[*_`#>|]+/g, "").replace(/\s+/g, " ").trim();
 const pause = (min: number, max: number) => sleep(min + Math.random() * (max - min));
 /** Profile from the IPS, CIO house view, then the Product Recommender's suitability gate and ranking (backend). Nothing is ranked here. */
 async function buildRecommendation(clientId: string, ipsVersion: number | null): Promise<{ steps: string[]; rec: Recommend }> {
@@ -134,13 +146,8 @@ async function buildRecommendation(clientId: string, ipsVersion: number | null):
   };
 }
 
-/** Render "[TAG]" markers in plain strings as citation tags. */
 /** Reason bullets for display: the trailing full stop after a closing tag would wrap onto its own line. */
 const reasonLines = (text: string) => toBulletItems(text).map((l) => l.replace(/\]\.$/, "]"));
-
-function Tagged({ text }: { text: string }) {
-  return <>{text.split(/(\[[A-Za-z0-9-]+\])/).map((p, i) => /^\[[A-Za-z0-9-]+\]$/.test(p) ? <CitationTag key={i} tag={p.slice(1, -1)} /> : <span key={i}>{p}</span>)}</>;
-}
 
 function RecommendView({ r, picked, onToggle, clientId }: { r: Recommend; picked: string[]; onToggle: (m: MarketRow) => void; clientId: string }) {
   const h = "text-[26px] font-light tracking-tight";
@@ -195,7 +202,7 @@ function RecommendView({ r, picked, onToggle, clientId }: { r: Recommend; picked
 
 /* ---- PS finalise-by-prompt: detect "I'm happy with X and Y" and match product names ---- */
 const FINALISE_INTENT = /\b(finali[sz]e|happy with|ok with|okay with|fine with|good with|comfortable with|go with|going with|proceed with|shortlist|i like|i(?:'|’)ll take|i want to (?:take|go|proceed|keep)|i(?:'|’)m (?:ok|ok?ay|happy|fine) )/i;
-interface Chat { id: number; title: string; messages: Msg[] }
+interface Chat { id: number; title: string; messages: Msg[]; sessionId: string }
 
 function Direction({ d }: { d: MacroView["direction"] }) {
   return <DirectionArrow d={d === "Up" ? "up" : d === "Down" ? "down" : "flat"} size={16} />;
@@ -328,7 +335,10 @@ function ClientSwitcher({ clientId, name }: { clientId: string; name: string | n
 
 /** The one Geneva chat. Used full-page (AI Assistant) and inside the floating launcher (compact). Style rules: AGENTS.md "Chatbot style". */
 export function GenevaChat({ role, clientId, compact = false }: { role: Role; clientId: string; compact?: boolean }) {
-  const [chats, setChats] = useState<Chat[]>([{ id: 1, title: "New chat", messages: [] }]);
+  const blank = (id: number): Chat => ({ id, title: "New chat", messages: [], sessionId: arcApi.newChatSession(role, clientId) });
+  const [chats, setChats] = useState<Chat[]>(() => [blank(1)]);
+  const [source, setSource] = useState<SourceRef | null>(null);
+  const closeSource = useCallback(() => setSource(null), []);
   const [activeId, setActiveId] = useState(1);
   const [draft, setDraft] = useState("");
   const [working, setWorking] = useState<{ chatId: number; steps: string[]; shown: number } | null>(null);
@@ -343,12 +353,14 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
   const [seenClient, setSeenClient] = useState(clientId);
   if (seenClient !== clientId) {
     setSeenClient(clientId); setClientName(null); setClientIps(undefined);
-    setChats([{ id: 1, title: "New chat", messages: [] }]); setActiveId(1); setWorking(null); setDraft("");
+    setChats([blank(1)]); setActiveId(1); setWorking(null); setDraft(""); setSource(null);
   }
   const ipsVersion = activeIps ?? clientIps ?? null;
   const nextId = useRef(2);
   const chat = chats.find((c) => c.id === activeId) ?? chats[0];
   const busy = working?.chatId === chat.id;
+  /** A paused money-moving action must be approved or declined before the chat can continue. */
+  const awaitingApproval = chat.messages.some((m) => m.approval?.status === "pending");
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const nearBottom = useRef(true);
@@ -365,20 +377,57 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
   const patch = (id: number, fn: (c: Chat) => Chat) => setChats((cs) => cs.map((c) => (c.id === id ? fn(c) : c)));
   const newChat = () => {
     const id = nextId.current++;
-    setChats((cs) => [...cs, { id, title: "New chat", messages: [] }]);
+    setChats((cs) => [...cs, blank(id)]);
     setActiveId(id);
   };
   const removeChat = (id: number) => {
     const left = chats.filter((c) => c.id !== id);
-    if (left.length === 0) { const nid = nextId.current++; setChats([{ id: nid, title: "New chat", messages: [] }]); setActiveId(nid); return; }
+    if (left.length === 0) { const nid = nextId.current++; setChats([blank(nid)]); setActiveId(nid); return; }
     setChats(left);
     if (activeId === id) setActiveId(left[0].id);
   };
 
+  /** Run a backend call under the thinking card; "Thinking…" appears if it takes a moment, "Consolidating…" once it lands. */
+  const withThinking = async (id: number, call: Promise<GenevaReply>): Promise<GenevaReply> => {
+    setWorking({ chatId: id, steps: BACKEND_STEPS, shown: 1 });
+    const timer = setTimeout(() => setWorking((w) => (w?.chatId === id && w.shown < 2 ? { ...w, shown: 2 } : w)), 1700);
+    try {
+      const r = await call;
+      clearTimeout(timer);
+      setWorking({ chatId: id, steps: BACKEND_STEPS, shown: 3 });
+      await sleep(600);
+      return r;
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+  const addReply = (id: number, r: GenevaReply, q: string) => {
+    const msg: Msg = r.requiresConfirmation
+      ? { from: "agent", text: r.text, approval: { action: r.pendingAction, status: "pending" } }
+      : { from: "agent", text: r.text, reply: { text: r.text, runId: r.runId } };
+    patch(id, (c) => ({ ...c, messages: [...c.messages, msg] }));
+    if (!r.requiresConfirmation) appendChatContext(clientId, role, { q, a: markdownPlain(r.text) });
+  };
+  /** Approve or decline a paused action; the backend resumes the same session and answers. */
+  const decide = async (id: number, index: number, approved: boolean) => {
+    const target = chats.find((c) => c.id === id);
+    if (!target || working) return;
+    patch(id, (c) => ({ ...c, messages: c.messages.map((m, i) => (i === index && m.approval ? { ...m, approval: { ...m.approval, status: approved ? "approved" : "declined" } } : m)) }));
+    nearBottom.current = true;
+    try {
+      addReply(id, await withThinking(id, arcApi.confirmBackendAction(target.sessionId, approved)), approved ? "Approved the proposed action" : "Declined the proposed action");
+    } catch (e) {
+      patch(id, (c) => ({ ...c, messages: [...c.messages, { from: "agent", text: failText(e) }] }));
+    } finally {
+      setWorking((w) => (w?.chatId === id ? null : w));
+    }
+  };
+
   const send = async (raw: string) => {
     const text = raw.trim();
-    if (!text || busy) return;
+    if (!text || busy || awaitingApproval) return;
     const id = chat.id;
+    const sessionId = chat.sessionId;
     nearBottom.current = true;
     setDraft("");
     patch(id, (c) => ({ ...c, title: c.messages.length === 0 ? text.slice(0, 40) : c.title, messages: [...c.messages, { from: "user", text }] }));
@@ -452,12 +501,12 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
       return;
     }
     try {
-      const a = role === "ps"
-        ? await arcApi.askMarketResearch(clientId, text, loadSystemPrompt(role), ipsVersion)
-        : await arcApi.askAgent(role, clientId, text, ipsVersion).then((r): MarketAnswer => ({
-            summary: r.reply, draft: r.draft, market: null, rows: [], autoTick: false, tags: r.tags,
-            steps: ["Intent parser is reading your request…", `${r.agent} fired`, ...r.steps, "Consolidating…"],
-          }));
+      // Client-data and workflow intents are answered from the workspace; anything else goes to the LangGraph backend.
+      const a = await arcApi.answerLocally(role, clientId, text, ipsVersion);
+      if (!a) {
+        addReply(id, await withThinking(id, arcApi.askBackend(role, clientId, sessionId, text, ipsVersion)), text);
+        return;
+      }
       setWorking({ chatId: id, steps: a.steps, shown: 0 });
       for (let i = 1; i <= a.steps.length; i++) { setWorking({ chatId: id, steps: a.steps, shown: i }); await sleep(i === 2 ? 1200 : 900); }
       await sleep(400);
@@ -476,9 +525,10 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
 
   const composer = (
     <form className="mx-auto flex w-full max-w-4xl items-center gap-3 rounded-full border border-hairline-strong bg-surface-100 py-2 pl-6 pr-2" onSubmit={(e) => { e.preventDefault(); send(draft); }}>
-      <input value={draft} onChange={(e) => setDraft(e.target.value)} aria-label="Message Geneva" placeholder={PLACEHOLDER[role]}
+      <input value={draft} onChange={(e) => setDraft(e.target.value)} aria-label="Message Geneva" disabled={awaitingApproval}
+        placeholder={awaitingApproval ? "Approve or decline the proposed action first" : PLACEHOLDER[role]}
         className="min-h-10 min-w-0 flex-1 bg-transparent text-[15px] text-ink outline-none placeholder:text-ink-muted" />
-      <button type="submit" disabled={busy || !draft.trim()} aria-label="Send" title="Send"
+      <button type="submit" disabled={busy || awaitingApproval || !draft.trim()} aria-label="Send" title="Send"
         className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-brand text-white disabled:opacity-40"><ArrowUp size={18} /></button>
     </form>
   );
@@ -509,7 +559,7 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
         </ul>
       </aside>
 
-      <section className="flex min-w-0 flex-1 flex-col">
+      <section className="flex min-h-0 min-w-0 flex-1 flex-col">
         <div className="flex flex-wrap items-center justify-end gap-3 border-b border-hairline px-6 py-3 sm:px-10">
           <ClientSwitcher clientId={clientId} name={clientName} />
           <Link to={`/${role}/clients/${clientId}/documents`} title="Open the client's IPS" className="inline-flex items-center gap-2.5 rounded-full border border-hairline-strong bg-surface-100 px-4 py-1.5 text-[13px] text-ink hover:bg-surface-300">
@@ -518,7 +568,7 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
           </Link>
         </div>
         {chat.messages.length === 0 && !busy ? (
-          <div className="flex flex-1 flex-col items-center justify-center overflow-y-auto px-8 py-10">
+          <div className="flex min-h-0 flex-1 flex-col items-center justify-center-safe overflow-y-auto px-8 py-10">
             <img src="/ubs-logo.png" alt="Geneva" className="ubs-logo mb-5 h-10 w-auto" />
             <h2 className="mb-8 text-center text-3xl font-light">{HEADING[role]}</h2>
             {composer}
@@ -534,7 +584,7 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
           </div>
         ) : (
           <>
-            <div ref={scrollRef} onScroll={onScroll} role="log" aria-live="polite" className="flex flex-1 flex-col gap-8 overflow-y-auto [&>*]:shrink-0 overflow-x-hidden px-6 py-8 text-[15px] leading-6 sm:px-10 sm:py-10">
+            <div ref={scrollRef} onScroll={onScroll} role="log" aria-live="polite" className="flex min-h-0 flex-1 flex-col gap-8 overflow-y-auto [&>*]:shrink-0 overflow-x-hidden px-6 py-8 text-[15px] leading-6 sm:px-10 sm:py-10">
               {chat.messages.map((m, i) => m.from === "user" ? (
                 <div key={i} className="max-w-[80%] self-end rounded-sm bg-surface-300 px-5 py-3.5">{m.text}</div>
               ) : (
@@ -554,6 +604,20 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
                   {m.recommend && <RecommendView r={m.recommend} picked={pickedNames} onToggle={toggle} clientId={clientId} />}
                   {m.assetView && <AssetViewCard v={m.assetView} clientId={clientId} />}
                   {m.answer && <AnswerView a={m.answer} picked={pickedNames} onToggle={toggle} clientId={clientId} role={role} />}
+                  {m.reply && <GenevaMarkdown text={m.reply.text} runId={m.reply.runId} onOpenSource={setSource} />}
+                  {m.approval && (
+                    <div className="space-y-6 font-light">
+                      <p className={label}>Action needs your approval</p>
+                      <p className="text-[19px] leading-8 tracking-tight text-ink">{m.text}</p>
+                      {m.approval.status === "pending" ? (
+                        <div className="flex flex-wrap items-center gap-4">
+                          <Button variant="primary" size="sm" disabled={busy} onClick={() => decide(chat.id, i, true)}>Approve</Button>
+                          <Button variant="secondary" size="sm" disabled={busy} onClick={() => decide(chat.id, i, false)}>Decline</Button>
+                          <span className="text-[14px] text-ink-muted">Nothing happens until you approve.</span>
+                        </div>
+                      ) : <p className="text-[15px] text-ink-muted">{m.approval.status === "approved" ? "You approved this action." : "You declined this action."}</p>}
+                    </div>
+                  )}
                 </div>
               ))}
               {busy && working && (
@@ -593,6 +657,7 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
           </>
         )}
       </section>
+      <GenevaArticlePanel source={source} onClose={closeSource} />
     </div>
   );
 }
