@@ -1,17 +1,20 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Check } from "lucide-react";
-import { arcApi } from "../../services/arcApi";
-import { Button, GateChip, Loading, NextAction, PageHeader, useAsync } from "../../components/ui";
+import { arcApi, type PackCheckInput } from "../../services/arcApi";
+import { Badge, Button, GateChip, Loading, NextAction, PageHeader, useAsync } from "../../components/ui";
 import { packToSections, fmtDate, SignoffBoxes, SourcesBoard, isSources, usePackStatus, isHiddenFor, PendingBox } from "./rmShared";
 import { PackSectionPanel } from "./PackSectionPanel";
 import { GenevaMark } from "../../components/documents/GenevaMark";
 import { PackDocument } from "./PackDocument";
 import { syncPackFromIc } from "../../components/ic/packSync";
 import { loadPackDrafts, loadSignatures, saveSignature, subscribePackDrafts, subscribeSignatures, type PackDrafts, type PackSignatures as Sigs } from "../../services/packDraftStore";
-import { sendReviewRequest, withdrawReviewRequest, useReviewRequest, useAllFinalised, useIcProgress, useIcHandover } from "../../services/workflowStore";
+import { sendReviewRequest, withdrawReviewRequest, useReviewRequest, useAllFinalised, useFinalised, useIcProgress, useIcHandover } from "../../services/workflowStore";
 import { useRole } from "../../layouts/AppShell";
 import { ExportActions } from "../../components/export/ExportActions";
+import type { RcPackReport } from "../../types/riskCompliance";
+
+type PackCheck = { running: boolean; report?: RcPackReport; error?: string } | null;
 
 export default function PackReview({ embedded = false, clientId: clientIdProp }: { embedded?: boolean; clientId?: string }) {
   const params = useParams();
@@ -38,6 +41,35 @@ export default function PackReview({ embedded = false, clientId: clientIdProp }:
   useEffect(() => { if (progress.savedAt || icHandover) syncPackFromIc(clientId); }, [progress.savedAt, icHandover?.sentAt, clientId]);
   const [openMap, setOpenMap] = useState<Record<number, boolean>>({});
   const onboarding = client?.status === "Onboarding Phase";
+  // Risk & Compliance agent: final independent check of the whole pack before G4. It re-runs whenever
+  // what it reads changes; G4 stays locked unless it allows sign-off (and while it cannot run).
+  const finalised = useFinalised(clientId);
+  const [check, setCheck] = useState<PackCheck>(null);
+  const [checkRun, setCheckRun] = useState(0);
+  const readyForG4 = !isIc && stage === 2 && status.total > 0 && status.doneCount === status.total && !approved;
+  const savedNewTaa = alloc && progress.taa && progress.taa.length === alloc.length ? progress.taa : null;
+  const checkInput: PackCheckInput | null = readyForG4 && pack && alloc ? {
+    clientId,
+    sections: pack.map((x) => ({
+      n: x.n, title: x.title, owner: x.owner, gate: x.gate, kind: x.kind ?? null, text: drafts[x.n] ?? x.body,
+      status: status.complete[x.n] ? "ready" : x.status === "flagged" ? "flagged" : "draft",
+    })),
+    allocation: alloc.map((r, i) => (savedNewTaa ? { ...r, newTaa: savedNewTaa[i] } : r)),
+    products: (finalised?.items ?? []).map((it) => ({ name: it.product, assetClass: it.assetClass })),
+    // G1 = an active IPS, which only the derived Monitoring phase proves (an ipsVersion alone may be a draft).
+    gates: { G1: client?.status === "Monitoring Phase" ? "approved" : "pending", G2: icHandover ? "approved" : "pending", G3: finalised ? "approved" : "pending", G4: "pending" },
+  } : null;
+  // Keyed on the serialised input: the store hooks return new objects every render, so this re-runs only when the pack really changes.
+  const checkKey = checkInput ? JSON.stringify(checkInput) : "";
+  useEffect(() => {
+    if (!checkKey) { setCheck(null); return; }
+    let cancelled = false;
+    setCheck({ running: true });
+    arcApi.checkReviewPack(JSON.parse(checkKey) as PackCheckInput)
+      .then((report) => { if (!cancelled) setCheck({ running: false, report }); })
+      .catch((e: unknown) => { if (!cancelled) setCheck({ running: false, error: e instanceof Error ? e.message : "The check could not run." }); });
+    return () => { cancelled = true; };
+  }, [checkKey, checkRun]);
   if (!pack) return <Loading />;
   const pos = (n: number) => pack.findIndex((x) => x.n === n) + 1;
   const allSigned = ["ps", "ic", "rm"].every((r) => sigs[r]);
@@ -129,8 +161,11 @@ export default function PackReview({ embedded = false, clientId: clientIdProp }:
           action={<Button variant="secondary" onClick={() => withdrawReviewRequest(clientId)}>Withdraw request</Button>} />
       )}
       {!isIc && stage === 2 && (allComplete || approved) && (
-        <NextAction title={approved ? "Pack approved" : "Approve the final pack"} body={approved ? "G4 is approved. You can export the PDF." : "Approving G4 releases the PDF. The agent never approves."}
-          action={approved ? undefined : <Button onClick={() => setApproved(true)}>Approve G4</Button>} />
+        <NextAction title={approved ? "Pack approved" : "Approve the final pack"} body={approved ? "G4 is approved. You can export the PDF." : g4Body(check)}
+          action={approved ? undefined : <Button disabled={!check?.report?.rm_signoff_allowed} onClick={() => setApproved(true)}>Approve G4</Button>} />
+      )}
+      {!isIc && stage === 2 && allComplete && !approved && check && !check.running && (
+        <PackCheckPanel check={check} onRerun={() => setCheckRun((n) => n + 1)} />
       )}
 
       </>
@@ -159,5 +194,69 @@ export default function PackReview({ embedded = false, clientId: clientIdProp }:
 
       <div className="mt-10 flex flex-wrap justify-end">{exportActions}</div>
     </div>
+  );
+}
+
+/** NextAction text for G4, driven by the Risk & Compliance check. */
+function g4Body(check: PackCheck): string {
+  if (!check || check.running) return "Running the risk & compliance check. G4 unlocks once it allows sign-off.";
+  if (check.error) return `The risk & compliance check could not run, so G4 stays locked. ${check.error}`;
+  const r = check.report!;
+  if (!r.rm_signoff_allowed) return "G4 is locked: the risk & compliance check found issues to resolve first.";
+  return r.status === "PASS_WITH_CONDITIONS"
+    ? "Review the conditions below, then approve. Approving G4 releases the PDF. The agent never approves."
+    : "Approving G4 releases the PDF. The agent never approves.";
+}
+
+const STATUS_LABEL: Record<RcPackReport["status"], { text: string; tone: "green" | "amber" | "red" }> = {
+  PASS: { text: "Passed", tone: "green" },
+  PASS_WITH_CONDITIONS: { text: "Passed with conditions", tone: "amber" },
+  NEEDS_INFO: { text: "Needs information", tone: "amber" },
+  BLOCKED: { text: "Blocked", tone: "red" },
+};
+const ITEM_LABEL = { block: "Blocks", info: "Needs info", condition: "Condition" } as const;
+
+/** The check's result: everything that blocks or conditions sign-off. Notes are counted, not listed. */
+function PackCheckPanel({ check, onRerun }: { check: NonNullable<PackCheck>; onRerun: () => void }) {
+  const r = check.report;
+  const items: { key: string; kind: keyof typeof ITEM_LABEL; text: string }[] = r ? [
+    ...r.findings.filter((f) => f.effect !== "NOTE").map((f, i) => ({
+      key: `f${i}`, kind: (f.effect === "BLOCK" ? "block" : f.effect === "NEEDS_INFO" ? "info" : "condition") as keyof typeof ITEM_LABEL, text: f.message,
+    })),
+    ...r.missing_information.filter((m) => m.severity !== "MINOR").map((m, i) => ({
+      key: `m${i}`, kind: (m.severity === "BLOCKING" ? "info" : "condition") as keyof typeof ITEM_LABEL, text: `${m.field}: ${m.impact}`,
+    })),
+    ...r.conflicts.filter((c) => c.severity !== "INFO").map((c, i) => ({
+      key: `c${i}`, kind: (c.severity === "BLOCKING" ? "block" : "condition") as keyof typeof ITEM_LABEL, text: c.description,
+    })),
+  ] : [];
+  const notes = r ? r.findings.filter((f) => f.effect === "NOTE").length : 0;
+  return (
+    <section className="mb-14" aria-label="Risk and compliance check">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <h3 className="text-xl font-light">Risk &amp; compliance check</h3>
+          {r && <Badge tone={STATUS_LABEL[r.status].tone}>{STATUS_LABEL[r.status].text}</Badge>}
+        </div>
+        <Button variant="secondary" size="sm" onClick={onRerun}>Run check again</Button>
+      </div>
+      {check.error && <p className="text-sm text-negative">{check.error}</p>}
+      {r && items.length === 0 && <p className="text-sm text-ink-muted">No issues found.</p>}
+      {items.length > 0 && (
+        <ul className="divide-y divide-hairline border-y border-hairline">
+          {items.map((it) => (
+            <li key={it.key} className="flex items-start gap-4 py-3 text-sm">
+              <Badge tone={it.kind === "block" ? "red" : "amber"}>{ITEM_LABEL[it.kind]}</Badge>
+              <span className="leading-6">{it.text}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {r && (
+        <p className="mt-3 text-xs text-ink-muted">
+          {notes > 0 ? `${notes} note${notes > 1 ? "s" : ""} recorded. ` : ""}Policy {r.policy_version ?? "unavailable"}. The agent checks; only the RM approves G4.
+        </p>
+      )}
+    </section>
   );
 }

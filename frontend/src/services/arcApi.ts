@@ -11,11 +11,12 @@ import { findProducts } from "../utils/productMatch";
 import { askBackend, confirmBackendAction, fetchBackendArticle, newSessionId } from "./genevaBackend";
 export { GenevaBackendError } from "./genevaBackend";
 import type {
-  ActivityEvent, AllocationRow, Bucket3L, Client, Gate, Holding, InboxItem, IpsPart, MacroBrief, MarketRow,
+  ActivityEvent, AllocationRow, Bucket3L, Client, Gate, GateId, GateState, Holding, InboxItem, IpsPart, MacroBrief, MarketRow,
   MarketView, HouseView, PackRenderInput, MarketAnswer, MeetingNote, IpsVersion, PackSection, Product, ProductClass, Role, AllocationGroup, CorrelationMatrix, GoalProjection, SectionDraft, GenevaArticle, GenevaContext, GenevaReply,
 } from "../types/arc";
 import type { PmClientProfile, PmInputField, PmInputs, PmRequest, PmResponse } from "../types/portfolio";
 import type { PrAssetClassHeadline, PrAssetView, PrHouseView, PrOptions, PrRequest, PrResponse, PrShelf, PrShelfProduct, PrShortlistItem } from "../types/productRecommender";
+import type { RcPackReport, RcPackRequest, RcPackSection } from "../types/riskCompliance";
 
 const delay = <T,>(v: T, ms = 150) => new Promise<T>((r) => setTimeout(() => r(v), ms));
 
@@ -120,6 +121,8 @@ export const arcApi = {
   getPortfolioInputs: (clientId: string): Promise<PmInputs> => buildPortfolioInputs(clientId),
   /** Real backend call: the Portfolio Manager agent builds and compares SAA templates A-F. */
   generatePortfolioProposals: (request: PmRequest): Promise<PmResponse> => generatePortfolioProposals(request),
+  /** Real backend call: the Risk & Compliance agent's final check of the review pack. Never approves G4; it only says whether the RM may. */
+  checkReviewPack: (input: PackCheckInput): Promise<RcPackReport> => checkReviewPack(input),
   getAllocation: (clientId: string): Promise<AllocationRow[]> => delay(m.allocationByClient[clientId] ?? m.allocation),
   getSaaTemplates: () => delay(m.saaTemplates),
   getIps: (clientId: string): Promise<IpsPart[]> => delay(withIcReturn(clientId, m.ipsPartsByClient[clientId] ?? m.ipsParts)),
@@ -709,4 +712,82 @@ async function getAssetClassView(assetClass: string, clientId?: string): Promise
     throw new ProductRecommenderError("INVALID_RESPONSE", "The asset-class view did not match the expected format.");
   }
   return v;
+}
+
+/* ---------- Risk & Compliance agent (real backend) ---------- */
+
+const RC_URL = `${API_BASE}/agents/risk-compliance`;
+const RC_TIMEOUT_MS = 30_000;
+
+/** No mock fallback: if the check cannot run, G4 stays locked. */
+export class RiskComplianceError extends Error {
+  kind: "UNREACHABLE" | "TIMEOUT" | "REJECTED" | "SERVER" | "INVALID_RESPONSE";
+  details: string[];
+  constructor(kind: RiskComplianceError["kind"], message: string, details: string[] = []) {
+    super(message);
+    this.kind = kind;
+    this.details = details;
+  }
+}
+
+/** What the RM's pack screen hands over; the client profile and data dates are added here. */
+export interface PackCheckInput {
+  clientId: string;
+  sections: RcPackSection[];
+  /** Allocation rows with the IC's saved new TAA applied. */
+  allocation: AllocationRow[];
+  /** The Product Specialist's finalised list (names; matched to the shelf by the agent). */
+  products: { name: string; assetClass: string }[];
+  gates: Partial<Record<GateId, GateState>>;
+}
+
+async function rcFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(`${RC_URL}${path}`, { ...init, signal: AbortSignal.timeout(RC_TIMEOUT_MS) });
+  } catch (err) {
+    if (err instanceof DOMException && (err.name === "TimeoutError" || err.name === "AbortError")) {
+      throw new RiskComplianceError("TIMEOUT", "The Risk & Compliance check did not respond in time.");
+    }
+    throw new RiskComplianceError("UNREACHABLE", `Cannot reach the Risk & Compliance agent at ${API_BASE}.`, [
+      "Start the backend: cd backend, then uvicorn app.app:app --reload",
+    ]);
+  }
+  const json: unknown = await res.json().catch(() => null);
+  if (!res.ok) {
+    const detail = (json as { detail?: unknown } | null)?.detail;
+    if (res.status === 422 && Array.isArray(detail)) {
+      throw new RiskComplianceError("REJECTED", "The Risk & Compliance agent rejected the pack.",
+        detail.map((d: { loc?: unknown[]; msg?: string }) => `${(d.loc ?? []).filter((x) => x !== "body").join(" › ")}: ${d.msg ?? "invalid"}`));
+    }
+    throw new RiskComplianceError("SERVER", `The Risk & Compliance agent returned an error (${typeof detail === "string" ? detail : `HTTP ${res.status}`}).`);
+  }
+  if (json === null || typeof json !== "object") throw new RiskComplianceError("INVALID_RESPONSE", "The Risk & Compliance agent's response was not JSON.");
+  return json as T;
+}
+
+const isoDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+async function checkReviewPack(input: PackCheckInput): Promise<RcPackReport> {
+  const { clientId } = input;
+  const [{ profile }, ips, market] = await Promise.all([
+    buildClientProfile(clientId), arcApi.getIpsHistory(clientId), arcApi.getMarketCycle(),
+  ]);
+  const body: RcPackRequest = {
+    request_id: `PACK-${clientId}-${Date.now()}`,
+    client_id: clientId,
+    reference_date: isoDate(new Date()),
+    client_profile: profile,
+    allocation: input.allocation.map((r) => ({ asset_class: r.assetClass, saa: r.saa, current: r.current, old_taa: r.oldTaa, new_taa: r.newTaa, band: r.band })),
+    products: input.products.map((p) => ({ product_name: p.name, asset_class: p.assetClass })),
+    sections: input.sections,
+    gates: input.gates,
+    // Unknown dates are sent as null so the agent reports them, instead of the UI guessing.
+    data_as_of: { profile: ips.find((v) => v.status === "Active")?.issuedOn ?? null, market: market?.asOf ?? null },
+  };
+  const r = await rcFetch<RcPackReport>("/review-pack/check", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const ok = typeof r.status === "string" && typeof r.rm_signoff_allowed === "boolean" && Array.isArray(r.findings)
+    && Array.isArray(r.missing_information) && Array.isArray(r.conflicts);
+  if (!ok) throw new RiskComplianceError("INVALID_RESPONSE", "The Risk & Compliance agent's response did not match the expected format.");
+  return r;
 }

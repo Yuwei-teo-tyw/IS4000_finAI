@@ -20,6 +20,8 @@ from app.endpoints.portfolio_manager import router as portfolio_manager_router  
 from app.endpoints.portfolio_manager import install_validation_handler as install_pm_validation_handler  # noqa: E402
 from app.endpoints.product_recommender import PREFIX as PRODUCT_RECOMMENDER_PREFIX  # noqa: E402
 from app.endpoints.product_recommender import router as product_recommender_router  # noqa: E402
+from app.endpoints.risk_compliance import PREFIX as RISK_COMPLIANCE_PREFIX  # noqa: E402
+from app.endpoints.risk_compliance import router as risk_compliance_router  # noqa: E402
 from app.agents.market_researcher.cache import PostgresCache, init_market_tables  # noqa: E402
 from app.agents.market_researcher.runs import MarketResearchRunner, PostgresRunRegistry  # noqa: E402
 from app.agents.market_researcher.service import MarketResearchService  # noqa: E402
@@ -66,7 +68,8 @@ app.include_router(market_researcher_router)
 app.include_router(market_researcher_ui_router)
 app.include_router(portfolio_manager_router)
 app.include_router(product_recommender_router)
-install_pm_validation_handler(app, extra_prefixes=(PRODUCT_RECOMMENDER_PREFIX,))
+app.include_router(risk_compliance_router)
+install_pm_validation_handler(app, extra_prefixes=(PRODUCT_RECOMMENDER_PREFIX, RISK_COMPLIANCE_PREFIX))
 
 
 @app.get("/")
@@ -77,4 +80,5 @@ async def root():
         "market_researcher": "/agents/market-researcher",
         "portfolio_manager": "/agents/portfolio-manager",
         "product_recommender": "/agents/product-recommender",
+        "risk_compliance": "/agents/risk-compliance",
     }
