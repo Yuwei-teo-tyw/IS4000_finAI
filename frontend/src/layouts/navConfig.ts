@@ -69,7 +69,8 @@ export function getNav(role: Role, _clientId: string): NavItem[] {
 }
 
 const STORAGE_KEY = "arc.activeClient";
-const VALID_IDS = ["jdi", "jfr", "dso"];
+// Every client in the client book (mock/data.ts `clients`); an id missing here cannot be selected anywhere.
+const VALID_IDS = ["ser", "dso", "jfr", "teo", "sha"];
 const DEFAULT_ID = "jfr";
 
 function isValid(id: string | null | undefined): id is string {

@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useState, type ReactNode } from "react";
-import { Lock, Upload, X } from "lucide-react";
-import { CitationTag, BulletList, Badge, Button, toBulletItems } from "../../components/ui";
+import { Lock, X } from "lucide-react";
+import { CitationTag, BulletList, Badge, Button, SCRIPT_FONT, SignatureBlock, toBulletItems } from "../../components/ui";
 import type { DocSection } from "../../components/export/CompiledDocument";
 import { parseBlocks, hasHeadings, composeBlocks } from "../../services/packBlocks";
 import { ROLE_LABEL, type AllocationRow, type IpsPart, type PackBlock, type PackSection, type Role } from "../../types/arc";
@@ -286,24 +286,19 @@ export const isSources = (x: { title: string }) => /^sources/i.test(x.title);
 
 const ALL_ROLES: Role[] = ["rm", "ic", "ps"];
 const fmtWhen = (iso: string) => new Date(iso).toLocaleString("en-SG", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
-const MAX_BYTES = 1_500_000;
 
-/** Section 6: one sign-off box per role (RM, IC, PS). The current role's box is red-outlined and actionable; others are read-only status. */
-export function SignoffBoxes({ sigs, me, onSign, onRemove }: {
-  sigs: Sigs; me: Role; onSign?: (role: Role, sig: { name: string; dataUrl: string; signedAt: string }) => void; onRemove?: (role: Role) => void;
+/** Sign-off section: one box per role (RM, IC, PS). The current role's box is red-outlined; while it is unsigned, the same
+ *  Type / Draw / Upload signature block the PS uses opens below the boxes. Others are read-only status. */
+export function SignoffBoxes({ sigs, me, clientId, onRemove }: {
+  sigs: Sigs; me: Role; clientId?: string; onRemove?: (role: Role) => void;
 }) {
-  const pick = (file?: File) => {
-    if (!file || !onSign || file.size > MAX_BYTES || !file.type.startsWith("image/")) return;
-    const reader = new FileReader();
-    reader.onload = () => onSign(me, { name: file.name, dataUrl: String(reader.result), signedAt: new Date().toISOString() });
-    reader.readAsDataURL(file);
-  };
   const scope: Record<Role, string> = {
     rm: "Confirms client suitability, goals and the presentation of this pack.",
     ic: "Confirms the market view, portfolio health and tactical allocation.",
     ps: "Confirms the product shortlist, fees and suitability notes.",
   };
   return (
+    <div>
     <div className="grid gap-5 sm:grid-cols-3">
       {ALL_ROLES.map((r) => {
         const sig = sigs[r];
@@ -317,22 +312,26 @@ export function SignoffBoxes({ sigs, me, onSign, onRemove }: {
             <p className="mt-3 text-sm text-ink">{ROLE_PEOPLE[r].person}</p>
             <p className="mt-2 text-[13px] leading-6 text-ink-muted">{scope[r]}</p>
             <div className={`mt-4 flex h-24 items-center justify-center overflow-hidden border ${sig ? "border-hairline bg-surface-100" : "border-dashed border-hairline-strong bg-surface-200"}`}>
-              {sig ? (sig.typed || !sig.dataUrl ? <span className="font-serif text-xl italic text-ink">{sig.name}</span> : <img src={sig.dataUrl} alt={`${ROLE_PEOPLE[r].person} signature`} className="max-h-full max-w-full object-contain p-2" />)
+              {sig ? (sig.typed || !sig.dataUrl ? <span className="text-[26px] leading-tight text-ink" style={{ fontFamily: SCRIPT_FONT }}>{sig.name}</span> : <img src={sig.dataUrl} alt={`${ROLE_PEOPLE[r].person} signature`} className="max-h-full max-w-full object-contain p-2" />)
                 : <span className="text-[13px] italic text-ink-muted">Digital signature pending</span>}
             </div>
             <p className="mt-2 text-[12px] text-ink-muted">{sig ? `Signed ${fmtWhen(sig.signedAt)}` : "Signed on: ____________"}</p>
-            {mine && onSign && (
-              <div className="no-print mt-3 flex items-center gap-2">
-                <label className="inline-flex min-h-9 cursor-pointer items-center gap-2 border border-hairline px-3 text-[13px] text-ink hover:bg-surface-300">
-                  <Upload size={14} />{sig ? "Replace" : "Sign here"}
-                  <input type="file" accept="image/*" className="hidden" onChange={(e) => { pick(e.target.files?.[0]); e.target.value = ""; }} />
-                </label>
-                {sig && <button type="button" onClick={() => onRemove?.(r)} aria-label="Remove signature" title="Remove" className="p-2 text-ink-muted hover:text-negative"><X size={16} /></button>}
+            {mine && clientId && (
+              <div className="no-print mt-3 flex min-h-9 items-center gap-2 text-[13px] text-ink-muted">
+                {sig
+                  ? <button type="button" onClick={() => onRemove?.(r)} aria-label="Remove signature" title="Remove" className="inline-flex items-center gap-1 p-2 text-ink-muted hover:text-negative"><X size={16} />Remove</button>
+                  : "Sign in the box below."}
               </div>
             )}
           </div>
         );
       })}
+    </div>
+    {clientId && !sigs[me] && (
+      <div className="no-print mt-6">
+        <SignatureBlock clientId={clientId} role={me} defaultName={ROLE_PEOPLE[me].person} title={`Sign as ${ROLE_LABEL[me]}`} />
+      </div>
+    )}
     </div>
   );
 }

@@ -8,10 +8,12 @@ const MODES: { id: Mode; label: string }[] = [{ id: "type", label: "Type" }, { i
 const ROLE_LABEL: Record<SignatureRole, string> = { ic: "Investment Counsellor", ps: "Product Specialist", rm: "Relationship Manager" };
 /** Dancing Script is loaded once in styles/tokens.css. */
 export const SCRIPT_FONT = "'Dancing Script','Snell Roundhand','Segoe Script',cursive";
+/** Uploaded images above this size are ignored, so a signature cannot fill session storage. */
+const MAX_UPLOAD_BYTES = 1_500_000;
 const fmtDate = (iso: string) => new Date(iso).toLocaleDateString("en-SG", { day: "numeric", month: "short", year: "numeric" });
 
-/** Shared signature block (Type / Draw / Upload). Saves to the pack signature store under `role`. */
-export function SignatureBlock({ clientId, role, defaultName = "" }: { clientId: string; role: SignatureRole; defaultName?: string }) {
+/** Shared signature block (Type / Draw / Upload), used by every role. Saves to the pack signature store under `role`. */
+export function SignatureBlock({ clientId, role, defaultName = "", title = "Sign before sending" }: { clientId: string; role: SignatureRole; defaultName?: string; title?: string }) {
   const sig = useSignatures(clientId)[role];
   const [mode, setMode] = useState<Mode>("type");
   const [name, setName] = useState(defaultName);
@@ -38,7 +40,7 @@ export function SignatureBlock({ clientId, role, defaultName = "" }: { clientId:
   const up = () => { drawing.current = false; if (canvas.current) setImg(canvas.current.toDataURL("image/png")); };
   const clear = () => { const c = canvas.current; c?.getContext("2d")?.clearRect(0, 0, c.width, c.height); setImg(""); };
   const onFile = (f?: File) => {
-    if (!f) return;
+    if (!f || f.size > MAX_UPLOAD_BYTES || !f.type.startsWith("image/")) return;
     const r = new FileReader(); r.onload = () => setImg(String(r.result)); r.readAsDataURL(f);
   };
   const switchMode = (m: Mode) => { setMode(m); setImg(""); };
@@ -67,7 +69,7 @@ export function SignatureBlock({ clientId, role, defaultName = "" }: { clientId:
 
   return (
     <div className="border border-hairline bg-surface-100 p-8">
-      <h3 className="text-xl font-normal">Sign before sending</h3>
+      <h3 className="text-xl font-normal">{title}</h3>
       <div className="mt-6 inline-flex border border-hairline" role="tablist">
         {MODES.map((m) => (
           <button key={m.id} role="tab" aria-selected={mode === m.id} onClick={() => switchMode(m.id)}
