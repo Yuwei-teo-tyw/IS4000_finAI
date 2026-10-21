@@ -80,7 +80,7 @@ export default function PackReview({ embedded = false, clientId: clientIdProp }:
   const editedHoldings = progress.holdings && Object.keys(progress.holdings).length > 0 ? progress.holdings : null;
   const icUpdated: Record<number, boolean> = { 4: !!savedTaa, 8: !!editedHoldings };
   const pageExtras: Record<number, React.ReactNode> = {
-    ...(signoffN ? { [signoffN]: <SignoffBoxes sigs={sigs} me={role} onSign={(r, sig) => saveSignature(clientId, r, sig)} onRemove={(r) => saveSignature(clientId, r, null)} /> } : {}),
+    ...(signoffN ? { [signoffN]: <SignoffBoxes sigs={sigs} me={role} clientId={clientId} onRemove={(r) => saveSignature(clientId, r, null)} /> } : {}),
     ...(sourcesN ? { [sourcesN]: <SourcesBoard clientId={clientId} me={role} editing={false} hideEditButton /> } : {}),
   };
   const sections = packToSections(clientId, pack, drafts, touched, pageExtras).map((x) => ({ ...x, complete: !!status.complete[x.n], ...(isHiddenFor(x, role, status.complete) && !isSources(x) ? { body: <PendingBox owner={x.owner} /> } : {}) }));

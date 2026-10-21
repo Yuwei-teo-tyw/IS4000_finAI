@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Lock } from "lucide-react";
 import { GenevaMark } from "../../components/documents/GenevaMark";
+import { SCRIPT_FONT } from "../../components/ui";
 import { ROLE_LABEL, type AllocationRow, type Holding, type PackSection, type Role } from "../../types/arc";
 import { ROLE_PEOPLE } from "../../layouts/navConfig";
 import { loadPackDrafts, loadSignatures, savePackDraft, subscribePackDrafts, subscribeSignatures, usePackHistory, type PackSignature } from "../../services/packDraftStore";
@@ -22,7 +23,7 @@ function DocBlocks({ clientId, n, body, chart }: { clientId: string; n: number; 
 
 function SigMark({ g, who }: { g: PackSignature; who: string }) {
   return g.typed || !g.dataUrl
-    ? <span className="font-serif text-lg italic text-ink">{g.name}</span>
+    ? <span className="text-[22px] leading-tight text-ink" style={{ fontFamily: SCRIPT_FONT }}>{g.name}</span>
     : <img src={g.dataUrl} alt={`${who} signature`} className="h-12 max-w-[140px] object-contain" />;
 }
 
