@@ -69,6 +69,8 @@ async def llm_narrative(v: AssetClassView, settings: Settings, llm_factory: Call
     allowed = guardrails.numbers_in(str(facts))
     a = v.agent_view
     evidence = [s.name for s in v.snapshot if s.effect != "neutral"]
+    pp_only = guardrails.pp_only_numbers(" ".join(i["draft"] for i in facts["items"]),
+                                         [s.value for s in v.snapshot if s.unit == "%"])
 
     def check(out: NarrativeOut):
         ok, bad = {}, {}
@@ -81,7 +83,8 @@ async def llm_narrative(v: AssetClassView, settings: Settings, llm_factory: Call
                 slot["kind"], text, allowed, agent_view=a.view, agent_confidence=a.confidence,
                 cio_view=v.cio_view.view, cio_term=v.cio_view.cio_term, stance=slot.get("stance"),
                 insufficient=a.insufficient_evidence, evidence_names=evidence,
-                slot_stances=guardrails.stances_in(f"{slot['draft']} {slot.get('stance_implication', '')}"))
+                slot_stances=guardrails.stances_in(f"{slot['draft']} {slot.get('stance_implication', '')}"),
+                pp_only=pp_only)
             if problems:
                 bad[item.id] = problems
             else:
@@ -100,7 +103,8 @@ async def llm_narrative(v: AssetClassView, settings: Settings, llm_factory: Call
 
     agreement = v.agreement
     if agreement and agreement.explanation and "agreement" in t:
-        agreement = agreement.model_copy(update={"explanation": f"{t['agreement'].rstrip('.')} [{v.cio_view.citation_id}]."})
+        # No full stop after the tag: the page renders the tag as a chip, so it would sit alone after it.
+        agreement = agreement.model_copy(update={"explanation": f"{t['agreement'].rstrip('.')} [{v.cio_view.citation_id}]"})
     risk_ids = {r["draft"]: r["id"] for r in facts["items"] if r["kind"] == "risk"}
     risks = []
     for r in v.risks:

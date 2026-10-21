@@ -216,7 +216,7 @@ def test_view_drafts_pass_the_guardrail(ac):
     assert [s.view for s in out.segments] == [s.view for s in v.segments]
     assert [r.refs for r in out.risks] == [r.refs for r in v.risks]
     if out.agreement and out.agreement.explanation:
-        assert out.agreement.explanation.endswith(f"[{v.cio_view.citation_id}].")
+        assert out.agreement.explanation.endswith(f"[{v.cio_view.citation_id}]")
 
 
 def _with_slot(out: NarrativeOut, sid: str, text: str) -> NarrativeOut:
@@ -265,6 +265,16 @@ def test_a_scenario_may_name_the_stance_it_would_move_to():
     text = f"If conditions shift as the trigger describes, the agent view would move to {new}."
     out = run_async(llm_service(FakeLLM(_with_slot(view_drafts_as_llm(v), f"scenario_{s.case}", text))).asset_class_view(v.asset_class))
     assert next(x for x in out.scenarios if x.case == s.case).description == text
+
+
+def test_a_pp_change_written_as_percent_is_rejected():
+    v = rules_view("Real estate")
+    point = next(i for i, p in enumerate(v.agent_view.thesis_points) if "pp" in p.text)
+    pp = re.search(r"(\d+(?:\.\d+)?)pp", v.agent_view.thesis_points[point].text).group(1)
+    bad = _with_slot(view_drafts_as_llm(v), f"point_{point}", f"The 10-Year Treasury Yield rose {pp}% over 3 months, which weighs on real estate.")
+    out = run_async(llm_service(FakeLLM(bad, bad)).asset_class_view("Real estate"))
+    assert out.agent_view.thesis_points[point].text == v.agent_view.thesis_points[point].text
+    assert guardrails.pp_only_numbers("rose +0.64pp; level 5.19%", [4.1]) == {0.64}
 
 
 def test_view_narrative_is_cached_per_market_run():

@@ -38,6 +38,17 @@ def normalise(text: str) -> str:
     return text.translate(_DASHES).strip()
 
 
+_PERCENT = re.compile(r"([+-]?\d+(?:\.\d+)?)\s?%")
+_PP = re.compile(r"([+-]?\d+(?:\.\d+)?)\s?pp\b")
+
+
+def pp_only_numbers(engine_text: str, percent_values: Iterable[float] = ()) -> set[float]:
+    """Numbers the engine writes as pp and never as %, e.g. a 3-month rise in a yield."""
+    pp = {abs(float(m.group(1))) for m in _PP.finditer(engine_text)}
+    pct = {abs(float(m.group(1))) for m in _PERCENT.finditer(engine_text)} | {abs(v) for v in percent_values}
+    return pp - pct
+
+
 def stances_in(text: str) -> set[str]:
     return {w for w in _STANCES if re.search(rf"\b{w}\b", text)}
 _SEGMENT_STANCES = ("Most preferred", "Least preferred")
@@ -92,10 +103,15 @@ def check_bullet(text: str, product_id: str, allowed_citations: set[str], allowe
 
 def check_view_slot(kind: str, text: str, allowed_numbers: set[float], *, agent_view: str, agent_confidence: str,
                     cio_view: str, cio_term: str, stance: Optional[str] = None, insufficient: bool = False,
-                    evidence_names: Iterable[str] = (), slot_stances: Iterable[str] = ()) -> list[str]:
+                    evidence_names: Iterable[str] = (), slot_stances: Iterable[str] = (),
+                    pp_only: set[float] = frozenset()) -> list[str]:
     """One text slot of an asset-class view. Stances and the CIO's wording are fixed by the engine.
-    `slot_stances` are stance words the slot's own facts use, e.g. a scenario that "would move to Sell"."""
+    `slot_stances` are stance words the slot's own facts use, e.g. a scenario that "would move to Sell".
+    `pp_only` are numbers the engine gives only in percentage points; writing them as % changes their meaning."""
     problems = _common(text, allowed_numbers)
+    for m in _PERCENT.finditer(text):
+        if abs(float(m.group(1))) in pp_only:
+            problems.append(f"{m.group(0)} is a change in percentage points (pp), not %")
     if _TAG.search(text):
         problems.append("contains a citation tag (refs are attached by code)")
     if m := _FORECAST.search(text):

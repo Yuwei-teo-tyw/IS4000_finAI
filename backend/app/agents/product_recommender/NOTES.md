@@ -77,7 +77,13 @@ Plan: `product_recommender_agent.md` (repo root). This file records what was fou
   - v2 prompts (latest): 1 of 69 products and 0 of 14 views; 14 calls for 14 views, each view 2-9 s.
   - The remaining rejection is the model miscopying `HV-2026-08-p10` as `HV-2026-10-p10` for `MOCK-CORP-001`. The guardrail keeps rejecting it rather than repairing it, because repairing a citation would hide the error it is there to catch.
 - **Tracing:** each call passes a Langfuse callback (when configured) with `run_name`, tags, the attempt number, the request id as session id and the resolved `prompt_versions`.
-- **Open:** a browser check of the chat and asset-view pages with the stack running.
+- **Browser check (21 Oct 2026, headless Edge via Playwright):** the asset-view page (`/ps/asset-views/real-estate`) and three PS chat paths render the LLM text with citation chips and no console errors. The paths were "Recommend products for …" (product table), the seeded match prompt ("Ranked shortlist") and "What's the view on fixed income?" (view card). It found three issues, all fixed:
+  - The model wrote a 3-month yield rise of +0.64pp as "0.64%". The guardrail now rejects a number written as % when the engine only ever gives it in pp, and the v3 view prompt says to keep units.
+  - The agreement text ended "[HV-...] ." with the full stop alone after the chip; the tag now ends the text.
+  - Reasons repeated the drawdown gate note that the page already shows under them. The v3 reasons prompt says gate notes are shown separately and must not be restated. Afterwards, 0 of 6 such products repeat it.
+  - The "Recommend products for …" path had no AI-written/rule-based note; `arcApi` now adds it to that summary.
+  - A later live run with v3 prompts kept no rule-based text at all: 69 of 69 products and 14 of 14 views. Retries recovered 3 Groq "model did not call a tool" errors and 1 pp rejection.
+- **Dev note:** under Docker on Windows, Vite does not see file changes through the bind mount (no polling in `vite.config.ts`), and uvicorn reloads only on `.py` changes. After editing frontend files or `prompts.yaml`, restart that container.
 
 ## Status
 
