@@ -14,7 +14,7 @@ import type {
   ActivityEvent, AllocationRow, Bucket3L, Client, Gate, GateId, GateState, Holding, InboxItem, IpsPart, MacroBrief, MarketRow,
   MarketView, HouseView, PackRenderInput, MarketAnswer, MeetingNote, IpsVersion, PackSection, Product, ProductClass, Role, AllocationGroup, CorrelationMatrix, GoalProjection, SectionDraft, GenevaArticle, GenevaContext, GenevaReply,
 } from "../types/arc";
-import type { PmClientProfile, PmInputField, PmInputs, PmRequest, PmResponse } from "../types/portfolio";
+import type { PmClientProfile, PmInputField, PmInputs, PmRequest, PmResponse, PmWeightEvaluation } from "../types/portfolio";
 import type { PrAssetClassHeadline, PrAssetView, PrHouseView, PrOptions, PrRequest, PrResponse, PrShelf, PrShelfProduct, PrShortlistItem } from "../types/productRecommender";
 import type { RcPackReport, RcPackRequest, RcPackSection } from "../types/riskCompliance";
 
@@ -37,12 +37,15 @@ const SAA_ASSETS = ["Cash", "Fixed income", "Equities", "Hedge funds", "Private 
 /** Once the IC returned the IPS, parts 2 (3L buckets) and 4 (SAA) carry the IC's saved values. */
 const withIcReturn = (clientId: string, parts: IpsPart[]): IpsPart[] => {
   if (!isIpsReturned(clientId)) return parts;
-  const { buckets, saa } = loadIcProgress(clientId);
+  const { buckets, saa, saaWeights } = loadIcProgress(clientId);
   const bk = m.buckets3LByClient[clientId] ?? m.buckets3L;
   return parts.map((p) => {
     if (p.part === 2 && buckets && buckets.length === bk.length) {
       const tot = buckets.reduce((a, b) => a + b, 0) || 1;
       return { ...p, status: "filled", body: bk.map((b, i) => `• ${b.name ?? b.id}: ${Math.round((buckets[i] / tot) * 100)}% (S$${buckets[i].toLocaleString("en-SG")})`).join("\n") };
+    }
+    if (p.part === 4 && saaWeights && Object.keys(saaWeights).length) {
+      return { ...p, status: "filled", body: Object.entries(saaWeights).filter(([, w]) => w > 0).map(([a, w]) => `• ${a} ${+w.toFixed(2)}%`).join("\n") };
     }
     if (p.part === 4 && saa && saa.length === SAA_ASSETS.length) return { ...p, status: "filled", body: SAA_ASSETS.map((a, i) => `• ${a} ${saa[i]}%`).join("\n") };
     return p;
@@ -123,6 +126,11 @@ export const arcApi = {
   generatePortfolioProposals: (request: PmRequest): Promise<PmResponse> => generatePortfolioProposals(request),
   /** Real backend call: the Risk & Compliance agent's final check of the review pack. Never approves G4; it only says whether the RM may. */
   checkReviewPack: (input: PackCheckInput): Promise<RcPackReport> => checkReviewPack(input),
+  /** A proposal generated earlier (kept by the backend), so Back does not re-run the agent. */
+  getPortfolioProposal: (requestId: string): Promise<PmResponse> => getPortfolioProposal(requestId),
+  /** Backend re-check of adjusted asset-class weights: risk, return, limits and the efficient frontier. */
+  evaluatePortfolioWeights: (requestId: string, optionId: string, weights: Record<string, number>, signal?: AbortSignal): Promise<PmWeightEvaluation> =>
+    evaluatePortfolioWeights(requestId, optionId, weights, signal),
   getAllocation: (clientId: string): Promise<AllocationRow[]> => delay(m.allocationByClient[clientId] ?? m.allocation),
   getSaaTemplates: () => delay(m.saaTemplates),
   getIps: (clientId: string): Promise<IpsPart[]> => delay(withIcReturn(clientId, m.ipsPartsByClient[clientId] ?? m.ipsParts)),
@@ -472,7 +480,7 @@ const PM_URL = `${API_BASE}/agents/portfolio-manager`;
 const PM_TIMEOUT_MS = 90_000; // generation can include an LLM call
 
 export class PortfolioManagerError extends Error {
-  kind: "UNREACHABLE" | "TIMEOUT" | "REJECTED" | "SERVER" | "INVALID_RESPONSE";
+  kind: "UNREACHABLE" | "TIMEOUT" | "REJECTED" | "NOT_FOUND" | "SERVER" | "INVALID_RESPONSE";
   details: string[];
   constructor(kind: PortfolioManagerError["kind"], message: string, details: string[] = []) {
     super(message);
@@ -562,14 +570,14 @@ async function buildPortfolioInputs(clientId: string): Promise<PmInputs> {
   };
 }
 
-async function generatePortfolioProposals(req: PmRequest): Promise<PmResponse> {
-  const body: PmRequest = { ...req, request_id: req.request_id ?? `IC-${req.client_id}-${Date.now()}` };
+/** One fetch path for every Portfolio Manager call: same timeouts, error kinds and messages. */
+async function pmJson(path: string, init: RequestInit, timeoutMs = PM_TIMEOUT_MS, signal?: AbortSignal): Promise<unknown> {
   let res: Response;
   try {
-    res = await fetch(`${PM_URL}/portfolio/generate`, {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(PM_TIMEOUT_MS),
-    });
+    const timeout = AbortSignal.timeout(timeoutMs);
+    res = await fetch(`${PM_URL}${path}`, { ...init, signal: signal ? AbortSignal.any([signal, timeout]) : timeout });
   } catch (err) {
+    if (signal?.aborted) throw err; // superseded by a newer request; callers ignore it
     if (err instanceof DOMException && (err.name === "TimeoutError" || err.name === "AbortError")) {
       throw new PortfolioManagerError("TIMEOUT", "The Portfolio Manager did not respond in time.");
     }
@@ -584,14 +592,40 @@ async function generatePortfolioProposals(req: PmRequest): Promise<PmResponse> {
       throw new PortfolioManagerError("REJECTED", "The Portfolio Manager rejected the inputs.",
         detail.map((d: { loc?: unknown[]; msg?: string }) => `${(d.loc ?? []).filter((x) => x !== "body").join(" › ")}: ${d.msg ?? "invalid"}`));
     }
+    if (res.status === 404 || res.status === 409) {
+      throw new PortfolioManagerError(res.status === 404 ? "NOT_FOUND" : "REJECTED", typeof detail === "string" ? detail : `HTTP ${res.status}`);
+    }
     throw new PortfolioManagerError("SERVER", `The Portfolio Manager returned an error (${typeof detail === "string" ? detail : `HTTP ${res.status}`}).`);
   }
+  return json;
+}
+
+function asProposal(json: unknown): PmResponse {
   const r = json as Partial<PmResponse> | null;
   const ok = !!r && typeof r.request_id === "string" && Array.isArray(r.portfolio_options) && Array.isArray(r.comparison_matrix)
     && Array.isArray(r.candidate_products) && !!r.market_context_summary && r.requires_rm_review === true && r.execution_status === "NOT_EXECUTED"
     && r.portfolio_options.every((o) => typeof o?.option_id === "string" && Array.isArray(o?.asset_allocation) && Array.isArray(o?.product_selections));
   if (!ok) throw new PortfolioManagerError("INVALID_RESPONSE", "The Portfolio Manager's response did not match the expected format.");
   return r as PmResponse;
+}
+
+async function generatePortfolioProposals(req: PmRequest): Promise<PmResponse> {
+  const body: PmRequest = { ...req, request_id: req.request_id ?? `IC-${req.client_id}-${Date.now()}` };
+  return asProposal(await pmJson("/portfolio/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }));
+}
+
+async function getPortfolioProposal(requestId: string): Promise<PmResponse> {
+  return asProposal(await pmJson(`/portfolio/${encodeURIComponent(requestId)}`, { method: "GET" }, 15_000));
+}
+
+async function evaluatePortfolioWeights(requestId: string, optionId: string, weights: Record<string, number>, signal?: AbortSignal): Promise<PmWeightEvaluation> {
+  const json = await pmJson(`/portfolio/${encodeURIComponent(requestId)}/options/${encodeURIComponent(optionId)}/evaluate`,
+    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ weights }) }, 20_000, signal);
+  const e = json as Partial<PmWeightEvaluation> | null;
+  if (!e || !Array.isArray(e.lines) || !Array.isArray(e.checks) || !e.original || !e.adjusted || typeof e.valid !== "boolean") {
+    throw new PortfolioManagerError("INVALID_RESPONSE", "The weight check response did not match the expected format.");
+  }
+  return e as PmWeightEvaluation;
 }
 
 /* ---------- Product Recommender agent (real backend) ---------- */
@@ -601,7 +635,7 @@ const PR_TIMEOUT_MS = 30_000;
 
 /** No mock fallback: the PS must never approve a list the agent did not produce. */
 export class ProductRecommenderError extends Error {
-  kind: "UNREACHABLE" | "TIMEOUT" | "REJECTED" | "SERVER" | "INVALID_RESPONSE";
+  kind: "UNREACHABLE" | "TIMEOUT" | "REJECTED" | "NOT_FOUND" | "SERVER" | "INVALID_RESPONSE";
   details: string[];
   constructor(kind: ProductRecommenderError["kind"], message: string, details: string[] = []) {
     super(message);

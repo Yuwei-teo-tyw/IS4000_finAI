@@ -5,6 +5,8 @@ HTTP interface for the Portfolio Manager agent.
     GET  /agents/portfolio-manager/templates                  the six SAA templates (A-F) options are built from
     POST /agents/portfolio-manager/portfolio/generate         construct, compare and explain portfolio options
     GET  /agents/portfolio-manager/portfolio/{request_id}     a previously generated proposal
+    POST /agents/portfolio-manager/portfolio/{request_id}/options/{option_id}/evaluate
+                                                              re-check adjusted weights + efficient frontier
 
 Proposal-only: nothing here executes trades or changes client holdings. The
 service lives on `app.state.portfolio_manager`; without it - e.g. a bare test
@@ -19,7 +21,9 @@ from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+from app.agents.portfolio_manager.engine.adjust import EvaluationError, evaluate_weights
 from app.agents.portfolio_manager.engine.construction import TEMPLATES, template_growth
+from app.agents.portfolio_manager.schemas.adjust import WeightEvaluation, WeightEvaluationRequest
 from app.agents.portfolio_manager.schemas.client import PortfolioGenerateRequest
 from app.agents.portfolio_manager.schemas.response import PortfolioResponse
 from app.agents.portfolio_manager.service import DuplicateRequestError, PortfolioService
@@ -91,6 +95,24 @@ async def get_portfolio(
     if proposal is None:
         raise HTTPException(status_code=404, detail="No proposal found for this request_id.")
     return proposal
+
+
+@router.post("/portfolio/{request_id}/options/{option_id}/evaluate", response_model=WeightEvaluation)
+async def evaluate_adjusted_weights(
+    body: WeightEvaluationRequest,
+    request_id: str = Path(pattern=r"^[A-Za-z0-9_\-.]{1,64}$"),
+    option_id: str = Path(pattern=r"^[A-F]$"),
+    service: PortfolioService = Depends(get_service),
+) -> WeightEvaluation:
+    """Risk, return and constraint checks for an IC's adjusted asset-class weights, plus the
+    efficient frontier. Calculation only: nothing is saved or approved."""
+    proposal = service.get(request_id)
+    if proposal is None:
+        raise HTTPException(status_code=404, detail="No proposal found for this request_id. Run the Portfolio Manager again.")
+    try:
+        return evaluate_weights(proposal, option_id, body.weights, service.cma)
+    except EvaluationError as e:
+        raise HTTPException(status_code=409, detail=str(e))
 
 
 def install_validation_handler(app: FastAPI, extra_prefixes: tuple[str, ...] = ()) -> None:

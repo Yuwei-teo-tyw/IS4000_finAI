@@ -46,6 +46,7 @@ from app.agents.portfolio_manager.schemas.response import (
     PortfolioResponse,
     ProductDetails,
     ProductSelection,
+    SubAssetAllocationItem,
 )
 from app.agents.portfolio_manager.schemas.upstream import MarketResearchOutput, ProductCandidate, UpstreamResult
 from app.agents.portfolio_manager.storage import ProposalStore
@@ -185,6 +186,7 @@ class PortfolioService:
             source = "UPSTREAM_API" if product_res.source == "LIVE" else "ILLUSTRATIVE_MOCK"
             options = [self._assemble(b, ctx, a, profile, market, source) for b in built]
             options = [self._enforce_validation(o) for o in options]
+            self._add_key_differences(options)
             candidates = self._candidates(products, screening, options, source)
 
         offered = [o for o in options if o.suitability_status in OFFERED]
@@ -338,6 +340,7 @@ class PortfolioService:
         return PortfolioOption(
             **common,
             asset_allocation=allocation,
+            sub_asset_allocation=self._sub_allocation(selections),
             product_selections=selections,
             expected_portfolio_return=metrics.expected_annual_return_pct,
             estimated_risk_level=risk_level(metrics),
@@ -357,6 +360,49 @@ class PortfolioService:
         )
 
     @staticmethod
+    def _sub_allocation(selections) -> list:
+        agg: dict = {}
+        for s in selections:
+            key = (s.asset_class, s.details.sub_asset_class or s.asset_class)
+            pct, amt = agg.get(key, (0.0, 0.0))
+            agg[key] = (pct + s.allocation_percentage, amt + s.investment_amount)
+        return [SubAssetAllocationItem(asset_class=ac, sub_asset_class=sub, allocation_percentage=round(p, 2),
+                                       investment_amount=round(a, 2))
+                for (ac, sub), (p, a) in sorted(agg.items(), key=lambda kv: -kv[1][0])]
+
+    @staticmethod
+    def _add_key_differences(options: list[PortfolioOption]) -> None:
+        """Plain statements of how each offered option differs from the previous (more cautious) one."""
+        offered = [o for o in options if o.suitability_status in OFFERED and o.metrics]
+        for i, o in enumerate(offered):
+            m = o.metrics
+            if i == 0:
+                defensive = sum(a.allocation_percentage for a in o.asset_allocation if a.asset_class in ("Cash", "Fixed income"))
+                o.key_differences = [
+                    f"Most cautious portfolio proposed: {defensive:.1f}% in cash and fixed income, "
+                    f"{m.growth_asset_share_pct:.1f}% growth assets."
+                ]
+                continue
+            prev = offered[i - 1]
+            pm = prev.metrics
+            mine = {a.asset_class: a.allocation_percentage for a in o.asset_allocation}
+            theirs = {a.asset_class: a.allocation_percentage for a in prev.asset_allocation}
+            moves = sorted(((ac, mine.get(ac, 0.0) - theirs.get(ac, 0.0)) for ac in set(mine) | set(theirs)),
+                           key=lambda kv: -abs(kv[1]))
+            moves = [f"{ac} {d:+.1f} pts" for ac, d in moves if abs(d) >= 1.0][:4]
+            diffs = [f"Compared with {prev.option_id} ({prev.option_name}): " + (", ".join(moves) if moves else
+                                                                                 "a similar asset mix") + "."]
+            if m.estimated_stress_drawdown_pct is not None and pm.estimated_stress_drawdown_pct is not None:
+                diffs.append(f"Estimated stress drawdown {m.estimated_stress_drawdown_pct:.1f}% vs "
+                             f"{pm.estimated_stress_drawdown_pct:.1f}%.")
+            if o.expected_portfolio_return is not None and prev.expected_portfolio_return is not None:
+                diffs.append(f"Expected return assumption {o.expected_portfolio_return:.2f}% vs "
+                             f"{prev.expected_portfolio_return:.2f}% a year.")
+            if m.high_liquidity_share_pct is not None and pm.high_liquidity_share_pct is not None                     and abs(m.high_liquidity_share_pct - pm.high_liquidity_share_pct) >= 1:
+                diffs.append(f"Daily-dealing share {m.high_liquidity_share_pct:.0f}% vs {pm.high_liquidity_share_pct:.0f}%.")
+            o.key_differences = diffs
+
+    @staticmethod
     def _enforce_validation(o: PortfolioOption) -> PortfolioOption:
         errors = validate_option(o)
         if not errors:
@@ -365,7 +411,7 @@ class PortfolioService:
         return o.model_copy(update=dict(
             suitability_status="INFEASIBLE",
             suitability_explanation="Withheld: the option failed programmatic numerical validation.",
-            asset_allocation=[], product_selections=[], expected_portfolio_return=None,
+            asset_allocation=[], sub_asset_allocation=[], product_selections=[], expected_portfolio_return=None,
             estimated_risk_level=None, metrics=None, scenario_analysis=[], goal_alignment=[],
             advantages=[], disadvantages=[], narrative=None, narrative_source="NONE",
             warnings=o.warnings + [f"Validation error: {e}" for e in errors],

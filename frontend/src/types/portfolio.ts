@@ -92,12 +92,16 @@ export interface PmOption {
   suitability_status: PmSuitability; suitability_explanation: string;
   eligible_portfolio_value: number | null; base_currency: string | null;
   asset_allocation: { asset_class: string; allocation_percentage: number; investment_amount: number; change_from_current_pp: number | null }[];
+  /** By product sub-class (e.g. Government bonds within Fixed income), summed from the products. */
+  sub_asset_allocation: { asset_class: string; sub_asset_class: string; allocation_percentage: number; investment_amount: number }[];
   product_selections: PmProductSelection[];
   expected_portfolio_return: number | null; estimated_risk_level: string | null; metrics: PmMetrics | null;
   scenario_analysis: PmScenarioOutcome[]; goal_alignment: PmGoalAlignment[]; constraint_checks: PmConstraintCheck[];
   liquidity_assessment: string; diversification_assessment: string;
   advantages: string[]; disadvantages: string[]; rationale: PmStatement[]; assumptions: string[]; warnings: string[];
   narrative: string | null; narrative_source: "LLM_INTERPRETATION" | "DETERMINISTIC_TEMPLATE" | "NONE";
+  /** How this option differs from the next more cautious offered option. */
+  key_differences: string[];
 }
 
 export interface PmMarketIndicator { id: string; name: string; category: string; value: number; unit: string; observation_date: string; signal: string; percentile_10y: number | null; stale: boolean; source: string; source_url: string }
@@ -139,6 +143,28 @@ export interface PmResponse {
   warnings: string[];
   explanation_status: { source: "LLM" | "DETERMINISTIC_FALLBACK" | "DETERMINISTIC"; llm_attempted: boolean; llm_succeeded: boolean; model: string | null; detail: string };
   requires_rm_review: true; execution_status: "NOT_EXECUTED"; disclaimer: string;
+}
+
+// ------------------------------------------------- Adjusted weights (Edit weights) --
+
+export interface PmPortfolioPoint {
+  model_volatility_pct: number | null; model_expected_return_pct: number | null; product_expected_return_pct: number | null;
+  stress_drawdown_pct: number | null; growth_asset_share_pct: number; estimated_annual_fee_pct: number | null; foreign_currency_exposure_pct: number | null;
+}
+
+export interface PmFrontier {
+  asset_classes: string[];
+  points: { volatility_pct: number; expected_return_pct: number; weights: Record<string, number> }[];
+  model_label: string; basis: "ASSUMPTION"; method: string;
+}
+
+export interface PmWeightEvaluation {
+  request_id: string; option_id: string; option_name: string; eligible_portfolio_value: number;
+  lines: { asset_class: string; original_pct: number; adjusted_pct: number; adjusted_amount: number; change_pp: number;
+    expected_return_pct: number | null; stress_drawdown_pct: number | null; model_volatility_pct: number | null }[];
+  original: PmPortfolioPoint; adjusted: PmPortfolioPoint;
+  frontier: PmFrontier | null; frontier_limitation: string | null;
+  checks: PmConstraintCheck[]; valid: boolean; notes: string[];
 }
 
 export const OFFERED: PmSuitability[] = ["SUITABLE", "SUITABLE_WITH_MODIFICATIONS"];

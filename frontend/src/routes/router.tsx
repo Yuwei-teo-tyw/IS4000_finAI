@@ -13,6 +13,7 @@ import PackReview from "../pages/rm/PackReview";
 import IcInbox from "../pages/ic/IcInbox";
 import ThreeLBuilder from "../pages/ic/ThreeLBuilder";
 import SaaBuilder from "../pages/ic/SaaBuilder";
+import SaaWeights from "../pages/ic/SaaWeights";
 import ProductRecommendations from "../pages/ic/ProductRecommendations";
 import IcMarketHealth from "../pages/ic/IcMarketHealth";
 import TaaWorkspace from "../pages/ic/TaaWorkspace";
@@ -78,6 +79,7 @@ export const router = createBrowserRouter([
       client360,
       { path: "requests/:clientId/3l", element: <ThreeLBuilder /> },
       { path: "requests/:clientId/saa", element: <SaaBuilder /> },
+      { path: "requests/:clientId/saa/weights", element: <SaaWeights /> },
       { path: "cases/:clientId/products", element: <ProductRecommendations /> },
       { path: "cases/:clientId/insights", element: <Navigate to="../products" relative="path" replace /> },
       { path: "cases/:clientId/market-health", element: <IcMarketHealth /> },

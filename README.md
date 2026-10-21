@@ -178,6 +178,7 @@ It is **proposal-only**: it never executes trades or changes holdings, and every
 | `GET /agents/portfolio-manager/templates` | The six SAA templates A–F (weights, growth share, minimum risk level and horizon) |
 | `POST /agents/portfolio-manager/portfolio/generate` | Validate the profile → fetch market and product data → construct, validate, compare and explain options A–F |
 | `GET /agents/portfolio-manager/portfolio/{request_id}` | A stored proposal. The store is in memory and bounded, so proposals are lost on restart. Returns `404` if unknown |
+| `POST /agents/portfolio-manager/portfolio/{request_id}/options/{option_id}/evaluate` | Re-checks the IC's adjusted asset-class weights against the stored proposal (return, drawdown, growth share, fees, currency, concentration, minimum investments, ±5-point band) and returns the efficient frontier. Calculation only; nothing is saved |
 
 **Inputs**
 
@@ -219,15 +220,17 @@ Both functions are marked `# INPUT API HERE`.
 
 **In the frontend.** The agent appears in the Investment Counsellor's **3L And SAA** flow (`/ic/requests/:clientId/3l`, then `saa`):
 
-1. On the 3L step, the IC sets the buckets. "Continue to SAA" saves them.
-2. The SAA step shows the agent's inputs and where each came from, and the IC clicks **Run the Portfolio Manager**:
+1. **Client profile and 3L.** The IC reads the RM's IPS and sets the buckets. "Continue to SAA" saves them.
+2. **Pick a portfolio** (`/saa`) shows the agent's inputs and where each came from, and the IC clicks **Run the Portfolio Manager**:
    - The portfolio is the client's AUM. The **Liquidity bucket** is held separately in cash, and the agent invests the rest.
    - Risk category, risk limit, **risk capacity** and the drawdown limit come from IPS part 3.
    - Goals come from goal-plan events more than 3 years out. Nearer goals are funded by the Liquidity bucket.
    - Fields that aren't captured are sent as missing, never guessed.
-3. Each of the six template cards shows the agent's verdict: whether it is offered, its expected return, stress drawdown, growth share and the agent's preference.
-4. The **Compare** tab has four views: Side by side, Option detail (the agent's mix against the template, products and checks), Products (every candidate, with why it was used or excluded), and Why (labelled rationale and the Market Researcher's input).
-5. The IC still picks the template, edits the weights and sends it back to the RM. The agent never approves anything.
+3. Only the portfolios the agent can construct within the client's limits are shown, so the number varies by client (a conservative client may get one; an aggressive one up to six). The rest are listed under "Not proposed for this client" with the reason. If the profile cannot support any portfolio, a **More information needed** panel names the missing fields instead.
+4. Two switchable views keep the selection:
+   - **Portfolios:** one card per proposed portfolio, with every asset class and sub-class, amounts, risk level, expected return assumption, fees, liquidity, how it differs from the more cautious portfolio, advantages and disadvantages, goal fit and why it was proposed. The selected portfolio is shown in detail below (allocation and products, or the rationale).
+   - **Compare portfolios:** one row per asset class found in any portfolio, plus return, downside, scenarios, liquidity, fees, diversification, currency and fit, and the product comparison.
+5. **Edit weights** (`/saa/weights`) is its own step. The weight editor sits beside the **efficient frontier**: a long-only mean-variance frontier over the asset classes the client can hold, built from the house assumptions' expected returns, volatilities and correlations. Every change is re-checked by the backend (debounced), which moves the adjusted point and updates the metrics. The editor offers **Reset to original weights**, **Back** (the draft and selection are kept) and **Continue: send back to RM**, which stays disabled until every check passes. The agent never approves anything.
 
 The mapping from captured data to agent inputs is in `buildPortfolioInputs` in `frontend/src/services/arcApi.ts`. The frontend calls `VITE_API_BASE`, which defaults to `http://localhost:8000`.
 

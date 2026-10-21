@@ -272,6 +272,14 @@ class ConstraintCheck(_Out):
 OptionId = Literal["A", "B", "C", "D", "E", "F"]
 
 
+class SubAssetAllocationItem(_Out):
+    """Allocation by product sub-class (e.g. Government bonds within Fixed income), summed from the products."""
+    asset_class: str
+    sub_asset_class: str
+    allocation_percentage: float
+    investment_amount: float
+
+
 class PortfolioOption(_Out):
     option_id: OptionId
     option_name: str
@@ -281,6 +289,7 @@ class PortfolioOption(_Out):
     eligible_portfolio_value: Optional[float]
     base_currency: Optional[str]
     asset_allocation: list[AssetAllocationItem]
+    sub_asset_allocation: list[SubAssetAllocationItem] = Field(default_factory=list)
     product_selections: list[ProductSelection]
     expected_portfolio_return: Optional[float]
     estimated_risk_level: Optional[str]
@@ -297,6 +306,9 @@ class PortfolioOption(_Out):
     warnings: list[str]
     narrative: Optional[str]
     narrative_source: Literal["LLM_INTERPRETATION", "DETERMINISTIC_TEMPLATE", "NONE"]
+    key_differences: list[str] = Field(
+        default_factory=list, description="How this option differs from the next more cautious offered option"
+    )
 
 
 class ComparisonRow(_Out):

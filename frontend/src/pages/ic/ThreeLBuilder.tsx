@@ -6,8 +6,8 @@ import { Button, Card, GateChip, Loading, NextAction, PageHeader, Section, Stepp
 import { AutoSaveStatus } from "../../components/ic/SaveProgressButton";
 import { saveIcProgress, useIcProgress, useIpsReturned } from "../../services/workflowStore";
 import { Bar, BackLink, Msg, NumInput } from "./icHelpers";
+import { IC_STEPS } from "./icSteps";
 
-export const IC_STEPS = [{ label: "3L buckets", hint: "IPS part 2" }, { label: "SAA", hint: "IPS part 4" }, { label: "Send back to RM", hint: "Return to RM" }];
 
 export default function ThreeLBuilder() {
   const { clientId = "ser" } = useParams();
@@ -75,7 +75,7 @@ export default function ThreeLBuilder() {
       </Section>
 
       <div className="mb-6 flex justify-end"><AutoSaveStatus savedAt={progress.savedAt} /></div>
-      <NextAction title="Continue to SAA" body="Once the buckets add up, pick a strategic template and fine-tune it." action={<Button onClick={continueToSaa} disabled={!ok}>Continue to SAA</Button>} />
+      <NextAction title="Continue to SAA" body="Once the buckets add up, the Portfolio Manager proposes portfolios for this client. Pick one, then fine-tune its weights." action={<Button onClick={continueToSaa} disabled={!ok}>Continue to SAA</Button>} />
       <BackLink to="/ic/inbox">Back to inbox</BackLink>
     </div>
   );

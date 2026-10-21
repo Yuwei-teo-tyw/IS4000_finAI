@@ -2,6 +2,8 @@ import type { ReactNode } from "react";
 import type { PmOption, PmResponse } from "../../types/portfolio";
 import { isOffered } from "../../types/portfolio";
 import { Card, Table } from "../ui";
+import { allocationOf, classColor, classUnion } from "./allocation";
+import { AllocationBar } from "./AllocationView";
 import { DASH, pct, sgdAmt } from "./pmFormat";
 
 function Bar({ value, max, tone }: { value: number | null; max: number; tone: "ink" | "brand" }) {
@@ -31,9 +33,26 @@ export function PortfolioCompare({ response }: { response: PmResponse }) {
   const fit = (criterion: string) => (o: PmOption) => response.comparison_matrix.find((r) => r.criterion === criterion)?.values[o.option_id] ?? DASH;
   const max = Math.max(1, ...offered.flatMap((o) => [o.expected_portfolio_return ?? 0, o.metrics?.estimated_stress_drawdown_pct ?? 0]));
 
-  const rows: [string, (o: PmOption) => ReactNode][] = [
+  // One row per asset class held by any proposed portfolio - taken from the data, never a fixed list.
+  const classRows: [ReactNode, (o: PmOption) => ReactNode][] = classUnion(offered).map((ac) => [
+    <span key={ac} className="inline-flex items-center gap-2"><i className="inline-block h-2.5 w-2.5" style={{ background: classColor(ac) }} aria-hidden />{ac}</span>,
+    (o) => {
+      const a = o.asset_allocation.find((x) => x.asset_class === ac);
+      if (!a || a.allocation_percentage === 0) return <span className="text-ink-muted">Not held</span>;
+      const subs = (o.sub_asset_allocation ?? []).filter((x) => x.asset_class === ac && x.sub_asset_class !== ac);
+      return (
+        <div>
+          <p className="text-ink">{pct(a.allocation_percentage)} <span className="text-xs text-ink-muted">({sgdAmt(a.investment_amount)})</span></p>
+          {subs.length > 1 && <p className="text-xs text-ink-muted">{subs.map((x) => `${x.sub_asset_class} ${pct(x.allocation_percentage)}`).join(" · ")}</p>}
+        </div>
+      );
+    },
+  ]);
+
+  const rows: [ReactNode, (o: PmOption) => ReactNode][] = [
     ["Objective", (o) => o.objective],
-    ["Asset allocation", (o) => lines(o.asset_allocation.map((a) => `${a.asset_class} ${pct(a.allocation_percentage)}`))],
+    ["Asset mix", (o) => <AllocationBar rows={allocationOf(o)} />],
+    ...classRows,
     ["Expected return (assumption)", (o) => <><p className="text-ink">{pct(o.expected_portfolio_return, 2)} p.a.</p><p className="text-xs text-ink-muted">Product yields for cash and bonds; house assumptions for other assets; after fees.</p></>],
     ["Expansion / slowdown / recession", (o) => lines(o.scenario_analysis.map((s) => `${s.scenario}: ${pct(s.portfolio_return_pct, 1, true)}`))],
     ["Risk and downside", (o) => <><p className="text-ink">{o.estimated_risk_level ?? DASH}</p><p>Stress drawdown {pct(o.metrics?.estimated_stress_drawdown_pct)} ({sgdAmt(o.eligible_portfolio_value && o.metrics?.estimated_stress_drawdown_pct != null ? (o.eligible_portfolio_value * o.metrics.estimated_stress_drawdown_pct) / 100 : null)})</p></>],
@@ -64,14 +83,14 @@ export function PortfolioCompare({ response }: { response: PmResponse }) {
         </div>
         {withdrawn.length > 0 && (
           <div className="mt-8 border-t border-hairline pt-5 text-sm text-ink-muted">
-            <p className="text-xs font-semibold uppercase tracking-[0.12em]">Not offered</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.12em]">Not proposed for this client</p>
             <ul className="mt-2 space-y-1">{withdrawn.map((o) => <li key={o.option_id}><span className="text-ink">{o.option_id} · {o.option_name}:</span> {o.suitability_explanation}</li>)}</ul>
           </div>
         )}
       </Card>
       <Table
         head={["Criterion", ...offered.map((o) => `${o.option_id} · ${o.option_name}`)]}
-        rows={rows.map(([label, render]) => [<span key="l" className="font-semibold text-ink">{label}</span>, ...offered.map((o) => <div key={o.option_id} className="min-w-[180px] text-sm text-ink-700">{render(o)}</div>)])}
+        rows={rows.map(([label, render], i) => [<span key={`l${i}`} className="font-semibold text-ink">{label}</span>, ...offered.map((o) => <div key={o.option_id} className="min-w-[180px] text-sm text-ink-700">{render(o)}</div>)])}
       />
     </div>
   );
