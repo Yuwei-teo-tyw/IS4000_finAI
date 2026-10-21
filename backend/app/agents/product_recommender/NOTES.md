@@ -53,8 +53,31 @@ Plan: `product_recommender_agent.md` (repo root). This file records what was fou
 - **Score:** a weighted mean of per-series readings in [-1, 1] plus a regime tilt. It is reproducible from the response's own snapshot; a test checks this. Buy at ≥ +0.20 and Sell at ≤ -0.20. **These cut-offs are not calibrated yet** (open question 11 in the plan); calibrate them against stored Market Researcher runs once live runs exist.
 - **Segments are relative:** Most / Least preferred means at least 0.15 above / below the class's own score. This matches how CIO segment preferences read, and makes "every segment Most preferred under a Sell" impossible.
 - **Scenarios and watch items use 3-month moves only.** Levels sit in a 10-year range and change slowly, so they make poor triggers. Hedge funds and private markets have only level signals, so their watch item says so.
-- **No LLM prose yet.** The plan's LLM explanations and guardrail are still open; all text is deterministic (`narrative_source: "deterministic"`).
+- **LLM prose:** see "LLM explanations (milestone 6)" below.
 - **Frontend:** a chat card for "What's the view on X?" (one class named, no product wording). Full analysis at `/ps/asset-views/:assetClass` with Overview, Market, Risks, Products and Sources tabs and Accept / Edit (stored per client in `workflowStore`, sent nowhere). An overview at `/ps/asset-views` and a sixth PS nav link.
+
+## LLM explanations (milestone 6)
+
+- **The LLM writes text only.** The gate, ranking, shortlist membership, every stance, number, trigger and ref stay with the engine. `recommend()` is unchanged and deterministic; `recommend_explained()` (what `POST /recommend` calls) rewrites the shortlist's reasons on top of it. `asset_class_view()` rewrites the view's text slots after `build_view`.
+- **Files:** `llm.py` (one structured call, per-item check, one retry with the violations, merge), `guardrails.py`, `explain.py` (`llm_reasons`), `asset_views/narrative.py` (`llm_narrative`). Prompts are `product_recommender.reasons_*` and `product_recommender.asset_view_*` in `prompts.yaml`.
+- **The PM's LLM client is shared.** `get_llm` takes any settings with the four LLM fields. Its "disabled" message no longer names `PORTFOLIO_LLM_ENABLED`.
+- **The deterministic text is the LLM's draft and its fallback.** Each product or text slot is checked on its own. One that fails the guardrail twice keeps its rule-based text; the rest keep the LLM's. `explanation_status` and `reason.source` / `narrative_source` say which is which.
+- **The fee line is added by code**, so the LLM never writes about fees. In product reasons any cost wording is rejected. In view prose only fee wording is rejected, because market prose legitimately says "financing costs" and "the cost of holding gold".
+- **No client identifiers or scores are sent to the LLM**: only risk level and category, objective, horizon and base currency.
+- **View narratives are cached in memory** per (class, Market Researcher run, house view date, client), 64 entries, so a page reload costs no LLM call.
+- **Settings:** `RECOMMENDER_LLM_ENABLED` (default true), `RECOMMENDER_LLM_MODEL`, `RECOMMENDER_LLM_TIMEOUT_SECONDS` (20), `RECOMMENDER_LLM_MAX_TOKENS` (2000), and the shared `GROQ_API_KEY`. Without a key everything is rule-based, as before.
+- **Tests:** `tests/test_product_recommender_llm.py`, offline with `FakeLLM`. The guardrail must accept the engine's own drafts for all five clients and all seven classes; each rule has a rejection test. `test_product_recommender.py` now builds its service with the LLM off, so a developer's `GROQ_API_KEY` never reaches the network from the suite.
+- **First live run (21 Oct 2026, `openai/gpt-oss-120b`):** all 5 test clients and all 7 classes came back LLM-written, with no product or slot kept rule-based. `/recommend` took 3-10 s; a view took 3-16 s uncached.
+  - At 2,000 max tokens every 5-product shortlist failed: the model's hidden reasoning counts against the limit, so the tool-call JSON was cut off. The default is now 6,000.
+  - Groq sometimes rejects the tool call itself (malformed JSON, or a product with 2 bullets against `minItems: 3`). One retry recovered it; timeouts are not retried.
+  - The model tends to stay close to the draft, so view prose reads much like the rule-based text.
+- **Rejection rate (29 live jobs each run: 5 clients x 3, 7 classes x 2):**
+  - v1 prompts: 2 of 69 products and 1 of 14 views kept some rule-based text; views took 23 calls for 14 views.
+  - Two of those causes were guardrail bugs, now fixed. The model writes non-breaking hyphens (U+2011, as in "10-Year"), so evidence names did not match; LLM text is now normalised. And a downside scenario must be allowed to name the stance it "would move to".
+  - v2 prompts (latest): 1 of 69 products and 0 of 14 views; 14 calls for 14 views, each view 2-9 s.
+  - The remaining rejection is the model miscopying `HV-2026-08-p10` as `HV-2026-10-p10` for `MOCK-CORP-001`. The guardrail keeps rejecting it rather than repairing it, because repairing a citation would hide the error it is there to catch.
+- **Tracing:** each call passes a Langfuse callback (when configured) with `run_name`, tags, the attempt number, the request id as session id and the resolved `prompt_versions`.
+- **Open:** a browser check of the chat and asset-view pages with the stack running.
 
 ## Status
 
@@ -65,8 +88,8 @@ Plan: `product_recommender_agent.md` (repo root). This file records what was fou
 | 3 Gate | Done: `suitability.py`, shared core checks, recommender-only product checks |
 | 4 Ranking | Done: `ranking.py`, PM fee term removed, fee-invariance tests for both agents |
 | 5 Recommend endpoint | Done: deterministic reasons, `POST /recommend` |
-| 6 LLM explanations | Not started |
-| 7 Asset-class views | Done (backend, frontend); LLM prose not started |
+| 6 LLM explanations | Done: reasons and view prose, guardrail, fallback, frontend labels; checked against real Groq |
+| 7 Asset-class views | Done (backend, frontend, LLM prose) |
 | 8 PM switch-over | Done early (with milestone 2) |
 | 9 Frontend | Done: shelf, house view, recommendations, finalise-by-chat through the gate, asset-class views |
-| 10 README | Not started |
+| 10 README | Done: "Product Recommender Agent" section and project-structure entries |

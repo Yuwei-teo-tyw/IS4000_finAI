@@ -49,6 +49,8 @@ interface Recommend {
   /** `reason` is the Product Recommender's cited bullets; `fee` is for information only. */
   shortlist: { row: MarketRow; riskRating: number; reason: string; fee: number | null; notes: string[] }[];
   excluded: { name: string; reason: string }[];
+  /** True when at least one reason was written by the LLM from the engine's facts. */
+  llmReasons: boolean;
 }
 interface Msg { from: "user" | "agent"; text: string; answer?: MarketAnswer; finalise?: string[]; recommend?: Recommend; assetView?: PrAssetView }
 
@@ -121,6 +123,7 @@ async function buildRecommendation(clientId: string, ipsVersion: number | null):
     "Product Recommender fired",
     `Suitability gate: ${eligible} of ${total} products pass, ${res.excluded.length} excluded with reasons`,
     `Ranking ${eligible} by fit with the client's objective and the house view; fees not used…`,
+    "Writing the reasons from the engine's facts…",
     "Consolidating…",
   ];
   return {
@@ -130,6 +133,7 @@ async function buildRecommendation(clientId: string, ipsVersion: number | null):
       tags: [cycle.tag, ...new Set(hv.views.map((v) => v.citation_id)), ...(ipsVersion ? [`IPS-v${ipsVersion}`] : [])],
       shortlist: res.shortlist.map((s) => ({ row: shortlistRow(s), riskRating: s.product.risk_rating ?? 0, reason: s.reason.text, fee: s.costs.management_fee_pct, notes: s.notes })),
       excluded: res.excluded.map((x) => ({ name: x.product_name, reason: x.reason })),
+      llmReasons: res.shortlist.some((s) => s.reason.source === "llm"),
     },
   };
 }
@@ -172,7 +176,9 @@ function RecommendView({ r, picked, onToggle, clientId }: { r: Recommend; picked
             ])}
           />
         </div>
-        <p className="mt-3 text-[15px] text-ink-muted">Fees are shown for transparency and were not used to rank.</p>
+        <p className="mt-3 text-[15px] text-ink-muted">Fees are shown for transparency and were not used to rank. {r.llmReasons
+          ? "Reasons are written by AI from the engine's facts and checked against them; the ranking is the engine's."
+          : "Reasons are rule-based."}</p>
       </section>}
       {r.excluded.length > 0 && (
         <details className="text-[15px] text-ink-700">
