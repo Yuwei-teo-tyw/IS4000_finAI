@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { arcApi, PortfolioManagerError } from "../../services/arcApi";
 import { Badge, Button, Card, GateChip, Loading, NextAction, PageHeader, Section, Stepper, useAsync } from "../../components/ui";
 import { FrontierChart } from "../../components/portfolio/FrontierChart";
@@ -74,6 +74,7 @@ function WeightEditor({ clientId, requestId, option, initial, sent, savedAt }: {
 }) {
   const original = useMemo(() => weightsOf(option), [option]);
   const classes = useMemo(() => Object.keys(original).sort((a, b) => original[b] - original[a]), [original]);
+  const navigate = useNavigate();
   const [weights, setWeights] = useState<Record<string, number>>(initial);
   const [evaluation, setEvaluation] = useState<PmWeightEvaluation | null>(null);
   const [pending, setPending] = useState(true);
@@ -192,7 +193,7 @@ function WeightEditor({ clientId, requestId, option, initial, sent, savedAt }: {
       <div className="mb-6 flex justify-end"><AutoSaveStatus savedAt={savedAt} /></div>
       {sent ? <Msg ok>SAA sent back to the RM for the IPS. Awaiting RM review.</Msg> : canSend ? (
         <NextAction title="All checks passed" body={edited ? "Your adjusted weights are inside every limit. Continue to send the 3L and SAA back to the RM." : "The proposed weights are inside every limit. Continue to send the 3L and SAA back to the RM."}
-          action={<Button variant="gold" onClick={() => { saveSaaDraft(clientId, option.option_id, weights, original); returnIpsToRm(clientId); }}>Continue: send back to RM</Button>} />
+          action={<Button variant="gold" onClick={() => { saveSaaDraft(clientId, option.option_id, weights, original); returnIpsToRm(clientId); navigate("/ic/inbox"); }}>Continue: send back to RM</Button>} />
       ) : (
         <NextAction title={pending ? "Checking…" : "Blocked: fix the checks first"} body={error ? "The weights could not be checked." : "Resolve the red checks above, or reset to the original weights. Sending stays off until every check passes."}
           action={<Button disabled>Continue: send back to RM</Button>} />

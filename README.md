@@ -179,6 +179,7 @@ It is **proposal-only**: it never executes trades or changes holdings, and every
 | `POST /agents/portfolio-manager/portfolio/generate` | Validate the profile → fetch market and product data → construct, validate, compare and explain options A–F |
 | `GET /agents/portfolio-manager/portfolio/{request_id}` | A stored proposal. The store is in memory and bounded, so proposals are lost on restart. Returns `404` if unknown |
 | `POST /agents/portfolio-manager/portfolio/{request_id}/options/{option_id}/evaluate` | Re-checks the IC's adjusted asset-class weights against the stored proposal (return, drawdown, growth share, fees, currency, concentration, minimum investments, ±5-point band) and returns the efficient frontier. Calculation only; nothing is saved |
+| `POST /agents/portfolio-manager/portfolio/{request_id}/ask` | Answers a Geneva chat question about that proposal (plus the IC's picked portfolio, edited weights and current holdings). LLM answer checked by the same guardrails as the narratives, with a deterministic fallback. Read-only |
 
 **Inputs**
 

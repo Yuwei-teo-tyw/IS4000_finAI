@@ -169,3 +169,21 @@ export interface PmWeightEvaluation {
 
 export const OFFERED: PmSuitability[] = ["SUITABLE", "SUITABLE_WITH_MODIFICATIONS"];
 export const isOffered = (o: PmOption) => OFFERED.includes(o.suitability_status);
+
+/** POST /portfolio/{request_id}/ask: one chat answer grounded in a stored proposal. */
+export interface PmChatTurn { question: string; answer: string }
+export interface PmAnswer {
+  request_id: string;
+  answer: string;
+  source: "LLM" | "DETERMINISTIC_FALLBACK" | "DETERMINISTIC";
+  model: string | null;
+  detail: string;
+  options_referenced: string[];
+  requires_rm_review: true;
+  execution_status: "NOT_EXECUTED";
+}
+/** What the chat shows: the answer plus which proposal it came from. */
+export interface PmChatReply extends PmAnswer {
+  /** "ic" = the proposal the IC is working on in the SAA request; "chat" = a run made just for this chat. */
+  basis: "ic" | "chat";
+}

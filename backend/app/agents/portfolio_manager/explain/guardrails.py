@@ -38,6 +38,9 @@ _CLAIM_PATTERNS = {
 _PCT = re.compile(r"(-?\d+(?:\.\d+)?)\s?%")
 _AMOUNT = re.compile(r"(?<![\d.])(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d{4,}(?:\.\d+)?)(?![\d%])")
 
+_SCALED = re.compile(r"(?<![\d.])(\d+(?:\.\d+)?)\s?(million|mn|m|billion|bn|thousand|k)\b", re.I)
+_SCALE = {"million": 1e6, "mn": 1e6, "m": 1e6, "billion": 1e9, "bn": 1e9, "thousand": 1e3, "k": 1e3}
+
 _ANY_NUMBER = re.compile(r"-?\d{1,3}(?:,\d{3})+(?:\.\d+)?|-?\d+(?:\.\d+)?")
 
 PCT_TOLERANCE = 0.06  # allows one-decimal rounding of a 2dp figure
@@ -90,6 +93,12 @@ def find_number_violations(text: str, allowed: AllowedNumbers) -> list[str]:
         if v.is_integer() and 1900 <= v <= 2100:
             continue  # a year
         if not any(abs(v - a) <= max(1.0, a * AMOUNT_REL_TOLERANCE) for a in allowed.amounts):
+            bad.append(f"unsupported amount {m.group(0)}")
+    for m in _SCALED.finditer(text):  # "SGD 2.29 million": rounded, so a looser match
+        v = float(m.group(1)) * _SCALE[m.group(2).lower()]
+        decimals = len(m.group(1).split(".")[1]) if "." in m.group(1) else 0
+        step = _SCALE[m.group(2).lower()] / 10 ** decimals
+        if not any(abs(v - a) <= max(step, a * AMOUNT_REL_TOLERANCE) for a in allowed.amounts):
             bad.append(f"unsupported amount {m.group(0)}")
     return bad
 

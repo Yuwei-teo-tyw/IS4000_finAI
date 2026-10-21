@@ -14,7 +14,7 @@ import type {
   ActivityEvent, AllocationRow, Bucket3L, Client, Gate, GateId, GateState, Holding, InboxItem, IpsPart, MacroBrief, MarketRow,
   MarketView, HouseView, PackRenderInput, MarketAnswer, MeetingNote, IpsVersion, PackSection, Product, ProductClass, Role, AllocationGroup, CorrelationMatrix, GoalProjection, SectionDraft, GenevaArticle, GenevaContext, GenevaReply,
 } from "../types/arc";
-import type { PmClientProfile, PmInputField, PmInputs, PmRequest, PmResponse, PmWeightEvaluation } from "../types/portfolio";
+import type { PmAnswer, PmChatReply, PmChatTurn, PmClientProfile, PmInputField, PmInputs, PmRequest, PmResponse, PmWeightEvaluation } from "../types/portfolio";
 import type { PrAssetClassHeadline, PrAssetView, PrHouseView, PrOptions, PrRequest, PrResponse, PrShelf, PrShelfProduct, PrShortlistItem } from "../types/productRecommender";
 import type { RcPackReport, RcPackRequest, RcPackSection } from "../types/riskCompliance";
 
@@ -131,6 +131,13 @@ export const arcApi = {
   /** Backend re-check of adjusted asset-class weights: risk, return, limits and the efficient frontier. */
   evaluatePortfolioWeights: (requestId: string, optionId: string, weights: Record<string, number>, signal?: AbortSignal): Promise<PmWeightEvaluation> =>
     evaluatePortfolioWeights(requestId, optionId, weights, signal),
+  /**
+   * Geneva chat: a question about the client's portfolio, answered by the Portfolio Manager from the
+   * proposal the IC is working on (with their picked portfolio and edited weights), or, when there is none,
+   * from a run made just for the chat (never written to the SAA request).
+   */
+  askPortfolioManager: (clientId: string, question: string, history: PmChatTurn[] = []): Promise<PmChatReply> =>
+    askPortfolioManager(clientId, question, history),
   getAllocation: (clientId: string): Promise<AllocationRow[]> => delay(m.allocationByClient[clientId] ?? m.allocation),
   getSaaTemplates: () => delay(m.saaTemplates),
   getIps: (clientId: string): Promise<IpsPart[]> => delay(withIcReturn(clientId, m.ipsPartsByClient[clientId] ?? m.ipsParts)),
@@ -626,6 +633,67 @@ async function evaluatePortfolioWeights(requestId: string, optionId: string, wei
     throw new PortfolioManagerError("INVALID_RESPONSE", "The weight check response did not match the expected format.");
   }
   return e as PmWeightEvaluation;
+}
+
+/** Chat-only proposals per client, so a chat runs the Portfolio Manager once, not every question. */
+const chatProposalIds = new Map<string, string>();
+
+async function askAbout(requestId: string, body: object): Promise<PmAnswer> {
+  let json: unknown;
+  try {
+    json = await pmJson(`/portfolio/${encodeURIComponent(requestId)}/ask`,
+      { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }, 60_000);
+  } catch (e) {
+    // FastAPI's bare "Not Found" means the route is missing (a backend started before the chat endpoint
+    // existed), not an expired proposal: say so instead of re-running the agent for nothing.
+    if (e instanceof PortfolioManagerError && e.kind === "NOT_FOUND" && e.message === "Not Found") {
+      throw new PortfolioManagerError("SERVER", "The running backend does not have the Portfolio Manager chat yet. Restart it so it runs the latest code.", [
+        "Stop the backend (Ctrl+C), then: cd backend, then python -m app.agents.portfolio_manager serve",
+      ]);
+    }
+    throw e;
+  }
+  const a = json as Partial<PmAnswer> | null;
+  if (!a || typeof a.answer !== "string" || typeof a.source !== "string" || a.execution_status !== "NOT_EXECUTED") {
+    throw new PortfolioManagerError("INVALID_RESPONSE", "The Portfolio Manager's answer did not match the expected format.");
+  }
+  return a as PmAnswer;
+}
+
+async function askPortfolioManager(clientId: string, question: string, history: PmChatTurn[]): Promise<PmChatReply> {
+  const progress = loadIcProgress(clientId);
+  const holdings = await arcApi.getHoldings(clientId);
+  const base = {
+    question: question.slice(0, 1000),
+    history: history.slice(-3).map((t) => ({ question: t.question.slice(0, 1000), answer: t.answer.slice(0, 1500) })),
+  };
+  const current = holdings.slice(0, 100).map((h) => ({ name: h.name, asset_class: h.assetClass, weight_pct: h.weightPct }));
+  const notFound = (e: unknown) => e instanceof PortfolioManagerError && e.kind === "NOT_FOUND";
+
+  // 1. The IC's own proposal for this client, with the portfolio they picked and any edited weights.
+  if (progress.pmRequestId) {
+    try {
+      const a = await askAbout(progress.pmRequestId, { ...base, workspace: {
+        selected_option: progress.saaTemplate ?? null,
+        adjusted_weights: progress.saaTemplate && progress.saaWeights ? progress.saaWeights : null,
+        sent_to_rm: isIpsReturned(clientId),
+        holdings: current,
+      } });
+      return { ...a, basis: "ic" };
+    } catch (e) {
+      if (!notFound(e)) throw e; // backend restarted: fall through to a chat run
+    }
+  }
+  // 2. A chat-only run, made once per client and reused while the backend keeps it.
+  const workspace = { holdings: current };
+  const cached = chatProposalIds.get(clientId);
+  if (cached) {
+    try { return { ...(await askAbout(cached, { ...base, workspace })), basis: "chat" }; } catch (e) { if (!notFound(e)) throw e; }
+  }
+  const { request } = await buildPortfolioInputs(clientId);
+  const proposal = await generatePortfolioProposals({ ...request, request_id: `CHAT-${clientId}-${Date.now()}` });
+  chatProposalIds.set(clientId, proposal.request_id);
+  return { ...(await askAbout(proposal.request_id, { ...base, workspace })), basis: "chat" };
 }
 
 /* ---------- Product Recommender agent (real backend) ---------- */

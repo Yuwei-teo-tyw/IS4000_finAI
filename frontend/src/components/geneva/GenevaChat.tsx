@@ -3,7 +3,8 @@ import { Check, ChevronDown, ArrowUp, MessageSquarePlus, Search, Trash2 } from "
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import type { Client } from "../../types/arc";
 import { pathForClient, setActiveClientId } from "../../layouts/navConfig";
-import { arcApi, assetClassSlug, GenevaBackendError, ProductRecommenderError, shortlistRow } from "../../services/arcApi";
+import { arcApi, assetClassSlug, GenevaBackendError, PortfolioManagerError, ProductRecommenderError, shortlistRow } from "../../services/arcApi";
+import type { PmChatReply, PmChatTurn } from "../../types/portfolio";
 import { RefLine, ViewHeadline } from "../ps/AssetViewParts";
 import type { PrAssetView } from "../../types/productRecommender";
 import { findProducts } from "../../utils/productMatch";
@@ -96,12 +97,27 @@ function AssetViewCard({ v, clientId }: { v: PrAssetView; clientId: string }) {
 
 const MATCH_INTENT = /read client ips.*(research market|match products)/i;
 /** Agent failures are shown, never replaced with mock answers. */
-const failText = (e: unknown) => e instanceof ProductRecommenderError
+const failText = (e: unknown) => e instanceof ProductRecommenderError || e instanceof PortfolioManagerError
   ? [e.message, ...e.details].join(" ")
   : e instanceof GenevaBackendError ? e.message
   : `Something went wrong: ${e instanceof Error ? e.message : String(e)}`;
 /** Thinking steps for a backend turn: the backend reports no progress, so only the order is shown, not agents. */
 const BACKEND_STEPS = ["Intent parser is reading your request…", "Thinking…", "Consolidating…"];
+/**
+ * RM/IC questions about the client's portfolio go to the Portfolio Manager agent. Holdings analytics, TAA,
+ * pack drafting, meetings and market questions stay with their own agents.
+ */
+const PORTFOLIO_INTENT = /portfolio|allocat|\bweights?\b|asset class|\bsaa\b|\b(option|template) [a-f]\b|equit|fixed income|\bbonds?\b|hedge funds?|private markets?|real estate|\bgold\b|drawdown|volatil|expected return|frontier|\bfees?\b|rebalanc|proposal|preferred|scenario|risk level/i;
+const OTHER_AGENT_INTENT = /\btaa\b|move together|correlat|cluster|\bedit\b.*holdings?|holdings?.*\bedit\b|\b(write|draft|rewrite|redraft|compose)\b|meeting|notes|regime|strength|weakness|sharpe|diversif|portfolio health/i;
+const PM_STEPS = ["Intent parser is reading your request…", "Portfolio Manager fired", "Reading the portfolio proposal…", "Consolidating…"];
+/** The answer plus one line saying where it came from; the reader must never mistake it for verified or executed. */
+const pmReplyText = (r: PmChatReply) => {
+  const from = r.basis === "ic" ? "the IC's SAA proposal" : "a Portfolio Manager run for this chat (not saved to the SAA request)";
+  const how = r.source === "LLM" ? "checked against the proposal's figures" : "assembled from the proposal's figures";
+  return `${r.answer}
+
+_Portfolio Manager · from ${from} · ${how}. Illustrative data and house assumptions, not guarantees. Nothing is executed._`;
+};
 /** Plain text of a Markdown answer for the research context store. */
 const markdownPlain = (md: string) => md.replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/[*_`#>|]+/g, "").replace(/\s+/g, " ").trim();
 const pause = (min: number, max: number) => sleep(min + Math.random() * (max - min));
@@ -394,13 +410,13 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
   };
 
   /** Run a backend call under the thinking card; "Thinking…" appears if it takes a moment, "Consolidating…" once it lands. */
-  const withThinking = async (id: number, call: Promise<GenevaReply>): Promise<GenevaReply> => {
-    setWorking({ chatId: id, steps: BACKEND_STEPS, shown: 1 });
-    const timer = setTimeout(() => setWorking((w) => (w?.chatId === id && w.shown < 2 ? { ...w, shown: 2 } : w)), 1700);
+  const withThinking = async <T,>(id: number, call: Promise<T>, steps: string[] = BACKEND_STEPS): Promise<T> => {
+    setWorking({ chatId: id, steps, shown: 1 });
+    const timer = setTimeout(() => setWorking((w) => (w?.chatId === id && w.shown < steps.length - 1 ? { ...w, shown: steps.length - 1 } : w)), 1700);
     try {
       const r = await call;
       clearTimeout(timer);
-      setWorking({ chatId: id, steps: BACKEND_STEPS, shown: 3 });
+      setWorking({ chatId: id, steps, shown: steps.length });
       await sleep(600);
       return r;
     } finally {
@@ -504,6 +520,22 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
       }
       patch(id, (c) => ({ ...c, messages: [...c.messages, { from: "agent", text: reply, finalise: names ?? [] }] }));
       setWorking(null);
+      return;
+    }
+    if ((role === "rm" || role === "ic") && PORTFOLIO_INTENT.test(text) && !OTHER_AGENT_INTENT.test(text)) {
+      const history: PmChatTurn[] = [];
+      chat.messages.forEach((m, i) => {
+        const next = chat.messages[i + 1];
+        if (m.from === "user" && next?.from === "agent" && next.text) history.push({ question: m.text, answer: next.text });
+      });
+      try {
+        const r = await withThinking(id, arcApi.askPortfolioManager(clientId, text, history), PM_STEPS);
+        addReply(id, { text: pmReplyText(r), runId: null, requiresConfirmation: false, pendingAction: null }, text);
+      } catch (e) {
+        patch(id, (c) => ({ ...c, messages: [...c.messages, { from: "agent", text: failText(e) }] }));
+      } finally {
+        setWorking((w) => (w?.chatId === id ? null : w));
+      }
       return;
     }
     try {

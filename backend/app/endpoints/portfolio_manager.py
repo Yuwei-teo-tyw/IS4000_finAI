@@ -7,6 +7,7 @@ HTTP interface for the Portfolio Manager agent.
     GET  /agents/portfolio-manager/portfolio/{request_id}     a previously generated proposal
     POST /agents/portfolio-manager/portfolio/{request_id}/options/{option_id}/evaluate
                                                               re-check adjusted weights + efficient frontier
+    POST /agents/portfolio-manager/portfolio/{request_id}/ask  answer a chat question about that proposal
 
 Proposal-only: nothing here executes trades or changes client holdings. The
 service lives on `app.state.portfolio_manager`; without it - e.g. a bare test
@@ -23,7 +24,9 @@ from fastapi.responses import JSONResponse
 
 from app.agents.portfolio_manager.engine.adjust import EvaluationError, evaluate_weights
 from app.agents.portfolio_manager.engine.construction import TEMPLATES, template_growth
+from app.agents.portfolio_manager.explain.chat import answer_question
 from app.agents.portfolio_manager.schemas.adjust import WeightEvaluation, WeightEvaluationRequest
+from app.agents.portfolio_manager.schemas.chat import PortfolioAnswer, PortfolioQuestion
 from app.agents.portfolio_manager.schemas.client import PortfolioGenerateRequest
 from app.agents.portfolio_manager.schemas.response import PortfolioResponse
 from app.agents.portfolio_manager.service import DuplicateRequestError, PortfolioService
@@ -113,6 +116,21 @@ async def evaluate_adjusted_weights(
         return evaluate_weights(proposal, option_id, body.weights, service.cma)
     except EvaluationError as e:
         raise HTTPException(status_code=409, detail=str(e))
+
+
+@router.post("/portfolio/{request_id}/ask", response_model=PortfolioAnswer)
+async def ask_about_portfolio(
+    body: PortfolioQuestion,
+    request_id: str = Path(pattern=r"^[A-Za-z0-9_\-.]{1,64}$"),
+    service: PortfolioService = Depends(get_service),
+) -> PortfolioAnswer:
+    """Answer a chat question from the stored proposal (and the workspace context sent with it).
+    The LLM answer is checked against the proposal's figures; otherwise a deterministic answer is returned.
+    Read-only: nothing is saved, approved or executed."""
+    proposal = service.get(request_id)
+    if proposal is None:
+        raise HTTPException(status_code=404, detail="No proposal found for this request_id. Run the Portfolio Manager again.")
+    return await answer_question(proposal, body, service.settings, service.cma, service.llm_factory)
 
 
 def install_validation_handler(app: FastAPI, extra_prefixes: tuple[str, ...] = ()) -> None:
