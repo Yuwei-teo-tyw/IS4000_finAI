@@ -1,7 +1,7 @@
 """
 Contracts for the Product Recommender.
 
-The shelf extends the Portfolio Manager's ProductCandidate with the fields
+The shelf extends the Portfolio Agent's ProductCandidate with the fields
 the PS screen shows; the PM validates the same JSON as ProductCandidate and
 ignores the extras. The request reuses the PM's ClientProfile so both agents
 see the same client.
@@ -14,9 +14,9 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.agents.portfolio_manager.schemas.client import _ID_PATTERN, ClientProfile
-from app.agents.portfolio_manager.schemas.response import ExplanationStatus
-from app.agents.portfolio_manager.schemas.upstream import ProductCandidate, SourceRef
+from app.agents.portfolio_agent.schemas.client import _ID_PATTERN, ClientProfile
+from app.agents.portfolio_agent.schemas.response import ExplanationStatus
+from app.agents.portfolio_agent.schemas.upstream import ProductCandidate, SourceRef
 
 View = Literal["Buy", "Hold", "Sell"]
 Confidence = Literal["High", "Medium", "Low"]

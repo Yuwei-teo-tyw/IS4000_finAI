@@ -9,9 +9,9 @@ from datetime import date
 from statistics import median
 from typing import Optional
 
-from app.agents.portfolio_manager.engine.profile_assessment import assess_profile
-from app.agents.portfolio_manager.schemas.client import ClientProfile
-from app.agents.portfolio_manager.taxonomy import AssetClass, parse_asset_class
+from app.agents.portfolio_agent.engine.profile_assessment import assess_profile
+from app.agents.portfolio_agent.schemas.client import ClientProfile
+from app.agents.portfolio_agent.taxonomy import AssetClass, parse_asset_class
 from app.agents.product_recommender.asset_views.schemas import (
     ClientLens,
     FeeSummary,

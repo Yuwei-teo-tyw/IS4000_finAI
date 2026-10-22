@@ -16,8 +16,8 @@ from typing import Callable
 
 from pydantic import BaseModel, Field
 
-from app.agents.portfolio_manager.explain.llm_client import get_llm
-from app.agents.portfolio_manager.schemas.response import ExplanationStatus
+from app.agents.portfolio_agent.explain.llm_client import get_llm
+from app.agents.portfolio_agent.schemas.response import ExplanationStatus
 from app.agents.product_recommender import guardrails, llm
 from app.agents.product_recommender.config import Settings
 from app.agents.product_recommender.ranking import Objective, Ranked

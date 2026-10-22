@@ -26,11 +26,11 @@ export const ROLE_PEOPLE: Record<Role, { name: string; person: string; blurb: st
     blurb: "Owns the client, the IPS and the final pack",
     home: "/rm/clients",
   },
-  ic: {
-    name: "Investment Counsellor",
+  pm: {
+    name: "Portfolio Manager",
     person: "Wei Lun",
     blurb: "Owns the 3L, SAA and TAA",
-    home: "/ic/inbox",
+    home: "/pm/inbox",
   },
   ps: {
     name: "Product Specialist",
@@ -49,12 +49,12 @@ export function getNav(role: Role, _clientId: string): NavItem[] {
         { label: "AI Assistant", to: "/rm/assistant", icon: Sparkles },
         { label: "House View Records", to: "/rm/house-views", icon: ScrollText },
       ];
-    case "ic":
+    case "pm":
       return [
-        { label: "Inbox", to: "/ic/inbox", icon: Inbox },
-        { label: "Client Book", to: "/ic/clients", icon: BookUser },
-        { label: "AI Assistant", to: "/ic/assistant", icon: Sparkles },
-        { label: "House View Records", to: "/ic/house-views", icon: ScrollText },
+        { label: "Inbox", to: "/pm/inbox", icon: Inbox },
+        { label: "Client Book", to: "/pm/clients", icon: BookUser },
+        { label: "AI Assistant", to: "/pm/assistant", icon: Sparkles },
+        { label: "House View Records", to: "/pm/house-views", icon: ScrollText },
       ];
     case "ps":
       return [
@@ -115,7 +115,7 @@ export function setActiveClientId(id: string) {
   if (current !== id) { current = id; listeners.forEach((fn) => fn()); }
 }
 
-/** Replace the client id segment of a route (/rm/clients/:id, /ic/cases/:id, /ps/cases/:id, /ic/requests/:id) so the same page opens for another client. */
+/** Replace the client id segment of a route (/rm/clients/:id, /pm/cases/:id, /ps/cases/:id, /pm/requests/:id) so the same page opens for another client. */
 export function pathForClient(pathname: string, id: string): string | null {
   const m = pathname.match(/^(.*\/(?:clients|requests|cases)\/)([^/]+)(.*)$/);
   if (!m || !isValid(m[2])) return null;

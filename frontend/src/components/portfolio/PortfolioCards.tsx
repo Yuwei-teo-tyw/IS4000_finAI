@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
-import type { PmOption, PmResponse } from "../../types/portfolio";
+import type { PaOption, PaResponse } from "../../types/portfolio";
 import { isOffered } from "../../types/portfolio";
 import { Badge, Button, Card } from "../ui";
 import { allocationOf } from "./allocation";
 import { AllocationView } from "./AllocationView";
-import { DASH, pct, STATUS_LABEL } from "./pmFormat";
+import { DASH, pct, STATUS_LABEL } from "./paFormat";
 
 const GOAL_LABEL = { ON_TRACK: "on track", SHORTFALL: "shortfall", NOT_ASSESSABLE: "not assessable" } as const;
 
@@ -19,7 +19,7 @@ function Metric({ label, value, note }: { label: string; value: string; note?: s
   );
 }
 
-function PortfolioCard({ o, preferred, selected, onSelect }: { o: PmOption; preferred: boolean; selected: boolean; onSelect: () => void }) {
+function PortfolioCard({ o, preferred, selected, onSelect }: { o: PaOption; preferred: boolean; selected: boolean; onSelect: () => void }) {
   const m = o.metrics;
   return (
     <Card className={`flex h-full flex-col ${selected ? "ring-2 ring-ink" : ""}`}>
@@ -78,7 +78,7 @@ function PortfolioCard({ o, preferred, selected, onSelect }: { o: PmOption; pref
 }
 
 /** The portfolios the agent proposes for this client - however many there are - plus why the rest were not proposed. */
-export function PortfolioCards({ response, selected, onSelect }: { response: PmResponse; selected: string | null; onSelect: (id: string) => void }) {
+export function PortfolioCards({ response, selected, onSelect }: { response: PaResponse; selected: string | null; onSelect: (id: string) => void }) {
   const [showWithdrawn, setShowWithdrawn] = useState(false);
   const offered = response.portfolio_options.filter(isOffered);
   const withdrawn = response.portfolio_options.filter((o) => !isOffered(o));

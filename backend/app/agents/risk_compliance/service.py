@@ -16,7 +16,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Callable, Optional, Union
 
-from app.agents.portfolio_manager.schemas.upstream import UpstreamResult
+from app.agents.portfolio_agent.schemas.upstream import UpstreamResult
 from app.agents.product_recommender.schemas import ShelfProduct
 from app.agents.product_recommender.shelf import load_shelf
 from app.agents.risk_compliance import pack_checks

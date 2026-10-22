@@ -13,24 +13,24 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.agents.portfolio_manager.engine.product_screening import (
+from app.agents.portfolio_agent.engine.product_screening import (
     rank_products,
     screen_products,
 )
-from app.agents.portfolio_manager.engine.profile_assessment import assess_profile
-from app.agents.portfolio_manager.schemas.client import ClientProfile
-from app.agents.portfolio_manager.schemas.upstream import (
+from app.agents.portfolio_agent.engine.profile_assessment import assess_profile
+from app.agents.portfolio_agent.schemas.client import ClientProfile
+from app.agents.portfolio_agent.schemas.upstream import (
     ProductCandidate,
     UpstreamResult,
 )
-from app.agents.portfolio_manager.taxonomy import ASSET_CLASS_ORDER
+from app.agents.portfolio_agent.taxonomy import ASSET_CLASS_ORDER
 from app.agents.product_recommender import shelf as shelf_mod
 from app.agents.product_recommender.config import Settings
 from app.agents.product_recommender.house_view import HouseViewError, load_house_view
 from app.agents.product_recommender.schemas import RecommendRequest, Shelf, ShelfProduct
 from app.agents.product_recommender.service import ProductRecommenderService
 from app.agents.product_recommender.suitability import gate
-from app.endpoints.portfolio_manager import install_validation_handler
+from app.endpoints.portfolio_agent import install_validation_handler
 from app.endpoints.product_recommender import PREFIX, router
 
 FIXED_NOW = datetime(2026, 10, 15, 12, 0, tzinfo=timezone.utc)

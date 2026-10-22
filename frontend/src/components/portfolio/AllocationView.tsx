@@ -1,6 +1,6 @@
 import type { ClassAlloc } from "./allocation";
 import { classColor } from "./allocation";
-import { pct, sgdAmt } from "./pmFormat";
+import { pct, sgdAmt } from "./paFormat";
 
 /** Stacked bar of the whole portfolio, labelled with every asset class. */
 export function AllocationBar({ rows, height = "h-3" }: { rows: ClassAlloc[]; height?: string }) {

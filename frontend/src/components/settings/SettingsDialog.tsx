@@ -12,7 +12,7 @@ export function loadSystemPrompt(role: Role): string {
 
 const HINTS: Record<Role, string> = {
   rm: "e.g. Keep summaries short. Always list follow-ups for the client meeting.",
-  ic: "e.g. Explain allocation changes in plain words and cite the CIO view.",
+  pm: "e.g. Explain allocation changes in plain words and cite the CIO view.",
   ps: "e.g. Prefer low-fee funds. Flag any product above the client's risk limit.",
 };
 

@@ -6,8 +6,8 @@ import asyncio
 
 from conftest import FakeLLM
 from portfolio_helpers import GENERATE, make_client, make_service, offered, request_with, settings
-from app.agents.portfolio_manager.explain.explainer import LLMExplanation, OptionNarrative
-from app.agents.portfolio_manager.explain.guardrails import AllowedNumbers, check_text, find_claim_violations
+from app.agents.portfolio_agent.explain.explainer import LLMExplanation, OptionNarrative
+from app.agents.portfolio_agent.explain.guardrails import AllowedNumbers, check_text, find_claim_violations
 
 GOOD_TEXT = (
     "This option keeps most of the money in high-quality bonds and cash. Returns are not guaranteed and "

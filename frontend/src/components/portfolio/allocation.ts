@@ -1,4 +1,4 @@
-import type { PmOption } from "../../types/portfolio";
+import type { PaOption } from "../../types/portfolio";
 
 /** One asset class of a portfolio, with the product sub-classes inside it. */
 export interface ClassAlloc {
@@ -13,7 +13,7 @@ export interface ClassAlloc {
  * returned them (largest first), each with its sub-classes. No asset-class list is
  * hard-coded, so a new class from the Product Specialist shows up everywhere.
  */
-export function allocationOf(o: PmOption): ClassAlloc[] {
+export function allocationOf(o: PaOption): ClassAlloc[] {
   return [...o.asset_allocation]
     .sort((a, b) => b.allocation_percentage - a.allocation_percentage)
     .map((a) => ({
@@ -27,7 +27,7 @@ export function allocationOf(o: PmOption): ClassAlloc[] {
 }
 
 /** Every asset class held by any of `options`, ordered by its largest weight across them. */
-export function classUnion(options: PmOption[]): string[] {
+export function classUnion(options: PaOption[]): string[] {
   const best = new Map<string, number>();
   options.forEach((o) => o.asset_allocation.forEach((a) => best.set(a.asset_class, Math.max(best.get(a.asset_class) ?? 0, a.allocation_percentage))));
   return [...best.entries()].sort((a, b) => b[1] - a[1]).map(([c]) => c);
@@ -45,5 +45,5 @@ export function classColor(assetClass: string): string {
 }
 
 /** Weights by asset class for one option (what Edit weights starts from). */
-export const weightsOf = (o: PmOption): Record<string, number> =>
+export const weightsOf = (o: PaOption): Record<string, number> =>
   Object.fromEntries(o.asset_allocation.map((a) => [a.asset_class, a.allocation_percentage]));

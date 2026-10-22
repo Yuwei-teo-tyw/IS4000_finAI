@@ -1,5 +1,5 @@
 """
-Portfolio Manager HTTP contract: health, generate, retrieval, request
+Portfolio Agent HTTP contract: health, generate, retrieval, request
 validation and error handling.
 """
 from portfolio_helpers import BASE, GENERATE, assert_reconciles, make_client, mock_products, offered, request_with, sample_request

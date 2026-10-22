@@ -7,9 +7,9 @@ from datetime import datetime
 from typing import Optional
 
 from app.agents.market_researcher.schemas import MarketResearchOutput
-from app.agents.portfolio_manager.schemas.client import ClientProfile
-from app.agents.portfolio_manager.schemas.upstream import UpstreamResult
-from app.agents.portfolio_manager.taxonomy import AssetClass
+from app.agents.portfolio_agent.schemas.client import ClientProfile
+from app.agents.portfolio_agent.schemas.upstream import UpstreamResult
+from app.agents.portfolio_agent.taxonomy import AssetClass
 from app.agents.product_recommender.asset_views import config as cfg
 from app.agents.product_recommender.asset_views import scoring, shelf_lens
 from app.agents.product_recommender.asset_views.schemas import (

@@ -3,7 +3,7 @@ Risk & Compliance checks: readiness (step 4), the final review-pack check
 (before G4), the policy, fail-closed behaviour and the endpoints.
 
 Offline and deterministic: fixed clock, no LLM, no network. The client is
-the Portfolio Manager's sample profile (Moderate/Balanced, 8-year goal),
+the Portfolio Agent's sample profile (Moderate/Balanced, 8-year goal),
 and products come from the shared illustrative shelf.
 """
 import copy
@@ -15,7 +15,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from portfolio_helpers import sample_request
 
-from app.agents.portfolio_manager.schemas.upstream import UpstreamResult
+from app.agents.portfolio_agent.schemas.upstream import UpstreamResult
 from app.agents.product_recommender import shelf as shelf_mod
 from app.agents.product_recommender.schemas import Shelf
 from app.agents.risk_compliance import pack_checks
@@ -30,7 +30,7 @@ from app.agents.risk_compliance.policy import (
 )
 from app.agents.risk_compliance.schemas import ReadinessRequest, ReviewPackCheckRequest
 from app.agents.risk_compliance.service import RiskComplianceService
-from app.endpoints.portfolio_manager import install_validation_handler
+from app.endpoints.portfolio_agent import install_validation_handler
 from app.endpoints.risk_compliance import PREFIX, router
 
 FIXED_NOW = datetime(2026, 10, 21, 12, 0, tzinfo=timezone.utc)
@@ -52,7 +52,7 @@ CLEAN_PRODUCTS = [
 CLEAN_SECTIONS = [
     {"n": 1, "title": "Client profile and goals", "owner": "rm", "gate": "G4", "status": "ready",
      "text": "Balanced client with a retirement goal in 8 years."},
-    {"n": 5, "title": "Old vs new TAA", "owner": "ic", "gate": "G2", "status": "approved",
+    {"n": 5, "title": "Old vs new TAA", "owner": "pm", "gate": "G2", "status": "approved",
      "text": "Fixed income 50%, equities 40%, cash 10%. Returns are not guaranteed."},
     {"n": 6, "title": "Product recommendations", "owner": "ps", "gate": "G3", "status": "approved",
      "text": "Four products from the shelf."},

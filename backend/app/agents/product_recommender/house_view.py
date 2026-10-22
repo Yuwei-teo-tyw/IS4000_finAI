@@ -13,7 +13,7 @@ from typing import Optional
 
 from pydantic import ValidationError
 
-from app.agents.portfolio_manager.taxonomy import ASSET_CLASS_ORDER
+from app.agents.portfolio_agent.taxonomy import ASSET_CLASS_ORDER
 from app.agents.product_recommender.schemas import HouseView
 
 logger = logging.getLogger(__name__)

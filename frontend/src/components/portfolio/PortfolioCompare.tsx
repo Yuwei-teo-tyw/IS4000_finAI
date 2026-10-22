@@ -1,10 +1,10 @@
 import type { ReactNode } from "react";
-import type { PmOption, PmResponse } from "../../types/portfolio";
+import type { PaOption, PaResponse } from "../../types/portfolio";
 import { isOffered } from "../../types/portfolio";
 import { Card, Table } from "../ui";
 import { allocationOf, classColor, classUnion } from "./allocation";
 import { AllocationBar } from "./AllocationView";
-import { DASH, pct, sgdAmt } from "./pmFormat";
+import { DASH, pct, sgdAmt } from "./paFormat";
 
 function Bar({ value, max, tone }: { value: number | null; max: number; tone: "ink" | "brand" }) {
   if (value === null) return <span className="text-xs text-ink-muted">Not calculable</span>;
@@ -27,14 +27,14 @@ const lines = (items: string[]) => (
 );
 
 /** Offered options side by side. Same scale for return and downside; no "best" marker beyond the agent's labelled preference. */
-export function PortfolioCompare({ response }: { response: PmResponse }) {
+export function PortfolioCompare({ response }: { response: PaResponse }) {
   const offered = response.portfolio_options.filter(isOffered);
   const withdrawn = response.portfolio_options.filter((o) => !isOffered(o));
-  const fit = (criterion: string) => (o: PmOption) => response.comparison_matrix.find((r) => r.criterion === criterion)?.values[o.option_id] ?? DASH;
+  const fit = (criterion: string) => (o: PaOption) => response.comparison_matrix.find((r) => r.criterion === criterion)?.values[o.option_id] ?? DASH;
   const max = Math.max(1, ...offered.flatMap((o) => [o.expected_portfolio_return ?? 0, o.metrics?.estimated_stress_drawdown_pct ?? 0]));
 
   // One row per asset class held by any proposed portfolio - taken from the data, never a fixed list.
-  const classRows: [ReactNode, (o: PmOption) => ReactNode][] = classUnion(offered).map((ac) => [
+  const classRows: [ReactNode, (o: PaOption) => ReactNode][] = classUnion(offered).map((ac) => [
     <span key={ac} className="inline-flex items-center gap-2"><i className="inline-block h-2.5 w-2.5" style={{ background: classColor(ac) }} aria-hidden />{ac}</span>,
     (o) => {
       const a = o.asset_allocation.find((x) => x.asset_class === ac);
@@ -49,7 +49,7 @@ export function PortfolioCompare({ response }: { response: PmResponse }) {
     },
   ]);
 
-  const rows: [ReactNode, (o: PmOption) => ReactNode][] = [
+  const rows: [ReactNode, (o: PaOption) => ReactNode][] = [
     ["Objective", (o) => o.objective],
     ["Asset mix", (o) => <AllocationBar rows={allocationOf(o)} />],
     ...classRows,

@@ -10,8 +10,8 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.agents.portfolio_manager.schemas.client import _ID_PATTERN, ClientProfile
-from app.agents.portfolio_manager.schemas.response import ExplanationStatus
+from app.agents.portfolio_agent.schemas.client import _ID_PATTERN, ClientProfile
+from app.agents.portfolio_agent.schemas.response import ExplanationStatus
 from app.agents.product_recommender.schemas import AssetClassHouseView, Confidence, View
 
 SegmentView = Literal["Most preferred", "Neutral", "Least preferred"]

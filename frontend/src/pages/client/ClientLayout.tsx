@@ -11,7 +11,7 @@ const TABS = [
   { to: "documents", label: "IPS", end: false, rmOnly: false },
   { to: "review-pack", label: "Review Pack", end: false, rmOnly: true },
 ];
-const BACK = { rm: ["clients", "Back to Client Book"], ic: ["inbox", "Back to Inbox"], ps: ["inbox", "Back to Inbox"] } as const;
+const BACK = { rm: ["clients", "Back to Client Book"], pm: ["inbox", "Back to Inbox"], ps: ["inbox", "Back to Inbox"] } as const;
 export default function ClientLayout() {
   const role = useRole();
   const { state, pathname } = useLocation() as { state: { from?: string; fromLabel?: string } | null; pathname: string };

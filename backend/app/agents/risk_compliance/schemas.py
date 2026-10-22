@@ -1,7 +1,7 @@
 """
 Request and report schemas for the Risk & Compliance checks.
 
-Client data reuses the Portfolio Manager's `ClientProfile` (holdings,
+Client data reuses the Portfolio Agent's `ClientProfile` (holdings,
 goals and withdrawals live there), so the three agents read one profile.
 Requests reject unknown fields, like the PM's, so a typo fails loudly.
 
@@ -20,8 +20,8 @@ from typing import Literal, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from app.agents.portfolio_manager.schemas.client import ClientProfile, UpdateTrigger
-from app.agents.portfolio_manager.schemas.response import (
+from app.agents.portfolio_agent.schemas.client import ClientProfile, UpdateTrigger
+from app.agents.portfolio_agent.schemas.response import (
     Conflict,
     LiquidityPlan,
     MissingInformation,
@@ -82,7 +82,7 @@ class ReadinessRequest(_ClientRequest):
 
 
 class AllocationRowIn(_Strict):
-    """One row of the IC's allocation, as the frontend's AllocationRow."""
+    """One row of the PM's allocation, as the frontend's AllocationRow."""
     asset_class: str = Field(min_length=1, max_length=100)
     saa: float = _pct()
     current: float = _pct()
@@ -102,7 +102,7 @@ class PackProduct(_Strict):
 class PackSectionIn(_Strict):
     n: int = Field(ge=0)
     title: str = Field(max_length=200)
-    owner: Literal["rm", "ic", "ps"]
+    owner: Literal["rm", "pm", "ps"]
     gate: Optional[GateId] = None
     status: Literal["draft", "ready", "flagged", "approved"]
     text: str = Field(default="", max_length=20000)

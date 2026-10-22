@@ -11,7 +11,7 @@ from typing import Callable
 
 from pydantic import BaseModel, Field
 
-from app.agents.portfolio_manager.explain.llm_client import get_llm
+from app.agents.portfolio_agent.explain.llm_client import get_llm
 from app.agents.product_recommender import guardrails, llm
 from app.agents.product_recommender.asset_views.schemas import AssetClassView
 from app.agents.product_recommender.config import Settings

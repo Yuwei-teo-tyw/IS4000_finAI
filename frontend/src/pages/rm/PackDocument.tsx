@@ -9,7 +9,7 @@ import { useRole } from "../../layouts/AppShell";
 import { hasHeadings } from "../../services/packBlocks";
 import { SectionBlocksView, useSeededBlocks, sourcesFor, Tagged, HangList, isSources, isSignoff, fmtDate, usePackStatus, isHiddenFor, PendingBox } from "./rmShared";
 
-const ROLES: Role[] = ["rm", "ic", "ps"];
+const ROLES: Role[] = ["rm", "pm", "ps"];
 const A3_PRINT_CSS = "@page a3 { size: A3; margin: 18mm; } @media print { .a3-sheet { page: a3; max-width: none; } }";
 const cap = "text-[12px] uppercase tracking-[0.14em] text-ink-muted";
 const quarterOf = (d: Date) => `Q${Math.floor(d.getMonth() / 3) + 1} ${d.getFullYear()}`;
@@ -40,8 +40,8 @@ function SectionSign({ g, who }: { g?: PackSignature; who: string }) {
   );
 }
 
-/** Coupling note: reads IC progress (useIcProgress) and ROLE_PEOPLE directly; revisit when a backend pack API exists. */
-/** Single-column printed rendering of the review pack. Reads drafts, signatures and IC progress live; mock text is used only where no draft exists. */
+/** Coupling note: reads PM progress (usePmProgress) and ROLE_PEOPLE directly; revisit when a backend pack API exists. */
+/** Single-column printed rendering of the review pack. Reads drafts, signatures and PM progress live; mock text is used only where no draft exists. */
 export function PackDocument({ clientId, clientName, version, pack, approved }: {
   clientId: string; clientName: string; version: string; pack: PackSection[]; alloc: AllocationRow[] | undefined; holdings: Holding[] | undefined; approved: boolean;
 }) {

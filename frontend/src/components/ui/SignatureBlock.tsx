@@ -3,9 +3,9 @@ import { saveSignature, useSignatures } from "../../services/packDraftStore";
 import { Button } from "./index";
 
 type Mode = "type" | "draw" | "upload";
-export type SignatureRole = "ic" | "ps" | "rm";
+export type SignatureRole = "pm" | "ps" | "rm";
 const MODES: { id: Mode; label: string }[] = [{ id: "type", label: "Type" }, { id: "draw", label: "Draw" }, { id: "upload", label: "Upload" }];
-const ROLE_LABEL: Record<SignatureRole, string> = { ic: "Investment Counsellor", ps: "Product Specialist", rm: "Relationship Manager" };
+const ROLE_LABEL: Record<SignatureRole, string> = { pm: "Portfolio Manager", ps: "Product Specialist", rm: "Relationship Manager" };
 /** Dancing Script is loaded once in styles/tokens.css. */
 export const SCRIPT_FONT = "'Dancing Script','Snell Roundhand','Segoe Script',cursive";
 /** Uploaded images above this size are ignored, so a signature cannot fill session storage. */

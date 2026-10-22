@@ -5,7 +5,7 @@
  * Pages must NEVER import from src/mock directly.
  */
 import * as m from "../mock/data";
-import { getActiveIps, isActivated, isIpsReturned, loadIcProgress } from "./workflowStore";
+import { getActiveIps, isActivated, isIpsReturned, loadPmProgress } from "./workflowStore";
 import { bulletLines, toBulletItems } from "../utils/bullets";
 import { findProducts } from "../utils/productMatch";
 import { askBackend, confirmBackendAction, fetchBackendArticle, newSessionId } from "./genevaBackend";
@@ -14,7 +14,7 @@ import type {
   ActivityEvent, AllocationRow, Bucket3L, Client, Gate, GateId, GateState, Holding, InboxItem, IpsPart, MacroBrief, MarketRow,
   MarketView, HouseView, PackRenderInput, MarketAnswer, MeetingNote, IpsVersion, PackSection, Product, ProductClass, Role, AllocationGroup, CorrelationMatrix, GoalProjection, SectionDraft, GenevaArticle, GenevaContext, GenevaReply,
 } from "../types/arc";
-import type { PmAnswer, PmChatReply, PmChatTurn, PmClientProfile, PmInputField, PmInputs, PmRequest, PmResponse, PmWeightEvaluation } from "../types/portfolio";
+import type { PaAnswer, PaChatReply, PaChatTurn, PaClientProfile, PaInputField, PaInputs, PaRequest, PaResponse, PaWeightEvaluation } from "../types/portfolio";
 import type { PrAssetClassHeadline, PrAssetView, PrHouseView, PrOptions, PrRequest, PrResponse, PrShelf, PrShelfProduct, PrShortlistItem } from "../types/productRecommender";
 import type { RcPackReport, RcPackRequest, RcPackSection } from "../types/riskCompliance";
 
@@ -34,10 +34,10 @@ const effective = (c: Client): Client =>
   c.status === "Onboarding Phase" && isActivated(c.id) ? { ...c, status: "Monitoring Phase", ipsVersion: getActiveIps(c.id) ?? c.ipsVersion ?? 1 } : c;
 
 const SAA_ASSETS = ["Cash", "Fixed income", "Equities", "Hedge funds", "Private markets", "Real estate", "Gold"];
-/** Once the IC returned the IPS, parts 2 (3L buckets) and 4 (SAA) carry the IC's saved values. */
-const withIcReturn = (clientId: string, parts: IpsPart[]): IpsPart[] => {
+/** Once the PM returned the IPS, parts 2 (3L buckets) and 4 (SAA) carry the PM's saved values. */
+const withPmReturn = (clientId: string, parts: IpsPart[]): IpsPart[] => {
   if (!isIpsReturned(clientId)) return parts;
-  const { buckets, saa, saaWeights } = loadIcProgress(clientId);
+  const { buckets, saa, saaWeights } = loadPmProgress(clientId);
   const bk = m.buckets3LByClient[clientId] ?? m.buckets3L;
   return parts.map((p) => {
     if (p.part === 2 && buckets && buckets.length === bk.length) {
@@ -59,7 +59,7 @@ const buildIpsHistory = (clientId: string): IpsVersion[] => {
   const c = effective(base);
   if (base.status === "Onboarding Phase" && c.status === "Onboarding Phase") {
     return m.ipsPartsByClient[c.id]
-      ? [{ version: 1, issuedOn: "2026-10-15", status: "Draft", author: "Isabel", summary: "Onboarding draft. Parts 2 and 4 await the Investment Counsellor.", parts }]
+      ? [{ version: 1, issuedOn: "2026-10-15", status: "Draft", author: "Isabel", summary: "Onboarding draft. Parts 2 and 4 await the Portfolio Manager.", parts }]
       : [];
   }
   if (base.status === "Onboarding Phase") {
@@ -78,10 +78,10 @@ const withEdits = (clientId: string, list: IpsVersion[]): IpsVersion[] =>
   list.map((v) => (ipsEdits[`${clientId}:${v.version}`] ? { ...v, parts: ipsEdits[`${clientId}:${v.version}`] } : v));
 
 export interface ProfessionaliseInput {
-  clientId: string; role: "rm" | "ic" | "ps"; context: "ips" | "pack" | "products";
+  clientId: string; role: "rm" | "pm" | "ps"; context: "ips" | "pack" | "products";
   items: { id: string; label: string; text: string }[]; chat?: string[];
 }
-const ROLE_DESC = { rm: "Relationship Manager", ic: "Investment Counsellor", ps: "Product Specialist" } as const;
+const ROLE_DESC = { rm: "Relationship Manager", pm: "Portfolio Manager", ps: "Product Specialist" } as const;
 const CTX_TAG = { ips: "IPS-v2", pack: "CIO-2026Q4-03", products: "MKT-0142" } as const;
 function professionaliseText(input: ProfessionaliseInput, it: { label: string; text: string }): string {
   const tag = CTX_TAG[input.context];
@@ -115,32 +115,32 @@ export const arcApi = {
   getGoalProjection: (clientId: string): Promise<GoalProjection> => delay(m.goalProjectionByClient[clientId] ?? m.goalProjectionByClient.jfr),
   getHoldingClusters: (_clientId: string) => delay(m.holdingClusters),
   get3L: (clientId: string): Promise<Bucket3L[]> => delay(saved3L[clientId] ?? m.buckets3LByClient[clientId] ?? m.buckets3L),
-  /** Mock save: keeps the IC's bucket amounts in memory so the SAA step and the Portfolio Manager use them. */
+  /** Mock save: keeps the PM's bucket amounts in memory so the SAA step and the Portfolio Agent use them. */
   save3L: (clientId: string, buckets: Bucket3L[]): Promise<Bucket3L[]> => {
     saved3L[clientId] = buckets.map((b) => ({ ...b }));
     return delay(saved3L[clientId]);
   },
-  /** Portfolio Manager inputs derived from the 3L buckets, IPS part 3 and the goal plan (see buildPortfolioInputs). */
-  getPortfolioInputs: (clientId: string): Promise<PmInputs> => buildPortfolioInputs(clientId),
-  /** Real backend call: the Portfolio Manager agent builds and compares SAA templates A-F. */
-  generatePortfolioProposals: (request: PmRequest): Promise<PmResponse> => generatePortfolioProposals(request),
+  /** Portfolio Agent inputs derived from the 3L buckets, IPS part 3 and the goal plan (see buildPortfolioInputs). */
+  getPortfolioInputs: (clientId: string): Promise<PaInputs> => buildPortfolioInputs(clientId),
+  /** Real backend call: the Portfolio Agent builds and compares SAA templates A-F. */
+  generatePortfolioProposals: (request: PaRequest): Promise<PaResponse> => generatePortfolioProposals(request),
   /** Real backend call: the Risk & Compliance agent's final check of the review pack. Never approves G4; it only says whether the RM may. */
   checkReviewPack: (input: PackCheckInput): Promise<RcPackReport> => checkReviewPack(input),
   /** A proposal generated earlier (kept by the backend), so Back does not re-run the agent. */
-  getPortfolioProposal: (requestId: string): Promise<PmResponse> => getPortfolioProposal(requestId),
+  getPortfolioProposal: (requestId: string): Promise<PaResponse> => getPortfolioProposal(requestId),
   /** Backend re-check of adjusted asset-class weights: risk, return, limits and the efficient frontier. */
-  evaluatePortfolioWeights: (requestId: string, optionId: string, weights: Record<string, number>, signal?: AbortSignal): Promise<PmWeightEvaluation> =>
+  evaluatePortfolioWeights: (requestId: string, optionId: string, weights: Record<string, number>, signal?: AbortSignal): Promise<PaWeightEvaluation> =>
     evaluatePortfolioWeights(requestId, optionId, weights, signal),
   /**
-   * Geneva chat: a question about the client's portfolio, answered by the Portfolio Manager from the
-   * proposal the IC is working on (with their picked portfolio and edited weights), or, when there is none,
+   * Geneva chat: a question about the client's portfolio, answered by the Portfolio Agent from the
+   * proposal the PM is working on (with their picked portfolio and edited weights), or, when there is none,
    * from a run made just for the chat (never written to the SAA request).
    */
-  askPortfolioManager: (clientId: string, question: string, history: PmChatTurn[] = []): Promise<PmChatReply> =>
-    askPortfolioManager(clientId, question, history),
+  askPortfolioAgent: (clientId: string, question: string, history: PaChatTurn[] = []): Promise<PaChatReply> =>
+    askPortfolioAgent(clientId, question, history),
   getAllocation: (clientId: string): Promise<AllocationRow[]> => delay(m.allocationByClient[clientId] ?? m.allocation),
   getSaaTemplates: () => delay(m.saaTemplates),
-  getIps: (clientId: string): Promise<IpsPart[]> => delay(withIcReturn(clientId, m.ipsPartsByClient[clientId] ?? m.ipsParts)),
+  getIps: (clientId: string): Promise<IpsPart[]> => delay(withPmReturn(clientId, m.ipsPartsByClient[clientId] ?? m.ipsParts)),
   getMeetingNotes: (clientId: string): Promise<MeetingNote[]> => delay(m.meetingNotes.filter((n) => n.clientId === clientId)),
   /** Newest first. Onboarding clients return [] or a single Draft. */
   getIpsHistory: (clientId: string): Promise<IpsVersion[]> => delay(withEdits(clientId, buildIpsHistory(clientId))),
@@ -308,7 +308,7 @@ const clip = (s: string, n = 160) => { const x = firstLine(s); return x.length >
 
 const sgdM = (n: number) => `S$${(n / 1_000_000).toFixed(1)}m`;
 
-/** RM/IC chat, local half. Null = not a client-data or workflow question; Geneva sends it to the backend. */
+/** RM/PM chat, local half. Null = not a client-data or workflow question; Geneva sends it to the backend. */
 async function answerAsAgent(role: Role, clientId: string, message: string): Promise<AgentReply | null> {
   const t = message.toLowerCase();
   const agent = routeAgent(message);
@@ -320,7 +320,7 @@ async function answerAsAgent(role: Role, clientId: string, message: string): Pro
   const base = { role, clientId, agent };
   const done = (reply: string, tags: string[], steps: string[]): AgentReply => ({ ...base, reply, tags, steps });
 
-  if (role === "ic") {
+  if (role === "pm") {
     const pf = ["Reading the client's holdings…", "Running portfolio analytics…"];
     if (/market.*(today|regime)|regime/.test(t) && /house view|cio|web|market/.test(t)) {
       const mb = m.macroBrief;
@@ -344,7 +344,7 @@ async function answerAsAgent(role: Role, clientId: string, message: string): Pro
         }
       }
       const tail = edits.length ? `Suggested edits:\n${bullets(edits)}` : "All classes already match the TAA, no edits needed.";
-      return done(`Holdings against the new TAA for ${name}:\n${bullets(lines)}\n${tail}\nApply them on the Individual holdings step: /ic/cases/${clientId}/holdings. Draft only, for your review.`, ["PORT-HOLD", "CIO-2026Q4-05"], ["Reading the client's holdings…", "Reading the new TAA…", "Comparing weights per asset class…", "Drafting suggested edits…"]);
+      return done(`Holdings against the new TAA for ${name}:\n${bullets(lines)}\n${tail}\nApply them on the Individual holdings step: /pm/cases/${clientId}/holdings. Draft only, for your review.`, ["PORT-HOLD", "CIO-2026Q4-05"], ["Reading the client's holdings…", "Reading the new TAA…", "Comparing weights per asset class…", "Drafting suggested edits…"]);
     }
     if (/strength|weakness|analyse|analyze|portfolio (health|analysis)/.test(t) && !/taa/.test(t)) {
       const holdings = await arcApi.getHoldings(clientId);
@@ -395,7 +395,7 @@ async function answerAsAgent(role: Role, clientId: string, message: string): Pro
     const pack = await arcApi.getPack(clientId);
     const sec = pack.find((x) => x.n === hit[1]);
     if (sec && sec.owner !== role) {
-      const who = sec.owner === "ic" ? "the Investment Counsellor (Wei Lun)" : sec.owner === "ps" ? "the Product Specialist (David)" : "the Relationship Manager (Isabel)";
+      const who = sec.owner === "pm" ? "the Portfolio Manager (Wei Lun)" : sec.owner === "ps" ? "the Product Specialist (David)" : "the Relationship Manager (Isabel)";
       return { ...base, agent: "Orchestrator", reply: `Section ${sec.n}, ${sec.title}, belongs to ${who}. I can summarise it, but I cannot rewrite it for you.`, tags: [], steps: ["Checking section ownership…", "Drafting reply…"] };
     }
     if (sec) {
@@ -479,17 +479,17 @@ async function answerAsAgent(role: Role, clientId: string, message: string): Pro
   return null;
 }
 
-/* ---------- Portfolio Manager agent (real backend) ---------- */
+/* ---------- Portfolio Agent (real backend) ---------- */
 
-/** Backend base URL: the main app (or `python -m app.agents.portfolio_manager serve`). Override with VITE_API_BASE. */
+/** Backend base URL: the main app (or `python -m app.agents.portfolio_agent serve`). Override with VITE_API_BASE. */
 const API_BASE = ((import.meta.env.VITE_API_BASE as string | undefined) ?? "http://localhost:8000").replace(/\/$/, "");
-const PM_URL = `${API_BASE}/agents/portfolio-manager`;
-const PM_TIMEOUT_MS = 90_000; // generation can include an LLM call
+const PA_URL = `${API_BASE}/agents/portfolio-agent`;
+const PA_TIMEOUT_MS = 90_000; // generation can include an LLM call
 
-export class PortfolioManagerError extends Error {
+export class PortfolioAgentError extends Error {
   kind: "UNREACHABLE" | "TIMEOUT" | "REJECTED" | "NOT_FOUND" | "SERVER" | "INVALID_RESPONSE";
   details: string[];
-  constructor(kind: PortfolioManagerError["kind"], message: string, details: string[] = []) {
+  constructor(kind: PortfolioAgentError["kind"], message: string, details: string[] = []) {
     super(message);
     this.kind = kind;
     this.details = details;
@@ -499,7 +499,7 @@ export class PortfolioManagerError extends Error {
 const shortS = (n: number) => `S$${(n / 1_000_000).toFixed(2)}m`;
 
 /**
- * Turn what the RM and IC have captured into the agent's client profile.
+ * Turn what the RM and PM have captured into the agent's client profile.
  * - Portfolio = client AUM. The Liquidity bucket (0-3 years) is the cash
  *   ring-fenced from investing; the agent invests the rest.
  * - Risk: category + limit (willingness), capacity and drawdown limit from IPS part 3.
@@ -515,7 +515,7 @@ const shortS = (n: number) => `S$${(n / 1_000_000).toFixed(2)}m`;
  */
 const RISK_LABEL_FOR_LIMIT: Record<number, string> = { 1: "Conservative", 2: "Moderately conservative", 3: "Balanced", 4: "Growth", 5: "Aggressive" };
 
-/** Shared by the Portfolio Manager and the Product Recommender so both agents see the same client. */
+/** Shared by the Portfolio Agent and the Product Recommender so both agents see the same client. */
 async function buildClientProfile(clientId: string) {
   const [client, buckets, alloc, goals] = await Promise.all([
     arcApi.getClient(clientId), arcApi.get3L(clientId), arcApi.getAllocation(clientId), arcApi.getGoalProjection(clientId),
@@ -528,7 +528,7 @@ async function buildClientProfile(clientId: string) {
   const near = dated.filter((e) => e.years <= 3);
   const later = dated.filter((e) => e.years > 3);
   const current = Object.fromEntries(alloc.map((r) => [r.assetClass, r.current]));
-  const profile: PmClientProfile = {
+  const profile: PaClientProfile = {
     client_id: clientId,
     base_currency: "SGD",
     total_aum: client.aumSgd,
@@ -545,11 +545,11 @@ async function buildClientProfile(clientId: string) {
   return { client, risk, liquidity, near, later, alloc, profile };
 }
 
-async function buildPortfolioInputs(clientId: string): Promise<PmInputs> {
-  const [{ client, risk, liquidity, near, later, alloc, profile }, inbox] = await Promise.all([buildClientProfile(clientId), arcApi.getInbox("ic")]);
+async function buildPortfolioInputs(clientId: string): Promise<PaInputs> {
+  const [{ client, risk, liquidity, near, later, alloc, profile }, inbox] = await Promise.all([buildClientProfile(clientId), arcApi.getInbox("pm")]);
   const request = inbox.find((i) => i.clientId === clientId);
 
-  const fields: PmInputField[] = [
+  const fields: PaInputField[] = [
     { label: "Portfolio", value: shortS(client.aumSgd), source: "Client record" },
     { label: "Liquidity bucket (held separately)", value: shortS(liquidity), source: "3L buckets, this request" },
     { label: "Invested by the agent", value: shortS(client.aumSgd - liquidity), source: "Portfolio minus Liquidity bucket" },
@@ -577,109 +577,109 @@ async function buildPortfolioInputs(clientId: string): Promise<PmInputs> {
   };
 }
 
-/** One fetch path for every Portfolio Manager call: same timeouts, error kinds and messages. */
-async function pmJson(path: string, init: RequestInit, timeoutMs = PM_TIMEOUT_MS, signal?: AbortSignal): Promise<unknown> {
+/** One fetch path for every Portfolio Agent call: same timeouts, error kinds and messages. */
+async function paJson(path: string, init: RequestInit, timeoutMs = PA_TIMEOUT_MS, signal?: AbortSignal): Promise<unknown> {
   let res: Response;
   try {
     const timeout = AbortSignal.timeout(timeoutMs);
-    res = await fetch(`${PM_URL}${path}`, { ...init, signal: signal ? AbortSignal.any([signal, timeout]) : timeout });
+    res = await fetch(`${PA_URL}${path}`, { ...init, signal: signal ? AbortSignal.any([signal, timeout]) : timeout });
   } catch (err) {
     if (signal?.aborted) throw err; // superseded by a newer request; callers ignore it
     if (err instanceof DOMException && (err.name === "TimeoutError" || err.name === "AbortError")) {
-      throw new PortfolioManagerError("TIMEOUT", "The Portfolio Manager did not respond in time.");
+      throw new PortfolioAgentError("TIMEOUT", "The Portfolio Agent did not respond in time.");
     }
-    throw new PortfolioManagerError("UNREACHABLE", `Cannot reach the Portfolio Manager at ${API_BASE}.`, [
-      "Start the backend: cd backend, then python -m app.agents.portfolio_manager serve",
+    throw new PortfolioAgentError("UNREACHABLE", `Cannot reach the Portfolio Agent at ${API_BASE}.`, [
+      "Start the backend: cd backend, then python -m app.agents.portfolio_agent serve",
     ]);
   }
   const json: unknown = await res.json().catch(() => null);
   if (!res.ok) {
     const detail = (json as { detail?: unknown } | null)?.detail;
     if (res.status === 422 && Array.isArray(detail)) {
-      throw new PortfolioManagerError("REJECTED", "The Portfolio Manager rejected the inputs.",
+      throw new PortfolioAgentError("REJECTED", "The Portfolio Agent rejected the inputs.",
         detail.map((d: { loc?: unknown[]; msg?: string }) => `${(d.loc ?? []).filter((x) => x !== "body").join(" › ")}: ${d.msg ?? "invalid"}`));
     }
     if (res.status === 404 || res.status === 409) {
-      throw new PortfolioManagerError(res.status === 404 ? "NOT_FOUND" : "REJECTED", typeof detail === "string" ? detail : `HTTP ${res.status}`);
+      throw new PortfolioAgentError(res.status === 404 ? "NOT_FOUND" : "REJECTED", typeof detail === "string" ? detail : `HTTP ${res.status}`);
     }
-    throw new PortfolioManagerError("SERVER", `The Portfolio Manager returned an error (${typeof detail === "string" ? detail : `HTTP ${res.status}`}).`);
+    throw new PortfolioAgentError("SERVER", `The Portfolio Agent returned an error (${typeof detail === "string" ? detail : `HTTP ${res.status}`}).`);
   }
   return json;
 }
 
-function asProposal(json: unknown): PmResponse {
-  const r = json as Partial<PmResponse> | null;
+function asProposal(json: unknown): PaResponse {
+  const r = json as Partial<PaResponse> | null;
   const ok = !!r && typeof r.request_id === "string" && Array.isArray(r.portfolio_options) && Array.isArray(r.comparison_matrix)
     && Array.isArray(r.candidate_products) && !!r.market_context_summary && r.requires_rm_review === true && r.execution_status === "NOT_EXECUTED"
     && r.portfolio_options.every((o) => typeof o?.option_id === "string" && Array.isArray(o?.asset_allocation) && Array.isArray(o?.product_selections));
-  if (!ok) throw new PortfolioManagerError("INVALID_RESPONSE", "The Portfolio Manager's response did not match the expected format.");
-  return r as PmResponse;
+  if (!ok) throw new PortfolioAgentError("INVALID_RESPONSE", "The Portfolio Agent's response did not match the expected format.");
+  return r as PaResponse;
 }
 
-async function generatePortfolioProposals(req: PmRequest): Promise<PmResponse> {
-  const body: PmRequest = { ...req, request_id: req.request_id ?? `IC-${req.client_id}-${Date.now()}` };
-  return asProposal(await pmJson("/portfolio/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }));
+async function generatePortfolioProposals(req: PaRequest): Promise<PaResponse> {
+  const body: PaRequest = { ...req, request_id: req.request_id ?? `IC-${req.client_id}-${Date.now()}` };
+  return asProposal(await paJson("/portfolio/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }));
 }
 
-async function getPortfolioProposal(requestId: string): Promise<PmResponse> {
-  return asProposal(await pmJson(`/portfolio/${encodeURIComponent(requestId)}`, { method: "GET" }, 15_000));
+async function getPortfolioProposal(requestId: string): Promise<PaResponse> {
+  return asProposal(await paJson(`/portfolio/${encodeURIComponent(requestId)}`, { method: "GET" }, 15_000));
 }
 
-async function evaluatePortfolioWeights(requestId: string, optionId: string, weights: Record<string, number>, signal?: AbortSignal): Promise<PmWeightEvaluation> {
-  const json = await pmJson(`/portfolio/${encodeURIComponent(requestId)}/options/${encodeURIComponent(optionId)}/evaluate`,
+async function evaluatePortfolioWeights(requestId: string, optionId: string, weights: Record<string, number>, signal?: AbortSignal): Promise<PaWeightEvaluation> {
+  const json = await paJson(`/portfolio/${encodeURIComponent(requestId)}/options/${encodeURIComponent(optionId)}/evaluate`,
     { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ weights }) }, 20_000, signal);
-  const e = json as Partial<PmWeightEvaluation> | null;
+  const e = json as Partial<PaWeightEvaluation> | null;
   if (!e || !Array.isArray(e.lines) || !Array.isArray(e.checks) || !e.original || !e.adjusted || typeof e.valid !== "boolean") {
-    throw new PortfolioManagerError("INVALID_RESPONSE", "The weight check response did not match the expected format.");
+    throw new PortfolioAgentError("INVALID_RESPONSE", "The weight check response did not match the expected format.");
   }
-  return e as PmWeightEvaluation;
+  return e as PaWeightEvaluation;
 }
 
-/** Chat-only proposals per client, so a chat runs the Portfolio Manager once, not every question. */
+/** Chat-only proposals per client, so a chat runs the Portfolio Agent once, not every question. */
 const chatProposalIds = new Map<string, string>();
 
-async function askAbout(requestId: string, body: object): Promise<PmAnswer> {
+async function askAbout(requestId: string, body: object): Promise<PaAnswer> {
   let json: unknown;
   try {
-    json = await pmJson(`/portfolio/${encodeURIComponent(requestId)}/ask`,
+    json = await paJson(`/portfolio/${encodeURIComponent(requestId)}/ask`,
       { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }, 60_000);
   } catch (e) {
     // FastAPI's bare "Not Found" means the route is missing (a backend started before the chat endpoint
     // existed), not an expired proposal: say so instead of re-running the agent for nothing.
-    if (e instanceof PortfolioManagerError && e.kind === "NOT_FOUND" && e.message === "Not Found") {
-      throw new PortfolioManagerError("SERVER", "The running backend does not have the Portfolio Manager chat yet. Restart it so it runs the latest code.", [
-        "Stop the backend (Ctrl+C), then: cd backend, then python -m app.agents.portfolio_manager serve",
+    if (e instanceof PortfolioAgentError && e.kind === "NOT_FOUND" && e.message === "Not Found") {
+      throw new PortfolioAgentError("SERVER", "The running backend does not have the Portfolio Agent chat yet. Restart it so it runs the latest code.", [
+        "Stop the backend (Ctrl+C), then: cd backend, then python -m app.agents.portfolio_agent serve",
       ]);
     }
     throw e;
   }
-  const a = json as Partial<PmAnswer> | null;
+  const a = json as Partial<PaAnswer> | null;
   if (!a || typeof a.answer !== "string" || typeof a.source !== "string" || a.execution_status !== "NOT_EXECUTED") {
-    throw new PortfolioManagerError("INVALID_RESPONSE", "The Portfolio Manager's answer did not match the expected format.");
+    throw new PortfolioAgentError("INVALID_RESPONSE", "The Portfolio Agent's answer did not match the expected format.");
   }
-  return a as PmAnswer;
+  return a as PaAnswer;
 }
 
-async function askPortfolioManager(clientId: string, question: string, history: PmChatTurn[]): Promise<PmChatReply> {
-  const progress = loadIcProgress(clientId);
+async function askPortfolioAgent(clientId: string, question: string, history: PaChatTurn[]): Promise<PaChatReply> {
+  const progress = loadPmProgress(clientId);
   const holdings = await arcApi.getHoldings(clientId);
   const base = {
     question: question.slice(0, 1000),
     history: history.slice(-3).map((t) => ({ question: t.question.slice(0, 1000), answer: t.answer.slice(0, 1500) })),
   };
   const current = holdings.slice(0, 100).map((h) => ({ name: h.name, asset_class: h.assetClass, weight_pct: h.weightPct }));
-  const notFound = (e: unknown) => e instanceof PortfolioManagerError && e.kind === "NOT_FOUND";
+  const notFound = (e: unknown) => e instanceof PortfolioAgentError && e.kind === "NOT_FOUND";
 
-  // 1. The IC's own proposal for this client, with the portfolio they picked and any edited weights.
-  if (progress.pmRequestId) {
+  // 1. The PM's own proposal for this client, with the portfolio they picked and any edited weights.
+  if (progress.paRequestId) {
     try {
-      const a = await askAbout(progress.pmRequestId, { ...base, workspace: {
+      const a = await askAbout(progress.paRequestId, { ...base, workspace: {
         selected_option: progress.saaTemplate ?? null,
         adjusted_weights: progress.saaTemplate && progress.saaWeights ? progress.saaWeights : null,
         sent_to_rm: isIpsReturned(clientId),
         holdings: current,
       } });
-      return { ...a, basis: "ic" };
+      return { ...a, basis: "pm" };
     } catch (e) {
       if (!notFound(e)) throw e; // backend restarted: fall through to a chat run
     }
@@ -836,7 +836,7 @@ export class RiskComplianceError extends Error {
 export interface PackCheckInput {
   clientId: string;
   sections: RcPackSection[];
-  /** Allocation rows with the IC's saved new TAA applied. */
+  /** Allocation rows with the PM's saved new TAA applied. */
   allocation: AllocationRow[];
   /** The Product Specialist's finalised list (names; matched to the shelf by the agent). */
   products: { name: string; assetClass: string }[];

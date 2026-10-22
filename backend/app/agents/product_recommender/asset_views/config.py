@@ -14,7 +14,7 @@ higher reading supports the asset class, -1 if it weighs on it) and `weight`.
 from dataclasses import dataclass
 from typing import Literal, Optional
 
-from app.agents.portfolio_manager.taxonomy import AssetClass
+from app.agents.portfolio_agent.taxonomy import AssetClass
 
 
 @dataclass(frozen=True)

@@ -4,18 +4,18 @@
  * it only says whether the RM may sign off (`rm_signoff_allowed`).
  */
 import type { GateId, GateState } from "./arc";
-import type { PmClientProfile } from "./portfolio";
+import type { PaClientProfile } from "./portfolio";
 
 export type RcStatus = "PASS" | "PASS_WITH_CONDITIONS" | "BLOCKED" | "NEEDS_INFO";
 export type RcEffect = "BLOCK" | "NEEDS_INFO" | "CONDITION" | "NOTE";
 
 export interface RcAllocationRow { asset_class: string; saa: number; current: number; old_taa: number; new_taa: number; band: number }
 export interface RcPackProduct { product_id?: string | null; product_name: string; asset_class?: string | null; weight_pct?: number | null }
-export interface RcPackSection { n: number; title: string; owner: "rm" | "ic" | "ps"; gate: GateId | null; status: "draft" | "ready" | "flagged" | "approved"; text: string; kind?: "signoff" | null }
+export interface RcPackSection { n: number; title: string; owner: "rm" | "pm" | "ps"; gate: GateId | null; status: "draft" | "ready" | "flagged" | "approved"; text: string; kind?: "signoff" | null }
 
 export interface RcPackRequest {
   request_id?: string; client_id: string; pack_version?: string | null; reference_date: string; policy_version?: string | null;
-  client_profile: PmClientProfile;
+  client_profile: PaClientProfile;
   allocation: RcAllocationRow[]; products: RcPackProduct[]; sections: RcPackSection[];
   gates: Partial<Record<GateId, GateState>>;
   data_as_of: { profile: string | null; market: string | null };

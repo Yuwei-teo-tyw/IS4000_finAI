@@ -1,8 +1,8 @@
-import type { PmInputs } from "../../types/portfolio";
+import type { PaInputs } from "../../types/portfolio";
 import { Badge, Card } from "../ui";
 
-/** What the Portfolio Manager will receive, with where each value came from. Read-only. */
-export function InputsPanel({ inputs }: { inputs: PmInputs }) {
+/** What the Portfolio Agent will receive, with where each value came from. Read-only. */
+export function InputsPanel({ inputs }: { inputs: PaInputs }) {
   const captured = inputs.fields.filter((f) => f.value !== null);
   const missing = inputs.fields.filter((f) => f.value === null);
   return (

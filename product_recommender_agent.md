@@ -11,19 +11,19 @@ Read these files first. **Repo conventions override this plan.** Where this plan
 
 | What | Where | Why it matters |
 |---|---|---|
-| Closest existing agent (copy its structure) | `backend/app/agents/portfolio_manager/` (`service.py`, `config.py`, `schemas/`, `engine/`, `explain/`) | Package layout, settings, deterministic engine + optional LLM explainer pattern |
-| Existing suitability screen | `backend/app/agents/portfolio_manager/engine/product_screening.py` | Already does restrictions, eligibility, sector exclusions, ESG, lock-in vs horizon, currency. **Reuse/move it; do not write a second copy.** |
-| Product contract | `backend/app/agents/portfolio_manager/schemas/upstream.py` (`ProductCandidate`, `ProductCandidates`, `UpstreamResult`) | The shelf schema the Portfolio Manager already consumes |
-| Client contract | `backend/app/agents/portfolio_manager/schemas/client.py` (`ClientProfile`) | Request input; reuse it, do not invent a new client schema |
-| Mock product shelf (backend) | `backend/app/agents/portfolio_manager/upstream/mock_data/product_candidates.json` (20 `MOCK-*` products) | One of the two lists to merge |
-| Integration point to replace | `backend/app/agents/portfolio_manager/upstream/product_specialist.py` (`get_product_candidates`) | Where the PM will start reading from the recommender |
-| Taxonomy | `backend/app/agents/portfolio_manager/taxonomy.py` (`AssetClass`, `Liquidity`, `parse_period_to_months`) | Shared enums: 7 asset classes, liquidity terms |
-| LLM client + guardrails | `backend/app/agents/portfolio_manager/explain/` (`llm_client.py`, `guardrails.py`, `deterministic.py`) | Groq via `langchain_groq`, lazy import, deterministic fallback |
-| Endpoint style | `backend/app/endpoints/portfolio_manager.py`, router registration in `backend/app/app.py` | Prefix `/agents/<name>`, `get_service` on `app.state`, validation handler that never echoes client data |
-| Market regime | `backend/app/agents/market_researcher/schemas.py` (`MarketResearchOutput.regime`), `backend/app/agents/portfolio_manager/upstream/market_analysis.py` | Cycle phase. It has **no per-asset-class Buy/Hold/Sell view** (see §3.4). |
+| Closest existing agent (copy its structure) | `backend/app/agents/portfolio_agent/` (`service.py`, `config.py`, `schemas/`, `engine/`, `explain/`) | Package layout, settings, deterministic engine + optional LLM explainer pattern |
+| Existing suitability screen | `backend/app/agents/portfolio_agent/engine/product_screening.py` | Already does restrictions, eligibility, sector exclusions, ESG, lock-in vs horizon, currency. **Reuse/move it; do not write a second copy.** |
+| Product contract | `backend/app/agents/portfolio_agent/schemas/upstream.py` (`ProductCandidate`, `ProductCandidates`, `UpstreamResult`) | The shelf schema the Portfolio Manager already consumes |
+| Client contract | `backend/app/agents/portfolio_agent/schemas/client.py` (`ClientProfile`) | Request input; reuse it, do not invent a new client schema |
+| Mock product shelf (backend) | `backend/app/agents/portfolio_agent/upstream/mock_data/product_candidates.json` (20 `MOCK-*` products) | One of the two lists to merge |
+| Integration point to replace | `backend/app/agents/portfolio_agent/upstream/product_specialist.py` (`get_product_candidates`) | Where the PM will start reading from the recommender |
+| Taxonomy | `backend/app/agents/portfolio_agent/taxonomy.py` (`AssetClass`, `Liquidity`, `parse_period_to_months`) | Shared enums: 7 asset classes, liquidity terms |
+| LLM client + guardrails | `backend/app/agents/portfolio_agent/explain/` (`llm_client.py`, `guardrails.py`, `deterministic.py`) | Groq via `langchain_groq`, lazy import, deterministic fallback |
+| Endpoint style | `backend/app/endpoints/portfolio_agent.py`, router registration in `backend/app/app.py` | Prefix `/agents/<name>`, `get_service` on `app.state`, validation handler that never echoes client data |
+| Market regime | `backend/app/agents/market_researcher/schemas.py` (`MarketResearchOutput.regime`), `backend/app/agents/portfolio_agent/upstream/market_analysis.py` | Cycle phase. It has **no per-asset-class Buy/Hold/Sell view** (see §3.4). |
 | House view source document | `house_views/UBS House View for August 2026.pdf` | Source for the per-asset-class view |
 | Test conventions | `backend/tests/portfolio_helpers.py`, `backend/tests/conftest.py` (`FakeLLM`), `backend/tests/test_portfolio_*.py` | Fixed clock, LLM disabled or faked, no network |
-| Frontend data seam | `frontend/src/services/arcApi.ts` (`getProducts`, `getMarketViews`, `askMarketResearch`, `buildPortfolioInputs`, `PortfolioManagerError`) | The only place pages get data. `buildPortfolioInputs` already maps frontend client data to `ClientProfile`. |
+| Frontend data seam | `frontend/src/services/arcApi.ts` (`getProducts`, `getMarketViews`, `askMarketResearch`, `buildPortfolioInputs`, `PortfolioAgentError`) | The only place pages get data. `buildPortfolioInputs` already maps frontend client data to `ClientProfile`. |
 | Frontend recommendation logic to replace | `frontend/src/components/geneva/GenevaChat.tsx` (`buildRecommendation`, `score`) | Ranking currently happens in the browser; it must move to the backend |
 | Frontend product types and mock | `frontend/src/types/arc.ts` (`Product`, `MarketView`, `MarketRow`), `frontend/src/mock/data.ts` (`products`, `marketViews`, `productCatalogue`) | The second product list (17 `PRD-*` products) and the shape PS pages render |
 | Frontend rules | `frontend/CLAUDE.md`, `frontend/AGENTS.md` | File ownership per agent, Lux design rules, "Done = `npm run build` passes" |
@@ -68,14 +68,14 @@ Then write a short "What I found" section at the top of `backend/app/agents/prod
 backend/app/agents/product_recommender/
 ├── NOTES.md                 # what you found, decisions, deviations
 ├── __init__.py
-├── config.py                # Settings from env (copy portfolio_manager/config.py style)
+├── config.py                # Settings from env (copy portfolio_agent/config.py style)
 ├── schemas.py               # RecommendRequest, RecommendResponse, HouseView, ScoreBreakdown, Exclusion
 ├── data/
 │   ├── shelf.json           # THE product shelf (merged, see §3.1)
 │   └── house_view.json      # THE house view (see §3.4)
 ├── shelf.py                 # load + validate shelf -> UpstreamResult (per-product validation, bad rows reported not fatal)
 ├── house_view.py            # load + validate house view; optional regime cross-check
-├── suitability.py           # the hard gate (moved from portfolio_manager/engine/product_screening.py)
+├── suitability.py           # the hard gate (moved from portfolio_agent/engine/product_screening.py)
 ├── ranking.py               # scoring components, no fee terms
 ├── asset_views/
 │   ├── signals.py           # indicator mapping + deterministic agent stance and confidence (§6.3)
@@ -89,7 +89,7 @@ backend/app/agents/product_recommender/
 backend/app/endpoints/product_recommender.py   # router, registered in app/app.py
 ```
 
-**Shared gate.** Move the screening logic into `product_recommender/suitability.py` and make `portfolio_manager/engine/product_screening.py` import it, or turn it into a thin re-export. There must be one implementation of each hard check.
+**Shared gate.** Move the screening logic into `product_recommender/suitability.py` and make `portfolio_agent/engine/product_screening.py` import it, or turn it into a thin re-export. There must be one implementation of each hard check.
 
 ### Request flow
 ```
@@ -114,7 +114,7 @@ There are two shelves today, and they do not match:
 **Default:** the canonical shelf uses the backend `ProductCandidate` schema, extended with the presentation fields the PS UI needs: `why_buy`, `suitability_note`, `rating` (replaces `stars`), and `citations` (replaces `tags`, e.g. `CIO-2026Q4-03`, `MKT-0142`). Start from the 20 backend products. Add frontend products only where they fill a gap in coverage, and give them illustrative names, not real fund names, because the data is invented. Every one of the 7 asset classes in `taxonomy.AssetClass` must have at least two products at different risk ratings. Then update the frontend mock and `productCatalogue` aliases to the new names so the chat's "finalise X and Y" matching still works.
 
 ### 3.2 The Portfolio Manager's ranking also uses fees
-`portfolio_manager/engine/product_screening.py::rank_products` does `s -= prod.management_fee or 0` and docstrings "Favours ... lower fees". **Remove the fee term** to honour the same rule. This changes PM output: update its tests and `samples/sample_response.json`, and say so in the PR description.
+`portfolio_agent/engine/product_screening.py::rank_products` does `s -= prod.management_fee or 0` and docstrings "Favours ... lower fees". **Remove the fee term** to honour the same rule. This changes PM output: update its tests and `samples/sample_response.json`, and say so in the PR description.
 
 ### 3.3 Client input
 Reuse `ClientProfile` as-is. The frontend already builds one in `arcApi.buildPortfolioInputs`; extract the profile-building part into a shared helper so the recommender and the PM send identical profiles. Do not add new required fields. A missing field must produce a "cannot verify" exclusion or a `missing_information` entry, not a 422.
@@ -336,14 +336,14 @@ An asset-class view is a draft for the PS. In the UI it gets citation tags and a
 - `GET  /agents/product-recommender/shelf`: the whole shelf for the Product Shelf page (no client needed; fees included, labelled display-only).
 - `GET  /agents/product-recommender/house-view`: the house view for `getMarketViews` and the chat.
 
-The asset-class view reads the **latest finished Market Researcher run**, in-process, using the same lookup that backs `GET /agents/market-researcher/latest` (see `market_researcher/runs.py`) or `portfolio_manager/upstream/market_analysis.py`, whichever the code already shares. It does not trigger a fresh FRED/market fetch per request. Return the run's `as_of` and `run_id` so the PS can see how old the evidence is.
+The asset-class view reads the **latest finished Market Researcher run**, in-process, using the same lookup that backs `GET /agents/market-researcher/latest` (see `market_researcher/runs.py`) or `portfolio_agent/upstream/market_analysis.py`, whichever the code already shares. It does not trigger a fresh FRED/market fetch per request. Return the run's `as_of` and `run_id` so the PS can see how old the evidence is.
 
 Use the PM's `install_validation_handler` pattern so 422s never echo client data. Generate a JSON schema file for the response (as the Market Researcher does with `market_research_output.schema.json`).
 
 ---
 
 ## 8. LLM explanations (`explain.py`)
-- Same pattern as `portfolio_manager/explain/`: lazy Groq client, `*_LLM_ENABLED` env switch, timeout, deterministic fallback on any failure.
+- Same pattern as `portfolio_agent/explain/`: lazy Groq client, `*_LLM_ENABLED` env switch, timeout, deterministic fallback on any failure.
 - Input to the LLM: the product's fields, its score components, the house-view rationale and citation, the client summary. Nothing else.
 - Output: 3 to 5 plain-language bullets per shortlisted product, each ending in a citation tag from the input list.
 - Guardrail (reuse `explain/guardrails.py` where possible) rejects text that:
@@ -372,7 +372,7 @@ Respect `frontend/CLAUDE.md` file ownership. If you are running as a single agen
    - `getProducts(clientId)` calls `GET /shelf` and maps to the existing `Product` type (`feePct` ← `management_fee`, `stars` ← `rating`, `tags` ← `citations`, `whyBuy`, `suitability` ← `suitability_note`). Keep the function signature unchanged.
    - Add `recommendProducts(clientId)` that builds the `ClientProfile` with the shared helper (§3.3) and calls `POST /recommend`.
    - `getMarketViews(clientId)` calls `GET /house-view`.
-   - Errors follow the `PortfolioManagerError` pattern (`UNREACHABLE`, `TIMEOUT`, `REJECTED`, `SERVER`, `INVALID_RESPONSE`). Show a clear "start the backend" message. **Do not silently fall back to mock data**, because the PS would be approving a list the agent never produced.
+   - Errors follow the `PortfolioAgentError` pattern (`UNREACHABLE`, `TIMEOUT`, `REJECTED`, `SERVER`, `INVALID_RESPONSE`). Show a clear "start the backend" message. **Do not silently fall back to mock data**, because the PS would be approving a list the agent never produced.
 2. **`components/geneva/GenevaChat.tsx`** (chatbot agent): `buildRecommendation` stops ranking in the browser. It calls `recommendProducts` and renders the shortlist, the excluded list (with reasons) and each product's fee labelled "for information, not used to rank". Keep the thinking-card steps, but drive them from the real stages.
 3. **`pages/ps/ProductShelfPage.tsx`** (PS agent): reads from the new shelf. Optionally show, per product, the gate result for the active client.
 4. **`pages/ps/FinaliseProducts.tsx`** (PS agent): seed each product's baseline reason from the recommender's `reason.text` instead of the generic `draftReason`.

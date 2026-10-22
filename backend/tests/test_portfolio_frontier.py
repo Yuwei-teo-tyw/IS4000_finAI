@@ -7,8 +7,8 @@ import dataclasses
 import numpy as np
 import pytest
 
-from app.agents.portfolio_manager.assumptions import load_assumptions
-from app.agents.portfolio_manager.engine.frontier import _model, efficient_frontier, min_variance, model_point
+from app.agents.portfolio_agent.assumptions import load_assumptions
+from app.agents.portfolio_agent.engine.frontier import _model, efficient_frontier, min_variance, model_point
 from portfolio_helpers import BASE, GENERATE, make_client, make_service, offered, option, request_with
 
 CLASSES = ["Cash", "Fixed income", "Equities", "Hedge funds", "Private markets", "Real estate", "Gold"]

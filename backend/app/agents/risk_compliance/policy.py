@@ -3,7 +3,7 @@ The versioned risk & compliance policy (data/policy.json): thresholds for
 the new checks and the effect of every rule.
 
 The values are placeholders until the policy owner signs them off (see the
-file's `_notice`). Rules reused from the Portfolio Manager and Product
+file's `_notice`). Rules reused from the Portfolio Agent and Product
 Recommender keep their own constants; this file only governs the checks
 this agent adds. A missing, malformed or incomplete policy is refused, and
 the service then blocks every check rather than running without one.

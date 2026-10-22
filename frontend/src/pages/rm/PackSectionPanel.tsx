@@ -90,7 +90,7 @@ export function PackSectionPanel({ clientId, s, pos, role, onboarding, approved,
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {shown && s.owner === "ic" && role !== "ic" && <Badge tone="green">IC reviewed thoroughly</Badge>}
+          {shown && s.owner === "pm" && role !== "pm" && <Badge tone="green">PM reviewed thoroughly</Badge>}
           {canMark && (isDone ? (
             <span className="flex items-center gap-3 text-sm text-ink-muted"><span className="flex items-center gap-1.5"><Check size={14} />Done</span>
               <Button variant="secondary" size="sm" onClick={() => setSectionDone(clientId, s.n, false, role)}>Reopen</Button></span>

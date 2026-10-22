@@ -9,10 +9,10 @@ This file records what was found, the decisions taken, and where the build devia
 ## What I found
 
 - **The checks the specialists need already exist, and are already shared:**
-  - `portfolio_manager/engine/profile_assessment.py` covers appetite vs capacity (the lower governs), missing and contradictory fields, and severity.
-  - `portfolio_manager/engine/liquidity.py` covers the reserve, near-term withdrawals and eligible value.
-  - `product_recommender/suitability.py` covers the core and product-level gate. `portfolio_manager/engine/product_screening.py` re-exports it, so the PM and the Recommender already apply one implementation.
-  - `portfolio_manager/engine/construction.py` enforces the growth ceiling, per-product cap, FX cap and drawdown while building options.
+  - `portfolio_agent/engine/profile_assessment.py` covers appetite vs capacity (the lower governs), missing and contradictory fields, and severity.
+  - `portfolio_agent/engine/liquidity.py` covers the reserve, near-term withdrawals and eligible value.
+  - `product_recommender/suitability.py` covers the core and product-level gate. `portfolio_agent/engine/product_screening.py` re-exports it, so the PM and the Recommender already apply one implementation.
+  - `portfolio_agent/engine/construction.py` enforces the growth ceiling, per-product cap, FX cap and drawdown while building options.
 - **No orchestrator, analysis packet, Challenger or Review Gate in this repo.** The Level 3 runtime is the external v5 project behind `advisory-browser/`. `agents/graph.py` is the triage chatbot.
 - **The review pack exists only in the frontend:**
   - free-text `PackSection`s and pack drafts in sessionStorage (`services/packDraftStore.ts`);

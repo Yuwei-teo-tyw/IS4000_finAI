@@ -1,0 +1,3946 @@
+{
+  "request_id": "PM-REQ-001",
+  "client_id": "CLIENT_001",
+  "analysis_timestamp": "2026-10-15T12:00:00Z",
+  "status": "COMPLETED_WITH_WARNINGS",
+  "data_status": {
+    "client_profile": "VALIDATED",
+    "market_analysis": "MOCK",
+    "product_candidates": "MOCK_INCOMPLETE"
+  },
+  "client_profile_summary": {
+    "base_currency": "SGD",
+    "risk_appetite": "Moderate",
+    "risk_capacity": "Moderate",
+    "risk_tolerance_score": 3,
+    "effective_risk_level": 3,
+    "effective_risk_label": "Moderate / Balanced",
+    "effective_risk_basis": "Risk willingness and capacity agree (level 3).",
+    "maximum_acceptable_drawdown": 15.0,
+    "primary_goals": [
+      "Retirement income"
+    ],
+    "shortest_goal_horizon_years": 8.0,
+    "review_trigger": "Planning for retirement; Review investment risk and liquidity; Prepare for retirement withdrawals; effective 2026-10-15"
+  },
+  "liquidity_plan": {
+    "investable_assets": 400000.0,
+    "minimum_cash_reserve_required": 30000.0,
+    "reserve_already_held_outside_investable_assets": 0.0,
+    "reserve_carved_out": 30000.0,
+    "near_term_withdrawals_carved_out": 20000.0,
+    "later_withdrawals_not_carved_out": 0.0,
+    "eligible_portfolio_value": 350000.0,
+    "notes": [
+      {
+        "statement": "Minimum cash reserve of 30,000.00 specified by the RM.",
+        "basis": "CLIENT_INPUT",
+        "source": null
+      },
+      {
+        "statement": "Near-term planned withdrawals of 20,000.00 are ring-fenced and not invested.",
+        "basis": "CLIENT_INPUT",
+        "source": null
+      },
+      {
+        "statement": "Eligible portfolio value = 400,000.00 - 30,000.00 (reserve) - 20,000.00 (near-term withdrawals) = 350,000.00.",
+        "basis": "CALCULATION",
+        "source": null
+      }
+    ]
+  },
+  "market_context_summary": {
+    "data_source_label": "Market Researcher (illustrative mock)",
+    "run_id": "mr_mock_20261015T000000Z_pm0001",
+    "as_of": "2026-10-15",
+    "region": "US",
+    "quality_status": "ok",
+    "regime": {
+      "phase": "late_expansion",
+      "confidence": "low",
+      "probabilities": {
+        "early_expansion": 0.2958,
+        "late_expansion": 0.3859,
+        "recession": 0.1341,
+        "late_recession": 0.1842
+      },
+      "recession_prob_12m": 0.1281,
+      "in_recession_prob": 0.3183,
+      "drivers": [
+        "Inflation pressure elevated (I)",
+        "Unemployment vs 12m low (UNRATE)",
+        "Payrolls 3m avg change (PAYEMS)"
+      ],
+      "conflicting_signals": [
+        "Momentum (M) is only slightly positive, which also fits early_expansion."
+      ],
+      "changed": false
+    },
+    "events": [
+      {
+        "id": "core_inflation_reaccelerating",
+        "severity": "notable",
+        "description": "Core CPI re-accelerating: 3-month annualized 3.41% vs 2.57% YoY (2026-09-01).",
+        "evidence": [
+          "CPILFESL"
+        ]
+      },
+      {
+        "id": "fed_raised",
+        "severity": "notable",
+        "description": "Fed raised its target range by 25bp in the last 60 days (now 3.75-4.00%).",
+        "evidence": [
+          "DFEDTARU",
+          "DFEDTARL"
+        ]
+      },
+      {
+        "id": "ten_year_high",
+        "severity": "info",
+        "description": "10-year Treasury yield at 5.19%, in the 99th percentile of the last 10 years (2026-10-14).",
+        "evidence": [
+          "DGS10"
+        ]
+      }
+    ],
+    "indicators": [
+      {
+        "id": "DGS10",
+        "name": "10-Year Treasury Yield",
+        "category": "rates",
+        "value": 5.19,
+        "unit": "%",
+        "observation_date": "2026-10-14",
+        "signal": "tightening",
+        "percentile_10y": 99.5,
+        "stale": false,
+        "source": "FRED (illustrative mock)",
+        "source_url": "https://fred.stlouisfed.org/series/DGS10"
+      },
+      {
+        "id": "T10Y3M",
+        "name": "10-Year minus 3-Month Treasury Spread",
+        "category": "rates",
+        "value": 0.42,
+        "unit": "pp",
+        "observation_date": "2026-10-14",
+        "signal": "neutral",
+        "percentile_10y": 38.0,
+        "stale": false,
+        "source": "FRED (illustrative mock)",
+        "source_url": "https://fred.stlouisfed.org/series/T10Y3M"
+      },
+      {
+        "id": "DFF",
+        "name": "Effective Federal Funds Rate",
+        "category": "rates",
+        "value": 3.88,
+        "unit": "%",
+        "observation_date": "2026-10-14",
+        "signal": "tightening",
+        "percentile_10y": 71.0,
+        "stale": false,
+        "source": "FRED (illustrative mock)",
+        "source_url": "https://fred.stlouisfed.org/series/DFF"
+      },
+      {
+        "id": "CPILFESL",
+        "name": "Core CPI (YoY)",
+        "category": "inflation",
+        "value": 2.57,
+        "unit": "%",
+        "observation_date": "2026-09-01",
+        "signal": "inflationary",
+        "percentile_10y": 62.0,
+        "stale": false,
+        "source": "FRED (illustrative mock)",
+        "source_url": "https://fred.stlouisfed.org/series/CPILFESL"
+      },
+      {
+        "id": "UNRATE",
+        "name": "Unemployment Rate",
+        "category": "labor",
+        "value": 4.1,
+        "unit": "%",
+        "observation_date": "2026-09-01",
+        "signal": "neutral",
+        "percentile_10y": 41.0,
+        "stale": false,
+        "source": "FRED (illustrative mock)",
+        "source_url": "https://fred.stlouisfed.org/series/UNRATE"
+      },
+      {
+        "id": "PAYEMS",
+        "name": "Nonfarm Payrolls (3m avg change, thousands)",
+        "category": "labor",
+        "value": 142.0,
+        "unit": "thousands",
+        "observation_date": "2026-09-01",
+        "signal": "bullish_growth",
+        "percentile_10y": 45.0,
+        "stale": false,
+        "source": "FRED (illustrative mock)",
+        "source_url": "https://fred.stlouisfed.org/series/PAYEMS"
+      },
+      {
+        "id": "BAA10Y",
+        "name": "Baa Corporate minus 10-Year Treasury Spread",
+        "category": "credit",
+        "value": 1.62,
+        "unit": "pp",
+        "observation_date": "2026-10-14",
+        "signal": "neutral",
+        "percentile_10y": 22.0,
+        "stale": false,
+        "source": "FRED (illustrative mock)",
+        "source_url": "https://fred.stlouisfed.org/series/BAA10Y"
+      },
+      {
+        "id": "NFCI",
+        "name": "Chicago Fed National Financial Conditions Index",
+        "category": "credit",
+        "value": -0.48,
+        "unit": "index",
+        "observation_date": "2026-10-10",
+        "signal": "easing",
+        "percentile_10y": 30.0,
+        "stale": false,
+        "source": "FRED (illustrative mock)",
+        "source_url": "https://fred.stlouisfed.org/series/NFCI"
+      },
+      {
+        "id": "DGS3MO",
+        "name": "3-Month Treasury Yield",
+        "category": "rates",
+        "value": 3.97,
+        "unit": "%",
+        "observation_date": "2026-10-14",
+        "signal": "tightening",
+        "percentile_10y": 74.0,
+        "stale": false,
+        "source": "FRED (illustrative mock)",
+        "source_url": "https://fred.stlouisfed.org/series/DGS3MO"
+      },
+      {
+        "id": "DGS2",
+        "name": "2-Year Treasury Yield",
+        "category": "rates",
+        "value": 4.41,
+        "unit": "%",
+        "observation_date": "2026-10-14",
+        "signal": "tightening",
+        "percentile_10y": 86.0,
+        "stale": false,
+        "source": "FRED (illustrative mock)",
+        "source_url": "https://fred.stlouisfed.org/series/DGS2"
+      },
+      {
+        "id": "DGS30",
+        "name": "30-Year Treasury Yield",
+        "category": "rates",
+        "value": 5.36,
+        "unit": "%",
+        "observation_date": "2026-10-14",
+        "signal": "tightening",
+        "percentile_10y": 99.0,
+        "stale": false,
+        "source": "FRED (illustrative mock)",
+        "source_url": "https://fred.stlouisfed.org/series/DGS30"
+      },
+      {
+        "id": "DFII10",
+        "name": "10-Year TIPS Real Yield",
+        "category": "rates",
+        "value": 2.62,
+        "unit": "%",
+        "observation_date": "2026-10-14",
+        "signal": "tightening",
+        "percentile_10y": 97.0,
+        "stale": false,
+        "source": "FRED (illustrative mock)",
+        "source_url": "https://fred.stlouisfed.org/series/DFII10"
+      },
+      {
+        "id": "T10YIE",
+        "name": "10-Year Breakeven Inflation",
+        "category": "inflation",
+        "value": 2.57,
+        "unit": "%",
+        "observation_date": "2026-10-14",
+        "signal": "inflationary",
+        "percentile_10y": 68.0,
+        "stale": false,
+        "source": "FRED (illustrative mock)",
+        "source_url": "https://fred.stlouisfed.org/series/T10YIE"
+      },
+      {
+        "id": "BAMLC0A0CM",
+        "name": "US Investment Grade OAS",
+        "category": "credit",
+        "value": 0.84,
+        "unit": "pp",
+        "observation_date": "2026-10-14",
+        "signal": "neutral",
+        "percentile_10y": 12.0,
+        "stale": false,
+        "source": "FRED (illustrative mock)",
+        "source_url": "https://fred.stlouisfed.org/series/BAMLC0A0CM"
+      },
+      {
+        "id": "BAMLH0A0HYM2",
+        "name": "US High Yield OAS",
+        "category": "credit",
+        "value": 2.95,
+        "unit": "pp",
+        "observation_date": "2026-10-14",
+        "signal": "neutral",
+        "percentile_10y": 10.0,
+        "stale": false,
+        "source": "FRED (illustrative mock)",
+        "source_url": "https://fred.stlouisfed.org/series/BAMLH0A0HYM2"
+      },
+      {
+        "id": "VIXCLS",
+        "name": "CBOE Volatility Index (VIX)",
+        "category": "sentiment",
+        "value": 15.8,
+        "unit": "index",
+        "observation_date": "2026-10-14",
+        "signal": "neutral",
+        "percentile_10y": 41.0,
+        "stale": false,
+        "source": "FRED (illustrative mock)",
+        "source_url": "https://fred.stlouisfed.org/series/VIXCLS"
+      },
+      {
+        "id": "STLFSI4",
+        "name": "St. Louis Fed Financial Stress Index",
+        "category": "financial_conditions",
+        "value": -0.62,
+        "unit": "index",
+        "observation_date": "2026-10-14",
+        "signal": "easing",
+        "percentile_10y": 26.0,
+        "stale": false,
+        "source": "FRED (illustrative mock)",
+        "source_url": "https://fred.stlouisfed.org/series/STLFSI4"
+      }
+    ],
+    "market_snapshot": [
+      {
+        "id": "SPY",
+        "name": "S&P 500 ETF",
+        "category": "equity_index",
+        "value": 771.79,
+        "unit": "USD",
+        "observation_date": "2026-10-15",
+        "signal": "neutral",
+        "percentile_10y": null,
+        "stale": false,
+        "source": "Yahoo Finance (illustrative mock)",
+        "source_url": "https://fred.stlouisfed.org/series/SPY"
+      },
+      {
+        "id": "GLD",
+        "name": "Gold ETF",
+        "category": "commodity",
+        "value": 312.4,
+        "unit": "USD",
+        "observation_date": "2026-10-15",
+        "signal": "neutral",
+        "percentile_10y": null,
+        "stale": false,
+        "source": "Yahoo Finance (illustrative mock)",
+        "source_url": "https://fred.stlouisfed.org/series/GLD"
+      },
+      {
+        "id": "QQQ",
+        "name": "Nasdaq-100 ETF",
+        "category": "equity",
+        "value": 612.3,
+        "unit": "USD",
+        "observation_date": "2026-10-15",
+        "signal": "neutral",
+        "percentile_10y": null,
+        "stale": false,
+        "source": "Yahoo Finance (illustrative mock)",
+        "source_url": "https://finance.yahoo.com/quote/QQQ"
+      },
+      {
+        "id": "IWM",
+        "name": "Russell 2000 ETF",
+        "category": "equity",
+        "value": 241.7,
+        "unit": "USD",
+        "observation_date": "2026-10-15",
+        "signal": "neutral",
+        "percentile_10y": null,
+        "stale": false,
+        "source": "Yahoo Finance (illustrative mock)",
+        "source_url": "https://finance.yahoo.com/quote/IWM"
+      },
+      {
+        "id": "EFA",
+        "name": "Developed ex-US Equity ETF",
+        "category": "equity",
+        "value": 92.4,
+        "unit": "USD",
+        "observation_date": "2026-10-15",
+        "signal": "neutral",
+        "percentile_10y": null,
+        "stale": false,
+        "source": "Yahoo Finance (illustrative mock)",
+        "source_url": "https://finance.yahoo.com/quote/EFA"
+      },
+      {
+        "id": "EEM",
+        "name": "Emerging Markets Equity ETF",
+        "category": "equity",
+        "value": 51.9,
+        "unit": "USD",
+        "observation_date": "2026-10-15",
+        "signal": "neutral",
+        "percentile_10y": null,
+        "stale": false,
+        "source": "Yahoo Finance (illustrative mock)",
+        "source_url": "https://finance.yahoo.com/quote/EEM"
+      },
+      {
+        "id": "XLK",
+        "name": "Technology Sector ETF",
+        "category": "equity_sector",
+        "value": 288.1,
+        "unit": "USD",
+        "observation_date": "2026-10-15",
+        "signal": "neutral",
+        "percentile_10y": null,
+        "stale": false,
+        "source": "Yahoo Finance (illustrative mock)",
+        "source_url": "https://finance.yahoo.com/quote/XLK"
+      },
+      {
+        "id": "XLF",
+        "name": "Financials Sector ETF",
+        "category": "equity_sector",
+        "value": 56.2,
+        "unit": "USD",
+        "observation_date": "2026-10-15",
+        "signal": "neutral",
+        "percentile_10y": null,
+        "stale": false,
+        "source": "Yahoo Finance (illustrative mock)",
+        "source_url": "https://finance.yahoo.com/quote/XLF"
+      },
+      {
+        "id": "XLE",
+        "name": "Energy Sector ETF",
+        "category": "equity_sector",
+        "value": 97.3,
+        "unit": "USD",
+        "observation_date": "2026-10-15",
+        "signal": "neutral",
+        "percentile_10y": null,
+        "stale": false,
+        "source": "Yahoo Finance (illustrative mock)",
+        "source_url": "https://finance.yahoo.com/quote/XLE"
+      },
+      {
+        "id": "XLV",
+        "name": "Health Care Sector ETF",
+        "category": "equity_sector",
+        "value": 158.4,
+        "unit": "USD",
+        "observation_date": "2026-10-15",
+        "signal": "neutral",
+        "percentile_10y": null,
+        "stale": false,
+        "source": "Yahoo Finance (illustrative mock)",
+        "source_url": "https://finance.yahoo.com/quote/XLV"
+      },
+      {
+        "id": "XLY",
+        "name": "Consumer Discretionary Sector ETF",
+        "category": "equity_sector",
+        "value": 231.6,
+        "unit": "USD",
+        "observation_date": "2026-10-15",
+        "signal": "neutral",
+        "percentile_10y": null,
+        "stale": false,
+        "source": "Yahoo Finance (illustrative mock)",
+        "source_url": "https://finance.yahoo.com/quote/XLY"
+      },
+      {
+        "id": "XLP",
+        "name": "Consumer Staples Sector ETF",
+        "category": "equity_sector",
+        "value": 79.8,
+        "unit": "USD",
+        "observation_date": "2026-10-15",
+        "signal": "neutral",
+        "percentile_10y": null,
+        "stale": false,
+        "source": "Yahoo Finance (illustrative mock)",
+        "source_url": "https://finance.yahoo.com/quote/XLP"
+      },
+      {
+        "id": "XLI",
+        "name": "Industrials Sector ETF",
+        "category": "equity_sector",
+        "value": 151.2,
+        "unit": "USD",
+        "observation_date": "2026-10-15",
+        "signal": "neutral",
+        "percentile_10y": null,
+        "stale": false,
+        "source": "Yahoo Finance (illustrative mock)",
+        "source_url": "https://finance.yahoo.com/quote/XLI"
+      },
+      {
+        "id": "XLU",
+        "name": "Utilities Sector ETF",
+        "category": "equity_sector",
+        "value": 81.5,
+        "unit": "USD",
+        "observation_date": "2026-10-15",
+        "signal": "neutral",
+        "percentile_10y": null,
+        "stale": false,
+        "source": "Yahoo Finance (illustrative mock)",
+        "source_url": "https://finance.yahoo.com/quote/XLU"
+      },
+      {
+        "id": "XLB",
+        "name": "Materials Sector ETF",
+        "category": "equity_sector",
+        "value": 95.7,
+        "unit": "USD",
+        "observation_date": "2026-10-15",
+        "signal": "neutral",
+        "percentile_10y": null,
+        "stale": false,
+        "source": "Yahoo Finance (illustrative mock)",
+        "source_url": "https://finance.yahoo.com/quote/XLB"
+      },
+      {
+        "id": "XLRE",
+        "name": "Real Estate Sector ETF",
+        "category": "equity_sector",
+        "value": 41.3,
+        "unit": "USD",
+        "observation_date": "2026-10-15",
+        "signal": "neutral",
+        "percentile_10y": null,
+        "stale": false,
+        "source": "Yahoo Finance (illustrative mock)",
+        "source_url": "https://finance.yahoo.com/quote/XLRE"
+      },
+      {
+        "id": "XLC",
+        "name": "Communication Services Sector ETF",
+        "category": "equity_sector",
+        "value": 112.9,
+        "unit": "USD",
+        "observation_date": "2026-10-15",
+        "signal": "neutral",
+        "percentile_10y": null,
+        "stale": false,
+        "source": "Yahoo Finance (illustrative mock)",
+        "source_url": "https://finance.yahoo.com/quote/XLC"
+      },
+      {
+        "id": "TLT",
+        "name": "20+ Year Treasury ETF",
+        "category": "rates",
+        "value": 81.2,
+        "unit": "USD",
+        "observation_date": "2026-10-15",
+        "signal": "neutral",
+        "percentile_10y": null,
+        "stale": false,
+        "source": "Yahoo Finance (illustrative mock)",
+        "source_url": "https://finance.yahoo.com/quote/TLT"
+      },
+      {
+        "id": "IEF",
+        "name": "7-10 Year Treasury ETF",
+        "category": "rates",
+        "value": 90.1,
+        "unit": "USD",
+        "observation_date": "2026-10-15",
+        "signal": "neutral",
+        "percentile_10y": null,
+        "stale": false,
+        "source": "Yahoo Finance (illustrative mock)",
+        "source_url": "https://finance.yahoo.com/quote/IEF"
+      },
+      {
+        "id": "LQD",
+        "name": "Investment Grade Corporate Bond ETF",
+        "category": "credit",
+        "value": 102.6,
+        "unit": "USD",
+        "observation_date": "2026-10-15",
+        "signal": "neutral",
+        "percentile_10y": null,
+        "stale": false,
+        "source": "Yahoo Finance (illustrative mock)",
+        "source_url": "https://finance.yahoo.com/quote/LQD"
+      },
+      {
+        "id": "HYG",
+        "name": "High Yield Corporate Bond ETF",
+        "category": "credit",
+        "value": 78.4,
+        "unit": "USD",
+        "observation_date": "2026-10-15",
+        "signal": "neutral",
+        "percentile_10y": null,
+        "stale": false,
+        "source": "Yahoo Finance (illustrative mock)",
+        "source_url": "https://finance.yahoo.com/quote/HYG"
+      },
+      {
+        "id": "DX-Y.NYB",
+        "name": "US Dollar Index",
+        "category": "fx",
+        "value": 104.8,
+        "unit": "index",
+        "observation_date": "2026-10-15",
+        "signal": "neutral",
+        "percentile_10y": null,
+        "stale": false,
+        "source": "Yahoo Finance (illustrative mock)",
+        "source_url": "https://finance.yahoo.com/quote/DX-Y.NYB"
+      }
+    ],
+    "news": [
+      {
+        "title": "Mortgage rates hold near three-year high as bond market stabilises",
+        "source": "Illustrative Newswire",
+        "url": "https://example.com/mock-news/mortgage-rates",
+        "published_at": "2026-10-15T02:00:00Z",
+        "summary": "Mortgage rates stayed elevated as long-dated Treasury yields paused after a sharp rise.",
+        "sentiment": "neutral",
+        "market_impact": "medium"
+      },
+      {
+        "title": "Fed officials signal patience after latest rate increase",
+        "source": "Illustrative Newswire",
+        "url": "https://example.com/mock-news/fed-patience",
+        "published_at": "2026-10-14T20:00:00Z",
+        "summary": "Several Fed officials said they would watch inflation data before deciding on further moves.",
+        "sentiment": "neutral",
+        "market_impact": "high"
+      },
+      {
+        "title": "Tariff talks stall, weighing on cyclical stocks",
+        "source": "Illustrative Newswire",
+        "url": "https://example.com/mock-news/tariffs",
+        "published_at": "2026-10-14T15:00:00Z",
+        "summary": "Stalled trade negotiations pressured industrial and materials shares.",
+        "sentiment": "risk_off",
+        "market_impact": "medium"
+      }
+    ],
+    "key_themes": [
+      "Late-expansion call with low confidence; growth still above trend [UNRATE, PAYEMS].",
+      "Core inflation re-accelerating on a 3-month basis [CPILFESL].",
+      "Long-dated Treasury yields near 10-year highs [DGS10]."
+    ],
+    "risks": [
+      "Further inflation surprises could push yields higher and pressure bond and equity prices.",
+      "A flatter yield curve keeps the 12-month recession probability at about 13% [T10Y3M].",
+      "Trade tensions weigh on cyclical sectors."
+    ],
+    "implications": {
+      "duration": "Long-dated bonds are sensitive to further rises in yields from near 10-year highs.",
+      "equities": "Equities have risen over the past year while valuations face higher discount rates.",
+      "credit": "Credit spreads remain tight relative to their 10-year history [BAA10Y]."
+    },
+    "key_observations": [
+      {
+        "statement": "10-Year Treasury Yield (DGS10): 5.19% on 2026-10-14",
+        "basis": "OBSERVED_FACT",
+        "source": "FRED (illustrative mock); https://fred.stlouisfed.org/series/DGS10"
+      },
+      {
+        "statement": "10-Year minus 3-Month Treasury Spread (T10Y3M): 0.42pp on 2026-10-14",
+        "basis": "OBSERVED_FACT",
+        "source": "FRED (illustrative mock); https://fred.stlouisfed.org/series/T10Y3M"
+      },
+      {
+        "statement": "Effective Federal Funds Rate (DFF): 3.88% on 2026-10-14",
+        "basis": "OBSERVED_FACT",
+        "source": "FRED (illustrative mock); https://fred.stlouisfed.org/series/DFF"
+      },
+      {
+        "statement": "Core CPI (YoY) (CPILFESL): 2.57% on 2026-09-01",
+        "basis": "OBSERVED_FACT",
+        "source": "FRED (illustrative mock); https://fred.stlouisfed.org/series/CPILFESL"
+      },
+      {
+        "statement": "Unemployment Rate (UNRATE): 4.1% on 2026-09-01",
+        "basis": "OBSERVED_FACT",
+        "source": "FRED (illustrative mock); https://fred.stlouisfed.org/series/UNRATE"
+      },
+      {
+        "statement": "Nonfarm Payrolls (3m avg change, thousands) (PAYEMS): 142 thousands on 2026-09-01",
+        "basis": "OBSERVED_FACT",
+        "source": "FRED (illustrative mock); https://fred.stlouisfed.org/series/PAYEMS"
+      },
+      {
+        "statement": "Baa Corporate minus 10-Year Treasury Spread (BAA10Y): 1.62pp on 2026-10-14",
+        "basis": "OBSERVED_FACT",
+        "source": "FRED (illustrative mock); https://fred.stlouisfed.org/series/BAA10Y"
+      },
+      {
+        "statement": "Chicago Fed National Financial Conditions Index (NFCI): -0.48 index on 2026-10-10",
+        "basis": "OBSERVED_FACT",
+        "source": "FRED (illustrative mock); https://fred.stlouisfed.org/series/NFCI"
+      },
+      {
+        "statement": "3-Month Treasury Yield (DGS3MO): 3.97% on 2026-10-14",
+        "basis": "OBSERVED_FACT",
+        "source": "FRED (illustrative mock); https://fred.stlouisfed.org/series/DGS3MO"
+      },
+      {
+        "statement": "2-Year Treasury Yield (DGS2): 4.41% on 2026-10-14",
+        "basis": "OBSERVED_FACT",
+        "source": "FRED (illustrative mock); https://fred.stlouisfed.org/series/DGS2"
+      },
+      {
+        "statement": "30-Year Treasury Yield (DGS30): 5.36% on 2026-10-14",
+        "basis": "OBSERVED_FACT",
+        "source": "FRED (illustrative mock); https://fred.stlouisfed.org/series/DGS30"
+      },
+      {
+        "statement": "10-Year TIPS Real Yield (DFII10): 2.62% on 2026-10-14",
+        "basis": "OBSERVED_FACT",
+        "source": "FRED (illustrative mock); https://fred.stlouisfed.org/series/DFII10"
+      },
+      {
+        "statement": "10-Year Breakeven Inflation (T10YIE): 2.57% on 2026-10-14",
+        "basis": "OBSERVED_FACT",
+        "source": "FRED (illustrative mock); https://fred.stlouisfed.org/series/T10YIE"
+      },
+      {
+        "statement": "US Investment Grade OAS (BAMLC0A0CM): 0.84pp on 2026-10-14",
+        "basis": "OBSERVED_FACT",
+        "source": "FRED (illustrative mock); https://fred.stlouisfed.org/series/BAMLC0A0CM"
+      },
+      {
+        "statement": "US High Yield OAS (BAMLH0A0HYM2): 2.95pp on 2026-10-14",
+        "basis": "OBSERVED_FACT",
+        "source": "FRED (illustrative mock); https://fred.stlouisfed.org/series/BAMLH0A0HYM2"
+      },
+      {
+        "statement": "CBOE Volatility Index (VIX) (VIXCLS): 15.8 index on 2026-10-14",
+        "basis": "OBSERVED_FACT",
+        "source": "FRED (illustrative mock); https://fred.stlouisfed.org/series/VIXCLS"
+      },
+      {
+        "statement": "St. Louis Fed Financial Stress Index (STLFSI4): -0.62 index on 2026-10-14",
+        "basis": "OBSERVED_FACT",
+        "source": "FRED (illustrative mock); https://fred.stlouisfed.org/series/STLFSI4"
+      }
+    ],
+    "forecasts": [
+      {
+        "statement": "12-month recession probability 13% (yield-curve model).",
+        "basis": "FORECAST",
+        "source": "Market Researcher (illustrative mock)"
+      },
+      {
+        "statement": "Cycle phase: late expansion, low confidence; conflicting: Momentum (M) is only slightly positive, which also fits early_expansion..",
+        "basis": "FORECAST",
+        "source": "Market Researcher (illustrative mock)"
+      }
+    ],
+    "scenario_details": [
+      {
+        "name": "Expansion",
+        "probability": null,
+        "probability_source": null,
+        "horizon": "12 months",
+        "narrative": "Growth stays above trend and inflation eases; risk assets rally.",
+        "asset_class_returns": {
+          "Cash": 2.3,
+          "Fixed income": 4.5,
+          "Equities": 16.0,
+          "Hedge funds": 8.0,
+          "Private markets": 14.0,
+          "Real estate": 14.0,
+          "Gold": 2.0
+        },
+        "basis": "ASSUMPTION"
+      },
+      {
+        "name": "Slowdown (base)",
+        "probability": null,
+        "probability_source": null,
+        "horizon": "12 months",
+        "narrative": "Growth cools gradually without a recession; modest positive returns.",
+        "asset_class_returns": {
+          "Cash": 2.5,
+          "Fixed income": 3.5,
+          "Equities": 5.0,
+          "Hedge funds": 4.0,
+          "Private markets": 6.0,
+          "Real estate": 4.0,
+          "Gold": 4.0
+        },
+        "basis": "ASSUMPTION"
+      },
+      {
+        "name": "Recession",
+        "probability": 0.1281,
+        "probability_source": "Market Researcher 12-month recession probability (yield-curve model)",
+        "horizon": "12 months",
+        "narrative": "Recession: equities and credit-sensitive assets sell off; government bonds and gold rally.",
+        "asset_class_returns": {
+          "Cash": 2.6,
+          "Fixed income": 5.0,
+          "Equities": -24.0,
+          "Hedge funds": -8.0,
+          "Private markets": -18.0,
+          "Real estate": -22.0,
+          "Gold": 9.0
+        },
+        "basis": "ASSUMPTION"
+      }
+    ],
+    "assumptions_label": "Portfolio Agent house assumptions (illustrative)",
+    "long_term_return_assumptions": {
+      "Cash": 2.2,
+      "Fixed income": 3.5,
+      "Equities": 7.0,
+      "Hedge funds": 5.0,
+      "Private markets": 8.5,
+      "Real estate": 6.0,
+      "Gold": 3.5
+    },
+    "limitations": [
+      "Market information is illustrative mock data in the Market Researcher's format, not a real run.",
+      "Market research covers region US; the client's base currency is SGD, so local market conditions are not directly covered.",
+      "Illustrative mock output for Portfolio Agent testing - not a real market researcher run.",
+      "The Market Researcher publishes no return forecasts; expected and scenario returns are Portfolio Agent house assumptions (illustrative)."
+    ]
+  },
+  "portfolio_options": [
+    {
+      "option_id": "A",
+      "option_name": "Capital preservation",
+      "objective": "Preserve capital and liquidity; accept low returns for stability.",
+      "suitability_status": "SUITABLE_WITH_MODIFICATIONS",
+      "suitability_explanation": "Template adapted to the client's circumstances: Hedge funds: outside the client's preferred asset classes; its 5% was reassigned to Equities. Real estate: outside the client's preferred asset classes; its 5% was reassigned to Cash, Fixed income. Gold: outside the client's preferred asset classes; its 10% was reassigned to Cash, Fixed income.",
+      "eligible_portfolio_value": 350000.0,
+      "base_currency": "SGD",
+      "asset_allocation": [
+        {
+          "asset_class": "Fixed income",
+          "allocation_percentage": 48.58,
+          "investment_amount": 170030.0,
+          "change_from_current_pp": null
+        },
+        {
+          "asset_class": "Cash",
+          "allocation_percentage": 36.42,
+          "investment_amount": 127470.0,
+          "change_from_current_pp": null
+        },
+        {
+          "asset_class": "Equities",
+          "allocation_percentage": 15.0,
+          "investment_amount": 52500.0,
+          "change_from_current_pp": null
+        }
+      ],
+      "sub_asset_allocation": [
+        {
+          "asset_class": "Fixed income",
+          "sub_asset_class": "Government bonds",
+          "allocation_percentage": 48.58,
+          "investment_amount": 170030.0
+        },
+        {
+          "asset_class": "Cash",
+          "sub_asset_class": "Cash and money market",
+          "allocation_percentage": 36.42,
+          "investment_amount": 127470.0
+        },
+        {
+          "asset_class": "Equities",
+          "sub_asset_class": "Dividend equities",
+          "allocation_percentage": 15.0,
+          "investment_amount": 52500.0
+        }
+      ],
+      "product_selections": [
+        {
+          "product_id": "MOCK-GOVT-001",
+          "product_name": "Illustrative Singapore Government Bond ETF",
+          "asset_class": "Fixed income",
+          "product_type": "Exchange-Traded Fund",
+          "currency": "SGD",
+          "currency_hedged": null,
+          "allocation_percentage": 24.29,
+          "investment_amount": 85015.0,
+          "expected_return_assumption": 2.56,
+          "expected_return_basis": "Product yield to maturity (2.8%) less management fee (0.24%); not guaranteed.",
+          "management_fee": 0.24,
+          "estimated_transaction_cost": 85.02,
+          "liquidity": "DAILY",
+          "key_rationale": "Fixed income sleeve: provides income and tends to cushion equity sell-offs. Denominated in the client's base currency (SGD). Illustrative management fee 0.24% p.a. Daily dealing. Credit rating AAA. Ranked highest among eligible candidates on data completeness, currency fit, cost and liquidity.",
+          "key_risks": [
+            "Interest-rate risk: prices fall when yields rise (longer duration = larger moves).",
+            "Credit risk: issuer downgrades or defaults can cause losses; spreads can widen sharply in a downturn.",
+            "Inflation and reinvestment risk on coupons and maturities.",
+            "Duration of 6.5 years means meaningful sensitivity to rate changes."
+          ],
+          "data_provenance": "ILLUSTRATIVE_MOCK",
+          "as_of_date": "2026-09-30",
+          "data_warnings": [],
+          "details": {
+            "sub_asset_class": "Government bonds",
+            "issuer": "Illustrative Asset Management",
+            "risk_rating": 2,
+            "historical_returns": {
+              "1y": 3.4,
+              "3y": 1.2,
+              "5y": 0.8
+            },
+            "yield_to_maturity": 2.8,
+            "distribution_yield": 2.2,
+            "volatility": 4.5,
+            "maximum_drawdown": -9.8,
+            "credit_rating": "AAA",
+            "transaction_fee": 0.1,
+            "minimum_investment": 1000.0,
+            "lock_in_period": "none",
+            "duration": 6.5,
+            "maturity_date": null,
+            "recommended_horizon": 3.0,
+            "geographic_exposure": {
+              "Singapore": 100.0
+            },
+            "sector_exposure": {
+              "Government": 100.0
+            },
+            "esg_compliant": null,
+            "data_completeness": "COMPLETE"
+          }
+        },
+        {
+          "product_id": "MOCK-GOVT-002",
+          "product_name": "Illustrative SGD Short-Term Government Bill Fund",
+          "asset_class": "Fixed income",
+          "product_type": "Unit Trust",
+          "currency": "SGD",
+          "currency_hedged": null,
+          "allocation_percentage": 24.29,
+          "investment_amount": 85015.0,
+          "expected_return_assumption": 2.2,
+          "expected_return_basis": "Product yield to maturity (2.4%) less management fee (0.2%); not guaranteed.",
+          "management_fee": 0.2,
+          "estimated_transaction_cost": 0.0,
+          "liquidity": "DAILY",
+          "key_rationale": "Fixed income sleeve: provides income and tends to cushion equity sell-offs. Denominated in the client's base currency (SGD). Illustrative management fee 0.2% p.a. Daily dealing. Credit rating AAA. Ranked highest among eligible candidates on data completeness, currency fit, cost and liquidity.",
+          "key_risks": [
+            "Interest-rate risk: prices fall when yields rise (longer duration = larger moves).",
+            "Credit risk: issuer downgrades or defaults can cause losses; spreads can widen sharply in a downturn.",
+            "Inflation and reinvestment risk on coupons and maturities."
+          ],
+          "data_provenance": "ILLUSTRATIVE_MOCK",
+          "as_of_date": "2026-09-30",
+          "data_warnings": [],
+          "details": {
+            "sub_asset_class": "Government bonds",
+            "issuer": "Illustrative Asset Management",
+            "risk_rating": 1,
+            "historical_returns": {
+              "1y": 3.1,
+              "3y": 2.7,
+              "5y": 2.0
+            },
+            "yield_to_maturity": 2.4,
+            "distribution_yield": null,
+            "volatility": 0.6,
+            "maximum_drawdown": -0.8,
+            "credit_rating": "AAA",
+            "transaction_fee": 0.0,
+            "minimum_investment": 1000.0,
+            "lock_in_period": "none",
+            "duration": 0.5,
+            "maturity_date": null,
+            "recommended_horizon": 1.0,
+            "geographic_exposure": {
+              "Singapore": 100.0
+            },
+            "sector_exposure": {
+              "Government": 100.0
+            },
+            "esg_compliant": null,
+            "data_completeness": "COMPLETE"
+          }
+        },
+        {
+          "product_id": "MOCK-CASH-001",
+          "product_name": "Illustrative SGD Money Market Fund",
+          "asset_class": "Cash",
+          "product_type": "Money Market Fund",
+          "currency": "SGD",
+          "currency_hedged": null,
+          "allocation_percentage": 18.21,
+          "investment_amount": 63735.0,
+          "expected_return_assumption": 2.25,
+          "expected_return_basis": "Product distribution yield (2.4%) less management fee (0.15%); not guaranteed.",
+          "management_fee": 0.15,
+          "estimated_transaction_cost": 0.0,
+          "liquidity": "DAILY",
+          "key_rationale": "Cash sleeve: provides liquidity and stability. Denominated in the client's base currency (SGD). Illustrative management fee 0.15% p.a. Daily dealing. Credit rating AA (portfolio average). Ranked highest among eligible candidates on data completeness, currency fit, cost and liquidity.",
+          "key_risks": [
+            "Inflation can erode real purchasing power.",
+            "Reinvestment risk: yields may fall when deposits or money-market holdings roll over.",
+            "Not risk-free: depends on the issuer/bank and any deposit insurance limits."
+          ],
+          "data_provenance": "ILLUSTRATIVE_MOCK",
+          "as_of_date": "2026-09-30",
+          "data_warnings": [],
+          "details": {
+            "sub_asset_class": "Cash and money market",
+            "issuer": "Illustrative Asset Management",
+            "risk_rating": 1,
+            "historical_returns": {
+              "1y": 3.0,
+              "3y": 2.6,
+              "5y": 1.9
+            },
+            "yield_to_maturity": null,
+            "distribution_yield": 2.4,
+            "volatility": 0.3,
+            "maximum_drawdown": -0.1,
+            "credit_rating": "AA (portfolio average)",
+            "transaction_fee": 0.0,
+            "minimum_investment": 1000.0,
+            "lock_in_period": "none",
+            "duration": 0.2,
+            "maturity_date": null,
+            "recommended_horizon": 0.0,
+            "geographic_exposure": {
+              "Singapore": 100.0
+            },
+            "sector_exposure": {
+              "Financials": 100.0
+            },
+            "esg_compliant": null,
+            "data_completeness": "COMPLETE"
+          }
+        },
+        {
+          "product_id": "MOCK-CASH-003",
+          "product_name": "Illustrative USD Money Market Fund",
+          "asset_class": "Cash",
+          "product_type": "Money Market Fund",
+          "currency": "USD",
+          "currency_hedged": false,
+          "allocation_percentage": 18.21,
+          "investment_amount": 63735.0,
+          "expected_return_assumption": 4.0,
+          "expected_return_basis": "Product distribution yield (4.2%) less management fee (0.2%); not guaranteed.",
+          "management_fee": 0.2,
+          "estimated_transaction_cost": 0.0,
+          "liquidity": "DAILY",
+          "key_rationale": "Cash sleeve: provides liquidity and stability. Illustrative management fee 0.2% p.a. Daily dealing. Credit rating AA (portfolio average). Ranked highest among eligible candidates on data completeness, currency fit, cost and liquidity.",
+          "key_risks": [
+            "Inflation can erode real purchasing power.",
+            "Reinvestment risk: yields may fall when deposits or money-market holdings roll over.",
+            "Not risk-free: depends on the issuer/bank and any deposit insurance limits.",
+            "Currency risk: denominated in USD and unhedged against SGD."
+          ],
+          "data_provenance": "ILLUSTRATIVE_MOCK",
+          "as_of_date": "2026-09-30",
+          "data_warnings": [],
+          "details": {
+            "sub_asset_class": "Cash and money market",
+            "issuer": "Illustrative Asset Management",
+            "risk_rating": 1,
+            "historical_returns": {
+              "1y": 4.6,
+              "3y": 4.1,
+              "5y": 2.8
+            },
+            "yield_to_maturity": null,
+            "distribution_yield": 4.2,
+            "volatility": 0.3,
+            "maximum_drawdown": -0.1,
+            "credit_rating": "AA (portfolio average)",
+            "transaction_fee": 0.0,
+            "minimum_investment": 1000.0,
+            "lock_in_period": "none",
+            "duration": 0.2,
+            "maturity_date": null,
+            "recommended_horizon": 0.0,
+            "geographic_exposure": {
+              "United States": 100.0
+            },
+            "sector_exposure": {
+              "Financials": 100.0
+            },
+            "esg_compliant": null,
+            "data_completeness": "COMPLETE"
+          }
+        },
+        {
+          "product_id": "MOCK-DIV-002",
+          "product_name": "Illustrative Global Quality Dividend ETF (SGD-Hedged)",
+          "asset_class": "Equities",
+          "product_type": "Exchange-Traded Fund",
+          "currency": "SGD",
+          "currency_hedged": true,
+          "allocation_percentage": 15.0,
+          "investment_amount": 52500.0,
+          "expected_return_assumption": 6.55,
+          "expected_return_basis": "Portfolio Agent house assumptions (illustrative): Equities 7.0% p.a. (7-10 years, annualised, before product fees) less management fee (0.45%); an assumption, not a forecast or guarantee.",
+          "management_fee": 0.45,
+          "estimated_transaction_cost": 52.5,
+          "liquidity": "DAILY",
+          "key_rationale": "Equities sleeve: is the main driver of long-term capital growth. Denominated in the client's base currency (SGD). Illustrative management fee 0.45% p.a. Daily dealing. Ranked highest among eligible candidates on data completeness, currency fit, cost and liquidity.",
+          "key_risks": [
+            "Equity market risk: significant short-term losses are possible (historical drawdowns above 30%).",
+            "Valuation risk: returns may be lower if starting valuations are elevated; dividends can be cut."
+          ],
+          "data_provenance": "ILLUSTRATIVE_MOCK",
+          "as_of_date": "2026-09-30",
+          "data_warnings": [],
+          "details": {
+            "sub_asset_class": "Dividend equities",
+            "issuer": "Illustrative Global Investors",
+            "risk_rating": 3,
+            "historical_returns": {
+              "1y": 8.7,
+              "3y": 6.6,
+              "5y": 6.9
+            },
+            "yield_to_maturity": null,
+            "distribution_yield": 3.6,
+            "volatility": 12.5,
+            "maximum_drawdown": -27.0,
+            "credit_rating": null,
+            "transaction_fee": 0.1,
+            "minimum_investment": 1000.0,
+            "lock_in_period": "none",
+            "duration": null,
+            "maturity_date": null,
+            "recommended_horizon": 5.0,
+            "geographic_exposure": {
+              "United States": 45.0,
+              "Europe": 35.0,
+              "Other": 20.0
+            },
+            "sector_exposure": {
+              "Healthcare": 18.0,
+              "Consumer": 22.0,
+              "Financials": 18.0,
+              "Industrials": 14.0,
+              "Energy": 3.0,
+              "Other": 25.0
+            },
+            "esg_compliant": true,
+            "data_completeness": "COMPLETE"
+          }
+        }
+      ],
+      "expected_portfolio_return": 3.28,
+      "estimated_risk_level": "Low-Moderate",
+      "metrics": {
+        "expected_annual_return_pct": 3.28,
+        "estimated_volatility_pct": 3.22,
+        "estimated_stress_drawdown_pct": 6.66,
+        "growth_asset_share_pct": 15.0,
+        "estimated_annual_fee_pct": 0.24,
+        "estimated_annual_fee_amount": 840.0,
+        "estimated_one_off_transaction_cost": 137.51,
+        "high_liquidity_share_pct": 100.0,
+        "foreign_currency_exposure_pct": 18.21,
+        "number_of_products": 5,
+        "number_of_asset_classes": 3,
+        "effective_number_of_holdings": 4.84,
+        "geographic_exposure_pct": {
+          "Singapore": 66.79,
+          "United States": 24.96,
+          "Europe": 5.25,
+          "Other": 3.0
+        },
+        "sector_exposure_pct": {
+          "Government": 48.58,
+          "Financials": 39.12,
+          "Other": 3.75,
+          "Consumer": 3.3,
+          "Healthcare": 2.7,
+          "Industrials": 2.1,
+          "Energy": 0.45
+        },
+        "calculation_notes": [
+          "All metrics are programmatic calculations on illustrative upstream data; none are guarantees.",
+          "Volatility and stress drawdown are weighted sums of product figures, i.e. they assume perfect correlation (no diversification benefit) and are conservative upper-bound estimates."
+        ]
+      },
+      "scenario_analysis": [
+        {
+          "scenario": "Expansion",
+          "probability": null,
+          "horizon": "12 months",
+          "portfolio_return_pct": 5.42,
+          "portfolio_value_change": 18970.0,
+          "basis": "ASSUMPTION"
+        },
+        {
+          "scenario": "Slowdown (base)",
+          "probability": null,
+          "horizon": "12 months",
+          "portfolio_return_pct": 3.36,
+          "portfolio_value_change": 11760.0,
+          "basis": "ASSUMPTION"
+        },
+        {
+          "scenario": "Recession",
+          "probability": 0.1281,
+          "horizon": "12 months",
+          "portfolio_return_pct": -0.22,
+          "portfolio_value_change": -770.0,
+          "basis": "ASSUMPTION"
+        }
+      ],
+      "goal_alignment": [
+        {
+          "goal": "Retirement income",
+          "priority": "High",
+          "target_amount": 250000.0,
+          "years_to_goal": 8.0,
+          "projected_value_base_case": 453103.98,
+          "status": "ON_TRACK",
+          "note": "Illustrative compound projection at 3.28% p.a. over 8 years (surplus of 203,103.98). Assumes the whole eligible portfolio serves this goal, no further contributions or withdrawals, and returns that are not guaranteed; a bear-case path could fall well short."
+        }
+      ],
+      "constraint_checks": [
+        {
+          "constraint": "Maximum single-product allocation",
+          "limit": 30.0,
+          "actual": 24.29,
+          "status": "PASS",
+          "detail": "Largest position is 24.29% of the portfolio."
+        },
+        {
+          "constraint": "Maximum acceptable drawdown",
+          "limit": 15.0,
+          "actual": 6.66,
+          "status": "PASS",
+          "detail": "Estimated stress drawdown (historical worst-case of each product, assumed simultaneous)."
+        },
+        {
+          "constraint": "Maximum currency exposure",
+          "limit": null,
+          "actual": 18.21,
+          "status": "NOT_APPLICABLE",
+          "detail": "No limit provided; exposure reported only."
+        },
+        {
+          "constraint": "Growth-asset ceiling (risk level and horizon rule)",
+          "limit": 50.0,
+          "actual": 15.0,
+          "status": "PASS",
+          "detail": "Prototype house rule for effective risk level 3 and the client's horizon."
+        },
+        {
+          "constraint": "Reserves and near-term withdrawals ring-fenced",
+          "limit": null,
+          "actual": null,
+          "status": "PASS",
+          "detail": "Eligible portfolio value already excludes the cash reserve and near-term withdrawals."
+        }
+      ],
+      "liquidity_assessment": "100.0% of the portfolio is in daily-dealing products. Separately, the cash reserve and near-term withdrawals are ring-fenced outside this portfolio.",
+      "diversification_assessment": "5 products across 3 asset classes; effective number of holdings 4.84 (inverse Herfindahl index) - moderately diversified. Underlying look-through concentration (e.g. common issuers across funds) is not modelled.",
+      "advantages": [
+        "Low estimated stress drawdown (6.7%).",
+        "Highly liquid - almost all holdings deal daily.",
+        "Low estimated ongoing cost (0.24% p.a.).",
+        "Base-case projection meets: Retirement income (illustrative, not guaranteed)."
+      ],
+      "disadvantages": [
+        "Negative return in the illustrative recession scenario (-0.2%).",
+        "Not risk-free: inflation may exceed the portfolio's return, reducing real wealth.",
+        "Reinvestment risk if short-term rates fall; bond prices fall if interest rates rise.",
+        "May not generate enough growth to meet long-term goals."
+      ],
+      "rationale": [
+        {
+          "statement": "Effective risk level 3 (Moderate / Balanced): Risk willingness and capacity agree (level 3).",
+          "basis": "CLIENT_INPUT",
+          "source": null
+        },
+        {
+          "statement": "Maximum acceptable drawdown of 15% applied as a hard limit; this option's estimated stress drawdown is 6.66%.",
+          "basis": "CALCULATION",
+          "source": null
+        },
+        {
+          "statement": "Growth assets (equities, hedge funds, private markets) are limited to 50% by the client's risk level and 8-year shortest goal horizon.",
+          "basis": "RULE",
+          "source": null
+        },
+        {
+          "statement": "No single product exceeds 30% of the portfolio.",
+          "basis": "CLIENT_INPUT",
+          "source": null
+        },
+        {
+          "statement": "Hedge funds: outside the client's preferred asset classes; its 5% was reassigned to Equities.",
+          "basis": "RULE",
+          "source": null
+        },
+        {
+          "statement": "Real estate: outside the client's preferred asset classes; its 5% was reassigned to Cash, Fixed income.",
+          "basis": "RULE",
+          "source": null
+        },
+        {
+          "statement": "Gold: outside the client's preferred asset classes; its 10% was reassigned to Cash, Fixed income.",
+          "basis": "RULE",
+          "source": null
+        },
+        {
+          "statement": "Economic cycle call: late expansion (low confidence).",
+          "basis": "OBSERVED_FACT",
+          "source": "Market Researcher regime model, as of 2026-10-15"
+        },
+        {
+          "statement": "12-month recession probability of 13% (yield-curve model estimate).",
+          "basis": "FORECAST",
+          "source": "Market Researcher (NY Fed yield-curve probit)"
+        },
+        {
+          "statement": "Duration: Long-dated bonds are sensitive to further rises in yields from near 10-year highs.",
+          "basis": "OBSERVED_FACT",
+          "source": "Market Researcher"
+        },
+        {
+          "statement": "Equities: Equities have risen over the past year while valuations face higher discount rates.",
+          "basis": "OBSERVED_FACT",
+          "source": "Market Researcher"
+        },
+        {
+          "statement": "Credit: Credit spreads remain tight relative to their 10-year history [BAA10Y].",
+          "basis": "OBSERVED_FACT",
+          "source": "Market Researcher"
+        },
+        {
+          "statement": "Core CPI re-accelerating: 3-month annualized 3.41% vs 2.57% YoY (2026-09-01).",
+          "basis": "OBSERVED_FACT",
+          "source": "Market Researcher event (CPILFESL)"
+        },
+        {
+          "statement": "Fed raised its target range by 25bp in the last 60 days (now 3.75-4.00%).",
+          "basis": "OBSERVED_FACT",
+          "source": "Market Researcher event (DFEDTARU, DFEDTARL)"
+        }
+      ],
+      "assumptions": [
+        "Expected returns use illustrative product yields (cash, fixed income) and Portfolio Agent house assumptions (illustrative) for other asset classes, net of management fees; they are assumptions, not guarantees.",
+        "Stress drawdown assumes all holdings suffer their historical worst drawdown simultaneously."
+      ],
+      "warnings": [],
+      "narrative": "Option A (Capital preservation) allocates Fixed income 48.6%, Cash 36.4%, Equities 15.0%. Its illustrative expected return is 3.28% p.a. and its estimated stress drawdown is 6.7%. Preserve capital and liquidity; accept low returns for stability. Figures are calculated from illustrative mock data and are not guaranteed.",
+      "narrative_source": "DETERMINISTIC_TEMPLATE",
+      "key_differences": [
+        "Most cautious portfolio proposed: 85.0% in cash and fixed income, 15.0% growth assets."
+      ]
+    },
+    {
+      "option_id": "B",
+      "option_name": "Income",
+      "objective": "Generate steady income with limited volatility.",
+      "suitability_status": "SUITABLE_WITH_MODIFICATIONS",
+      "suitability_explanation": "Template adapted to the client's circumstances: Hedge funds: outside the client's preferred asset classes; its 5% was reassigned to Equities. Real estate: outside the client's preferred asset classes; its 8% was reassigned to Cash, Fixed income. Gold: outside the client's preferred asset classes; its 7% was reassigned to Cash, Fixed income.",
+      "eligible_portfolio_value": 350000.0,
+      "base_currency": "SGD",
+      "asset_allocation": [
+        {
+          "asset_class": "Fixed income",
+          "allocation_percentage": 55.38,
+          "investment_amount": 193830.0,
+          "change_from_current_pp": null
+        },
+        {
+          "asset_class": "Cash",
+          "allocation_percentage": 24.62,
+          "investment_amount": 86170.0,
+          "change_from_current_pp": null
+        },
+        {
+          "asset_class": "Equities",
+          "allocation_percentage": 20.0,
+          "investment_amount": 70000.0,
+          "change_from_current_pp": null
+        }
+      ],
+      "sub_asset_allocation": [
+        {
+          "asset_class": "Fixed income",
+          "sub_asset_class": "Government bonds",
+          "allocation_percentage": 55.38,
+          "investment_amount": 193830.0
+        },
+        {
+          "asset_class": "Cash",
+          "sub_asset_class": "Cash and money market",
+          "allocation_percentage": 24.62,
+          "investment_amount": 86170.0
+        },
+        {
+          "asset_class": "Equities",
+          "sub_asset_class": "Dividend equities",
+          "allocation_percentage": 20.0,
+          "investment_amount": 70000.0
+        }
+      ],
+      "product_selections": [
+        {
+          "product_id": "MOCK-GOVT-001",
+          "product_name": "Illustrative Singapore Government Bond ETF",
+          "asset_class": "Fixed income",
+          "product_type": "Exchange-Traded Fund",
+          "currency": "SGD",
+          "currency_hedged": null,
+          "allocation_percentage": 27.69,
+          "investment_amount": 96915.0,
+          "expected_return_assumption": 2.56,
+          "expected_return_basis": "Product yield to maturity (2.8%) less management fee (0.24%); not guaranteed.",
+          "management_fee": 0.24,
+          "estimated_transaction_cost": 96.92,
+          "liquidity": "DAILY",
+          "key_rationale": "Fixed income sleeve: provides income and tends to cushion equity sell-offs. Denominated in the client's base currency (SGD). Illustrative management fee 0.24% p.a. Daily dealing. Credit rating AAA. Ranked highest among eligible candidates on data completeness, currency fit, cost and liquidity.",
+          "key_risks": [
+            "Interest-rate risk: prices fall when yields rise (longer duration = larger moves).",
+            "Credit risk: issuer downgrades or defaults can cause losses; spreads can widen sharply in a downturn.",
+            "Inflation and reinvestment risk on coupons and maturities.",
+            "Duration of 6.5 years means meaningful sensitivity to rate changes."
+          ],
+          "data_provenance": "ILLUSTRATIVE_MOCK",
+          "as_of_date": "2026-09-30",
+          "data_warnings": [],
+          "details": {
+            "sub_asset_class": "Government bonds",
+            "issuer": "Illustrative Asset Management",
+            "risk_rating": 2,
+            "historical_returns": {
+              "1y": 3.4,
+              "3y": 1.2,
+              "5y": 0.8
+            },
+            "yield_to_maturity": 2.8,
+            "distribution_yield": 2.2,
+            "volatility": 4.5,
+            "maximum_drawdown": -9.8,
+            "credit_rating": "AAA",
+            "transaction_fee": 0.1,
+            "minimum_investment": 1000.0,
+            "lock_in_period": "none",
+            "duration": 6.5,
+            "maturity_date": null,
+            "recommended_horizon": 3.0,
+            "geographic_exposure": {
+              "Singapore": 100.0
+            },
+            "sector_exposure": {
+              "Government": 100.0
+            },
+            "esg_compliant": null,
+            "data_completeness": "COMPLETE"
+          }
+        },
+        {
+          "product_id": "MOCK-GOVT-002",
+          "product_name": "Illustrative SGD Short-Term Government Bill Fund",
+          "asset_class": "Fixed income",
+          "product_type": "Unit Trust",
+          "currency": "SGD",
+          "currency_hedged": null,
+          "allocation_percentage": 27.69,
+          "investment_amount": 96915.0,
+          "expected_return_assumption": 2.2,
+          "expected_return_basis": "Product yield to maturity (2.4%) less management fee (0.2%); not guaranteed.",
+          "management_fee": 0.2,
+          "estimated_transaction_cost": 0.0,
+          "liquidity": "DAILY",
+          "key_rationale": "Fixed income sleeve: provides income and tends to cushion equity sell-offs. Denominated in the client's base currency (SGD). Illustrative management fee 0.2% p.a. Daily dealing. Credit rating AAA. Ranked highest among eligible candidates on data completeness, currency fit, cost and liquidity.",
+          "key_risks": [
+            "Interest-rate risk: prices fall when yields rise (longer duration = larger moves).",
+            "Credit risk: issuer downgrades or defaults can cause losses; spreads can widen sharply in a downturn.",
+            "Inflation and reinvestment risk on coupons and maturities."
+          ],
+          "data_provenance": "ILLUSTRATIVE_MOCK",
+          "as_of_date": "2026-09-30",
+          "data_warnings": [],
+          "details": {
+            "sub_asset_class": "Government bonds",
+            "issuer": "Illustrative Asset Management",
+            "risk_rating": 1,
+            "historical_returns": {
+              "1y": 3.1,
+              "3y": 2.7,
+              "5y": 2.0
+            },
+            "yield_to_maturity": 2.4,
+            "distribution_yield": null,
+            "volatility": 0.6,
+            "maximum_drawdown": -0.8,
+            "credit_rating": "AAA",
+            "transaction_fee": 0.0,
+            "minimum_investment": 1000.0,
+            "lock_in_period": "none",
+            "duration": 0.5,
+            "maturity_date": null,
+            "recommended_horizon": 1.0,
+            "geographic_exposure": {
+              "Singapore": 100.0
+            },
+            "sector_exposure": {
+              "Government": 100.0
+            },
+            "esg_compliant": null,
+            "data_completeness": "COMPLETE"
+          }
+        },
+        {
+          "product_id": "MOCK-CASH-001",
+          "product_name": "Illustrative SGD Money Market Fund",
+          "asset_class": "Cash",
+          "product_type": "Money Market Fund",
+          "currency": "SGD",
+          "currency_hedged": null,
+          "allocation_percentage": 12.31,
+          "investment_amount": 43085.0,
+          "expected_return_assumption": 2.25,
+          "expected_return_basis": "Product distribution yield (2.4%) less management fee (0.15%); not guaranteed.",
+          "management_fee": 0.15,
+          "estimated_transaction_cost": 0.0,
+          "liquidity": "DAILY",
+          "key_rationale": "Cash sleeve: provides liquidity and stability. Denominated in the client's base currency (SGD). Illustrative management fee 0.15% p.a. Daily dealing. Credit rating AA (portfolio average). Ranked highest among eligible candidates on data completeness, currency fit, cost and liquidity.",
+          "key_risks": [
+            "Inflation can erode real purchasing power.",
+            "Reinvestment risk: yields may fall when deposits or money-market holdings roll over.",
+            "Not risk-free: depends on the issuer/bank and any deposit insurance limits."
+          ],
+          "data_provenance": "ILLUSTRATIVE_MOCK",
+          "as_of_date": "2026-09-30",
+          "data_warnings": [],
+          "details": {
+            "sub_asset_class": "Cash and money market",
+            "issuer": "Illustrative Asset Management",
+            "risk_rating": 1,
+            "historical_returns": {
+              "1y": 3.0,
+              "3y": 2.6,
+              "5y": 1.9
+            },
+            "yield_to_maturity": null,
+            "distribution_yield": 2.4,
+            "volatility": 0.3,
+            "maximum_drawdown": -0.1,
+            "credit_rating": "AA (portfolio average)",
+            "transaction_fee": 0.0,
+            "minimum_investment": 1000.0,
+            "lock_in_period": "none",
+            "duration": 0.2,
+            "maturity_date": null,
+            "recommended_horizon": 0.0,
+            "geographic_exposure": {
+              "Singapore": 100.0
+            },
+            "sector_exposure": {
+              "Financials": 100.0
+            },
+            "esg_compliant": null,
+            "data_completeness": "COMPLETE"
+          }
+        },
+        {
+          "product_id": "MOCK-CASH-003",
+          "product_name": "Illustrative USD Money Market Fund",
+          "asset_class": "Cash",
+          "product_type": "Money Market Fund",
+          "currency": "USD",
+          "currency_hedged": false,
+          "allocation_percentage": 12.31,
+          "investment_amount": 43085.0,
+          "expected_return_assumption": 4.0,
+          "expected_return_basis": "Product distribution yield (4.2%) less management fee (0.2%); not guaranteed.",
+          "management_fee": 0.2,
+          "estimated_transaction_cost": 0.0,
+          "liquidity": "DAILY",
+          "key_rationale": "Cash sleeve: provides liquidity and stability. Illustrative management fee 0.2% p.a. Daily dealing. Credit rating AA (portfolio average). Ranked highest among eligible candidates on data completeness, currency fit, cost and liquidity.",
+          "key_risks": [
+            "Inflation can erode real purchasing power.",
+            "Reinvestment risk: yields may fall when deposits or money-market holdings roll over.",
+            "Not risk-free: depends on the issuer/bank and any deposit insurance limits.",
+            "Currency risk: denominated in USD and unhedged against SGD."
+          ],
+          "data_provenance": "ILLUSTRATIVE_MOCK",
+          "as_of_date": "2026-09-30",
+          "data_warnings": [],
+          "details": {
+            "sub_asset_class": "Cash and money market",
+            "issuer": "Illustrative Asset Management",
+            "risk_rating": 1,
+            "historical_returns": {
+              "1y": 4.6,
+              "3y": 4.1,
+              "5y": 2.8
+            },
+            "yield_to_maturity": null,
+            "distribution_yield": 4.2,
+            "volatility": 0.3,
+            "maximum_drawdown": -0.1,
+            "credit_rating": "AA (portfolio average)",
+            "transaction_fee": 0.0,
+            "minimum_investment": 1000.0,
+            "lock_in_period": "none",
+            "duration": 0.2,
+            "maturity_date": null,
+            "recommended_horizon": 0.0,
+            "geographic_exposure": {
+              "United States": 100.0
+            },
+            "sector_exposure": {
+              "Financials": 100.0
+            },
+            "esg_compliant": null,
+            "data_completeness": "COMPLETE"
+          }
+        },
+        {
+          "product_id": "MOCK-DIV-001",
+          "product_name": "Illustrative Asia Pacific Dividend Equity Fund",
+          "asset_class": "Equities",
+          "product_type": "Unit Trust",
+          "currency": "SGD",
+          "currency_hedged": null,
+          "allocation_percentage": 10.0,
+          "investment_amount": 35000.0,
+          "expected_return_assumption": 5.75,
+          "expected_return_basis": "Portfolio Agent house assumptions (illustrative): Equities 7.0% p.a. (7-10 years, annualised, before product fees) less management fee (1.25%); an assumption, not a forecast or guarantee.",
+          "management_fee": 1.25,
+          "estimated_transaction_cost": 0.0,
+          "liquidity": "DAILY",
+          "key_rationale": "Equities sleeve: is the main driver of long-term capital growth. Denominated in the client's base currency (SGD). Illustrative management fee 1.25% p.a. Daily dealing. Ranked highest among eligible candidates on data completeness, currency fit, cost and liquidity.",
+          "key_risks": [
+            "Equity market risk: significant short-term losses are possible (historical drawdowns above 30%).",
+            "Valuation risk: returns may be lower if starting valuations are elevated; dividends can be cut."
+          ],
+          "data_provenance": "ILLUSTRATIVE_MOCK",
+          "as_of_date": "2026-09-30",
+          "data_warnings": [],
+          "details": {
+            "sub_asset_class": "Dividend equities",
+            "issuer": "Illustrative Asset Management",
+            "risk_rating": 4,
+            "historical_returns": {
+              "1y": 9.5,
+              "3y": 6.0,
+              "5y": 5.2
+            },
+            "yield_to_maturity": null,
+            "distribution_yield": 4.8,
+            "volatility": 14.5,
+            "maximum_drawdown": -30.5,
+            "credit_rating": null,
+            "transaction_fee": 0.0,
+            "minimum_investment": 1000.0,
+            "lock_in_period": "none",
+            "duration": null,
+            "maturity_date": null,
+            "recommended_horizon": 5.0,
+            "geographic_exposure": {
+              "Australia": 30.0,
+              "Singapore": 20.0,
+              "Hong Kong": 20.0,
+              "Other Asia": 30.0
+            },
+            "sector_exposure": {
+              "Financials": 30.0,
+              "Real Estate": 12.0,
+              "Utilities": 10.0,
+              "Energy": 6.0,
+              "Materials": 10.0,
+              "Other": 32.0
+            },
+            "esg_compliant": false,
+            "data_completeness": "COMPLETE"
+          }
+        },
+        {
+          "product_id": "MOCK-DIV-002",
+          "product_name": "Illustrative Global Quality Dividend ETF (SGD-Hedged)",
+          "asset_class": "Equities",
+          "product_type": "Exchange-Traded Fund",
+          "currency": "SGD",
+          "currency_hedged": true,
+          "allocation_percentage": 10.0,
+          "investment_amount": 35000.0,
+          "expected_return_assumption": 6.55,
+          "expected_return_basis": "Portfolio Agent house assumptions (illustrative): Equities 7.0% p.a. (7-10 years, annualised, before product fees) less management fee (0.45%); an assumption, not a forecast or guarantee.",
+          "management_fee": 0.45,
+          "estimated_transaction_cost": 35.0,
+          "liquidity": "DAILY",
+          "key_rationale": "Equities sleeve: is the main driver of long-term capital growth. Denominated in the client's base currency (SGD). Illustrative management fee 0.45% p.a. Daily dealing. Ranked highest among eligible candidates on data completeness, currency fit, cost and liquidity.",
+          "key_risks": [
+            "Equity market risk: significant short-term losses are possible (historical drawdowns above 30%).",
+            "Valuation risk: returns may be lower if starting valuations are elevated; dividends can be cut."
+          ],
+          "data_provenance": "ILLUSTRATIVE_MOCK",
+          "as_of_date": "2026-09-30",
+          "data_warnings": [],
+          "details": {
+            "sub_asset_class": "Dividend equities",
+            "issuer": "Illustrative Global Investors",
+            "risk_rating": 3,
+            "historical_returns": {
+              "1y": 8.7,
+              "3y": 6.6,
+              "5y": 6.9
+            },
+            "yield_to_maturity": null,
+            "distribution_yield": 3.6,
+            "volatility": 12.5,
+            "maximum_drawdown": -27.0,
+            "credit_rating": null,
+            "transaction_fee": 0.1,
+            "minimum_investment": 1000.0,
+            "lock_in_period": "none",
+            "duration": null,
+            "maturity_date": null,
+            "recommended_horizon": 5.0,
+            "geographic_exposure": {
+              "United States": 45.0,
+              "Europe": 35.0,
+              "Other": 20.0
+            },
+            "sector_exposure": {
+              "Healthcare": 18.0,
+              "Consumer": 22.0,
+              "Financials": 18.0,
+              "Industrials": 14.0,
+              "Energy": 3.0,
+              "Other": 25.0
+            },
+            "esg_compliant": true,
+            "data_completeness": "COMPLETE"
+          }
+        }
+      ],
+      "expected_portfolio_return": 3.32,
+      "estimated_risk_level": "Moderate",
+      "metrics": {
+        "expected_annual_return_pct": 3.32,
+        "estimated_volatility_pct": 4.19,
+        "estimated_stress_drawdown_pct": 8.71,
+        "growth_asset_share_pct": 20.0,
+        "estimated_annual_fee_pct": 0.33,
+        "estimated_annual_fee_amount": 1155.0,
+        "estimated_one_off_transaction_cost": 131.92,
+        "high_liquidity_share_pct": 100.0,
+        "foreign_currency_exposure_pct": 12.31,
+        "number_of_products": 6,
+        "number_of_asset_classes": 3,
+        "effective_number_of_holdings": 4.91,
+        "geographic_exposure_pct": {
+          "Singapore": 69.69,
+          "United States": 16.81,
+          "Europe": 3.5,
+          "Australia": 3.0,
+          "Other Asia": 3.0,
+          "Hong Kong": 2.0,
+          "Other": 2.0
+        },
+        "sector_exposure_pct": {
+          "Government": 55.38,
+          "Financials": 29.42,
+          "Other": 5.7,
+          "Consumer": 2.2,
+          "Healthcare": 1.8,
+          "Industrials": 1.4,
+          "Real Estate": 1.2,
+          "Utilities": 1.0,
+          "Materials": 1.0,
+          "Energy": 0.9
+        },
+        "calculation_notes": [
+          "All metrics are programmatic calculations on illustrative upstream data; none are guarantees.",
+          "Volatility and stress drawdown are weighted sums of product figures, i.e. they assume perfect correlation (no diversification benefit) and are conservative upper-bound estimates."
+        ]
+      },
+      "scenario_analysis": [
+        {
+          "scenario": "Expansion",
+          "probability": null,
+          "horizon": "12 months",
+          "portfolio_return_pct": 6.26,
+          "portfolio_value_change": 21910.0,
+          "basis": "ASSUMPTION"
+        },
+        {
+          "scenario": "Slowdown (base)",
+          "probability": null,
+          "horizon": "12 months",
+          "portfolio_return_pct": 3.55,
+          "portfolio_value_change": 12425.0,
+          "basis": "ASSUMPTION"
+        },
+        {
+          "scenario": "Recession",
+          "probability": 0.1281,
+          "horizon": "12 months",
+          "portfolio_return_pct": -1.39,
+          "portfolio_value_change": -4865.0,
+          "basis": "ASSUMPTION"
+        }
+      ],
+      "goal_alignment": [
+        {
+          "goal": "Retirement income",
+          "priority": "High",
+          "target_amount": 250000.0,
+          "years_to_goal": 8.0,
+          "projected_value_base_case": 454509.77,
+          "status": "ON_TRACK",
+          "note": "Illustrative compound projection at 3.32% p.a. over 8 years (surplus of 204,509.77). Assumes the whole eligible portfolio serves this goal, no further contributions or withdrawals, and returns that are not guaranteed; a bear-case path could fall well short."
+        }
+      ],
+      "constraint_checks": [
+        {
+          "constraint": "Maximum single-product allocation",
+          "limit": 30.0,
+          "actual": 27.69,
+          "status": "PASS",
+          "detail": "Largest position is 27.69% of the portfolio."
+        },
+        {
+          "constraint": "Maximum acceptable drawdown",
+          "limit": 15.0,
+          "actual": 8.71,
+          "status": "PASS",
+          "detail": "Estimated stress drawdown (historical worst-case of each product, assumed simultaneous)."
+        },
+        {
+          "constraint": "Maximum currency exposure",
+          "limit": null,
+          "actual": 12.31,
+          "status": "NOT_APPLICABLE",
+          "detail": "No limit provided; exposure reported only."
+        },
+        {
+          "constraint": "Growth-asset ceiling (risk level and horizon rule)",
+          "limit": 50.0,
+          "actual": 20.0,
+          "status": "PASS",
+          "detail": "Prototype house rule for effective risk level 3 and the client's horizon."
+        },
+        {
+          "constraint": "Reserves and near-term withdrawals ring-fenced",
+          "limit": null,
+          "actual": null,
+          "status": "PASS",
+          "detail": "Eligible portfolio value already excludes the cash reserve and near-term withdrawals."
+        }
+      ],
+      "liquidity_assessment": "100.0% of the portfolio is in daily-dealing products. Separately, the cash reserve and near-term withdrawals are ring-fenced outside this portfolio.",
+      "diversification_assessment": "6 products across 3 asset classes; effective number of holdings 4.91 (inverse Herfindahl index) - moderately diversified. Underlying look-through concentration (e.g. common issuers across funds) is not modelled.",
+      "advantages": [
+        "Highly liquid - almost all holdings deal daily.",
+        "Low estimated ongoing cost (0.33% p.a.).",
+        "Base-case projection meets: Retirement income (illustrative, not guaranteed)."
+      ],
+      "disadvantages": [
+        "Negative return in the illustrative recession scenario (-1.4%).",
+        "Not risk-free: inflation may exceed the portfolio's return, reducing real wealth.",
+        "Reinvestment risk if short-term rates fall; bond prices fall if interest rates rise.",
+        "Income can fall if rates drop or issuers cut distributions."
+      ],
+      "rationale": [
+        {
+          "statement": "Effective risk level 3 (Moderate / Balanced): Risk willingness and capacity agree (level 3).",
+          "basis": "CLIENT_INPUT",
+          "source": null
+        },
+        {
+          "statement": "Maximum acceptable drawdown of 15% applied as a hard limit; this option's estimated stress drawdown is 8.71%.",
+          "basis": "CALCULATION",
+          "source": null
+        },
+        {
+          "statement": "Growth assets (equities, hedge funds, private markets) are limited to 50% by the client's risk level and 8-year shortest goal horizon.",
+          "basis": "RULE",
+          "source": null
+        },
+        {
+          "statement": "No single product exceeds 30% of the portfolio.",
+          "basis": "CLIENT_INPUT",
+          "source": null
+        },
+        {
+          "statement": "Hedge funds: outside the client's preferred asset classes; its 5% was reassigned to Equities.",
+          "basis": "RULE",
+          "source": null
+        },
+        {
+          "statement": "Real estate: outside the client's preferred asset classes; its 8% was reassigned to Cash, Fixed income.",
+          "basis": "RULE",
+          "source": null
+        },
+        {
+          "statement": "Gold: outside the client's preferred asset classes; its 7% was reassigned to Cash, Fixed income.",
+          "basis": "RULE",
+          "source": null
+        },
+        {
+          "statement": "Economic cycle call: late expansion (low confidence).",
+          "basis": "OBSERVED_FACT",
+          "source": "Market Researcher regime model, as of 2026-10-15"
+        },
+        {
+          "statement": "12-month recession probability of 13% (yield-curve model estimate).",
+          "basis": "FORECAST",
+          "source": "Market Researcher (NY Fed yield-curve probit)"
+        },
+        {
+          "statement": "Duration: Long-dated bonds are sensitive to further rises in yields from near 10-year highs.",
+          "basis": "OBSERVED_FACT",
+          "source": "Market Researcher"
+        },
+        {
+          "statement": "Equities: Equities have risen over the past year while valuations face higher discount rates.",
+          "basis": "OBSERVED_FACT",
+          "source": "Market Researcher"
+        },
+        {
+          "statement": "Credit: Credit spreads remain tight relative to their 10-year history [BAA10Y].",
+          "basis": "OBSERVED_FACT",
+          "source": "Market Researcher"
+        },
+        {
+          "statement": "Core CPI re-accelerating: 3-month annualized 3.41% vs 2.57% YoY (2026-09-01).",
+          "basis": "OBSERVED_FACT",
+          "source": "Market Researcher event (CPILFESL)"
+        },
+        {
+          "statement": "Fed raised its target range by 25bp in the last 60 days (now 3.75-4.00%).",
+          "basis": "OBSERVED_FACT",
+          "source": "Market Researcher event (DFEDTARU, DFEDTARL)"
+        }
+      ],
+      "assumptions": [
+        "Expected returns use illustrative product yields (cash, fixed income) and Portfolio Agent house assumptions (illustrative) for other asset classes, net of management fees; they are assumptions, not guarantees.",
+        "Stress drawdown assumes all holdings suffer their historical worst drawdown simultaneously."
+      ],
+      "warnings": [],
+      "narrative": "Option B (Income) allocates Fixed income 55.4%, Cash 24.6%, Equities 20.0%. Its illustrative expected return is 3.32% p.a. and its estimated stress drawdown is 8.7%. Generate steady income with limited volatility. Figures are calculated from illustrative mock data and are not guaranteed.",
+      "narrative_source": "DETERMINISTIC_TEMPLATE",
+      "key_differences": [
+        "Compared with A (Capital preservation): Cash -11.8 pts, Fixed income +6.8 pts, Equities +5.0 pts.",
+        "Estimated stress drawdown 8.7% vs 6.7%.",
+        "Expected return assumption 3.32% vs 3.28% a year."
+      ]
+    },
+    {
+      "option_id": "C",
+      "option_name": "Balanced",
+      "objective": "Balance income and capital growth with moderate risk.",
+      "suitability_status": "SUITABLE_WITH_MODIFICATIONS",
+      "suitability_explanation": "Template adapted to the client's circumstances: Hedge funds: outside the client's preferred asset classes; its 5% was reassigned to Equities. Private markets: outside the client's preferred asset classes; its 3% was reassigned to Equities. Real estate: outside the client's preferred asset classes; its 5% was reassigned to Cash, Fixed income. Gold: outside the client's preferred asset classes; its 7% was reassigned to Cash, Fixed income.",
+      "eligible_portfolio_value": 350000.0,
+      "base_currency": "SGD",
+      "asset_allocation": [
+        {
+          "asset_class": "Fixed income",
+          "allocation_percentage": 43.4,
+          "investment_amount": 151900.0,
+          "change_from_current_pp": null
+        },
+        {
+          "asset_class": "Equities",
+          "allocation_percentage": 38.0,
+          "investment_amount": 133000.0,
+          "change_from_current_pp": null
+        },
+        {
+          "asset_class": "Cash",
+          "allocation_percentage": 18.6,
+          "investment_amount": 65100.0,
+          "change_from_current_pp": null
+        }
+      ],
+      "sub_asset_allocation": [
+        {
+          "asset_class": "Fixed income",
+          "sub_asset_class": "Government bonds",
+          "allocation_percentage": 43.4,
+          "investment_amount": 151900.0
+        },
+        {
+          "asset_class": "Equities",
+          "sub_asset_class": "Dividend equities",
+          "allocation_percentage": 38.0,
+          "investment_amount": 133000.0
+        },
+        {
+          "asset_class": "Cash",
+          "sub_asset_class": "Cash and money market",
+          "allocation_percentage": 18.6,
+          "investment_amount": 65100.0
+        }
+      ],
+      "product_selections": [
+        {
+          "product_id": "MOCK-GOVT-001",
+          "product_name": "Illustrative Singapore Government Bond ETF",
+          "asset_class": "Fixed income",
+          "product_type": "Exchange-Traded Fund",
+          "currency": "SGD",
+          "currency_hedged": null,
+          "allocation_percentage": 21.7,
+          "investment_amount": 75950.0,
+          "expected_return_assumption": 2.56,
+          "expected_return_basis": "Product yield to maturity (2.8%) less management fee (0.24%); not guaranteed.",
+          "management_fee": 0.24,
+          "estimated_transaction_cost": 75.95,
+          "liquidity": "DAILY",
+          "key_rationale": "Fixed income sleeve: provides income and tends to cushion equity sell-offs. Denominated in the client's base currency (SGD). Illustrative management fee 0.24% p.a. Daily dealing. Credit rating AAA. Ranked highest among eligible candidates on data completeness, currency fit, cost and liquidity.",
+          "key_risks": [
+            "Interest-rate risk: prices fall when yields rise (longer duration = larger moves).",
+            "Credit risk: issuer downgrades or defaults can cause losses; spreads can widen sharply in a downturn.",
+            "Inflation and reinvestment risk on coupons and maturities.",
+            "Duration of 6.5 years means meaningful sensitivity to rate changes."
+          ],
+          "data_provenance": "ILLUSTRATIVE_MOCK",
+          "as_of_date": "2026-09-30",
+          "data_warnings": [],
+          "details": {
+            "sub_asset_class": "Government bonds",
+            "issuer": "Illustrative Asset Management",
+            "risk_rating": 2,
+            "historical_returns": {
+              "1y": 3.4,
+              "3y": 1.2,
+              "5y": 0.8
+            },
+            "yield_to_maturity": 2.8,
+            "distribution_yield": 2.2,
+            "volatility": 4.5,
+            "maximum_drawdown": -9.8,
+            "credit_rating": "AAA",
+            "transaction_fee": 0.1,
+            "minimum_investment": 1000.0,
+            "lock_in_period": "none",
+            "duration": 6.5,
+            "maturity_date": null,
+            "recommended_horizon": 3.0,
+            "geographic_exposure": {
+              "Singapore": 100.0
+            },
+            "sector_exposure": {
+              "Government": 100.0
+            },
+            "esg_compliant": null,
+            "data_completeness": "COMPLETE"
+          }
+        },
+        {
+          "product_id": "MOCK-GOVT-002",
+          "product_name": "Illustrative SGD Short-Term Government Bill Fund",
+          "asset_class": "Fixed income",
+          "product_type": "Unit Trust",
+          "currency": "SGD",
+          "currency_hedged": null,
+          "allocation_percentage": 21.7,
+          "investment_amount": 75950.0,
+          "expected_return_assumption": 2.2,
+          "expected_return_basis": "Product yield to maturity (2.4%) less management fee (0.2%); not guaranteed.",
+          "management_fee": 0.2,
+          "estimated_transaction_cost": 0.0,
+          "liquidity": "DAILY",
+          "key_rationale": "Fixed income sleeve: provides income and tends to cushion equity sell-offs. Denominated in the client's base currency (SGD). Illustrative management fee 0.2% p.a. Daily dealing. Credit rating AAA. Ranked highest among eligible candidates on data completeness, currency fit, cost and liquidity.",
+          "key_risks": [
+            "Interest-rate risk: prices fall when yields rise (longer duration = larger moves).",
+            "Credit risk: issuer downgrades or defaults can cause losses; spreads can widen sharply in a downturn.",
+            "Inflation and reinvestment risk on coupons and maturities."
+          ],
+          "data_provenance": "ILLUSTRATIVE_MOCK",
+          "as_of_date": "2026-09-30",
+          "data_warnings": [],
+          "details": {
+            "sub_asset_class": "Government bonds",
+            "issuer": "Illustrative Asset Management",
+            "risk_rating": 1,
+            "historical_returns": {
+              "1y": 3.1,
+              "3y": 2.7,
+              "5y": 2.0
+            },
+            "yield_to_maturity": 2.4,
+            "distribution_yield": null,
+            "volatility": 0.6,
+            "maximum_drawdown": -0.8,
+            "credit_rating": "AAA",
+            "transaction_fee": 0.0,
+            "minimum_investment": 1000.0,
+            "lock_in_period": "none",
+            "duration": 0.5,
+            "maturity_date": null,
+            "recommended_horizon": 1.0,
+            "geographic_exposure": {
+              "Singapore": 100.0
+            },
+            "sector_exposure": {
+              "Government": 100.0
+            },
+            "esg_compliant": null,
+            "data_completeness": "COMPLETE"
+          }
+        },
+        {
+          "product_id": "MOCK-DIV-001",
+          "product_name": "Illustrative Asia Pacific Dividend Equity Fund",
+          "asset_class": "Equities",
+          "product_type": "Unit Trust",
+          "currency": "SGD",
+          "currency_hedged": null,
+          "allocation_percentage": 19.0,
+          "investment_amount": 66500.0,
+          "expected_return_assumption": 5.75,
+          "expected_return_basis": "Portfolio Agent house assumptions (illustrative): Equities 7.0% p.a. (7-10 years, annualised, before product fees) less management fee (1.25%); an assumption, not a forecast or guarantee.",
+          "management_fee": 1.25,
+          "estimated_transaction_cost": 0.0,
+          "liquidity": "DAILY",
+          "key_rationale": "Equities sleeve: is the main driver of long-term capital growth. Denominated in the client's base currency (SGD). Illustrative management fee 1.25% p.a. Daily dealing. Ranked highest among eligible candidates on data completeness, currency fit, cost and liquidity.",
+          "key_risks": [
+            "Equity market risk: significant short-term losses are possible (historical drawdowns above 30%).",
+            "Valuation risk: returns may be lower if starting valuations are elevated; dividends can be cut."
+          ],
+          "data_provenance": "ILLUSTRATIVE_MOCK",
+          "as_of_date": "2026-09-30",
+          "data_warnings": [],
+          "details": {
+            "sub_asset_class": "Dividend equities",
+            "issuer": "Illustrative Asset Management",
+            "risk_rating": 4,
+            "historical_returns": {
+              "1y": 9.5,
+              "3y": 6.0,
+              "5y": 5.2
+            },
+            "yield_to_maturity": null,
+            "distribution_yield": 4.8,
+            "volatility": 14.5,
+            "maximum_drawdown": -30.5,
+            "credit_rating": null,
+            "transaction_fee": 0.0,
+            "minimum_investment": 1000.0,
+            "lock_in_period": "none",
+            "duration": null,
+            "maturity_date": null,
+            "recommended_horizon": 5.0,
+            "geographic_exposure": {
+              "Australia": 30.0,
+              "Singapore": 20.0,
+              "Hong Kong": 20.0,
+              "Other Asia": 30.0
+            },
+            "sector_exposure": {
+              "Financials": 30.0,
+              "Real Estate": 12.0,
+              "Utilities": 10.0,
+              "Energy": 6.0,
+              "Materials": 10.0,
+              "Other": 32.0
+            },
+            "esg_compliant": false,
+            "data_completeness": "COMPLETE"
+          }
+        },
+        {
+          "product_id": "MOCK-DIV-002",
+          "product_name": "Illustrative Global Quality Dividend ETF (SGD-Hedged)",
+          "asset_class": "Equities",
+          "product_type": "Exchange-Traded Fund",
+          "currency": "SGD",
+          "currency_hedged": true,
+          "allocation_percentage": 19.0,
+          "investment_amount": 66500.0,
+          "expected_return_assumption": 6.55,
+          "expected_return_basis": "Portfolio Agent house assumptions (illustrative): Equities 7.0% p.a. (7-10 years, annualised, before product fees) less management fee (0.45%); an assumption, not a forecast or guarantee.",
+          "management_fee": 0.45,
+          "estimated_transaction_cost": 66.5,
+          "liquidity": "DAILY",
+          "key_rationale": "Equities sleeve: is the main driver of long-term capital growth. Denominated in the client's base currency (SGD). Illustrative management fee 0.45% p.a. Daily dealing. Ranked highest among eligible candidates on data completeness, currency fit, cost and liquidity.",
+          "key_risks": [
+            "Equity market risk: significant short-term losses are possible (historical drawdowns above 30%).",
+            "Valuation risk: returns may be lower if starting valuations are elevated; dividends can be cut."
+          ],
+          "data_provenance": "ILLUSTRATIVE_MOCK",
+          "as_of_date": "2026-09-30",
+          "data_warnings": [],
+          "details": {
+            "sub_asset_class": "Dividend equities",
+            "issuer": "Illustrative Global Investors",
+            "risk_rating": 3,
+            "historical_returns": {
+              "1y": 8.7,
+              "3y": 6.6,
+              "5y": 6.9
+            },
+            "yield_to_maturity": null,
+            "distribution_yield": 3.6,
+            "volatility": 12.5,
+            "maximum_drawdown": -27.0,
+            "credit_rating": null,
+            "transaction_fee": 0.1,
+            "minimum_investment": 1000.0,
+            "lock_in_period": "none",
+            "duration": null,
+            "maturity_date": null,
+            "recommended_horizon": 5.0,
+            "geographic_exposure": {
+              "United States": 45.0,
+              "Europe": 35.0,
+              "Other": 20.0
+            },
+            "sector_exposure": {
+              "Healthcare": 18.0,
+              "Consumer": 22.0,
+              "Financials": 18.0,
+              "Industrials": 14.0,
+              "Energy": 3.0,
+              "Other": 25.0
+            },
+            "esg_compliant": true,
+            "data_completeness": "COMPLETE"
+          }
+        },
+        {
+          "product_id": "MOCK-CASH-001",
+          "product_name": "Illustrative SGD Money Market Fund",
+          "asset_class": "Cash",
+          "product_type": "Money Market Fund",
+          "currency": "SGD",
+          "currency_hedged": null,
+          "allocation_percentage": 18.6,
+          "investment_amount": 65100.0,
+          "expected_return_assumption": 2.25,
+          "expected_return_basis": "Product distribution yield (2.4%) less management fee (0.15%); not guaranteed.",
+          "management_fee": 0.15,
+          "estimated_transaction_cost": 0.0,
+          "liquidity": "DAILY",
+          "key_rationale": "Cash sleeve: provides liquidity and stability. Denominated in the client's base currency (SGD). Illustrative management fee 0.15% p.a. Daily dealing. Credit rating AA (portfolio average). Ranked highest among eligible candidates on data completeness, currency fit, cost and liquidity.",
+          "key_risks": [
+            "Inflation can erode real purchasing power.",
+            "Reinvestment risk: yields may fall when deposits or money-market holdings roll over.",
+            "Not risk-free: depends on the issuer/bank and any deposit insurance limits."
+          ],
+          "data_provenance": "ILLUSTRATIVE_MOCK",
+          "as_of_date": "2026-09-30",
+          "data_warnings": [],
+          "details": {
+            "sub_asset_class": "Cash and money market",
+            "issuer": "Illustrative Asset Management",
+            "risk_rating": 1,
+            "historical_returns": {
+              "1y": 3.0,
+              "3y": 2.6,
+              "5y": 1.9
+            },
+            "yield_to_maturity": null,
+            "distribution_yield": 2.4,
+            "volatility": 0.3,
+            "maximum_drawdown": -0.1,
+            "credit_rating": "AA (portfolio average)",
+            "transaction_fee": 0.0,
+            "minimum_investment": 1000.0,
+            "lock_in_period": "none",
+            "duration": 0.2,
+            "maturity_date": null,
+            "recommended_horizon": 0.0,
+            "geographic_exposure": {
+              "Singapore": 100.0
+            },
+            "sector_exposure": {
+              "Financials": 100.0
+            },
+            "esg_compliant": null,
+            "data_completeness": "COMPLETE"
+          }
+        }
+      ],
+      "expected_portfolio_return": 3.79,
+      "estimated_risk_level": "Moderate",
+      "metrics": {
+        "expected_annual_return_pct": 3.79,
+        "estimated_volatility_pct": 6.29,
+        "estimated_stress_drawdown_pct": 13.24,
+        "growth_asset_share_pct": 38.0,
+        "estimated_annual_fee_pct": 0.45,
+        "estimated_annual_fee_amount": 1575.0,
+        "estimated_one_off_transaction_cost": 142.45,
+        "high_liquidity_share_pct": 100.0,
+        "foreign_currency_exposure_pct": 0.0,
+        "number_of_products": 5,
+        "number_of_asset_classes": 3,
+        "effective_number_of_holdings": 4.98,
+        "geographic_exposure_pct": {
+          "Singapore": 65.8,
+          "United States": 8.55,
+          "Europe": 6.65,
+          "Australia": 5.7,
+          "Other Asia": 5.7,
+          "Hong Kong": 3.8,
+          "Other": 3.8
+        },
+        "sector_exposure_pct": {
+          "Government": 43.4,
+          "Financials": 27.72,
+          "Other": 10.83,
+          "Consumer": 4.18,
+          "Healthcare": 3.42,
+          "Industrials": 2.66,
+          "Real Estate": 2.28,
+          "Utilities": 1.9,
+          "Materials": 1.9,
+          "Energy": 1.71
+        },
+        "calculation_notes": [
+          "All metrics are programmatic calculations on illustrative upstream data; none are guarantees.",
+          "Volatility and stress drawdown are weighted sums of product figures, i.e. they assume perfect correlation (no diversification benefit) and are conservative upper-bound estimates."
+        ]
+      },
+      "scenario_analysis": [
+        {
+          "scenario": "Expansion",
+          "probability": null,
+          "horizon": "12 months",
+          "portfolio_return_pct": 8.46,
+          "portfolio_value_change": 29610.0,
+          "basis": "ASSUMPTION"
+        },
+        {
+          "scenario": "Slowdown (base)",
+          "probability": null,
+          "horizon": "12 months",
+          "portfolio_return_pct": 3.88,
+          "portfolio_value_change": 13580.0,
+          "basis": "ASSUMPTION"
+        },
+        {
+          "scenario": "Recession",
+          "probability": 0.1281,
+          "horizon": "12 months",
+          "portfolio_return_pct": -6.47,
+          "portfolio_value_change": -22645.0,
+          "basis": "ASSUMPTION"
+        }
+      ],
+      "goal_alignment": [
+        {
+          "goal": "Retirement income",
+          "priority": "High",
+          "target_amount": 250000.0,
+          "years_to_goal": 8.0,
+          "projected_value_base_case": 471315.95,
+          "status": "ON_TRACK",
+          "note": "Illustrative compound projection at 3.79% p.a. over 8 years (surplus of 221,315.95). Assumes the whole eligible portfolio serves this goal, no further contributions or withdrawals, and returns that are not guaranteed; a bear-case path could fall well short."
+        }
+      ],
+      "constraint_checks": [
+        {
+          "constraint": "Maximum single-product allocation",
+          "limit": 30.0,
+          "actual": 21.7,
+          "status": "PASS",
+          "detail": "Largest position is 21.70% of the portfolio."
+        },
+        {
+          "constraint": "Maximum acceptable drawdown",
+          "limit": 15.0,
+          "actual": 13.24,
+          "status": "PASS",
+          "detail": "Estimated stress drawdown (historical worst-case of each product, assumed simultaneous)."
+        },
+        {
+          "constraint": "Maximum currency exposure",
+          "limit": null,
+          "actual": 0.0,
+          "status": "NOT_APPLICABLE",
+          "detail": "No limit provided; exposure reported only."
+        },
+        {
+          "constraint": "Growth-asset ceiling (risk level and horizon rule)",
+          "limit": 50.0,
+          "actual": 38.0,
+          "status": "PASS",
+          "detail": "Prototype house rule for effective risk level 3 and the client's horizon."
+        },
+        {
+          "constraint": "Reserves and near-term withdrawals ring-fenced",
+          "limit": null,
+          "actual": null,
+          "status": "PASS",
+          "detail": "Eligible portfolio value already excludes the cash reserve and near-term withdrawals."
+        }
+      ],
+      "liquidity_assessment": "100.0% of the portfolio is in daily-dealing products. Separately, the cash reserve and near-term withdrawals are ring-fenced outside this portfolio.",
+      "diversification_assessment": "5 products across 3 asset classes; effective number of holdings 4.98 (inverse Herfindahl index) - moderately diversified. Underlying look-through concentration (e.g. common issuers across funds) is not modelled.",
+      "advantages": [
+        "Highly liquid - almost all holdings deal daily.",
+        "Base-case projection meets: Retirement income (illustrative, not guaranteed)."
+      ],
+      "disadvantages": [
+        "Negative return in the illustrative recession scenario (-6.5%).",
+        "Can lose value in equity sell-offs; bonds may not fully offset equity losses (e.g. when inflation drives both down together)."
+      ],
+      "rationale": [
+        {
+          "statement": "Effective risk level 3 (Moderate / Balanced): Risk willingness and capacity agree (level 3).",
+          "basis": "CLIENT_INPUT",
+          "source": null
+        },
+        {
+          "statement": "Maximum acceptable drawdown of 15% applied as a hard limit; this option's estimated stress drawdown is 13.24%.",
+          "basis": "CALCULATION",
+          "source": null
+        },
+        {
+          "statement": "Growth assets (equities, hedge funds, private markets) are limited to 50% by the client's risk level and 8-year shortest goal horizon.",
+          "basis": "RULE",
+          "source": null
+        },
+        {
+          "statement": "No single product exceeds 30% of the portfolio.",
+          "basis": "CLIENT_INPUT",
+          "source": null
+        },
+        {
+          "statement": "Hedge funds: outside the client's preferred asset classes; its 5% was reassigned to Equities.",
+          "basis": "RULE",
+          "source": null
+        },
+        {
+          "statement": "Private markets: outside the client's preferred asset classes; its 3% was reassigned to Equities.",
+          "basis": "RULE",
+          "source": null
+        },
+        {
+          "statement": "Real estate: outside the client's preferred asset classes; its 5% was reassigned to Cash, Fixed income.",
+          "basis": "RULE",
+          "source": null
+        },
+        {
+          "statement": "Gold: outside the client's preferred asset classes; its 7% was reassigned to Cash, Fixed income.",
+          "basis": "RULE",
+          "source": null
+        },
+        {
+          "statement": "Economic cycle call: late expansion (low confidence).",
+          "basis": "OBSERVED_FACT",
+          "source": "Market Researcher regime model, as of 2026-10-15"
+        },
+        {
+          "statement": "12-month recession probability of 13% (yield-curve model estimate).",
+          "basis": "FORECAST",
+          "source": "Market Researcher (NY Fed yield-curve probit)"
+        },
+        {
+          "statement": "Duration: Long-dated bonds are sensitive to further rises in yields from near 10-year highs.",
+          "basis": "OBSERVED_FACT",
+          "source": "Market Researcher"
+        },
+        {
+          "statement": "Equities: Equities have risen over the past year while valuations face higher discount rates.",
+          "basis": "OBSERVED_FACT",
+          "source": "Market Researcher"
+        },
+        {
+          "statement": "Credit: Credit spreads remain tight relative to their 10-year history [BAA10Y].",
+          "basis": "OBSERVED_FACT",
+          "source": "Market Researcher"
+        },
+        {
+          "statement": "Core CPI re-accelerating: 3-month annualized 3.41% vs 2.57% YoY (2026-09-01).",
+          "basis": "OBSERVED_FACT",
+          "source": "Market Researcher event (CPILFESL)"
+        },
+        {
+          "statement": "Fed raised its target range by 25bp in the last 60 days (now 3.75-4.00%).",
+          "basis": "OBSERVED_FACT",
+          "source": "Market Researcher event (DFEDTARU, DFEDTARL)"
+        }
+      ],
+      "assumptions": [
+        "Expected returns use illustrative product yields (cash, fixed income) and Portfolio Agent house assumptions (illustrative) for other asset classes, net of management fees; they are assumptions, not guarantees.",
+        "Stress drawdown assumes all holdings suffer their historical worst drawdown simultaneously."
+      ],
+      "warnings": [],
+      "narrative": "Option C (Balanced) allocates Fixed income 43.4%, Equities 38.0%, Cash 18.6%. Its illustrative expected return is 3.79% p.a. and its estimated stress drawdown is 13.2%. Balance income and capital growth with moderate risk. Figures are calculated from illustrative mock data and are not guaranteed.",
+      "narrative_source": "DETERMINISTIC_TEMPLATE",
+      "key_differences": [
+        "Compared with B (Income): Equities +18.0 pts, Fixed income -12.0 pts, Cash -6.0 pts.",
+        "Estimated stress drawdown 13.2% vs 8.7%.",
+        "Expected return assumption 3.79% vs 3.32% a year."
+      ]
+    },
+    {
+      "option_id": "D",
+      "option_name": "Growth",
+      "objective": "Grow capital over the medium to long term, accepting market swings.",
+      "suitability_status": "NOT_SUITABLE",
+      "suitability_explanation": "After applying the client's constraints, Option D's asset mix differs from Option C's by only 5.7% of the portfolio (43.7% vs 38.0% growth assets); it is not a materially different alternative and is therefore not offered. Hedge funds: outside the client's preferred asset classes; its 7% was reassigned to Equities. Private markets: outside the client's preferred asset classes; its 5% was reassigned to Equities. Real estate: outside the client's preferred asset classes; its 6% was reassigned to Cash, Fixed income. Gold: outside the client's preferred asset classes; its 7% was reassigned to Cash, Fixed income. Growth assets reduced from 52% to 50% to stay within the 50% ceiling for the client's effective risk level and horizon. Allocation de-risked so the estimated stress drawdown stays within the client's 15% maximum acceptable drawdown.",
+      "eligible_portfolio_value": 350000.0,
+      "base_currency": "SGD",
+      "asset_allocation": [],
+      "sub_asset_allocation": [],
+      "product_selections": [],
+      "expected_portfolio_return": null,
+      "estimated_risk_level": null,
+      "metrics": null,
+      "scenario_analysis": [],
+      "goal_alignment": [],
+      "constraint_checks": [],
+      "liquidity_assessment": "Not applicable - option not offered.",
+      "diversification_assessment": "Not applicable - option not offered.",
+      "advantages": [],
+      "disadvantages": [],
+      "rationale": [],
+      "assumptions": [],
+      "warnings": [
+        "Option D not offered: After applying the client's constraints, Option D's asset mix differs from Option C's by only 5.7% of the portfolio (43.7% vs 38.0% growth assets); it is not a materially different alternative and is therefore not offered. Hedge funds: outside the client's preferred asset classes; its 7% was reassigned to Equities. Private markets: outside the client's preferred asset classes; its 5% was reassigned to Equities. Real estate: outside the client's preferred asset classes; its 6% was reassigned to Cash, Fixed income. Gold: outside the client's preferred asset classes; its 7% was reassigned to Cash, Fixed income. Growth assets reduced from 52% to 50% to stay within the 50% ceiling for the client's effective risk level and horizon. Allocation de-risked so the estimated stress drawdown stays within the client's 15% maximum acceptable drawdown."
+      ],
+      "narrative": null,
+      "narrative_source": "NONE",
+      "key_differences": []
+    },
+    {
+      "option_id": "E",
+      "option_name": "Aggressive growth",
+      "objective": "Maximise long-term growth; expect large interim losses.",
+      "suitability_status": "NOT_SUITABLE",
+      "suitability_explanation": "The client's effective risk level is 3 of 5; the Aggressive growth template needs at least level 4.",
+      "eligible_portfolio_value": 350000.0,
+      "base_currency": "SGD",
+      "asset_allocation": [],
+      "sub_asset_allocation": [],
+      "product_selections": [],
+      "expected_portfolio_return": null,
+      "estimated_risk_level": null,
+      "metrics": null,
+      "scenario_analysis": [],
+      "goal_alignment": [],
+      "constraint_checks": [],
+      "liquidity_assessment": "Not applicable - option not offered.",
+      "diversification_assessment": "Not applicable - option not offered.",
+      "advantages": [],
+      "disadvantages": [],
+      "rationale": [],
+      "assumptions": [],
+      "warnings": [
+        "Option E not offered: The client's effective risk level is 3 of 5; the Aggressive growth template needs at least level 4."
+      ],
+      "narrative": null,
+      "narrative_source": "NONE",
+      "key_differences": []
+    },
+    {
+      "option_id": "F",
+      "option_name": "Opportunistic",
+      "objective": "Pursue higher returns through equities and alternatives, including illiquid assets.",
+      "suitability_status": "NOT_SUITABLE",
+      "suitability_explanation": "The client's effective risk level is 3 of 5; the Opportunistic template needs at least level 4.",
+      "eligible_portfolio_value": 350000.0,
+      "base_currency": "SGD",
+      "asset_allocation": [],
+      "sub_asset_allocation": [],
+      "product_selections": [],
+      "expected_portfolio_return": null,
+      "estimated_risk_level": null,
+      "metrics": null,
+      "scenario_analysis": [],
+      "goal_alignment": [],
+      "constraint_checks": [],
+      "liquidity_assessment": "Not applicable - option not offered.",
+      "diversification_assessment": "Not applicable - option not offered.",
+      "advantages": [],
+      "disadvantages": [],
+      "rationale": [],
+      "assumptions": [],
+      "warnings": [
+        "Option F not offered: The client's effective risk level is 3 of 5; the Opportunistic template needs at least level 4."
+      ],
+      "narrative": null,
+      "narrative_source": "NONE",
+      "key_differences": []
+    }
+  ],
+  "comparison_matrix": [
+    {
+      "criterion": "Expected return potential (p.a., illustrative)",
+      "values": {
+        "A": "3.28%",
+        "B": "3.32%",
+        "C": "3.79%",
+        "D": "Not offered (not suitable)",
+        "E": "Not offered (not suitable)",
+        "F": "Not offered (not suitable)"
+      }
+    },
+    {
+      "criterion": "Growth-asset share",
+      "values": {
+        "A": "15.00%",
+        "B": "20.00%",
+        "C": "38.00%",
+        "D": "Not offered (not suitable)",
+        "E": "Not offered (not suitable)",
+        "F": "Not offered (not suitable)"
+      }
+    },
+    {
+      "criterion": "Downside risk (estimated stress drawdown)",
+      "values": {
+        "A": "6.66% (~23,310 SGD)",
+        "B": "8.71% (~30,485 SGD)",
+        "C": "13.24% (~46,340 SGD)",
+        "D": "Not offered (not suitable)",
+        "E": "Not offered (not suitable)",
+        "F": "Not offered (not suitable)"
+      }
+    },
+    {
+      "criterion": "Expansion / slowdown / recession sensitivity",
+      "values": {
+        "A": "Expansion: 5.42%; Slowdown (base): 3.36%; Recession: -0.22% (illustrative 12-month house scenarios)",
+        "B": "Expansion: 6.26%; Slowdown (base): 3.55%; Recession: -1.39% (illustrative 12-month house scenarios)",
+        "C": "Expansion: 8.46%; Slowdown (base): 3.88%; Recession: -6.47% (illustrative 12-month house scenarios)",
+        "D": "Not offered (not suitable)",
+        "E": "Not offered (not suitable)",
+        "F": "Not offered (not suitable)"
+      }
+    },
+    {
+      "criterion": "Liquidity (share in daily-dealing products)",
+      "values": {
+        "A": "100.00%",
+        "B": "100.00%",
+        "C": "100.00%",
+        "D": "Not offered (not suitable)",
+        "E": "Not offered (not suitable)",
+        "F": "Not offered (not suitable)"
+      }
+    },
+    {
+      "criterion": "Diversification",
+      "values": {
+        "A": "5 products across 3 asset classes; effective holdings 4.84",
+        "B": "6 products across 3 asset classes; effective holdings 4.91",
+        "C": "5 products across 3 asset classes; effective holdings 4.98",
+        "D": "Not offered (not suitable)",
+        "E": "Not offered (not suitable)",
+        "F": "Not offered (not suitable)"
+      }
+    },
+    {
+      "criterion": "Fees and estimated costs",
+      "values": {
+        "A": "0.24% p.a. (~840 SGD/yr); one-off dealing ~138",
+        "B": "0.33% p.a. (~1,155 SGD/yr); one-off dealing ~132",
+        "C": "0.45% p.a. (~1,575 SGD/yr); one-off dealing ~142",
+        "D": "Not offered (not suitable)",
+        "E": "Not offered (not suitable)",
+        "F": "Not offered (not suitable)"
+      }
+    },
+    {
+      "criterion": "Currency exposure (unhedged foreign)",
+      "values": {
+        "A": "18.21%",
+        "B": "12.31%",
+        "C": "0.00%",
+        "D": "Not offered (not suitable)",
+        "E": "Not offered (not suitable)",
+        "F": "Not offered (not suitable)"
+      }
+    },
+    {
+      "criterion": "Alignment with risk appetite",
+      "values": {
+        "A": "Within risk appetite (option risk Low-Moderate vs client level 3)",
+        "B": "Within risk appetite (option risk Moderate vs client level 3)",
+        "C": "Within risk appetite (option risk Moderate vs client level 3)",
+        "D": "Not offered (not suitable)",
+        "E": "Not offered (not suitable)",
+        "F": "Not offered (not suitable)"
+      }
+    },
+    {
+      "criterion": "Alignment with risk capacity",
+      "values": {
+        "A": "Within risk capacity (option risk Low-Moderate vs client level 3)",
+        "B": "Within risk capacity (option risk Moderate vs client level 3)",
+        "C": "Within risk capacity (option risk Moderate vs client level 3)",
+        "D": "Not offered (not suitable)",
+        "E": "Not offered (not suitable)",
+        "F": "Not offered (not suitable)"
+      }
+    },
+    {
+      "criterion": "Alignment with investment horizon",
+      "values": {
+        "A": "Growth assets 15.0% for a 8-year shortest horizon",
+        "B": "Growth assets 20.0% for a 8-year shortest horizon",
+        "C": "Growth assets 38.0% for a 8-year shortest horizon",
+        "D": "Not offered (not suitable)",
+        "E": "Not offered (not suitable)",
+        "F": "Not offered (not suitable)"
+      }
+    },
+    {
+      "criterion": "Alignment with financial goals",
+      "values": {
+        "A": "Retirement income: on track",
+        "B": "Retirement income: on track",
+        "C": "Retirement income: on track",
+        "D": "Not offered (not suitable)",
+        "E": "Not offered (not suitable)",
+        "F": "Not offered (not suitable)"
+      }
+    }
+  ],
+  "comparison_summary": "Option A (Capital preservation): growth assets 15.0%, expected return 3.28% p.a., stress drawdown 6.7%. Option B (Income): growth assets 20.0%, expected return 3.32% p.a., stress drawdown 8.7%. Option C (Balanced): growth assets 38.0%, expected return 3.79% p.a., stress drawdown 13.2%. Option D not offered: After applying the client's constraints, Option D's asset mix differs from Option C's by only 5.7% of the portfolio (43.7% vs 38.0% growth assets); it is not a materially different alternative and is therefore not offered. Hedge funds: outside the client's preferred asset classes; its 7% was reassigned to Equities. Private markets: outside the client's preferred asset classes; its 5% was reassigned to Equities. Real estate: outside the client's preferred asset classes; its 6% was reassigned to Cash, Fixed income. Gold: outside the client's preferred asset classes; its 7% was reassigned to Cash, Fixed income. Growth assets reduced from 52% to 50% to stay within the 50% ceiling for the client's effective risk level and horizon. Allocation de-risked so the estimated stress drawdown stays within the client's 15% maximum acceptable drawdown. Option E not offered: The client's effective risk level is 3 of 5; the Aggressive growth template needs at least level 4. Option F not offered: The client's effective risk level is 3 of 5; the Opportunistic template needs at least level 4. Higher growth share brings higher expected return and larger potential losses; all figures are illustrative.",
+  "preferred_option": "C",
+  "preferred_option_rationale": "Option C (Balanced) is nominated for review. Its growth-asset share (38.0%) is closest to the 38% reference level for the client's effective risk level (Moderate / Balanced), and it passes every constraint check. Option A trades lower expected return for lower estimated drawdown (6.66% vs 13.24%). Option B trades lower expected return for lower estimated drawdown (8.71% vs 13.24%). This is a rules-based nomination from illustrative data, not a mathematically optimal portfolio; the adviser decides which option, if any, goes forward.",
+  "key_risks": [
+    "Further inflation surprises could push yields higher and pressure bond and equity prices.",
+    "A flatter yield curve keeps the 12-month recession probability at about 13% [T10Y3M].",
+    "Trade tensions weigh on cyclical sectors.",
+    "All options can lose value; none is risk-free, and projected returns are not guaranteed.",
+    "Some options carry unhedged foreign-currency exposure.",
+    "Analysis relies on illustrative mock data; real product terms and market conditions will differ."
+  ],
+  "assumptions": [
+    "Asset classes outside the client's preferred_asset_classes are excluded from all options.",
+    "The emergency fund (30,000.00) is assumed to be part of investable_assets, so the reserve is carved out of investable assets. If it is held separately, the eligible portfolio value would be up to 30,000.00 higher.",
+    "Planned withdrawals of 20,000.00 have no stated timing and are treated as near-term (within 24 months), so they are excluded from the investment portfolio.",
+    "Growth-asset ceilings by effective risk level (level 1: 15%, level 2: 30%, level 3: 50%, level 4: 70%, level 5: 90%), further capped at 40% for horizons under 5 years and 20% under 3 years. These are prototype house rules.",
+    "Options are built from rules-based templates adapted to constraints; no mathematical optimisation is performed, so no option is claimed to be optimal.",
+    "Effective risk level is the lower of risk willingness (appetite / tolerance score) and risk capacity."
+  ],
+  "missing_information": [
+    {
+      "field": "age",
+      "severity": "MINOR",
+      "impact": "Life-stage considerations not applied."
+    },
+    {
+      "field": "residency",
+      "severity": "MINOR",
+      "impact": "Products with residency restrictions are excluded."
+    },
+    {
+      "field": "accredited_investor",
+      "severity": "MINOR",
+      "impact": "Products restricted to accredited investors are excluded."
+    },
+    {
+      "field": "maximum_currency_exposure",
+      "severity": "MINOR",
+      "impact": "Foreign-currency exposure is reported but not limited."
+    },
+    {
+      "field": "current_holdings / current_asset_allocation",
+      "severity": "MINOR",
+      "impact": "Transition from the current portfolio is not shown."
+    }
+  ],
+  "conflicts": [],
+  "excluded_products": [
+    {
+      "product_id": "MOCK-CORP-003",
+      "reason": "Restricted to accredited investors; client is not confirmed as accredited."
+    },
+    {
+      "product_id": "MOCK-GOLD-001",
+      "reason": "Gold is outside the client's preferred asset classes."
+    },
+    {
+      "product_id": "MOCK-REIT-001",
+      "reason": "Real estate is outside the client's preferred asset classes."
+    },
+    {
+      "product_id": "MOCK-REIT-002",
+      "reason": "Real estate is outside the client's preferred asset classes."
+    },
+    {
+      "product_id": "MOCK-HF-001",
+      "reason": "Hedge funds is outside the client's preferred asset classes."
+    },
+    {
+      "product_id": "MOCK-HF-002",
+      "reason": "Hedge funds is outside the client's preferred asset classes."
+    },
+    {
+      "product_id": "MOCK-PM-001",
+      "reason": "Private markets is outside the client's preferred asset classes."
+    },
+    {
+      "product_id": "MOCK-PM-002",
+      "reason": "Private markets is outside the client's preferred asset classes."
+    },
+    {
+      "product_id": "MOCK-GOLD-002",
+      "reason": "Gold is outside the client's preferred asset classes."
+    },
+    {
+      "product_id": "MOCK-REIT-003",
+      "reason": "Real estate is outside the client's preferred asset classes."
+    }
+  ],
+  "candidate_products": [
+    {
+      "product_id": "MOCK-CASH-001",
+      "product_name": "Illustrative SGD Money Market Fund",
+      "asset_class": "Cash",
+      "product_type": "Money Market Fund",
+      "currency": "SGD",
+      "currency_hedged": null,
+      "management_fee": 0.15,
+      "liquidity": "DAILY",
+      "screening_status": "SELECTED",
+      "selected_in_options": [
+        "A",
+        "B",
+        "C"
+      ],
+      "exclusion_reason": null,
+      "notes": [],
+      "data_provenance": "ILLUSTRATIVE_MOCK",
+      "as_of_date": "2026-09-30",
+      "details": {
+        "sub_asset_class": "Cash and money market",
+        "issuer": "Illustrative Asset Management",
+        "risk_rating": 1,
+        "historical_returns": {
+          "1y": 3.0,
+          "3y": 2.6,
+          "5y": 1.9
+        },
+        "yield_to_maturity": null,
+        "distribution_yield": 2.4,
+        "volatility": 0.3,
+        "maximum_drawdown": -0.1,
+        "credit_rating": "AA (portfolio average)",
+        "transaction_fee": 0.0,
+        "minimum_investment": 1000.0,
+        "lock_in_period": "none",
+        "duration": 0.2,
+        "maturity_date": null,
+        "recommended_horizon": 0.0,
+        "geographic_exposure": {
+          "Singapore": 100.0
+        },
+        "sector_exposure": {
+          "Financials": 100.0
+        },
+        "esg_compliant": null,
+        "data_completeness": "COMPLETE"
+      }
+    },
+    {
+      "product_id": "MOCK-CASH-002",
+      "product_name": "Illustrative SGD 6-Month Fixed Deposit",
+      "asset_class": "Cash",
+      "product_type": "Fixed Deposit",
+      "currency": "SGD",
+      "currency_hedged": null,
+      "management_fee": 0.0,
+      "liquidity": "AT_MATURITY",
+      "screening_status": "ELIGIBLE_NOT_SELECTED",
+      "selected_in_options": [],
+      "exclusion_reason": null,
+      "notes": [
+        "Lock-in period of 6 months; funds are not accessible before then without penalty."
+      ],
+      "data_provenance": "ILLUSTRATIVE_MOCK",
+      "as_of_date": "2026-09-30",
+      "details": {
+        "sub_asset_class": "Cash and money market",
+        "issuer": "Illustrative Bank",
+        "risk_rating": 1,
+        "historical_returns": null,
+        "yield_to_maturity": 2.3,
+        "distribution_yield": null,
+        "volatility": 0.0,
+        "maximum_drawdown": 0.0,
+        "credit_rating": null,
+        "transaction_fee": 0.0,
+        "minimum_investment": 20000.0,
+        "lock_in_period": "6 months",
+        "duration": 0.5,
+        "maturity_date": null,
+        "recommended_horizon": 0.5,
+        "geographic_exposure": {
+          "Singapore": 100.0
+        },
+        "sector_exposure": {
+          "Financials": 100.0
+        },
+        "esg_compliant": null,
+        "data_completeness": "COMPLETE"
+      }
+    },
+    {
+      "product_id": "MOCK-GOVT-001",
+      "product_name": "Illustrative Singapore Government Bond ETF",
+      "asset_class": "Fixed income",
+      "product_type": "Exchange-Traded Fund",
+      "currency": "SGD",
+      "currency_hedged": null,
+      "management_fee": 0.24,
+      "liquidity": "DAILY",
+      "screening_status": "SELECTED",
+      "selected_in_options": [
+        "A",
+        "B",
+        "C"
+      ],
+      "exclusion_reason": null,
+      "notes": [],
+      "data_provenance": "ILLUSTRATIVE_MOCK",
+      "as_of_date": "2026-09-30",
+      "details": {
+        "sub_asset_class": "Government bonds",
+        "issuer": "Illustrative Asset Management",
+        "risk_rating": 2,
+        "historical_returns": {
+          "1y": 3.4,
+          "3y": 1.2,
+          "5y": 0.8
+        },
+        "yield_to_maturity": 2.8,
+        "distribution_yield": 2.2,
+        "volatility": 4.5,
+        "maximum_drawdown": -9.8,
+        "credit_rating": "AAA",
+        "transaction_fee": 0.1,
+        "minimum_investment": 1000.0,
+        "lock_in_period": "none",
+        "duration": 6.5,
+        "maturity_date": null,
+        "recommended_horizon": 3.0,
+        "geographic_exposure": {
+          "Singapore": 100.0
+        },
+        "sector_exposure": {
+          "Government": 100.0
+        },
+        "esg_compliant": null,
+        "data_completeness": "COMPLETE"
+      }
+    },
+    {
+      "product_id": "MOCK-GOVT-002",
+      "product_name": "Illustrative SGD Short-Term Government Bill Fund",
+      "asset_class": "Fixed income",
+      "product_type": "Unit Trust",
+      "currency": "SGD",
+      "currency_hedged": null,
+      "management_fee": 0.2,
+      "liquidity": "DAILY",
+      "screening_status": "SELECTED",
+      "selected_in_options": [
+        "A",
+        "B",
+        "C"
+      ],
+      "exclusion_reason": null,
+      "notes": [],
+      "data_provenance": "ILLUSTRATIVE_MOCK",
+      "as_of_date": "2026-09-30",
+      "details": {
+        "sub_asset_class": "Government bonds",
+        "issuer": "Illustrative Asset Management",
+        "risk_rating": 1,
+        "historical_returns": {
+          "1y": 3.1,
+          "3y": 2.7,
+          "5y": 2.0
+        },
+        "yield_to_maturity": 2.4,
+        "distribution_yield": null,
+        "volatility": 0.6,
+        "maximum_drawdown": -0.8,
+        "credit_rating": "AAA",
+        "transaction_fee": 0.0,
+        "minimum_investment": 1000.0,
+        "lock_in_period": "none",
+        "duration": 0.5,
+        "maturity_date": null,
+        "recommended_horizon": 1.0,
+        "geographic_exposure": {
+          "Singapore": 100.0
+        },
+        "sector_exposure": {
+          "Government": 100.0
+        },
+        "esg_compliant": null,
+        "data_completeness": "COMPLETE"
+      }
+    },
+    {
+      "product_id": "MOCK-GOVT-003",
+      "product_name": "Illustrative US Treasury Bond Fund (SGD-Hedged)",
+      "asset_class": "Fixed income",
+      "product_type": "Unit Trust",
+      "currency": "SGD",
+      "currency_hedged": true,
+      "management_fee": 0.35,
+      "liquidity": "DAILY",
+      "screening_status": "ELIGIBLE_NOT_SELECTED",
+      "selected_in_options": [],
+      "exclusion_reason": null,
+      "notes": [],
+      "data_provenance": "ILLUSTRATIVE_MOCK",
+      "as_of_date": "2026-09-30",
+      "details": {
+        "sub_asset_class": "Government bonds",
+        "issuer": "Illustrative Global Investors",
+        "risk_rating": 2,
+        "historical_returns": {
+          "1y": 2.9,
+          "3y": -0.4,
+          "5y": 0.2
+        },
+        "yield_to_maturity": 3.4,
+        "distribution_yield": 3.0,
+        "volatility": 5.8,
+        "maximum_drawdown": -12.5,
+        "credit_rating": "AA+",
+        "transaction_fee": 0.0,
+        "minimum_investment": 1000.0,
+        "lock_in_period": "none",
+        "duration": 6.0,
+        "maturity_date": null,
+        "recommended_horizon": 3.0,
+        "geographic_exposure": {
+          "United States": 100.0
+        },
+        "sector_exposure": {
+          "Government": 100.0
+        },
+        "esg_compliant": null,
+        "data_completeness": "COMPLETE"
+      }
+    },
+    {
+      "product_id": "MOCK-CORP-001",
+      "product_name": "Illustrative Asia Investment-Grade Bond Fund (SGD-Hedged)",
+      "asset_class": "Fixed income",
+      "product_type": "Unit Trust",
+      "currency": "SGD",
+      "currency_hedged": true,
+      "management_fee": 0.55,
+      "liquidity": "DAILY",
+      "screening_status": "ELIGIBLE_NOT_SELECTED",
+      "selected_in_options": [],
+      "exclusion_reason": null,
+      "notes": [],
+      "data_provenance": "ILLUSTRATIVE_MOCK",
+      "as_of_date": "2026-09-30",
+      "details": {
+        "sub_asset_class": "Investment-grade corporate bonds",
+        "issuer": "Illustrative Asset Management",
+        "risk_rating": 2,
+        "historical_returns": {
+          "1y": 5.1,
+          "3y": 2.0,
+          "5y": 1.6
+        },
+        "yield_to_maturity": 4.6,
+        "distribution_yield": 4.2,
+        "volatility": 5.2,
+        "maximum_drawdown": -11.0,
+        "credit_rating": "A- (portfolio average)",
+        "transaction_fee": 0.0,
+        "minimum_investment": 1000.0,
+        "lock_in_period": "none",
+        "duration": 4.8,
+        "maturity_date": null,
+        "recommended_horizon": 3.0,
+        "geographic_exposure": {
+          "Asia ex-Japan": 85.0,
+          "Other": 15.0
+        },
+        "sector_exposure": {
+          "Financials": 35.0,
+          "Utilities": 15.0,
+          "Energy": 8.0,
+          "Industrials": 12.0,
+          "Real Estate": 10.0,
+          "Other": 20.0
+        },
+        "esg_compliant": false,
+        "data_completeness": "COMPLETE"
+      }
+    },
+    {
+      "product_id": "MOCK-CORP-002",
+      "product_name": "Illustrative Global Investment-Grade Corporate Bond ETF (USD)",
+      "asset_class": "Fixed income",
+      "product_type": "Exchange-Traded Fund",
+      "currency": "USD",
+      "currency_hedged": false,
+      "management_fee": 0.2,
+      "liquidity": "DAILY",
+      "screening_status": "ELIGIBLE_NOT_SELECTED",
+      "selected_in_options": [],
+      "exclusion_reason": null,
+      "notes": [],
+      "data_provenance": "ILLUSTRATIVE_MOCK",
+      "as_of_date": "2026-09-30",
+      "details": {
+        "sub_asset_class": "Investment-grade corporate bonds",
+        "issuer": "Illustrative Global Investors",
+        "risk_rating": 3,
+        "historical_returns": {
+          "1y": 5.6,
+          "3y": 1.4,
+          "5y": 1.9
+        },
+        "yield_to_maturity": 4.9,
+        "distribution_yield": 4.4,
+        "volatility": 7.0,
+        "maximum_drawdown": -16.5,
+        "credit_rating": "A",
+        "transaction_fee": 0.1,
+        "minimum_investment": 1000.0,
+        "lock_in_period": "none",
+        "duration": 6.8,
+        "maturity_date": null,
+        "recommended_horizon": 4.0,
+        "geographic_exposure": {
+          "United States": 60.0,
+          "Europe": 25.0,
+          "Other": 15.0
+        },
+        "sector_exposure": {
+          "Financials": 32.0,
+          "Industrials": 14.0,
+          "Utilities": 9.0,
+          "Energy": 4.0,
+          "Technology": 10.0,
+          "Other": 31.0
+        },
+        "esg_compliant": true,
+        "data_completeness": "COMPLETE"
+      }
+    },
+    {
+      "product_id": "MOCK-CORP-003",
+      "product_name": "Illustrative Accredited-Investor Senior Bond Note",
+      "asset_class": "Fixed income",
+      "product_type": "Structured Note",
+      "currency": "SGD",
+      "currency_hedged": null,
+      "management_fee": 0.0,
+      "liquidity": "LOCKED",
+      "screening_status": "EXCLUDED",
+      "selected_in_options": [],
+      "exclusion_reason": "Restricted to accredited investors; client is not confirmed as accredited.",
+      "notes": [],
+      "data_provenance": "ILLUSTRATIVE_MOCK",
+      "as_of_date": "2026-09-30",
+      "details": {
+        "sub_asset_class": "Investment-grade corporate bonds",
+        "issuer": "Illustrative Bank",
+        "risk_rating": 3,
+        "historical_returns": null,
+        "yield_to_maturity": 5.4,
+        "distribution_yield": null,
+        "volatility": 4.0,
+        "maximum_drawdown": -8.0,
+        "credit_rating": "BBB+",
+        "transaction_fee": 0.5,
+        "minimum_investment": 200000.0,
+        "lock_in_period": "3 years",
+        "duration": 2.8,
+        "maturity_date": "2029-10-15",
+        "recommended_horizon": 3.0,
+        "geographic_exposure": {
+          "Singapore": 100.0
+        },
+        "sector_exposure": {
+          "Financials": 100.0
+        },
+        "esg_compliant": null,
+        "data_completeness": "COMPLETE"
+      }
+    },
+    {
+      "product_id": "MOCK-EQ-001",
+      "product_name": "Illustrative Global Equity Index ETF (USD)",
+      "asset_class": "Equities",
+      "product_type": "Exchange-Traded Fund",
+      "currency": "USD",
+      "currency_hedged": false,
+      "management_fee": 0.2,
+      "liquidity": "DAILY",
+      "screening_status": "ELIGIBLE_NOT_SELECTED",
+      "selected_in_options": [],
+      "exclusion_reason": null,
+      "notes": [],
+      "data_provenance": "ILLUSTRATIVE_MOCK",
+      "as_of_date": "2026-09-30",
+      "details": {
+        "sub_asset_class": "Diversified equities",
+        "issuer": "Illustrative Global Investors",
+        "risk_rating": 4,
+        "historical_returns": {
+          "1y": 14.2,
+          "3y": 8.1,
+          "5y": 9.4
+        },
+        "yield_to_maturity": null,
+        "distribution_yield": 1.7,
+        "volatility": 15.5,
+        "maximum_drawdown": -33.9,
+        "credit_rating": null,
+        "transaction_fee": 0.1,
+        "minimum_investment": 1000.0,
+        "lock_in_period": "none",
+        "duration": null,
+        "maturity_date": null,
+        "recommended_horizon": 7.0,
+        "geographic_exposure": {
+          "United States": 63.0,
+          "Europe": 16.0,
+          "Japan": 6.0,
+          "Emerging Markets": 10.0,
+          "Other": 5.0
+        },
+        "sector_exposure": {
+          "Technology": 24.0,
+          "Financials": 16.0,
+          "Healthcare": 11.0,
+          "Consumer": 15.0,
+          "Industrials": 11.0,
+          "Energy": 4.5,
+          "Other": 18.5
+        },
+        "esg_compliant": false,
+        "data_completeness": "COMPLETE"
+      }
+    },
+    {
+      "product_id": "MOCK-EQ-002",
+      "product_name": "Illustrative Singapore Equity Index ETF",
+      "asset_class": "Equities",
+      "product_type": "Exchange-Traded Fund",
+      "currency": "SGD",
+      "currency_hedged": null,
+      "management_fee": 0.3,
+      "liquidity": "DAILY",
+      "screening_status": "ELIGIBLE_NOT_SELECTED",
+      "selected_in_options": [],
+      "exclusion_reason": null,
+      "notes": [],
+      "data_provenance": "ILLUSTRATIVE_MOCK",
+      "as_of_date": "2026-09-30",
+      "details": {
+        "sub_asset_class": "Diversified equities",
+        "issuer": "Illustrative Asset Management",
+        "risk_rating": 4,
+        "historical_returns": {
+          "1y": 11.0,
+          "3y": 7.2,
+          "5y": 6.1
+        },
+        "yield_to_maturity": null,
+        "distribution_yield": 4.1,
+        "volatility": 13.8,
+        "maximum_drawdown": -31.5,
+        "credit_rating": null,
+        "transaction_fee": 0.1,
+        "minimum_investment": 1000.0,
+        "lock_in_period": "none",
+        "duration": null,
+        "maturity_date": null,
+        "recommended_horizon": 7.0,
+        "geographic_exposure": {
+          "Singapore": 100.0
+        },
+        "sector_exposure": {
+          "Financials": 45.0,
+          "Real Estate": 12.0,
+          "Industrials": 14.0,
+          "Communication": 10.0,
+          "Consumer": 8.0,
+          "Other": 11.0
+        },
+        "esg_compliant": false,
+        "data_completeness": "COMPLETE"
+      }
+    },
+    {
+      "product_id": "MOCK-EQ-003",
+      "product_name": "Illustrative Global ESG Leaders Equity Fund (SGD-Hedged)",
+      "asset_class": "Equities",
+      "product_type": "Unit Trust",
+      "currency": "SGD",
+      "currency_hedged": true,
+      "management_fee": 0.85,
+      "liquidity": "DAILY",
+      "screening_status": "ELIGIBLE_NOT_SELECTED",
+      "selected_in_options": [],
+      "exclusion_reason": null,
+      "notes": [],
+      "data_provenance": "ILLUSTRATIVE_MOCK",
+      "as_of_date": "2026-09-30",
+      "details": {
+        "sub_asset_class": "Diversified equities",
+        "issuer": "Illustrative Sustainable Investors",
+        "risk_rating": 4,
+        "historical_returns": {
+          "1y": 12.8,
+          "3y": 7.4,
+          "5y": 8.6
+        },
+        "yield_to_maturity": null,
+        "distribution_yield": 1.2,
+        "volatility": 15.0,
+        "maximum_drawdown": -32.0,
+        "credit_rating": null,
+        "transaction_fee": 0.0,
+        "minimum_investment": 1000.0,
+        "lock_in_period": "none",
+        "duration": null,
+        "maturity_date": null,
+        "recommended_horizon": 7.0,
+        "geographic_exposure": {
+          "United States": 60.0,
+          "Europe": 22.0,
+          "Japan": 7.0,
+          "Other": 11.0
+        },
+        "sector_exposure": {
+          "Technology": 28.0,
+          "Healthcare": 14.0,
+          "Financials": 14.0,
+          "Consumer": 16.0,
+          "Industrials": 12.0,
+          "Energy": 0.0,
+          "Other": 16.0
+        },
+        "esg_compliant": true,
+        "data_completeness": "COMPLETE"
+      }
+    },
+    {
+      "product_id": "MOCK-DIV-001",
+      "product_name": "Illustrative Asia Pacific Dividend Equity Fund",
+      "asset_class": "Equities",
+      "product_type": "Unit Trust",
+      "currency": "SGD",
+      "currency_hedged": null,
+      "management_fee": 1.25,
+      "liquidity": "DAILY",
+      "screening_status": "SELECTED",
+      "selected_in_options": [
+        "B",
+        "C"
+      ],
+      "exclusion_reason": null,
+      "notes": [],
+      "data_provenance": "ILLUSTRATIVE_MOCK",
+      "as_of_date": "2026-09-30",
+      "details": {
+        "sub_asset_class": "Dividend equities",
+        "issuer": "Illustrative Asset Management",
+        "risk_rating": 4,
+        "historical_returns": {
+          "1y": 9.5,
+          "3y": 6.0,
+          "5y": 5.2
+        },
+        "yield_to_maturity": null,
+        "distribution_yield": 4.8,
+        "volatility": 14.5,
+        "maximum_drawdown": -30.5,
+        "credit_rating": null,
+        "transaction_fee": 0.0,
+        "minimum_investment": 1000.0,
+        "lock_in_period": "none",
+        "duration": null,
+        "maturity_date": null,
+        "recommended_horizon": 5.0,
+        "geographic_exposure": {
+          "Australia": 30.0,
+          "Singapore": 20.0,
+          "Hong Kong": 20.0,
+          "Other Asia": 30.0
+        },
+        "sector_exposure": {
+          "Financials": 30.0,
+          "Real Estate": 12.0,
+          "Utilities": 10.0,
+          "Energy": 6.0,
+          "Materials": 10.0,
+          "Other": 32.0
+        },
+        "esg_compliant": false,
+        "data_completeness": "COMPLETE"
+      }
+    },
+    {
+      "product_id": "MOCK-DIV-002",
+      "product_name": "Illustrative Global Quality Dividend ETF (SGD-Hedged)",
+      "asset_class": "Equities",
+      "product_type": "Exchange-Traded Fund",
+      "currency": "SGD",
+      "currency_hedged": true,
+      "management_fee": 0.45,
+      "liquidity": "DAILY",
+      "screening_status": "SELECTED",
+      "selected_in_options": [
+        "A",
+        "B",
+        "C"
+      ],
+      "exclusion_reason": null,
+      "notes": [],
+      "data_provenance": "ILLUSTRATIVE_MOCK",
+      "as_of_date": "2026-09-30",
+      "details": {
+        "sub_asset_class": "Dividend equities",
+        "issuer": "Illustrative Global Investors",
+        "risk_rating": 3,
+        "historical_returns": {
+          "1y": 8.7,
+          "3y": 6.6,
+          "5y": 6.9
+        },
+        "yield_to_maturity": null,
+        "distribution_yield": 3.6,
+        "volatility": 12.5,
+        "maximum_drawdown": -27.0,
+        "credit_rating": null,
+        "transaction_fee": 0.1,
+        "minimum_investment": 1000.0,
+        "lock_in_period": "none",
+        "duration": null,
+        "maturity_date": null,
+        "recommended_horizon": 5.0,
+        "geographic_exposure": {
+          "United States": 45.0,
+          "Europe": 35.0,
+          "Other": 20.0
+        },
+        "sector_exposure": {
+          "Healthcare": 18.0,
+          "Consumer": 22.0,
+          "Financials": 18.0,
+          "Industrials": 14.0,
+          "Energy": 3.0,
+          "Other": 25.0
+        },
+        "esg_compliant": true,
+        "data_completeness": "COMPLETE"
+      }
+    },
+    {
+      "product_id": "MOCK-GOLD-001",
+      "product_name": "Illustrative Physically-Backed Gold ETF (USD)",
+      "asset_class": "Gold",
+      "product_type": "Exchange-Traded Fund",
+      "currency": "USD",
+      "currency_hedged": false,
+      "management_fee": 0.4,
+      "liquidity": "DAILY",
+      "screening_status": "EXCLUDED",
+      "selected_in_options": [],
+      "exclusion_reason": "Gold is outside the client's preferred asset classes.",
+      "notes": [],
+      "data_provenance": "ILLUSTRATIVE_MOCK",
+      "as_of_date": "2026-09-30",
+      "details": {
+        "sub_asset_class": "Gold",
+        "issuer": "Illustrative Commodity Trust",
+        "risk_rating": 4,
+        "historical_returns": {
+          "1y": 18.0,
+          "3y": 12.5,
+          "5y": 9.0
+        },
+        "yield_to_maturity": null,
+        "distribution_yield": null,
+        "volatility": 14.0,
+        "maximum_drawdown": -18.0,
+        "credit_rating": null,
+        "transaction_fee": 0.1,
+        "minimum_investment": 1000.0,
+        "lock_in_period": "none",
+        "duration": null,
+        "maturity_date": null,
+        "recommended_horizon": 5.0,
+        "geographic_exposure": {
+          "Global": 100.0
+        },
+        "sector_exposure": {
+          "Precious Metals": 100.0
+        },
+        "esg_compliant": null,
+        "data_completeness": "COMPLETE"
+      }
+    },
+    {
+      "product_id": "MOCK-REIT-001",
+      "product_name": "Illustrative Singapore REIT Index ETF",
+      "asset_class": "Real estate",
+      "product_type": "Exchange-Traded Fund",
+      "currency": "SGD",
+      "currency_hedged": null,
+      "management_fee": 0.5,
+      "liquidity": "DAILY",
+      "screening_status": "EXCLUDED",
+      "selected_in_options": [],
+      "exclusion_reason": "Real estate is outside the client's preferred asset classes.",
+      "notes": [],
+      "data_provenance": "ILLUSTRATIVE_MOCK",
+      "as_of_date": "2026-09-30",
+      "details": {
+        "sub_asset_class": "Listed REITs",
+        "issuer": "Illustrative Asset Management",
+        "risk_rating": 4,
+        "historical_returns": {
+          "1y": 7.5,
+          "3y": 1.8,
+          "5y": 2.6
+        },
+        "yield_to_maturity": null,
+        "distribution_yield": 5.6,
+        "volatility": 17.0,
+        "maximum_drawdown": -36.0,
+        "credit_rating": null,
+        "transaction_fee": 0.1,
+        "minimum_investment": 1000.0,
+        "lock_in_period": "none",
+        "duration": null,
+        "maturity_date": null,
+        "recommended_horizon": 5.0,
+        "geographic_exposure": {
+          "Singapore": 80.0,
+          "Other Asia": 20.0
+        },
+        "sector_exposure": {
+          "Real Estate": 100.0
+        },
+        "esg_compliant": false,
+        "data_completeness": "COMPLETE"
+      }
+    },
+    {
+      "product_id": "MOCK-REIT-002",
+      "product_name": "Illustrative Asia Real Estate Income Fund",
+      "asset_class": "Real estate",
+      "product_type": "Unit Trust",
+      "currency": "SGD",
+      "currency_hedged": null,
+      "management_fee": null,
+      "liquidity": "WEEKLY",
+      "screening_status": "EXCLUDED",
+      "selected_in_options": [],
+      "exclusion_reason": "Real estate is outside the client's preferred asset classes.",
+      "notes": [],
+      "data_provenance": "ILLUSTRATIVE_MOCK",
+      "as_of_date": "2026-03-31",
+      "details": {
+        "sub_asset_class": "Listed REITs",
+        "issuer": "Illustrative Property Investors",
+        "risk_rating": 4,
+        "historical_returns": null,
+        "yield_to_maturity": null,
+        "distribution_yield": 5.9,
+        "volatility": null,
+        "maximum_drawdown": null,
+        "credit_rating": null,
+        "transaction_fee": null,
+        "minimum_investment": 5000.0,
+        "lock_in_period": "none",
+        "duration": null,
+        "maturity_date": null,
+        "recommended_horizon": 5.0,
+        "geographic_exposure": null,
+        "sector_exposure": {
+          "Real Estate": 100.0
+        },
+        "esg_compliant": null,
+        "data_completeness": "PARTIAL"
+      }
+    },
+    {
+      "product_id": "MOCK-HF-001",
+      "product_name": "Illustrative Global Multi-Strategy Fund (UCITS, SGD-Hedged)",
+      "asset_class": "Hedge funds",
+      "product_type": "UCITS Alternative Fund",
+      "currency": "SGD",
+      "currency_hedged": true,
+      "management_fee": 1.5,
+      "liquidity": "WEEKLY",
+      "screening_status": "EXCLUDED",
+      "selected_in_options": [],
+      "exclusion_reason": "Hedge funds is outside the client's preferred asset classes.",
+      "notes": [],
+      "data_provenance": "ILLUSTRATIVE_MOCK",
+      "as_of_date": "2026-09-30",
+      "details": {
+        "sub_asset_class": "Multi-strategy (liquid alternative)",
+        "issuer": "Illustrative Alternative Investors",
+        "risk_rating": 3,
+        "historical_returns": {
+          "1y": 6.1,
+          "3y": 4.8,
+          "5y": 5.0
+        },
+        "yield_to_maturity": null,
+        "distribution_yield": null,
+        "volatility": 6.5,
+        "maximum_drawdown": -12.0,
+        "credit_rating": null,
+        "transaction_fee": 0.0,
+        "minimum_investment": 10000.0,
+        "lock_in_period": "none",
+        "duration": null,
+        "maturity_date": null,
+        "recommended_horizon": 5.0,
+        "geographic_exposure": {
+          "United States": 50.0,
+          "Europe": 30.0,
+          "Asia": 20.0
+        },
+        "sector_exposure": {
+          "Diversified": 100.0
+        },
+        "esg_compliant": null,
+        "data_completeness": "COMPLETE"
+      }
+    },
+    {
+      "product_id": "MOCK-HF-002",
+      "product_name": "Illustrative Fund of Hedge Funds (Accredited Investors)",
+      "asset_class": "Hedge funds",
+      "product_type": "Offshore Fund",
+      "currency": "USD",
+      "currency_hedged": false,
+      "management_fee": 1.75,
+      "liquidity": "QUARTERLY",
+      "screening_status": "EXCLUDED",
+      "selected_in_options": [],
+      "exclusion_reason": "Hedge funds is outside the client's preferred asset classes.",
+      "notes": [],
+      "data_provenance": "ILLUSTRATIVE_MOCK",
+      "as_of_date": "2026-09-30",
+      "details": {
+        "sub_asset_class": "Fund of hedge funds",
+        "issuer": "Illustrative Alternative Investors",
+        "risk_rating": 4,
+        "historical_returns": {
+          "1y": 7.4,
+          "3y": 5.6,
+          "5y": 6.2
+        },
+        "yield_to_maturity": null,
+        "distribution_yield": null,
+        "volatility": 7.0,
+        "maximum_drawdown": -15.0,
+        "credit_rating": null,
+        "transaction_fee": 0.0,
+        "minimum_investment": 250000.0,
+        "lock_in_period": "1 year",
+        "duration": null,
+        "maturity_date": null,
+        "recommended_horizon": 5.0,
+        "geographic_exposure": {
+          "United States": 60.0,
+          "Europe": 25.0,
+          "Asia": 15.0
+        },
+        "sector_exposure": {
+          "Diversified": 100.0
+        },
+        "esg_compliant": null,
+        "data_completeness": "COMPLETE"
+      }
+    },
+    {
+      "product_id": "MOCK-PM-001",
+      "product_name": "Illustrative Semi-Liquid Global Private Equity Fund (SGD-Hedged)",
+      "asset_class": "Private markets",
+      "product_type": "Evergreen Fund",
+      "currency": "SGD",
+      "currency_hedged": true,
+      "management_fee": 1.9,
+      "liquidity": "QUARTERLY",
+      "screening_status": "EXCLUDED",
+      "selected_in_options": [],
+      "exclusion_reason": "Private markets is outside the client's preferred asset classes.",
+      "notes": [],
+      "data_provenance": "ILLUSTRATIVE_MOCK",
+      "as_of_date": "2026-09-30",
+      "details": {
+        "sub_asset_class": "Private equity (evergreen)",
+        "issuer": "Illustrative Private Capital",
+        "risk_rating": 5,
+        "historical_returns": {
+          "1y": 9.8,
+          "3y": 11.2,
+          "5y": null
+        },
+        "yield_to_maturity": null,
+        "distribution_yield": null,
+        "volatility": 12.0,
+        "maximum_drawdown": -25.0,
+        "credit_rating": null,
+        "transaction_fee": 0.0,
+        "minimum_investment": 25000.0,
+        "lock_in_period": "1 year",
+        "duration": null,
+        "maturity_date": null,
+        "recommended_horizon": 7.0,
+        "geographic_exposure": {
+          "United States": 55.0,
+          "Europe": 30.0,
+          "Asia": 15.0
+        },
+        "sector_exposure": {
+          "Technology": 30.0,
+          "Healthcare": 20.0,
+          "Industrials": 20.0,
+          "Consumer": 15.0,
+          "Other": 15.0
+        },
+        "esg_compliant": null,
+        "data_completeness": "COMPLETE"
+      }
+    },
+    {
+      "product_id": "MOCK-PM-002",
+      "product_name": "Illustrative Senior Private Credit Fund (Accredited Investors)",
+      "asset_class": "Private markets",
+      "product_type": "Closed-End Fund",
+      "currency": "USD",
+      "currency_hedged": false,
+      "management_fee": 1.5,
+      "liquidity": "LOCKED",
+      "screening_status": "EXCLUDED",
+      "selected_in_options": [],
+      "exclusion_reason": "Private markets is outside the client's preferred asset classes.",
+      "notes": [],
+      "data_provenance": "ILLUSTRATIVE_MOCK",
+      "as_of_date": "2026-09-30",
+      "details": {
+        "sub_asset_class": "Private credit",
+        "issuer": "Illustrative Private Capital",
+        "risk_rating": 4,
+        "historical_returns": {
+          "1y": 8.6,
+          "3y": 8.1,
+          "5y": null
+        },
+        "yield_to_maturity": null,
+        "distribution_yield": 7.5,
+        "volatility": 5.0,
+        "maximum_drawdown": -10.0,
+        "credit_rating": null,
+        "transaction_fee": 0.0,
+        "minimum_investment": 200000.0,
+        "lock_in_period": "3 years",
+        "duration": null,
+        "maturity_date": null,
+        "recommended_horizon": 5.0,
+        "geographic_exposure": {
+          "United States": 70.0,
+          "Europe": 30.0
+        },
+        "sector_exposure": {
+          "Financials": 20.0,
+          "Industrials": 30.0,
+          "Healthcare": 20.0,
+          "Other": 30.0
+        },
+        "esg_compliant": null,
+        "data_completeness": "COMPLETE"
+      }
+    },
+    {
+      "product_id": "MOCK-CASH-003",
+      "product_name": "Illustrative USD Money Market Fund",
+      "asset_class": "Cash",
+      "product_type": "Money Market Fund",
+      "currency": "USD",
+      "currency_hedged": false,
+      "management_fee": 0.2,
+      "liquidity": "DAILY",
+      "screening_status": "SELECTED",
+      "selected_in_options": [
+        "A",
+        "B"
+      ],
+      "exclusion_reason": null,
+      "notes": [],
+      "data_provenance": "ILLUSTRATIVE_MOCK",
+      "as_of_date": "2026-09-30",
+      "details": {
+        "sub_asset_class": "Cash and money market",
+        "issuer": "Illustrative Asset Management",
+        "risk_rating": 1,
+        "historical_returns": {
+          "1y": 4.6,
+          "3y": 4.1,
+          "5y": 2.8
+        },
+        "yield_to_maturity": null,
+        "distribution_yield": 4.2,
+        "volatility": 0.3,
+        "maximum_drawdown": -0.1,
+        "credit_rating": "AA (portfolio average)",
+        "transaction_fee": 0.0,
+        "minimum_investment": 1000.0,
+        "lock_in_period": "none",
+        "duration": 0.2,
+        "maturity_date": null,
+        "recommended_horizon": 0.0,
+        "geographic_exposure": {
+          "United States": 100.0
+        },
+        "sector_exposure": {
+          "Financials": 100.0
+        },
+        "esg_compliant": null,
+        "data_completeness": "COMPLETE"
+      }
+    },
+    {
+      "product_id": "MOCK-GOLD-002",
+      "product_name": "Illustrative Gold Fund (SGD-Hedged)",
+      "asset_class": "Gold",
+      "product_type": "Unit Trust",
+      "currency": "SGD",
+      "currency_hedged": true,
+      "management_fee": 0.6,
+      "liquidity": "DAILY",
+      "screening_status": "EXCLUDED",
+      "selected_in_options": [],
+      "exclusion_reason": "Gold is outside the client's preferred asset classes.",
+      "notes": [],
+      "data_provenance": "ILLUSTRATIVE_MOCK",
+      "as_of_date": "2026-09-30",
+      "details": {
+        "sub_asset_class": "Gold",
+        "issuer": "Illustrative Commodity Trust",
+        "risk_rating": 4,
+        "historical_returns": {
+          "1y": 14.2,
+          "3y": 10.1,
+          "5y": 8.0
+        },
+        "yield_to_maturity": null,
+        "distribution_yield": null,
+        "volatility": 13.5,
+        "maximum_drawdown": -19.0,
+        "credit_rating": null,
+        "transaction_fee": 0.1,
+        "minimum_investment": 1000.0,
+        "lock_in_period": "none",
+        "duration": null,
+        "maturity_date": null,
+        "recommended_horizon": 5.0,
+        "geographic_exposure": {
+          "Global": 100.0
+        },
+        "sector_exposure": {
+          "Precious Metals": 100.0
+        },
+        "esg_compliant": null,
+        "data_completeness": "COMPLETE"
+      }
+    },
+    {
+      "product_id": "MOCK-REIT-003",
+      "product_name": "Illustrative Global REIT Fund (SGD-Hedged)",
+      "asset_class": "Real estate",
+      "product_type": "Unit Trust",
+      "currency": "SGD",
+      "currency_hedged": true,
+      "management_fee": 0.75,
+      "liquidity": "DAILY",
+      "screening_status": "EXCLUDED",
+      "selected_in_options": [],
+      "exclusion_reason": "Real estate is outside the client's preferred asset classes.",
+      "notes": [],
+      "data_provenance": "ILLUSTRATIVE_MOCK",
+      "as_of_date": "2026-09-30",
+      "details": {
+        "sub_asset_class": "Listed REITs",
+        "issuer": "Illustrative Asset Management",
+        "risk_rating": 4,
+        "historical_returns": {
+          "1y": 6.0,
+          "3y": 1.5,
+          "5y": 2.9
+        },
+        "yield_to_maturity": null,
+        "distribution_yield": 4.4,
+        "volatility": 16.0,
+        "maximum_drawdown": -34.0,
+        "credit_rating": null,
+        "transaction_fee": 0.1,
+        "minimum_investment": 1000.0,
+        "lock_in_period": "none",
+        "duration": null,
+        "maturity_date": null,
+        "recommended_horizon": 5.0,
+        "geographic_exposure": {
+          "United States": 55.0,
+          "Europe": 20.0,
+          "Asia Pacific": 25.0
+        },
+        "sector_exposure": {
+          "Real Estate": 100.0
+        },
+        "esg_compliant": false,
+        "data_completeness": "COMPLETE"
+      }
+    }
+  ],
+  "warnings": [
+    "Market research is illustrative MOCK data, not verified real-world information.",
+    "Market research covers region US; the client's base currency is SGD, so local market conditions are not directly covered.",
+    "Product data is illustrative MOCK data, not verified real-world information.",
+    "Products with incomplete data: MOCK-REIT-002."
+  ],
+  "explanation_status": {
+    "source": "DETERMINISTIC",
+    "llm_attempted": false,
+    "llm_succeeded": false,
+    "model": null,
+    "detail": "LLM not used: LLM explanations disabled via PORTFOLIO_LLM_ENABLED. Deterministic explanations provided."
+  },
+  "requires_rm_review": true,
+  "execution_status": "NOT_EXECUTED",
+  "disclaimer": "Prototype output for Relationship Manager review only. Not investment advice and not a final recommendation. No transactions have been or will be executed by this service. Market and product data are illustrative mock data; projections are assumptions, not guarantees."
+}

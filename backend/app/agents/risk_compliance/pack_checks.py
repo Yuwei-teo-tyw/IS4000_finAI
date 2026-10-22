@@ -4,7 +4,7 @@ Final check of the assembled review pack before the RM can approve G4.
 Each specialist already enforces its own rules while building its part
 (the Product Recommender's suitability gate, the PM's construction
 limits). This is the independent second line: it re-checks the finished
-pack as a whole, where problems between agents show up - an IC allocation
+pack as a whole, where problems between agents show up - an PM allocation
 above the client's growth ceiling, a PS product the client cannot hold,
 an unfinished or flagged section, a guarantee in the text.
 
@@ -15,14 +15,14 @@ copy of its rules, and the wording check is the PM's narrative guardrails.
 from datetime import date
 from typing import Optional
 
-from app.agents.portfolio_manager.engine.profile_assessment import ProfileAssessment
-from app.agents.portfolio_manager.explain.guardrails import (
+from app.agents.portfolio_agent.engine.profile_assessment import ProfileAssessment
+from app.agents.portfolio_agent.explain.guardrails import (
     AllowedNumbers,
     find_claim_violations,
     find_number_violations,
 )
-from app.agents.portfolio_manager.schemas.client import ClientProfile
-from app.agents.portfolio_manager.taxonomy import (
+from app.agents.portfolio_agent.schemas.client import ClientProfile
+from app.agents.portfolio_agent.taxonomy import (
     GROWTH_WEIGHT,
     AssetClass,
     parse_asset_class,

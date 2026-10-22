@@ -1,6 +1,6 @@
 """
 Workspace context for a chat turn sent by the Geneva frontend: who is asking
-(RM / IC / PS) and which client is in focus.
+(RM / PM / PS) and which client is in focus.
 
 The frontend sends `{"message": ..., "context": {...}}` over the WebSocket;
 this turns the context into one system note for the specialists. Only known
@@ -14,7 +14,7 @@ from typing import Any, Optional
 
 from app.prompts.prompt_builder import get_prompt
 
-ROLE_LABELS = {"rm": "Relationship Manager", "ic": "Investment Counsellor", "ps": "Product Specialist"}
+ROLE_LABELS = {"rm": "Relationship Manager", "pm": "Portfolio Manager", "ps": "Product Specialist"}
 MAX_FIELD_CHARS = 80
 
 

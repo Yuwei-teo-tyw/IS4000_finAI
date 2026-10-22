@@ -12,7 +12,7 @@ interface Props {
   expandable?: boolean;
 }
 
-/** View of the list the Product Specialist sent to the IC (G3). Read-only unless selected/expandable are passed. */
+/** View of the list the Product Specialist sent to the PM (G3). Read-only unless selected/expandable are passed. */
 export function FinalisedTable({ clientId, selected, onToggle, expandable = false }: Props) {
   const list = useFinalised(clientId);
   const [open, setOpen] = useState<string | null>(null);

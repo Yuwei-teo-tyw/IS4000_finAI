@@ -1,7 +1,7 @@
-export type Role = "rm" | "ic" | "ps";
+export type Role = "rm" | "pm" | "ps";
 export const ROLE_LABEL: Record<Role, string> = {
   rm: "Relationship Manager",
-  ic: "Investment Counsellor",
+  pm: "Portfolio Manager",
   ps: "Product Specialist",
 };
 

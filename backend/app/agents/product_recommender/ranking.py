@@ -12,9 +12,9 @@ import re
 from dataclasses import dataclass
 from typing import Optional
 
-from app.agents.portfolio_manager.engine.profile_assessment import ProfileAssessment
-from app.agents.portfolio_manager.schemas.client import ClientProfile
-from app.agents.portfolio_manager.taxonomy import GROWTH_WEIGHT, AssetClass
+from app.agents.portfolio_agent.engine.profile_assessment import ProfileAssessment
+from app.agents.portfolio_agent.schemas.client import ClientProfile
+from app.agents.portfolio_agent.taxonomy import GROWTH_WEIGHT, AssetClass
 from app.agents.product_recommender.schemas import HouseView
 from app.agents.product_recommender.suitability import ScreenedProduct
 

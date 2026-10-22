@@ -4,7 +4,7 @@ import { Check, Lock, X } from "lucide-react";
 import { arcApi } from "../../services/arcApi";
 import { Button, Card, GateChip, Loading, PageHeader, Stepper, useAsync, BulletTextarea, BulletList } from "../../components/ui";
 import { onboardingSteps, ipsToSections, fmtDate } from "./rmShared";
-import { sendIpsToIc, useIpsSent, withdrawIpsFromIc } from "../../services/workflowStore";
+import { sendIpsToPm, useIpsSent, withdrawIpsFromPm } from "../../services/workflowStore";
 import { IpsDocument } from "../../components/documents/IpsDocument";
 import { ProfessionaliseButton } from "../../components/geneva/ProfessionaliseButton";
 import { getChatContext } from "../../services/chatContextStore";
@@ -96,7 +96,7 @@ export default function IpsDraft({ embedded = false, clientId: clientIdProp }: {
             <div className="min-w-0">
               <h2 className="text-[28px] font-light tracking-tight">{parts.findIndex((x) => x.part === active) + 1}. {p.title}</h2>
               {RM_PARTS.includes(active) && <p className="mt-2 text-xs uppercase tracking-[0.14em] text-brand">You fill in this section</p>}
-              {!RM_PARTS.includes(active) && <p className="mt-2 flex items-center gap-1.5 text-xs uppercase tracking-[0.14em] text-ink-muted"><Lock size={12} />To be filled by the Investment Counsellor</p>}
+              {!RM_PARTS.includes(active) && <p className="mt-2 flex items-center gap-1.5 text-xs uppercase tracking-[0.14em] text-ink-muted"><Lock size={12} />To be filled by the Portfolio Manager</p>}
             </div>
             {editable ? (
               <BulletTextarea value={text[active] ?? ""} onChange={(v) => { setText({ ...text, [active]: v }); setSaved(false); }} rows={8} />
@@ -121,19 +121,19 @@ export default function IpsDraft({ embedded = false, clientId: clientIdProp }: {
 
       {sent ? (
         <div className="flex flex-wrap items-center justify-between gap-4 rounded-md bg-surface-300 px-6 py-5">
-          <p className="text-base text-ink-700">Sent to the Investment Counsellor. You can keep editing your sections; withdraw to pull the draft back.</p>
+          <p className="text-base text-ink-700">Sent to the Portfolio Manager. You can keep editing your sections; withdraw to pull the draft back.</p>
           <div className="flex flex-wrap items-center gap-3">
             {embedded && saved && <span className="text-sm text-ink-500" role="status">Saved</span>}
             {embedded && <Button variant="secondary" onClick={() => setSaved(true)}>Save</Button>}
-            {!embedded && <Button variant="secondary" to={`/rm/clients/${clientId}/ips-approval`}>Preview IC return</Button>}
-            <Button onClick={() => withdrawIpsFromIc(clientId)}>Withdraw</Button>
+            {!embedded && <Button variant="secondary" to={`/rm/clients/${clientId}/ips-approval`}>Preview PM return</Button>}
+            <Button onClick={() => withdrawIpsFromPm(clientId)}>Withdraw</Button>
           </div>
         </div>
       ) : stage === "polish" ? (
         <div className="flex flex-wrap items-center justify-end gap-3">
           <ProfessionaliseButton onClick={runPolish} loading={busy} disabled={polished} label="Professionalise" />
           <Button variant="secondary" onClick={() => setStage("edit")}>Back</Button>
-          {polished && <Button onClick={() => sendIpsToIc(clientId)}>Send IPS draft to IC</Button>}
+          {polished && <Button onClick={() => sendIpsToPm(clientId)}>Send IPS draft to PM</Button>}
         </div>
       ) : (
         <div className="flex flex-wrap items-center justify-end gap-3">
@@ -141,7 +141,7 @@ export default function IpsDraft({ embedded = false, clientId: clientIdProp }: {
           {embedded
             ? <Button onClick={() => setSaved(true)}>Save</Button>
             : <Button variant="secondary" onClick={() => nav(-1)}>Back</Button>}
-          <Button onClick={() => sendIpsToIc(clientId)}>Send IPS draft to IC</Button>
+          <Button onClick={() => sendIpsToPm(clientId)}>Send IPS draft to PM</Button>
         </div>
       )}
     </div>

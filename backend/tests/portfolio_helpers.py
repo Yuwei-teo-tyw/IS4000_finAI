@@ -1,5 +1,5 @@
 """
-Shared helpers for the Portfolio Manager tests. Nothing here touches the
+Shared helpers for the Portfolio Agent tests. Nothing here touches the
 network: the LLM is disabled (or replaced by conftest.FakeLLM), upstream
 fetchers can be swapped for stubs, and the clock is fixed so data-staleness
 checks are deterministic.
@@ -12,17 +12,17 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.agents.portfolio_manager.config import Settings
-from app.agents.portfolio_manager.explain.llm_client import LLMUnavailable
-from app.agents.portfolio_manager.schemas.upstream import UpstreamResult
-from app.agents.portfolio_manager.service import PortfolioService
-from app.agents.portfolio_manager.upstream import market_analysis, product_specialist
+from app.agents.portfolio_agent.config import Settings
+from app.agents.portfolio_agent.explain.llm_client import LLMUnavailable
+from app.agents.portfolio_agent.schemas.upstream import UpstreamResult
+from app.agents.portfolio_agent.service import PortfolioService
+from app.agents.portfolio_agent.upstream import market_analysis, product_specialist
 from app.agents.product_recommender import shelf
-from app.endpoints.portfolio_manager import install_validation_handler, router
+from app.endpoints.portfolio_agent import install_validation_handler, router
 
-SAMPLE_REQUEST = (Path(__file__).resolve().parent.parent / "app" / "agents" / "portfolio_manager"
+SAMPLE_REQUEST = (Path(__file__).resolve().parent.parent / "app" / "agents" / "portfolio_agent"
                   / "samples" / "sample_request.json")
-BASE = "/agents/portfolio-manager"
+BASE = "/agents/portfolio-agent"
 GENERATE = f"{BASE}/portfolio/generate"
 FIXED_NOW = datetime(2026, 10, 15, 12, 0, tzinfo=timezone.utc)
 
@@ -44,11 +44,11 @@ def make_service(llm_factory=no_llm, **kw) -> PortfolioService:
 
 
 def make_client(service=None) -> TestClient:
-    """Minimal app with only the Portfolio Manager router - no Postgres, no network, no LLM."""
+    """Minimal app with only the Portfolio Agent router - no Postgres, no network, no LLM."""
     app = FastAPI()
     app.include_router(router)
     install_validation_handler(app)
-    app.state.portfolio_manager = service or make_service()
+    app.state.portfolio_agent = service or make_service()
     return TestClient(app)
 
 

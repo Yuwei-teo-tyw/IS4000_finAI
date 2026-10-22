@@ -1,14 +1,14 @@
-import type { PmOption } from "../../types/portfolio";
+import type { PaOption } from "../../types/portfolio";
 import { isOffered } from "../../types/portfolio";
 import { Badge, Card, Table } from "../ui";
 import { allocationOf } from "./allocation";
 import { AllocationView } from "./AllocationView";
-import { currentYield, DASH, fx, historical, LIQUIDITY, pct, sgdAmt, STATUS_LABEL } from "./pmFormat";
+import { currentYield, DASH, fx, historical, LIQUIDITY, pct, sgdAmt, STATUS_LABEL } from "./paFormat";
 
 const CHECK_TONE = { PASS: "green", FAIL: "red", UNVERIFIED: "amber", NOT_APPLICABLE: "grey" } as const;
 
 /** One proposed portfolio in full: every asset class and sub-class, its products, and its checks. */
-export function OptionDetail({ option, liquiditySgd }: { option: PmOption | undefined; liquiditySgd: number | null }) {
+export function OptionDetail({ option, liquiditySgd }: { option: PaOption | undefined; liquiditySgd: number | null }) {
   if (!option) return <Card><p className="text-ink-muted">Select a portfolio to see it in detail.</p></Card>;
   if (!isOffered(option)) {
     return (

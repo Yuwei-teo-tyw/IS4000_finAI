@@ -2,7 +2,7 @@
  * Product Recommender agent contract. Mirrors backend/app/agents/product_recommender/
  * schemas.py - keep in sync. Fees (`costs`) are display-only and never ranked.
  */
-import type { PmClientProfile } from "./portfolio";
+import type { PaClientProfile } from "./portfolio";
 
 export type PrView = "Buy" | "Hold" | "Sell";
 export type PrConfidence = "High" | "Medium" | "Low";
@@ -22,7 +22,7 @@ export interface PrAssetClassView {
 export interface PrHouseView { as_of: string; source_document: string; is_illustrative: boolean; views: PrAssetClassView[]; limitations: string[] }
 
 export interface PrOptions { top_n?: number; max_per_asset_class?: number; asset_classes?: string[] | null; named_products?: string[] }
-export interface PrRequest { request_id?: string; client_id: string; client_profile: PmClientProfile; options?: PrOptions }
+export interface PrRequest { request_id?: string; client_id: string; client_profile: PaClientProfile; options?: PrOptions }
 
 export interface PrProductSummary {
   product_id: string; product_name: string; asset_class: string; sub_asset_class: string | null; product_type: string | null;

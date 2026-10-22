@@ -30,7 +30,7 @@ export default function QuarterlyReviewStart() {
         <Card>
           <div className="flex flex-wrap items-center gap-4 text-sm font-semibold text-ink">
             <span>Product Specialist</span><ArrowRight size={16} />
-            <span>Investment Counsellor</span><ArrowRight size={16} />
+            <span>Portfolio Manager</span><ArrowRight size={16} />
             <span>You</span>
             <span className="ml-auto flex flex-wrap gap-2">
               {gates.map((g) => <GateChip key={g.id} id={g.id} state={started && g.id !== "G1" ? (g.id === "G4" ? "not_started" : "pending") : g.state} />)}

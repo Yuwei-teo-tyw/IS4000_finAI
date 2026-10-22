@@ -4,7 +4,7 @@ Checks on LLM-written text before it replaces the deterministic text.
 The LLM only rewords facts the engine computed. A text is rejected, and
 the deterministic text kept, if it:
   - makes a guarantee, risk-free, certainty, optimality, live-data or
-    execution claim (the Portfolio Manager's checks, reused);
+    execution claim (the Portfolio Agent's checks, reused);
   - uses a number that is not in the facts it was given;
   - mentions fees (or, in a product reason, any cost: costs never justify a product);
   - gives advice to someone ("you should", "investors should") or calls a
@@ -15,7 +15,7 @@ View narratives also have stance checks (see check_view_slot).
 import re
 from typing import Iterable, Optional
 
-from app.agents.portfolio_manager.explain.guardrails import find_claim_violations
+from app.agents.portfolio_agent.explain.guardrails import find_claim_violations
 
 _TAG = re.compile(r"\[([A-Za-z0-9-]+)\]")
 _PRODUCT_ID = re.compile(r"\bMOCK-[A-Z]+-\d+\b")

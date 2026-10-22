@@ -1,5 +1,5 @@
-import type { PmFrontier, PmPortfolioPoint } from "../../types/portfolio";
-import { pct } from "./pmFormat";
+import type { PaFrontier, PaPortfolioPoint } from "../../types/portfolio";
+import { pct } from "./paFormat";
 
 const W = 520, H = 320, PAD = { l: 52, r: 18, t: 18, b: 44 };
 
@@ -8,9 +8,9 @@ const W = 520, H = 320, PAD = { l: 52, r: 18, t: 18, b: 44 };
  * backend's mean-variance model; nothing is drawn when the model has no data.
  */
 export function FrontierChart({ frontier, original, adjusted, limitation }: {
-  frontier: PmFrontier | null; original: PmPortfolioPoint; adjusted: PmPortfolioPoint; limitation: string | null;
+  frontier: PaFrontier | null; original: PaPortfolioPoint; adjusted: PaPortfolioPoint; limitation: string | null;
 }) {
-  const pts = (p: PmPortfolioPoint) =>
+  const pts = (p: PaPortfolioPoint) =>
     p.model_volatility_pct !== null && p.model_expected_return_pct !== null ? { x: p.model_volatility_pct, y: p.model_expected_return_pct } : null;
   const o = pts(original), a = pts(adjusted);
   if (!frontier || !frontier.points.length) {

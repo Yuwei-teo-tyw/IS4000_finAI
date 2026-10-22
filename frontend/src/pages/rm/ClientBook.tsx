@@ -51,7 +51,7 @@ const SEED_ONB: Record<string, number> = { jfr: 0, sha: 2 };
 const SEED_PACK: Record<string, number | null> = { ser: null, teo: null, dso: 0 };
 const NONE = <p className="text-sm text-ink-muted">-</p>;
 
-/** RM-only progress cells; "-" while a phase has not started. Onboarding: IPS draft, sent to IC, returned, active. Pack: sections complete. */
+/** RM-only progress cells; "-" while a phase has not started. Onboarding: IPS draft, sent to PM, returned, active. Pack: sections complete. */
 function ProgressCells({ clientId, monitoring }: { clientId: string; monitoring: boolean }) {
   const sent = !!useIpsSent(clientId);
   const returned = useIpsReturned(clientId);

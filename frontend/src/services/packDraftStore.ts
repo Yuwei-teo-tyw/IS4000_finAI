@@ -59,9 +59,9 @@ const HIST_EVENT = "geneva:packhist";
 const histKey = (clientId: string) => `pack-hist-${clientId}`;
 const histCache = new Map<string, { raw: string | null; value: PackEdit[] }>();
 
-/** Role is the first URL segment (/rm, /ic, /ps), same rule as useRole() in AppShell. */
+/** Role is the first URL segment (/rm, /pm, /ps), same rule as useRole() in AppShell. */
 function currentRole(): Role {
-  try { const seg = window.location.pathname.split("/")[1]; return seg === "ic" || seg === "ps" ? seg : "rm"; } catch { return "rm"; }
+  try { const seg = window.location.pathname.split("/")[1]; return seg === "pm" || seg === "ps" ? seg : "rm"; } catch { return "rm"; }
 }
 function getPackHistory(clientId: string): PackEdit[] {
   let raw: string | null = null;
@@ -127,7 +127,7 @@ export function useSectionDone(clientId: string): SectionDone {
   );
 }
 
-/** Signature per role key (rm | ic | ps). dataUrl is a drawn/uploaded image, or empty when typed is true (name is the typed signature). */
+/** Signature per role key (rm | pm | ps). dataUrl is a drawn/uploaded image, or empty when typed is true (name is the typed signature). */
 export interface PackSignature { name: string; dataUrl: string; signedAt: string; typed?: boolean }
 export type PackSignatures = Record<string, PackSignature>;
 const SIG_EVENT = "geneva:packsig";
@@ -160,7 +160,7 @@ function snapSignatures(clientId: string): PackSignatures {
   sigCache.set(clientId, { raw, value });
   return value;
 }
-/** Reactive signatures for a client, keyed by role (rm | ic | ps). */
+/** Reactive signatures for a client, keyed by role (rm | pm | ps). */
 export function useSignatures(clientId: string): PackSignatures {
   return useSyncExternalStore(
     subSig,

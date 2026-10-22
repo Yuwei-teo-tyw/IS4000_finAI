@@ -2,7 +2,7 @@
 Readiness check (step 4 of the advisory workflow): is the confirmed client
 context good enough to advise on, and what limits must the advice respect?
 
-Thin by design. The rules are the Portfolio Manager's own:
+Thin by design. The rules are the Portfolio Agent's own:
 `assess_profile()` (appetite vs capacity, missing and contradictory
 fields) and `build_liquidity_plan()` (reserve, withdrawals, eligible
 value). This module only adds the policy's escalations (fields the policy
@@ -18,18 +18,18 @@ from typing import Optional
 
 from pydantic import BaseModel
 
-from app.agents.portfolio_manager.engine.construction import ConstructionContext
-from app.agents.portfolio_manager.engine.liquidity import (
+from app.agents.portfolio_agent.engine.construction import ConstructionContext
+from app.agents.portfolio_agent.engine.liquidity import (
     LiquidityResult,
     build_liquidity_plan,
 )
-from app.agents.portfolio_manager.engine.profile_assessment import (
+from app.agents.portfolio_agent.engine.profile_assessment import (
     ProfileAssessment,
     assess_profile,
 )
-from app.agents.portfolio_manager.schemas.client import ClientProfile, UpdateTrigger
-from app.agents.portfolio_manager.schemas.response import Conflict, MissingInformation
-from app.agents.portfolio_manager.taxonomy import ASSET_CLASS_ORDER
+from app.agents.portfolio_agent.schemas.client import ClientProfile, UpdateTrigger
+from app.agents.portfolio_agent.schemas.response import Conflict, MissingInformation
+from app.agents.portfolio_agent.taxonomy import ASSET_CLASS_ORDER
 from app.agents.product_recommender.suitability import (
     ScreeningResult,
     near_term_need_months,

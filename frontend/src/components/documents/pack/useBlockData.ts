@@ -1,5 +1,5 @@
 import { arcApi } from "../../../services/arcApi";
-import { useIcProgress } from "../../../services/workflowStore";
+import { usePmProgress } from "../../../services/workflowStore";
 import { useAsync } from "../../ui";
 import type { PackBlock } from "../../../types/arc";
 
@@ -7,11 +7,11 @@ export type ChartBlock = Extract<PackBlock, { type: "chart" }>;
 export type Slice = { label: string; value: number };
 const r1 = (n: number) => Math.round(n * 10) / 10;
 
-/** Live data for chart/table blocks: current allocation + holdings, with the IC's saved TAA and holding edits applied. */
+/** Live data for chart/table blocks: current allocation + holdings, with the PM's saved TAA and holding edits applied. */
 export function useBlockData(clientId: string) {
   const alloc = useAsync(() => arcApi.getAllocation(clientId), [clientId]);
   const holdings = useAsync(() => arcApi.getHoldings(clientId), [clientId]);
-  const p = useIcProgress(clientId);
+  const p = usePmProgress(clientId);
   const newTaa = alloc ? (p.taa && p.taa.length === alloc.length ? p.taa : alloc.map((r) => r.newTaa)) : [];
   const liveHoldings = holdings?.map((h) => ({ ...h, weightPct: r1(p.holdings?.[h.id] ?? h.weightPct) }));
   return { alloc, holdings: liveHoldings, newTaa, ready: !!alloc && !!holdings };
