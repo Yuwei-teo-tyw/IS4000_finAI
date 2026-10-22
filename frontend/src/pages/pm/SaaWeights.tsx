@@ -1,41 +1,45 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { arcApi, PortfolioAgentError } from "../../services/arcApi";
+import { Navigate, useNavigate, useParams } from "react-router-dom";
+import { arcApi, BUCKET_LABEL, PortfolioAgentError } from "../../services/arcApi";
 import { Badge, Button, Card, GateChip, Loading, NextAction, PageHeader, Section, Stepper, useAsync } from "../../components/ui";
 import { FrontierChart } from "../../components/portfolio/FrontierChart";
 import { classColor, weightsOf } from "../../components/portfolio/allocation";
 import { DASH, pct, sgdAmt } from "../../components/portfolio/paFormat";
-import { isOffered, type PaOption, type PaPortfolioPoint, type PaWeightEvaluation } from "../../types/portfolio";
+import { isOffered, PA_BUCKETS, type PaBucketId, type PaBucketInputs, type PaOption, type PaPortfolioPoint, type PaWeightEvaluation } from "../../types/portfolio";
 import { AutoSaveStatus } from "../../components/pm/SaveProgressButton";
-import { returnIpsToRm, usePmProgress, useIpsReturned } from "../../services/workflowStore";
+import { savePmBucket, usePmProgress, useIpsReturned, type BucketSaa } from "../../services/workflowStore";
 import { BackLink, Msg, NumInput } from "./pmHelpers";
 import { PM_STEPS } from "./pmSteps";
-import { isEdited, saveSaaDraft } from "./saaState";
+import { BucketTabs } from "./BucketTabs";
+import { currentStep, isEdited, isUnlocked, nextBucket, saveBucketWeights } from "./saaState";
 
 const DEBOUNCE_MS = 250;
 const CHECK_TONE = { PASS: "green", FAIL: "red", UNVERIFIED: "amber", NOT_APPLICABLE: "grey" } as const;
 
 type Load = { phase: "loading" } | { phase: "missing"; reason: string } | { phase: "ready"; option: PaOption; requestId: string };
 
-/** Step 3 of the IPS SAA request: adjust the selected portfolio's weights beside its risk-return position. */
+/** Step 2 of the IPS SAA request, per bucket: adjust the selected portfolio's weights beside its risk-return position. */
 export default function SaaWeights() {
-  const { clientId = "ser" } = useParams();
+  const { clientId = "ser", bucket } = useParams();
   const client = useAsync(() => arcApi.getClient(clientId), [clientId]);
+  const inputs = useAsync(() => arcApi.getBucketInputs(clientId), [clientId]);
   const progress = usePmProgress(clientId);
   const sent = useIpsReturned(clientId);
+  const id = (PA_BUCKETS as string[]).includes(bucket ?? "") ? (bucket as PaBucketId) : null;
+  const draft = id ? progress.saaBuckets?.[id] : undefined;
   const [load, setLoad] = useState<Load>({ phase: "loading" });
 
   useEffect(() => {
-    if (!progress.paRequestId || !progress.saaTemplate) {
-      setLoad({ phase: "missing", reason: "No portfolio has been selected yet." });
+    if (!draft?.requestId || !draft.optionId) {
+      setLoad({ phase: "missing", reason: "No portfolio has been selected for this bucket yet." });
       return;
     }
     let live = true;
-    arcApi.getPortfolioProposal(progress.paRequestId).then((r) => {
+    arcApi.getPortfolioProposal(draft.requestId).then((r) => {
       if (!live) return;
-      const o = r.portfolio_options.find((x) => x.option_id === progress.saaTemplate);
+      const o = r.portfolio_options.find((x) => x.option_id === draft.optionId);
       setLoad(o && isOffered(o) ? { phase: "ready", option: o, requestId: r.request_id }
-        : { phase: "missing", reason: `Portfolio ${progress.saaTemplate} is not part of the current proposal.` });
+        : { phase: "missing", reason: `Portfolio ${draft.optionId} is not part of the current proposal.` });
     }).catch((e) => {
       if (!live) return;
       setLoad({ phase: "missing", reason: e instanceof PortfolioAgentError && e.kind === "NOT_FOUND"
@@ -43,24 +47,30 @@ export default function SaaWeights() {
         : e instanceof PortfolioAgentError ? e.message : String(e) });
     });
     return () => { live = false; };
-  }, [progress.paRequestId, progress.saaTemplate]);
+  }, [draft?.requestId, draft?.optionId]);
 
-  if (!client || load.phase === "loading") return <Loading />;
+  if (!id) return <Navigate to={`/pm/requests/${clientId}/saa`} replace />;
+  if (!client || !inputs || load.phase === "loading") return <Loading />;
+  if (!isUnlocked(inputs, progress.saaBuckets, id)) return <Navigate to={`/pm/requests/${clientId}/saa/${currentStep(inputs, progress.saaBuckets)}`} replace />;
+  const label = BUCKET_LABEL[id];
+  const back = `/pm/requests/${clientId}/saa/${id}`;
 
   return (
     <div>
-      <PageHeader eyebrow={`${client.name} · Request`} title="Edit portfolio weights"
-        subtitle={load.phase === "ready" ? `Portfolio ${load.option.option_id} · ${load.option.option_name}. Adjust each asset class; risk and return update as you go.` : undefined}
+      <PageHeader eyebrow={`${client.name} · Request · ${label} bucket`} title={`Edit ${label} weights`}
+        subtitle={load.phase === "ready" ? `Portfolio ${load.option.option_id} · ${load.option.option_name}. Adjust each asset class; risk and return update as you go. Other buckets do not change.` : undefined}
         actions={<GateChip id="G2" state={sent ? "pending" : "not_started"} />} />
-      <Stepper steps={PM_STEPS} current={sent ? 3 : 2} />
+      <Stepper steps={PM_STEPS} current={sent ? 3 : 1} />
+      <BucketTabs clientId={clientId} inputs={inputs} drafts={progress.saaBuckets ?? {}} current={id} />
       {load.phase === "missing" ? (
         <>
-          <NextAction title="Pick a portfolio first" body={load.reason} action={<Button variant="primary" to={`/pm/requests/${clientId}/saa`}>Back to Pick a portfolio</Button>} />
-          <BackLink to={`/pm/requests/${clientId}/saa`}>Back to Pick a portfolio</BackLink>
+          <NextAction title="Pick a portfolio first" body={load.reason} action={<Button variant="primary" to={back}>Back to {label} portfolios</Button>} />
+          <BackLink to={back}>Back to {label} portfolios</BackLink>
         </>
       ) : (
-        <WeightEditor clientId={clientId} requestId={load.requestId} option={load.option} sent={sent} savedAt={progress.savedAt}
-          initial={progress.saaWeights && sameClasses(progress.saaWeights, weightsOf(load.option)) ? progress.saaWeights : weightsOf(load.option)} />
+        <WeightEditor clientId={clientId} bucket={id} inputs={inputs} drafts={progress.saaBuckets ?? {}} requestId={load.requestId} option={load.option} sent={sent} savedAt={progress.savedAt}
+          confirmed={!!draft?.confirmed}
+          initial={draft?.weights && sameClasses(draft.weights, weightsOf(load.option)) ? draft.weights : weightsOf(load.option)} />
       )}
     </div>
   );
@@ -69,9 +79,11 @@ export default function SaaWeights() {
 const sameClasses = (a: Record<string, number>, b: Record<string, number>) =>
   Object.keys(a).length === Object.keys(b).length && Object.keys(b).every((k) => k in a);
 
-function WeightEditor({ clientId, requestId, option, initial, sent, savedAt }: {
-  clientId: string; requestId: string; option: PaOption; initial: Record<string, number>; sent: boolean; savedAt?: string;
+function WeightEditor({ clientId, bucket, inputs, drafts, requestId, option, initial, confirmed, sent, savedAt }: {
+  clientId: string; bucket: PaBucketId; inputs: PaBucketInputs[]; drafts: Partial<Record<PaBucketId, BucketSaa>>;
+  requestId: string; option: PaOption; initial: Record<string, number>; confirmed: boolean; sent: boolean; savedAt?: string;
 }) {
+  const label = BUCKET_LABEL[bucket];
   const original = useMemo(() => weightsOf(option), [option]);
   const classes = useMemo(() => Object.keys(original).sort((a, b) => original[b] - original[a]), [original]);
   const navigate = useNavigate();
@@ -99,9 +111,14 @@ function WeightEditor({ clientId, requestId, option, initial, sent, savedAt }: {
   const change = (ac: string, v: number) => {
     const next = { ...weights, [ac]: Number.isFinite(v) ? v : 0 };
     setWeights(next);
-    saveSaaDraft(clientId, option.option_id, next, original); // autosaved draft; Back keeps it
+    saveBucketWeights(clientId, bucket, next); // autosaved draft for this bucket only; Back keeps it
   };
-  const reset = () => { setWeights(original); saveSaaDraft(clientId, option.option_id, original, original); };
+  const reset = () => { setWeights(original); saveBucketWeights(clientId, bucket, original); };
+  const next = nextBucket(inputs, { ...drafts, [bucket]: { ...drafts[bucket], confirmed: true } }, bucket);
+  const confirm = () => {
+    savePmBucket(clientId, bucket, { weights, confirmed: true });
+    navigate(`/pm/requests/${clientId}/saa/${next ?? "review"}`);
+  };
   const total = classes.reduce((s, c) => s + (weights[c] ?? 0), 0);
   const edited = isEdited(weights, original);
   const line = (ac: string) => evaluation?.lines.find((l) => l.asset_class === ac);
@@ -192,14 +209,15 @@ function WeightEditor({ clientId, requestId, option, initial, sent, savedAt }: {
 
       <div className="mb-6 flex justify-end"><AutoSaveStatus savedAt={savedAt} /></div>
       {sent ? <Msg ok>SAA sent back to the RM for the IPS. Awaiting RM review.</Msg> : canSend ? (
-        <NextAction title="All checks passed" body={edited ? "Your adjusted weights are inside every limit. Continue to send the 3L and SAA back to the RM." : "The proposed weights are inside every limit. Continue to send the 3L and SAA back to the RM."}
-          action={<Button variant="gold" onClick={() => { saveSaaDraft(clientId, option.option_id, weights, original); returnIpsToRm(clientId); navigate("/pm/inbox"); }}>Continue: send back to RM</Button>} />
+        <NextAction title={confirmed ? `${label} weights confirmed` : "All checks passed"}
+          body={`${edited ? "Your adjusted weights are" : "The proposed weights are"} inside every limit for the ${label} bucket. ${next ? `Confirm them and continue to ${BUCKET_LABEL[next]}.` : "Confirm them and continue to the combined review of all three buckets."}`}
+          action={<Button variant="gold" onClick={confirm}>{next ? `Confirm and continue to ${BUCKET_LABEL[next]}` : "Confirm and review all buckets"}</Button>} />
       ) : (
-        <NextAction title={pending ? "Checking…" : "Blocked: fix the checks first"} body={error ? "The weights could not be checked." : "Resolve the red checks above, or reset to the original weights. Sending stays off until every check passes."}
-          action={<Button disabled>Continue: send back to RM</Button>} />
+        <NextAction title={pending ? "Checking…" : "Blocked: fix the checks first"} body={error ? "The weights could not be checked." : `Resolve the red checks above, or reset to the original weights. The ${label} bucket cannot be confirmed until every check passes.`}
+          action={<Button disabled>Confirm {label} weights</Button>} />
       )}
       <div className="flex flex-wrap items-center gap-6">
-        <BackLink to={`/pm/requests/${clientId}/saa`}>Back to Pick a portfolio</BackLink>
+        <BackLink to={`/pm/requests/${clientId}/saa/${bucket}`}>Back to {label} portfolios</BackLink>
         {edited && <p className="mb-10 text-sm text-ink-muted">Your adjusted weights are saved as a draft and will be here when you return.</p>}
       </div>
     </>

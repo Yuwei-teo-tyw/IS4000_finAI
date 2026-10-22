@@ -178,6 +178,7 @@ def build_facts(p: PortfolioResponse, ws: Optional[WorkspaceContext], evaluation
         "data_provenance": "Market and product data are ILLUSTRATIVE MOCK data; expected and scenario returns are "
                            "illustrative house assumptions, not forecasts or guarantees.",
         "proposal_status": p.status,
+        "three_l_bucket": p.bucket.model_dump(exclude={"notes"}) if p.bucket else None,
         "client": {
             "base_currency": c.base_currency, "risk_appetite": c.risk_appetite, "risk_capacity": c.risk_capacity,
             "risk_tolerance_score": c.risk_tolerance_score, "effective_risk_level": c.effective_risk_level,

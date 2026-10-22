@@ -15,6 +15,7 @@ import PmInbox from "../pages/pm/PmInbox";
 import ThreeLBuilder from "../pages/pm/ThreeLBuilder";
 import SaaBuilder from "../pages/pm/SaaBuilder";
 import SaaWeights from "../pages/pm/SaaWeights";
+import SaaReview from "../pages/pm/SaaReview";
 import ProductRecommendations from "../pages/pm/ProductRecommendations";
 import PmMarketHealth from "../pages/pm/PmMarketHealth";
 import TaaWorkspace from "../pages/pm/TaaWorkspace";
@@ -81,7 +82,11 @@ export const router = createBrowserRouter([
       client360,
       { path: "requests/:clientId/3l", element: <ThreeLBuilder /> },
       { path: "requests/:clientId/saa", element: <SaaBuilder /> },
-      { path: "requests/:clientId/saa/weights", element: <SaaWeights /> },
+      // Before the 3L split there was one Edit weights page; send old links to the bucket picker.
+      { path: "requests/:clientId/saa/weights", element: <Navigate to=".." relative="path" replace /> },
+      { path: "requests/:clientId/saa/review", element: <SaaReview /> },
+      { path: "requests/:clientId/saa/:bucket", element: <SaaBuilder /> },
+      { path: "requests/:clientId/saa/:bucket/weights", element: <SaaWeights /> },
       { path: "cases/:clientId/products", element: <ProductRecommendations /> },
       { path: "cases/:clientId/insights", element: <Navigate to="../products" relative="path" replace /> },
       { path: "cases/:clientId/market-health", element: <PmMarketHealth /> },

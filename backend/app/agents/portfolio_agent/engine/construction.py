@@ -108,6 +108,9 @@ class ConstructionContext:
     # Points removed from the growth ceiling because of market conditions
     # (e.g. a recession call from the Market Researcher); 0 = no adjustment.
     market_growth_reduction: float = 0.0
+    # Longevity / Legacy buckets: cash needs are met by the Liquidity bucket, so weight that has to move
+    # somewhere defensive goes to other defensive classes rather than cash, whenever one is available.
+    keep_cash_low: bool = False
 
     @property
     def growth_ceiling(self) -> float:
@@ -296,7 +299,13 @@ def differentiate(options: list[BuiltOption]) -> None:
 
 def _available_defensive(ctx: ConstructionContext) -> list:
     avail = ctx.available_classes()
-    return [ac for ac in DEFENSIVE_CLASSES if ac in avail]
+    return _low_cash(ctx, [ac for ac in DEFENSIVE_CLASSES if ac in avail])
+
+
+def _low_cash(ctx: ConstructionContext, recipients: list) -> list:
+    if not ctx.keep_cash_low:
+        return recipients
+    return [r for r in recipients if r != AssetClass.CASH] or recipients
 
 
 def _spread(weights: dict, amount: float, recipients: list) -> dict:
@@ -319,7 +328,7 @@ def _reassign_unavailable(weights: dict, ctx: ConstructionContext, mods: list):
     for ac in missing:
         amount = weights[ac]
         is_growth = GROWTH_WEIGHT[ac] > 0
-        same_kind = [r for r in out if (GROWTH_WEIGHT[r] > 0) == is_growth]
+        same_kind = _low_cash(ctx, [r for r in out if (GROWTH_WEIGHT[r] > 0) == is_growth])
         recipients = same_kind or _available_defensive(ctx)
         if not recipients:
             return out, f"No eligible products available to hold the {ac.value} allocation or a defensive substitute."
@@ -384,7 +393,7 @@ def _de_risk(weights: dict, positions: list, ctx: ConstructionContext) -> Option
         out = {ac: w * f for ac, w in growth.items()}
         out.update(defensive)
         freed = wg * (1 - f)
-        out = _spread(out, freed, list(defensive))
+        out = _spread(out, freed, _low_cash(ctx, list(defensive)))
         if f > 0:
             return {ac: w for ac, w in out.items() if w > EPS}
         weights = {ac: w for ac, w in out.items() if w > EPS}

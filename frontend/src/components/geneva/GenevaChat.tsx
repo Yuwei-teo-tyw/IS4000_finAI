@@ -112,7 +112,7 @@ const OTHER_AGENT_INTENT = /\btaa\b|move together|correlat|cluster|\bedit\b.*hol
 const PA_STEPS = ["Intent parser is reading your request…", "Portfolio Agent fired", "Reading the portfolio proposal…", "Consolidating…"];
 /** The answer plus one line saying where it came from; the reader must never mistake it for verified or executed. */
 const paReplyText = (r: PaChatReply) => {
-  const from = r.basis === "pm" ? "the PM's SAA proposal" : "a Portfolio Agent run for this chat (not saved to the SAA request)";
+  const from = r.basis === "pm" ? `the PM's ${r.bucketLabel ? `${r.bucketLabel} bucket ` : ""}SAA proposal` : "a Portfolio Agent run for this chat (not saved to the SAA request)";
   const how = r.source === "LLM" ? "checked against the proposal's figures" : "assembled from the proposal's figures";
   return `${r.answer}
 

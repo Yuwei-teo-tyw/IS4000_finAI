@@ -175,10 +175,11 @@ It is **proposal-only**: it never executes trades or changes holdings, and every
 | Endpoint | Purpose |
 |---|---|
 | `GET /agents/portfolio-agent/health` | Liveness and the data sources in use |
-| `GET /agents/portfolio-agent/templates` | The six SAA templates A–F (weights, growth share, minimum risk level and horizon) |
+| `GET /agents/portfolio-agent/templates` | `?bucket=liquidity` lists the Liquidity templates; otherwise the six SAA templates A–F (weights, growth share, minimum risk level and horizon) |
 | `POST /agents/portfolio-agent/portfolio/generate` | Validate the profile → fetch market and product data → construct, validate, compare and explain options A–F |
 | `GET /agents/portfolio-agent/portfolio/{request_id}` | A stored proposal. The store is in memory and bounded, so proposals are lost on restart. Returns `404` if unknown |
 | `POST /agents/portfolio-agent/portfolio/{request_id}/options/{option_id}/evaluate` | Re-checks the PM's adjusted asset-class weights against the stored proposal (return, drawdown, growth share, fees, currency, concentration, minimum investments, ±5-point band) and returns the efficient frontier. Calculation only; nothing is saved |
+| `POST /agents/portfolio-agent/portfolio/combined` | Checks the portfolio chosen for each 3L bucket together: the 3L total, each bucket's own checks, and combined drawdown, currency and single-product limits. Calculation only |
 | `POST /agents/portfolio-agent/portfolio/{request_id}/ask` | Answers a Geneva chat question about that proposal (plus the PM's picked portfolio, edited weights and current holdings). LLM answer checked by the same guardrails as the narratives, with a deterministic fallback. Read-only |
 
 **Inputs**
@@ -219,19 +220,40 @@ Both functions are marked `# INPUT API HERE`.
 
 **Tests:** `cd backend && pytest tests/test_portfolio_*.py`. These run offline: the LLM is faked and the clock is fixed.
 
+**3L buckets.** A generate request can carry a `bucket` (`liquidity`, `longevity` or `legacy`, with its amount, optional horizon, objective and risk level). The engine then builds the SAA for that bucket only (`engine/buckets.py`):
+- The whole bucket amount is invested. The cash reserve and near-term withdrawals are the Liquidity bucket's job, so no bucket carves them out again.
+- The bucket's horizon replaces the client's shortest goal horizon (growth caps, template horizons, lock-ins). Without a horizon or a dated goal, growth is capped and long-horizon templates are left out, rather than a horizon being assumed.
+- A bucket risk level is optional and is always capped by the client's risk capacity. A level above the client's overall appetite is flagged for the RM.
+- **Liquidity** uses its own templates (Cash reserve; Cash and short bonds; Short-term income), never the growth templates. It only takes products the client can get back within its horizon, with no unhedged foreign currency.
+- **Longevity and Legacy** use templates A–F, driven by their own horizon and risk level. Legacy is not assumed to be the riskiest. Because the client's cash needs sit in Liquidity:
+  - Cash in each option is kept to about 5%, and weight that must move somewhere defensive goes to bonds rather than cash. It goes to cash only if needed to meet the drawdown limit.
+  - An option more than 40 growth points below what the client's risk level and the bucket's horizon allow is withdrawn as too cautious. The most growth-oriented option is always kept. For example, an aggressive client with a long horizon gets Growth, Aggressive growth and Opportunistic only.
+- The client's single-product limit is a whole-portfolio share, so inside a bucket it scales with the bucket's share of the 3L. The combined review then enforces the client's own limit across all buckets.
+
+`POST /agents/portfolio-agent/portfolio/combined` checks the portfolio chosen for each bucket (with any adjusted weights) as one client portfolio:
+- whether the 3L total reconciles;
+- whether every bucket passes its own checks;
+- combined stress drawdown, unhedged currency and the largest single product (counted once across buckets) against the client's limits;
+- amount-weighted metrics and the allocation by asset class and bucket.
+
+It is calculation only: nothing is saved or executed.
+
 **In the frontend.** The agent appears in the Portfolio Manager's **3L And SAA** flow (`/pm/requests/:clientId/3l`, then `saa`):
 
-1. **Client profile and 3L.** The PM reads the RM's IPS and sets the buckets. "Continue to SAA" saves them.
-2. **Pick a portfolio** (`/saa`) shows the agent's inputs and where each came from, and the PM clicks **Run the Portfolio Agent**:
-   - The portfolio is the client's AUM. The **Liquidity bucket** is held separately in cash, and the agent invests the rest.
-   - Risk category, risk limit, **risk capacity** and the drawdown limit come from IPS part 3.
-   - Goals come from goal-plan events more than 3 years out. Nearer goals are funded by the Liquidity bucket.
-   - Fields that aren't captured are sent as missing, never guessed.
-3. Only the portfolios the agent can construct within the client's limits are shown, so the number varies by client (a conservative client may get one; an aggressive one up to six). The rest are listed under "Not proposed for this client" with the reason. If the profile cannot support any portfolio, a **More information needed** panel names the missing fields instead.
-4. Two switchable views keep the selection:
-   - **Portfolios:** one card per proposed portfolio, with every asset class and sub-class, amounts, risk level, expected return assumption, fees, liquidity, how it differs from the more cautious portfolio, advantages and disadvantages, goal fit and why it was proposed. The selected portfolio is shown in detail below (allocation and products, or the rationale).
-   - **Compare portfolios:** one row per asset class found in any portfolio, plus return, downside, scenarios, liquidity, fees, diversification, currency and fit, and the product comparison.
-5. **Edit weights** (`/saa/weights`) is its own step. The weight editor sits beside the **efficient frontier**: a long-only mean-variance frontier over the asset classes the client can hold, built from the house assumptions' expected returns, volatilities and correlations. Every change is re-checked by the backend (debounced), which moves the adjusted point and updates the metrics. The editor offers **Reset to original weights**, **Back** (the draft and selection are kept) and **Continue: send back to RM**, which stays disabled until every check passes. The agent never approves anything.
+1. **Client profile and 3L.** The PM reads the RM's IPS and sets the three bucket amounts, which must add up to the portfolio. It warns if goals fall due within 3 years but Liquidity is empty. "Continue to SAA" saves them.
+2. **SAA for each bucket** (`/saa/liquidity`, `/saa/longevity`, `/saa/legacy`), done **in order**:
+   - A bucket's tab opens only once the bucket before it is confirmed (portfolio picked and weights confirmed). The combined review opens only once all three are.
+   - A locked tab says which bucket to confirm first, and typing its URL leads back to the current step.
+   - Finished buckets stay open to go back to, but editing one again un-confirms it and re-locks the steps after it.
+
+   The tabs show each bucket's amount and status: Not started, Pick a portfolio, Check weights, Confirmed, Re-run needed (its 3L amount changed) or No amount. Each bucket shows:
+   - its amount and objective;
+   - the goals it funds: goals due within 3 years go to Liquidity, legacy-type goals (philanthropy, bequest, gift…) to Legacy, the rest to Longevity;
+   - an editable horizon (defaulting to the nearest goal) and an optional bucket risk level.
+
+   The PM runs the Portfolio Agent per bucket. Proposals, selections and drafts are stored per bucket, so switching tabs reloads the stored proposal instead of re-running it, and changing one bucket never touches another. Each bucket has the **Portfolios** and **Compare portfolios** views, the product comparison, and "How this bucket shaped the portfolios" (horizon basis, risk basis, templates considered, rules applied).
+3. **Edit weights per bucket** (`/saa/:bucket/weights`). The weight editor sits beside the efficient frontier and works as before, but amounts are the bucket's. **Confirm and continue** moves to the next bucket that needs attention, and is disabled until every check passes.
+4. **Combined review** (`/saa/review`) shows the allocation by asset class for each bucket and the whole portfolio, the combined metrics, and the cross-bucket checks. **Send back to RM** is enabled only when every bucket is confirmed and every combined check passes. IPS part 4 then lists each bucket's portfolio and the whole-portfolio mix.
 
 The mapping from captured data to agent inputs is in `buildPortfolioInputs` in `frontend/src/services/arcApi.ts`. The frontend calls `VITE_API_BASE`, which defaults to `http://localhost:8000`.
 

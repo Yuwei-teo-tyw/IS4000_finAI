@@ -8,7 +8,7 @@ import { currentYield, DASH, fx, historical, LIQUIDITY, pct, sgdAmt, STATUS_LABE
 const CHECK_TONE = { PASS: "green", FAIL: "red", UNVERIFIED: "amber", NOT_APPLICABLE: "grey" } as const;
 
 /** One proposed portfolio in full: every asset class and sub-class, its products, and its checks. */
-export function OptionDetail({ option, liquiditySgd }: { option: PaOption | undefined; liquiditySgd: number | null }) {
+export function OptionDetail({ option, liquiditySgd = null, bucketLabel }: { option: PaOption | undefined; liquiditySgd?: number | null; bucketLabel?: string }) {
   if (!option) return <Card><p className="text-ink-muted">Select a portfolio to see it in detail.</p></Card>;
   if (!isOffered(option)) {
     return (
@@ -27,7 +27,9 @@ export function OptionDetail({ option, liquiditySgd }: { option: PaOption | unde
           <Badge tone="green">{STATUS_LABEL[option.suitability_status]}</Badge>
         </div>
         <p className="mt-2 text-sm text-ink-muted">
-          Invests {sgdAmt(option.eligible_portfolio_value)}. The Liquidity bucket ({sgdAmt(liquiditySgd)}) is held separately in cash and is not part of these figures.
+          {bucketLabel
+            ? `Invests the ${bucketLabel} bucket's ${sgdAmt(option.eligible_portfolio_value)}. The other buckets have their own portfolios.`
+            : `Invests ${sgdAmt(option.eligible_portfolio_value)}. The Liquidity bucket (${sgdAmt(liquiditySgd)}) is held separately in cash and is not part of these figures.`}
         </p>
         <div className="mt-8 max-w-2xl"><AllocationView rows={allocationOf(option)} /></div>
         {option.suitability_status === "SUITABLE_WITH_MODIFICATIONS" && (

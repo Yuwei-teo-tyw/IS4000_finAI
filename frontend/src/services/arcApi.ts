@@ -14,7 +14,11 @@ import type {
   ActivityEvent, AllocationRow, Bucket3L, Client, Gate, GateId, GateState, Holding, InboxItem, IpsPart, MacroBrief, MarketRow,
   MarketView, HouseView, PackRenderInput, MarketAnswer, MeetingNote, IpsVersion, PackSection, Product, ProductClass, Role, AllocationGroup, CorrelationMatrix, GoalProjection, SectionDraft, GenevaArticle, GenevaContext, GenevaReply,
 } from "../types/arc";
-import type { PaAnswer, PaChatReply, PaChatTurn, PaClientProfile, PaInputField, PaInputs, PaRequest, PaResponse, PaWeightEvaluation } from "../types/portfolio";
+import { PA_BUCKETS } from "../types/portfolio";
+import type {
+  PaAnswer, PaBucketChoice, PaBucketId, PaBucketInputs, PaChatReply, PaChatTurn, PaClientProfile, PaCombinedReview,
+  PaInputField, PaInputs, PaRequest, PaResponse, PaWeightEvaluation,
+} from "../types/portfolio";
 import type { PrAssetClassHeadline, PrAssetView, PrHouseView, PrOptions, PrRequest, PrResponse, PrShelf, PrShelfProduct, PrShortlistItem } from "../types/productRecommender";
 import type { RcPackReport, RcPackRequest, RcPackSection } from "../types/riskCompliance";
 
@@ -37,12 +41,20 @@ const SAA_ASSETS = ["Cash", "Fixed income", "Equities", "Hedge funds", "Private 
 /** Once the PM returned the IPS, parts 2 (3L buckets) and 4 (SAA) carry the PM's saved values. */
 const withPmReturn = (clientId: string, parts: IpsPart[]): IpsPart[] => {
   if (!isIpsReturned(clientId)) return parts;
-  const { buckets, saa, saaWeights } = loadPmProgress(clientId);
+  const { buckets, saa, saaWeights, saaBuckets } = loadPmProgress(clientId);
+  const fmtWeights = (w: Record<string, number>) => Object.entries(w).filter(([, v]) => v > 0).map(([a, v]) => `${a} ${+v.toFixed(2)}%`).join(", ");
+  const perBucket = PA_BUCKETS.filter((b) => saaBuckets?.[b]?.optionId && saaBuckets[b]?.weights).map((b) => {
+    const d = saaBuckets![b]!;
+    return `• ${BUCKET_LABEL[b]} (S$${(d.amount ?? 0).toLocaleString("en-SG")}): Portfolio ${d.optionId}${d.optionName ? ` · ${d.optionName}` : ""}. ${fmtWeights(d.weights!)}`;
+  });
   const bk = m.buckets3LByClient[clientId] ?? m.buckets3L;
   return parts.map((p) => {
     if (p.part === 2 && buckets && buckets.length === bk.length) {
       const tot = buckets.reduce((a, b) => a + b, 0) || 1;
       return { ...p, status: "filled", body: bk.map((b, i) => `• ${b.name ?? b.id}: ${Math.round((buckets[i] / tot) * 100)}% (S$${buckets[i].toLocaleString("en-SG")})`).join("\n") };
+    }
+    if (p.part === 4 && perBucket.length) {
+      return { ...p, status: "filled", body: [...perBucket, ...(saaWeights ? [`• Whole portfolio: ${fmtWeights(saaWeights)}`] : [])].join("\n") };
     }
     if (p.part === 4 && saaWeights && Object.keys(saaWeights).length) {
       return { ...p, status: "filled", body: Object.entries(saaWeights).filter(([, w]) => w > 0).map(([a, w]) => `• ${a} ${+w.toFixed(2)}%`).join("\n") };
@@ -131,6 +143,10 @@ export const arcApi = {
   /** Backend re-check of adjusted asset-class weights: risk, return, limits and the efficient frontier. */
   evaluatePortfolioWeights: (requestId: string, optionId: string, weights: Record<string, number>, signal?: AbortSignal): Promise<PaWeightEvaluation> =>
     evaluatePortfolioWeights(requestId, optionId, weights, signal),
+  /** The three 3L buckets for the SAA step: amount, purpose, goals, default horizon and the request to send. */
+  getBucketInputs: (clientId: string): Promise<PaBucketInputs[]> => buildBucketInputs(clientId),
+  /** Backend check of the chosen portfolio for every bucket, as one client portfolio. Calculation only. */
+  reviewCombined: (choices: PaBucketChoice[], clientTotal: number | null): Promise<PaCombinedReview> => reviewCombined(choices, clientTotal),
   /**
    * Geneva chat: a question about the client's portfolio, answered by the Portfolio Agent from the
    * proposal the PM is working on (with their picked portfolio and edited weights), or, when there is none,
@@ -635,6 +651,60 @@ async function evaluatePortfolioWeights(requestId: string, optionId: string, wei
   return e as PaWeightEvaluation;
 }
 
+/* ---------- 3L buckets ---------- */
+
+export const BUCKET_LABEL: Record<PaBucketId, string> = { liquidity: "Liquidity", longevity: "Longevity", legacy: "Legacy" };
+const BUCKET_WORDS: [PaBucketId, RegExp][] = [
+  ["liquidity", /\bliquidity\b/i], ["longevity", /\blongevity\b|retire/i], ["legacy", /\blegacy\b|inherit|bequest|next generation/i],
+];
+/** Goals that belong to Legacy rather than Longevity (anything due within 3 years is Liquidity's). */
+const LEGACY_GOAL = /legacy|inherit|bequest|philanthrop|gift|estate|next generation|grandchild/i;
+const MIN_GOAL_YEARS = 0.5;
+
+/**
+ * One entry per 3L bucket: its amount (the 3L step), purpose, the goals it funds and the request to send.
+ * Goals due within 3 years fund Liquidity; legacy-type goals fund Legacy; the rest fund Longevity.
+ * The default horizon is the bucket's nearest goal; the PM can change it before running the agent.
+ */
+async function buildBucketInputs(clientId: string): Promise<PaBucketInputs[]> {
+  const [{ client, near, later }, { request }, buckets] = await Promise.all([
+    buildClientProfile(clientId), buildPortfolioInputs(clientId), arcApi.get3L(clientId),
+  ]);
+  const total = buckets.reduce((s, b) => s + b.amountSgd, 0);
+  const goalsFor: Record<PaBucketId, { label: string; year: number; years: number }[]> = {
+    liquidity: near, legacy: later.filter((g) => LEGACY_GOAL.test(g.label)), longevity: later.filter((g) => !LEGACY_GOAL.test(g.label)),
+  };
+  return PA_BUCKETS.map((id) => {
+    const b = buckets.find((x) => x.id === id);
+    const amount = b?.amountSgd ?? 0;
+    const goals = goalsFor[id].map((g) => ({ label: g.label, year: g.year, years: Math.max(MIN_GOAL_YEARS, g.years) }));
+    const nearest = goals.length ? Math.min(...goals.map((g) => g.years)) : null;
+    return {
+      id, label: BUCKET_LABEL[id], amount, sharePct: total ? Math.round((amount / total) * 1000) / 10 : 0,
+      objective: b?.purpose ?? "", horizonHint: b?.horizon ?? "",
+      defaultHorizon: nearest ?? (id === "liquidity" ? 3 : null), goals, clientRiskLevel: client.riskCap,
+      request: {
+        ...request,
+        client_profile: {
+          ...request.client_profile,
+          financial_goals: goals.map((g) => ({ goal: g.label, years_to_goal: g.years, priority: /retire/i.test(g.label) ? "High" : "Medium", currency: "SGD" })),
+        },
+        bucket: { bucket: id, amount, objective: b?.purpose || null, total_3l_amount: total || null },
+      },
+    };
+  });
+}
+
+async function reviewCombined(choices: PaBucketChoice[], clientTotal: number | null): Promise<PaCombinedReview> {
+  const json = await paJson("/portfolio/combined",
+    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ client_total: clientTotal, buckets: choices }) }, 30_000);
+  const r = json as Partial<PaCombinedReview> | null;
+  if (!r || !Array.isArray(r.buckets) || !Array.isArray(r.classes) || !Array.isArray(r.checks) || typeof r.valid !== "boolean" || r.execution_status !== "NOT_EXECUTED") {
+    throw new PortfolioAgentError("INVALID_RESPONSE", "The combined review did not match the expected format.");
+  }
+  return r as PaCombinedReview;
+}
+
 /** Chat-only proposals per client, so a chat runs the Portfolio Agent once, not every question. */
 const chatProposalIds = new Map<string, string>();
 
@@ -670,6 +740,24 @@ async function askPortfolioAgent(clientId: string, question: string, history: Pa
   const current = holdings.slice(0, 100).map((h) => ({ name: h.name, asset_class: h.assetClass, weight_pct: h.weightPct }));
   const notFound = (e: unknown) => e instanceof PortfolioAgentError && e.kind === "NOT_FOUND";
 
+  // 0. 3L-based SAA: the bucket the question names, else the main one the PM has worked on.
+  const named = BUCKET_WORDS.find(([, rx]) => rx.test(question))?.[0];
+  const order: PaBucketId[] = named ? [named] : ["longevity", "legacy", "liquidity"];
+  const bucketId = order.find((b) => progress.saaBuckets?.[b]?.requestId);
+  const draft = bucketId ? progress.saaBuckets?.[bucketId] : undefined;
+  if (bucketId && draft?.requestId) {
+    try {
+      const a = await askAbout(draft.requestId, { ...base, workspace: {
+        selected_option: draft.optionId ?? null,
+        adjusted_weights: draft.optionId && draft.weights ? draft.weights : null,
+        sent_to_rm: isIpsReturned(clientId),
+        holdings: current,
+      } });
+      return { ...a, basis: "pm", bucketLabel: BUCKET_LABEL[bucketId] };
+    } catch (e) {
+      if (!notFound(e)) throw e;
+    }
+  }
   // 1. The PM's own proposal for this client, with the portfolio they picked and any edited weights.
   if (progress.paRequestId) {
     try {

@@ -7,6 +7,7 @@ HTTP interface for the Portfolio Agent.
     GET  /agents/portfolio-agent/portfolio/{request_id}     a previously generated proposal
     POST /agents/portfolio-agent/portfolio/{request_id}/options/{option_id}/evaluate
                                                               re-check adjusted weights + efficient frontier
+    POST /agents/portfolio-agent/portfolio/combined           the 3L buckets' chosen portfolios checked together
     POST /agents/portfolio-agent/portfolio/{request_id}/ask  answer a chat question about that proposal
 
 Proposal-only: nothing here executes trades or changes client holdings. The
@@ -17,16 +18,21 @@ client financial data (see `install_validation_handler`).
 """
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, FastAPI, HTTPException, Path, Request
+from typing import Optional
+
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Path, Query, Request
 from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app.agents.portfolio_agent.engine.adjust import EvaluationError, evaluate_weights
+from app.agents.portfolio_agent.engine.buckets import LIQUIDITY_TEMPLATES
+from app.agents.portfolio_agent.engine.combined import CombinedError, combine
 from app.agents.portfolio_agent.engine.construction import TEMPLATES, template_growth
 from app.agents.portfolio_agent.explain.chat import answer_question
 from app.agents.portfolio_agent.schemas.adjust import WeightEvaluation, WeightEvaluationRequest
 from app.agents.portfolio_agent.schemas.chat import PortfolioAnswer, PortfolioQuestion
+from app.agents.portfolio_agent.schemas.combined import CombinedReview, CombinedReviewRequest
 from app.agents.portfolio_agent.schemas.client import PortfolioGenerateRequest
 from app.agents.portfolio_agent.schemas.response import PortfolioResponse
 from app.agents.portfolio_agent.service import DuplicateRequestError, PortfolioService
@@ -61,8 +67,9 @@ async def health(service: PortfolioService = Depends(get_service)):
 
 
 @router.get("/templates")
-async def templates():
-    """The SAA templates every proposal starts from, in A (cautious) to F (opportunistic) order."""
+async def templates(bucket: Optional[str] = Query(default=None, pattern="^(liquidity|longevity|legacy)$")):
+    """The SAA templates a proposal starts from, cautious first. The Liquidity bucket has its own
+    (cash and short bonds); Longevity, Legacy and whole-portfolio proposals use A-F."""
     return [
         {
             "option_id": t.option_id,
@@ -73,7 +80,7 @@ async def templates():
             "min_risk_level": t.min_risk_level,
             "min_horizon_years": t.min_horizon_years,
         }
-        for t in TEMPLATES
+        for t in (LIQUIDITY_TEMPLATES if bucket == "liquidity" else TEMPLATES)
     ]
 
 
@@ -89,6 +96,22 @@ async def generate_portfolio(
             status_code=409,
             detail="A proposal with this request_id already exists. Use a new request_id, or GET the existing one.",
         )
+
+
+@router.post("/portfolio/combined", response_model=CombinedReview)
+async def combined_review(body: CombinedReviewRequest, service: PortfolioService = Depends(get_service)) -> CombinedReview:
+    """The portfolio chosen for each 3L bucket (with any adjusted weights) checked as one client portfolio.
+    Calculation only: nothing is saved, approved or executed."""
+    pairs = []
+    for c in body.buckets:
+        proposal = service.get(c.request_id)
+        if proposal is None:
+            raise HTTPException(status_code=404, detail=f"No proposal found for the {c.bucket} bucket. Run the Portfolio Agent again.")
+        pairs.append((c, proposal))
+    try:
+        return combine(pairs, service.cma, body.client_total)
+    except (CombinedError, EvaluationError) as e:
+        raise HTTPException(status_code=409, detail=str(e))
 
 
 @router.get("/portfolio/{request_id}", response_model=PortfolioResponse)

@@ -55,6 +55,9 @@ class ProfileAssessment:
     appetite_level: Optional[int] = None
     score_level: Optional[int] = None
     capacity_level: Optional[int] = None
+    # Capacity after the reserve/liability caps below - what actually limits construction.
+    capacity_effective: Optional[int] = None
+    willingness_level: Optional[int] = None
     effective_level: Optional[int] = None
     effective_basis: Optional[str] = None
     goals: list[NormalisedGoal] = field(default_factory=list)
@@ -233,6 +236,7 @@ def _assess_risk(p: ClientProfile, a: ProfileAssessment) -> None:
                 )
                 capacity = min(capacity, 3)
 
+    a.capacity_effective, a.willingness_level = capacity, willingness
     if willingness is not None and capacity is not None:
         a.effective_level = min(willingness, capacity)
         if willingness > capacity:

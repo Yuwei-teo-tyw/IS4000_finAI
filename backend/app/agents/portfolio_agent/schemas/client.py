@@ -160,11 +160,35 @@ class ClientProfile(_Strict):
         return v
 
 
+BucketId = Literal["liquidity", "longevity", "legacy"]
+
+
+class BucketContext(_Strict):
+    """One 3L bucket to build an SAA for. The client profile still describes the whole client
+    (risk capacity, limits, liabilities); only `amount` is invested, for this bucket's purpose."""
+    bucket: BucketId
+    amount: float = Field(gt=0, description="Amount assigned to this bucket in the 3L allocation")
+    horizon_years: Optional[float] = Field(
+        default=None, gt=0, le=100,
+        description="Investment horizon for this bucket, set by the PM; else the bucket's goals decide it",
+    )
+    objective: Optional[str] = Field(default=None, max_length=300, description="What this bucket is for")
+    risk_tolerance_score: Optional[int] = Field(
+        default=None, ge=1, le=5,
+        description="Risk willingness for this bucket's objective, if it differs from the client's overall "
+                    "appetite. Risk capacity still caps it.",
+    )
+    total_3l_amount: Optional[float] = Field(default=None, gt=0, description="All three buckets together")
+
+
 class PortfolioGenerateRequest(_Strict):
     request_id: Optional[str] = Field(default=None, pattern=_ID_PATTERN)
     client_id: str = Field(pattern=_ID_PATTERN)
     trigger: Optional[UpdateTrigger] = None
     client_profile: ClientProfile
+    bucket: Optional[BucketContext] = Field(
+        default=None, description="Build the SAA for one 3L bucket instead of the whole portfolio",
+    )
 
     @model_validator(mode="after")
     def _client_ids_match(self):

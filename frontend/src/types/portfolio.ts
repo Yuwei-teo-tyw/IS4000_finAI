@@ -28,6 +28,7 @@ export interface PaRequest {
   client_id: string;
   trigger?: { life_event?: string | null; requirement_change?: string | null; reason_for_review?: string | null; effective_date?: string | null } | null;
   client_profile: PaClientProfile;
+  bucket?: PaBucketContext | null;
 }
 
 /** One input shown to the PM before running the agent: where it came from, or that it is missing. */
@@ -124,8 +125,26 @@ export interface PaLiquidityPlan {
   eligible_portfolio_value: number | null; notes: PaStatement[];
 }
 
+// ------------------------------------------------------------- 3L buckets --
+export type PaBucketId = "liquidity" | "longevity" | "legacy";
+export const PA_BUCKETS: PaBucketId[] = ["liquidity", "longevity", "legacy"];
+
+/** Sent with a generate request to build the SAA for one 3L bucket. */
+export interface PaBucketContext {
+  bucket: PaBucketId; amount: number; horizon_years?: number | null; objective?: string | null;
+  risk_tolerance_score?: number | null; total_3l_amount?: number | null;
+}
+
+/** How the bucket's purpose shaped the proposal (returned with a bucket proposal). */
+export interface PaBucketSummary {
+  bucket: PaBucketId; label: string; amount: number; share_of_3l_pct: number | null; objective: string;
+  horizon_years: number | null; horizon_basis: string; goals: string[]; risk_level: number | null; risk_basis: string | null;
+  templates_considered: string[]; notes: PaStatement[];
+}
+
 export interface PaResponse {
   request_id: string; client_id: string; analysis_timestamp: string;
+  bucket: PaBucketSummary | null;
   status: "COMPLETED" | "COMPLETED_WITH_WARNINGS" | "INSUFFICIENT_INFORMATION" | "CONSTRAINT_CONFLICT";
   data_status: { client_profile: string; market_analysis: string; product_candidates: string };
   client_profile_summary: { effective_risk_level: number | null; effective_risk_label: string | null; effective_risk_basis: string | null; shortest_goal_horizon_years: number | null; maximum_acceptable_drawdown: number | null; base_currency: string | null };
@@ -186,4 +205,29 @@ export interface PaAnswer {
 export interface PaChatReply extends PaAnswer {
   /** "pm" = the proposal the PM is working on in the SAA request; "chat" = a run made just for this chat. */
   basis: "pm" | "chat";
+  /** The 3L bucket whose proposal answered, when the PM's SAA is built per bucket. */
+  bucketLabel?: string;
+}
+
+// ------------------------------------------------------- Combined 3L review --
+export interface PaBucketChoice { bucket: PaBucketId; request_id: string; option_id: string; weights?: Record<string, number> | null }
+export interface PaCombinedReview {
+  client_id: string; total_amount: number; client_total: number | null;
+  buckets: { bucket: PaBucketId; label: string; request_id: string; option_id: string; option_name: string; amount: number; share_pct: number; point: PaPortfolioPoint; checks_pass: boolean }[];
+  classes: { asset_class: string; amount: number; pct: number; by_bucket: Partial<Record<PaBucketId, number>> }[];
+  combined: {
+    model_volatility_pct: number | null; model_expected_return_pct: number | null; product_expected_return_pct: number | null;
+    stress_drawdown_pct: number | null; growth_asset_share_pct: number; estimated_annual_fee_pct: number | null;
+    foreign_currency_exposure_pct: number; fast_dealing_share_pct: number; largest_product: string | null; largest_product_pct: number | null;
+  };
+  checks: PaConstraintCheck[]; valid: boolean; notes: string[];
+  requires_rm_review: true; execution_status: "NOT_EXECUTED";
+}
+
+/** One bucket on the SAA step, as the frontend prepares it: amount, purpose, goals and the request to send. */
+export interface PaBucketInputs {
+  id: PaBucketId; label: string; amount: number; sharePct: number; objective: string; horizonHint: string;
+  /** Default horizon (years) from the bucket's goals; null when none is dated. The PM can override it. */
+  defaultHorizon: number | null; goals: { label: string; year: number; years: number }[];
+  clientRiskLevel: number; request: PaRequest;
 }

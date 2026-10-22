@@ -19,6 +19,13 @@ from app.agents.portfolio_agent.assumptions import CapitalMarketAssumptions, loa
 from app.agents.portfolio_agent.config import Settings, get_settings
 from app.agents.portfolio_agent.engine.comparison import OFFERED, build_comparison, choose_preferred
 from app.agents.portfolio_agent.engine.construction import TEMPLATES, BuiltOption, ConstructionContext, build_option, differentiate
+from app.agents.portfolio_agent.engine.buckets import (
+    BucketPlan,
+    bucket_liquidity,
+    plan_bucket,
+    screen_for_bucket,
+    withdraw_too_cautious,
+)
 from app.agents.portfolio_agent.engine.liquidity import build_liquidity_plan
 from app.agents.portfolio_agent.engine.metrics import (
     compute_metrics,
@@ -37,6 +44,7 @@ from app.agents.portfolio_agent.explain.llm_client import get_llm
 from app.agents.portfolio_agent.schemas.client import PortfolioGenerateRequest
 from app.agents.portfolio_agent.schemas.response import (
     AssetAllocationItem,
+    BucketSummary,
     CandidateProduct,
     ClientProfileSummary,
     DataStatus,
@@ -46,6 +54,7 @@ from app.agents.portfolio_agent.schemas.response import (
     PortfolioResponse,
     ProductDetails,
     ProductSelection,
+    Statement,
     SubAssetAllocationItem,
 )
 from app.agents.portfolio_agent.schemas.upstream import MarketResearchOutput, ProductCandidate, UpstreamResult
@@ -130,7 +139,10 @@ class PortfolioService:
         now = self.clock()
         profile = req.client_profile
         a = assess_profile(profile, req.trigger, now.date())
-        liq = build_liquidity_plan(profile, a)
+        # One 3L bucket: its horizon and risk level replace the whole-client ones, and the full bucket
+        # amount is invested (the reserve and near-term money live in the Liquidity bucket).
+        bucket = plan_bucket(req.bucket, a) if req.bucket else None
+        liq = bucket_liquidity(bucket, profile.investable_assets) if bucket else build_liquidity_plan(profile, a)
         a.conflicts.extend(liq.conflicts)
         a.assumptions.extend(liq.assumptions)
 
@@ -161,19 +173,23 @@ class PortfolioService:
             screening = screen_products(
                 products, profile, a, a.reference_date, self.settings.product_stale_after_days
             )
+            if bucket:
+                screening = screen_for_bucket(screening, bucket, profile.base_currency)
             excluded = [ExcludedProduct(product_id=pid, reason=r) for pid, r in screening.excluded]
             ctx = ConstructionContext(
                 eligible_value=liq.eligible_value,
                 base_currency=profile.base_currency,
                 effective_level=a.effective_level,
                 horizon_years=a.shortest_horizon_years,
-                max_single_pct=profile.maximum_single_asset_allocation,
+                max_single_pct=bucket.single_product_cap(profile.maximum_single_asset_allocation) if bucket
+                else profile.maximum_single_asset_allocation,
                 max_drawdown_pct=profile.maximum_acceptable_drawdown,
                 max_fx_pct=profile.maximum_currency_exposure,
                 screening=screening,
                 esg_preferred=bool(profile.esg_preferences and profile.esg_preferences.level == "Preferred"),
                 exclusion_reasons=self._class_exclusion_reasons(products, screening, a),
                 market_growth_reduction=market_cut,
+                keep_cash_low=bool(bucket and bucket.ctx.bucket != "liquidity"),
             )
             if a.shortest_horizon_years is None:
                 a.assumptions.append(
@@ -181,12 +197,16 @@ class PortfolioService:
                 )
             if market_cut_reason:
                 a.assumptions.append(market_cut_reason)
-            built = [build_option(t, ctx) for t in TEMPLATES]
+            built = [build_option(t, ctx) for t in (bucket.templates if bucket else TEMPLATES)]
+            if bucket:
+                withdraw_too_cautious(built, ctx.growth_ceiling, bucket)
             differentiate(built)
             source = "UPSTREAM_API" if product_res.source == "LIVE" else "ILLUSTRATIVE_MOCK"
             options = [self._assemble(b, ctx, a, profile, market, source) for b in built]
             options = [self._enforce_validation(o) for o in options]
             self._add_key_differences(options)
+            if bucket:
+                self._add_bucket_rationale(options, bucket)
             candidates = self._candidates(products, screening, options, source)
 
         offered = [o for o in options if o.suitability_status in OFFERED]
@@ -200,6 +220,9 @@ class PortfolioService:
         # --- Explanations ---------------------------------------------------
         allowed = self._allowed_numbers(options, liq, profile, market, ctx, self.cma)
         facts = self._llm_facts(options, a, profile, market, preferred, pref_rationale)
+        if bucket:
+            facts["bucket"] = {"bucket": bucket.label, "amount": bucket.ctx.amount, "objective": bucket.objective,
+                               "horizon_years": bucket.horizon_years, "horizon_basis": bucket.horizon_basis}
         allowed.add_from_text(json.dumps(facts, default=str))
         expl = await generate_explanations(
             facts, {o.option_id for o in offered}, allowed, self.settings, self.llm_factory
@@ -215,6 +238,7 @@ class PortfolioService:
         response = PortfolioResponse(
             request_id=request_id,
             client_id=req.client_id,
+            bucket=self._bucket_summary(bucket, a) if bucket else None,
             analysis_timestamp=now,
             status=status,
             data_status=DataStatus(
@@ -257,6 +281,32 @@ class PortfolioService:
         logger.info("Portfolio proposal %s generated: status=%s options_offered=%d",
                     request_id, status, len(offered))
         return response
+
+    # --- 3L buckets ------------------------------------------------------------
+
+    @staticmethod
+    def _bucket_summary(b: BucketPlan, a: ProfileAssessment) -> BucketSummary:
+        total = b.ctx.total_3l_amount
+        return BucketSummary(
+            bucket=b.ctx.bucket, label=b.label, amount=b.ctx.amount,
+            share_of_3l_pct=round(b.ctx.amount / total * 100, 2) if total else None,
+            objective=b.objective, horizon_years=b.horizon_years, horizon_basis=b.horizon_basis,
+            goals=[g.goal for g in a.goals], risk_level=a.effective_level, risk_basis=b.risk_basis,
+            templates_considered=[f"{t.option_id} · {t.name}" for t in b.templates], notes=b.notes,
+        )
+
+    @staticmethod
+    def _add_bucket_rationale(options: list[PortfolioOption], b: BucketPlan) -> None:
+        horizon = f"{b.horizon_years:g}-year horizon" if b.horizon_years is not None else "horizon not set"
+        for o in options:
+            # Construction speaks of "the client's" horizon; for a bucket it is the bucket's.
+            o.suitability_explanation = (o.suitability_explanation
+                                         .replace("The client's investment horizon", f"The {b.label} bucket's horizon")
+                                         .replace("The shortest goal horizon", f"The {b.label} bucket's horizon"))
+            if o.suitability_status in OFFERED:
+                o.rationale.insert(0, Statement(
+                    statement=f"Built for the {b.label} bucket ({b.ctx.amount:,.2f}, {horizon}): {b.objective}",
+                    basis="RULE"))
 
     # --- Assembly ------------------------------------------------------------
 

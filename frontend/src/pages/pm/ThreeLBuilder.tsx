@@ -14,6 +14,7 @@ export default function ThreeLBuilder() {
   const client = useAsync(() => arcApi.getClient(clientId), [clientId]);
   const buckets = useAsync(() => arcApi.get3L(clientId), [clientId]);
   const ips = useAsync(() => arcApi.getIps(clientId), [clientId]);
+  const goals = useAsync(() => arcApi.getGoalProjection(clientId), [clientId]);
   const progress = usePmProgress(clientId);
   const returned = useIpsReturned(clientId);
   const [amounts, setAmounts] = useState<number[]>([]);
@@ -23,6 +24,8 @@ export default function ThreeLBuilder() {
   if (!client || !buckets || !ips) return <Loading />;
 
   const total = amounts.reduce((a, b) => a + b, 0);
+  const liquidityIdx = buckets.findIndex((b) => b.id === "liquidity");
+  const nearGoals = (goals?.events ?? []).filter((e) => e.year - new Date().getFullYear() <= 3 && e.year >= new Date().getFullYear());
   const diff = client.aumSgd - total;
   const ok = diff === 0;
   // Save the PM's amounts so the SAA step (and the Portfolio Agent) use them.
@@ -75,7 +78,10 @@ export default function ThreeLBuilder() {
       </Section>
 
       <div className="mb-6 flex justify-end"><AutoSaveStatus savedAt={progress.savedAt} /></div>
-      <NextAction title="Continue to SAA" body="Once the buckets add up, the Portfolio Agent proposes portfolios for this client. Pick one, then fine-tune its weights." action={<Button onClick={continueToSaa} disabled={!ok}>Continue to SAA</Button>} />
+      {nearGoals.length > 0 && (amounts[liquidityIdx] ?? 0) === 0 && (
+        <div className="mb-8"><Msg ok={false}>{nearGoals.map((g) => `${g.label} (${g.year})`).join(" and ")} {nearGoals.length === 1 ? "falls" : "fall"} due within 3 years, but the Liquidity bucket is empty. Money needed soon should sit in Liquidity.</Msg></div>
+      )}
+      <NextAction title="Continue to SAA" body="Once the buckets add up, the Portfolio Agent builds a separate SAA for each bucket, for its own purpose and horizon. Changing an amount later means re-running that bucket only." action={<Button onClick={continueToSaa} disabled={!ok}>Continue to SAA</Button>} />
       <BackLink to="/pm/inbox">Back to inbox</BackLink>
     </div>
   );

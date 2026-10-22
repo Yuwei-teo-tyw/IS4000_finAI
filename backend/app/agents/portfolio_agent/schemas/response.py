@@ -342,9 +342,26 @@ class ExplanationStatus(_Out):
     detail: str
 
 
+class BucketSummary(_Out):
+    """The 3L bucket this proposal was built for, and how its purpose shaped the options."""
+    bucket: Literal["liquidity", "longevity", "legacy"]
+    label: str
+    amount: float
+    share_of_3l_pct: Optional[float]
+    objective: str
+    horizon_years: Optional[float]
+    horizon_basis: str
+    goals: list[str]
+    risk_level: Optional[int]
+    risk_basis: Optional[str]
+    templates_considered: list[str]
+    notes: list[Statement]
+
+
 class PortfolioResponse(_Out):
     request_id: str
     client_id: str
+    bucket: Optional[BucketSummary] = None
     analysis_timestamp: datetime
     status: Literal["COMPLETED", "COMPLETED_WITH_WARNINGS", "INSUFFICIENT_INFORMATION", "CONSTRAINT_CONFLICT"]
     data_status: DataStatus

@@ -95,13 +95,30 @@ export const getActiveIps = (clientId: string): number | null => activeIps.read(
 export const setActiveIps = (clientId: string, version: number) => activeIps.write({ ...activeIps.read(), [clientId]: version });
 
 /* ---- 5. PM saved progress per client (products ticked for the TAA, TAA values); section text goes through packDraftStore ---- */
-export interface PmProgress { products?: string[]; taa?: number[]; /** PM's written reason per asset class (keyed by assetClass) for the TAA change */ taaReasons?: Record<string, string>; /** edited holding weights (% of portfolio) by holding id */ holdings?: Record<string, number>; /** onboarding 3L bucket amounts (S$) */ buckets?: number[]; /** onboarding SAA weights, template id + class weights */ saaTemplate?: string; saa?: number[]; /** Portfolio Agent proposal the SAA came from (re-loaded on Back) */ paRequestId?: string; /** SAA weights by asset class (dynamic classes); the PM's adjusted draft */ saaWeights?: Record<string, number>; /** the selected portfolio's proposed weights, kept for Reset */ saaOriginal?: Record<string, number>; savedAt?: string }
+export interface PmProgress { products?: string[]; taa?: number[]; /** PM's written reason per asset class (keyed by assetClass) for the TAA change */ taaReasons?: Record<string, string>; /** edited holding weights (% of portfolio) by holding id */ holdings?: Record<string, number>; /** onboarding 3L bucket amounts (S$) */ buckets?: number[]; /** onboarding SAA weights, template id + class weights */ saaTemplate?: string; saa?: number[]; /** Portfolio Agent proposal the SAA came from (re-loaded on Back) */ paRequestId?: string; /** SAA weights by asset class (dynamic classes); the PM's adjusted draft */ saaWeights?: Record<string, number>; /** the selected portfolio's proposed weights, kept for Reset */ saaOriginal?: Record<string, number>; /** 3L-based SAA: one proposal, choice and weights per bucket */ saaBuckets?: Partial<Record<"liquidity" | "longevity" | "legacy", BucketSaa>>; savedAt?: string }
+/** One 3L bucket's SAA draft. Each bucket is saved on its own, so editing one never touches another. */
+export interface BucketSaa {
+  /** Portfolio Agent proposal for this bucket, and the bucket amount it was built for (stale if the 3L amount changes) */
+  requestId?: string; amount?: number;
+  /** PM's inputs for the run: horizon in years (null = from goals) and risk level (null = client's IPS level) */
+  horizonYears?: number | null; riskLevel?: number | null;
+  optionId?: string; optionName?: string;
+  /** adjusted class weights and the selected portfolio's proposed weights (for Reset) */
+  weights?: Record<string, number>; original?: Record<string, number>;
+  /** the PM confirmed these weights after every check passed */
+  confirmed?: boolean;
+}
 const pmProgress = createStore<Record<string, PmProgress>>("wf-pm-progress", {});
 export const usePmProgress = (clientId: string): PmProgress => pmProgress.use()[clientId] ?? {};
 export const loadPmProgress = (clientId: string): PmProgress => pmProgress.read()[clientId] ?? {};
 /** Merge a patch and stamp savedAt. Call only on an explicit Save so unsaved edits can be told apart. */
 export const savePmProgress = (clientId: string, patch: Partial<PmProgress>) =>
   pmProgress.write({ ...pmProgress.read(), [clientId]: { ...pmProgress.read()[clientId], ...patch, savedAt: new Date().toISOString() } });
+/** Merge a patch into one bucket's SAA draft; the other buckets are left exactly as they were. */
+export const savePmBucket = (clientId: string, bucket: "liquidity" | "longevity" | "legacy", patch: Partial<BucketSaa>) => {
+  const cur = loadPmProgress(clientId).saaBuckets ?? {};
+  savePmProgress(clientId, { saaBuckets: { ...cur, [bucket]: { ...cur[bucket], ...patch } } });
+};
 
 /* ---- 6. PM -> RM handover (PM presses "Send to RM" once G2 content is ready) ---- */
 export interface PmHandover { sentAt: string }
