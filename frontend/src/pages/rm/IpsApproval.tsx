@@ -31,7 +31,7 @@ export default function IpsApproval() {
         <NextAction title="IPS approved" body={`Approved by ${approvedBy}. The IPS is now active and the client is in the Monitoring Phase.`}
           action={<Button to={`/rm/clients/${clientId}/documents`}>View client's documents</Button>} />
       ) : (
-        <NextAction title="Review, then approve" body={ready ? "The agent never approves on your behalf." : "Waiting for the Investment Counsellor to return the IPS. Onboarding must be complete before approval."}
+        <NextAction title="Review, then approve" body={ready ? "The agent never approves on your behalf." : "Waiting for the Portfolio Manager to return the IPS. Onboarding must be complete before approval."}
           action={<Button disabled={!ready} onClick={() => setConfirming(true)}>Approve G1</Button>} />
       )}
 
@@ -57,7 +57,7 @@ export default function IpsApproval() {
             <Card key={p.part}>
               <div className="mb-3 flex items-center justify-between gap-4">
                 <h2 className="min-w-0 break-words text-xl">{p.title}</h2>
-                <Badge tone={p.owner === "ic" ? "sky" : "grey"}><Lock size={12} className="mr-1" />{p.owner === "ic" ? "Filled by IC" : "Filled by RM"}</Badge>
+                <Badge tone={p.owner === "pm" ? "sky" : "grey"}><Lock size={12} className="mr-1" />{p.owner === "pm" ? "Filled by PM" : "Filled by RM"}</Badge>
               </div>
               <BulletList text={p.body} className="!text-base" />
             </Card>

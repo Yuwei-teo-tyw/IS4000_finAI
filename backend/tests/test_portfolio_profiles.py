@@ -251,7 +251,7 @@ def test_accredited_product_only_for_accredited_clients():
 def test_template_cut_too_far_is_not_offered_under_its_name():
     # A 12% drawdown limit would force the Growth template (52% growth assets) down to
     # under 30%; offering that as "Growth" would mislead, so it is withdrawn with the reason.
-    from app.agents.portfolio_manager.engine.construction import TEMPLATES, template_growth
+    from app.agents.portfolio_agent.engine.construction import TEMPLATES, template_growth
     body = _post(risk_appetite="Balanced", maximum_acceptable_drawdown=12, preferred_asset_classes=[])
     d = option(body, "D")
     assert d["suitability_status"] == "NOT_SUITABLE"

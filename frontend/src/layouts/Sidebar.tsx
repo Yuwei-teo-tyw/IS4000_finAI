@@ -4,7 +4,7 @@ import ThemeToggle from "./ThemeToggle";
 import SettingsDialog from "../components/settings/SettingsDialog";
 import { ROLE_PEOPLE, getNav, useActiveClientId } from "./navConfig";
 
-const ROLES: Role[] = ["rm", "ps", "ic"];
+const ROLES: Role[] = ["rm", "ps", "pm"];
 const LABEL = "mb-2 px-2 text-[12px] font-medium text-ink-muted max-md:hidden";
 
 export default function Sidebar({ role }: { role: Role }) {

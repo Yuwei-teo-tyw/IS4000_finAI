@@ -14,16 +14,16 @@ from fastapi.testclient import TestClient
 from portfolio_helpers import market_fetcher_from, mock_market
 from test_product_recommender import FIXED_NOW, profile, service
 
-from app.agents.portfolio_manager.engine.profile_assessment import assess_profile
-from app.agents.portfolio_manager.schemas.client import ClientProfile
-from app.agents.portfolio_manager.taxonomy import ASSET_CLASS_ORDER, AssetClass
+from app.agents.portfolio_agent.engine.profile_assessment import assess_profile
+from app.agents.portfolio_agent.schemas.client import ClientProfile
+from app.agents.portfolio_agent.taxonomy import ASSET_CLASS_ORDER, AssetClass
 from app.agents.product_recommender.asset_views import config as cfg
 from app.agents.product_recommender.asset_views.scoring import stance
 from app.agents.product_recommender.asset_views.shelf_lens import in_class
 from app.agents.product_recommender.house_view import load_house_view
 from app.agents.product_recommender.shelf import load_shelf
 from app.agents.product_recommender.suitability import gate
-from app.endpoints.portfolio_manager import install_validation_handler
+from app.endpoints.portfolio_agent import install_validation_handler
 from app.endpoints.product_recommender import PREFIX, router
 
 CLASSES = [ac.value for ac in ASSET_CLASS_ORDER]

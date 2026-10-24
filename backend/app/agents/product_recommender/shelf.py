@@ -1,6 +1,6 @@
 """
 The single product shelf, shared by the Product Recommender and the
-Portfolio Manager.
+Portfolio Agent.
 
 `load_raw()` is the integration point: today it reads the illustrative
 data/shelf.json; later it should read the product database. `validate()`
@@ -14,7 +14,7 @@ from typing import Any
 
 from pydantic import BaseModel, ValidationError
 
-from app.agents.portfolio_manager.schemas.upstream import UpstreamResult
+from app.agents.portfolio_agent.schemas.upstream import UpstreamResult
 from app.agents.product_recommender.schemas import Shelf, ShelfProduct
 
 logger = logging.getLogger(__name__)

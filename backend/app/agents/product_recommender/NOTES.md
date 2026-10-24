@@ -4,11 +4,11 @@ Plan: `product_recommender_agent.md` (repo root). This file records what was fou
 
 ## What I found (milestone 1)
 
-- **Closest agent to copy:** `portfolio_manager/`. Deterministic engine, settings from env, optional Groq explainer with deterministic fallback, endpoint on `app.state`, and a validation handler that never echoes client data.
-- **The suitability screen already existed** in `portfolio_manager/engine/product_screening.py`: restrictions, preferred classes, sector exclusions (5% tolerance), ESG, eligibility, lock-in vs shortest goal horizon, and the no-FX currency rule. It treats unknown data as a fail.
+- **Closest agent to copy:** `portfolio_agent/`. Deterministic engine, settings from env, optional Groq explainer with deterministic fallback, endpoint on `app.state`, and a validation handler that never echoes client data.
+- **The suitability screen already existed** in `portfolio_agent/engine/product_screening.py`: restrictions, preferred classes, sector exclusions (5% tolerance), ESG, eligibility, lock-in vs shortest goal horizon, and the no-FX currency rule. It treats unknown data as a fail.
 - **The PM's within-class ranking subtracted `management_fee`** and penalised a missing fee. That broke the "fees never rank" rule.
 - **There were two product lists:**
-  - 20 `MOCK-*` products in `portfolio_manager/upstream/mock_data/product_candidates.json`, using the full `ProductCandidate` schema;
+  - 20 `MOCK-*` products in `portfolio_agent/upstream/mock_data/product_candidates.json`, using the full `ProductCandidate` schema;
   - 17 `PRD-*` products in `frontend/src/mock/data.ts`, using a thin `Product` type. Several have real fund and manager names with invented data.
 - **No per-asset-class house view existed in the backend.**
   - The Market Researcher gives a US cycle regime and indicators only.

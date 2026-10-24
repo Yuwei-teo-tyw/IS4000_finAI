@@ -4,7 +4,7 @@ import { ROLE_PEOPLE } from "../../../layouts/navConfig";
 import { ROLE_LABEL, type Role } from "../../../types/arc";
 import type { PackSignatures as Sigs } from "../../../services/packDraftStore";
 
-const ORDER: Role[] = ["ps", "ic", "rm"];
+const ORDER: Role[] = ["ps", "pm", "rm"];
 const MAX_BYTES = 1_500_000;
 const fmtWhen = (iso: string) => new Date(iso).toLocaleString("en-SG", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 

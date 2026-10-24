@@ -85,25 +85,25 @@ export const caseTimelineByClient: Record<string, CaseStep[]> = {
   ser: [
     { who: "RM", what: "Case opened", by: "Isabel", state: "done" },
     { who: "PS", what: "Product list sent (G3)", by: "David", state: "done" },
-    { who: "IC", what: "New TAA approved (G2)", by: "Wei Lun", state: "waiting" },
+    { who: "PM", what: "New TAA approved (G2)", by: "Wei Lun", state: "waiting" },
     { who: "RM", what: "Final review pack (G4)", by: "Isabel", state: "not_started" },
   ],
   dso: [
     { who: "RM", what: "Life-event noted, SAA request sent", by: "Isabel", state: "done" },
-    { who: "IC", what: "Redo 3L and SAA (G2)", by: "Wei Lun", state: "waiting" },
+    { who: "PM", what: "Redo 3L and SAA (G2)", by: "Wei Lun", state: "waiting" },
   ],
   jfr: [
-    { who: "RM", what: "Draft the IPS and send to IC", by: "Isabel", state: "not_started" },
-    { who: "IC", what: "Fill 3L and SAA (G2)", by: "Wei Lun", state: "not_started" },
+    { who: "RM", what: "Draft the IPS and send to PM", by: "Isabel", state: "not_started" },
+    { who: "PM", what: "Fill 3L and SAA (G2)", by: "Wei Lun", state: "not_started" },
   ],
   teo: [
     { who: "RM", what: "Case opened, IPS v1 active", by: "Isabel", state: "done" },
     { who: "PS", what: "Product list sent (G3)", by: "David", state: "waiting" },
-    { who: "IC", what: "TAA for Q1 review (G2)", by: "Wei Lun", state: "not_started" },
+    { who: "PM", what: "TAA for Q1 review (G2)", by: "Wei Lun", state: "not_started" },
   ],
   sha: [
-    { who: "RM", what: "Onboarding IPS sent to IC", by: "Isabel", state: "done" },
-    { who: "IC", what: "Fill 3L and SAA (G2)", by: "Wei Lun", state: "waiting" },
+    { who: "RM", what: "Onboarding IPS sent to PM", by: "Isabel", state: "done" },
+    { who: "PM", what: "Fill 3L and SAA (G2)", by: "Wei Lun", state: "waiting" },
     { who: "RM", what: "IPS approval (G1)", by: "Isabel", state: "not_started" },
   ],
 };
@@ -142,30 +142,30 @@ export const saaTemplates = [
 
 export const ipsParts: IpsPart[] = [
   { part: 1, title: "Client goals and objectives", owner: "rm", status: "filled", body: "Buy a S$15m home within 12 months (S$3.0m deposit). Retain lifetime income and leave a legacy for two children." },
-  { part: 2, title: "3L buckets and explanation", owner: "ic", status: "filled", body: "Liquidity 70%, Longevity 20%, Legacy 10%. Buckets move money to the near-term deposit while keeping long-term income." },
+  { part: 2, title: "3L buckets and explanation", owner: "pm", status: "filled", body: "Liquidity 70%, Longevity 20%, Legacy 10%. Buckets move money to the near-term deposit while keeping long-term income." },
   { part: 3, title: "Client risk profile", owner: "rm", status: "filled", body: "Balanced. Risk limit 3 of 5. Risk capacity: Moderate. Can tolerate a 12% drawdown; needs high liquidity for 12 months." },
-  { part: 4, title: "Strategic Asset Allocation", owner: "ic", status: "filled", body: "Cash 15, Fixed income 35, Equities 30, Hedge funds 5, Private markets 3, Real estate 5, Gold 7." },
+  { part: 4, title: "Strategic Asset Allocation", owner: "pm", status: "filled", body: "Cash 15, Fixed income 35, Equities 30, Hedge funds 5, Private markets 3, Real estate 5, Gold 7." },
   { part: 5, title: "Review rules", owner: "rm", status: "locked", body: "Quarterly review. Rebalance when an asset class drifts more than 5 points from SAA. Benchmark: 40/60 blended index." },
   { part: 6, title: "Signature line", owner: "rm", status: "locked", body: "Signed by RM after client confirmation (G1)." },
 ];
 
 export const meetingNotes: MeetingNote[] = [
-  { id: "note_0318", sourceFile: "2026-09-12-house-purchase-meeting.pdf", originalText: "Meeting with Sergio Ermotti, 12 September 2026. Attendees: Sergio Ermotti, Isabel (RM).\n\nSergio opened by explaining that he and his family have found a house they want to buy, at about S$15m. He expects to pay a deposit of S$3.0m within the next twelve months and would like to fund it without disturbing the part of the portfolio that supports his retirement income.\n\nI asked how firm the timeline is. He said the sellers are flexible but he does not want to be rushed into selling investments in a weak market. He repeated that volatility worries him more than it did a year ago, and that he would prefer to hold more in cash and short-dated bonds until the deposit is paid.\n\nWe agreed that the Liquidity bucket in the IPS should be enlarged, and that the IPS should be updated to version 2. Isabel will confirm the deposit date with him and send the draft to the Investment Counsellor for the revised allocation.", clientId: "ser", date: "2026-09-12", title: "House purchase meeting", summary: ["Plans to buy a S$15m house", "Needs S$3.0m deposit within 12 months", "Wants to keep retirement income intact", "Concerned about market volatility"], checklist: [{ text: "Confirm deposit date with client", done: true }, { text: "Review liquidity bucket", done: false }, { text: "Send IPS v2 draft to IC", done: false }] },
-  { id: "note_0421", sourceFile: "2026-08-04-annual-review.pdf", originalText: "Annual review with David Solomon, 4 August 2026. Attendees: David Solomon, Isabel (RM).\n\nDavid said his priorities are steady income and keeping his capital safe. He is now considering bringing his retirement forward by about two years, though no date has been fixed.\n\nWhen we discussed risk, he said a fall of more than 10% in a single year would make him uncomfortable and likely prompt him to sell. We went through the current holdings and he was happy with the bond-heavy mix.\n\nNext steps: confirm the new retirement date and review his income needs with the Investment Counsellor, since an earlier retirement would change the SAA.", clientId: "dso", date: "2026-08-04", title: "Annual review", summary: ["Wants steady income and capital kept safe", "Retirement may be brought forward by two years", "Would be uncomfortable with a fall of more than 10% in a year"], checklist: [{ text: "Confirm new retirement date", done: false }, { text: "Review income needs with IC", done: false }] },
-  { id: "note_0502", sourceFile: "2026-10-13-first-meeting.pdf", originalText: "First meeting with Jane Fraser, 13 October 2026. Attendees: Jane Fraser, Isabel (RM).\n\nJane recently sold her business and has S$12.1m to invest. She described herself as comfortable with large swings in value in exchange for long-term growth, and said she would not need to touch the capital for at least ten years.\n\nShe would like to set up a family foundation within five years and asked how that might affect how the portfolio is structured. We did not go into detail and agreed to revisit it once the IPS is drafted.\n\nOpen question: she did not state how much cash she needs each month. Isabel will ask, run the risk questionnaire, and then send the IPS draft to the Investment Counsellor.", clientId: "jfr", date: "2026-10-13", title: "First meeting", summary: ["Sold his business and has S$12.1m to invest", "Comfortable with large swings for long-term growth", "Wants to start a family foundation within 5 years", "Open question: monthly cash needs not stated"], checklist: [{ text: "Run the risk questionnaire", done: false }, { text: "Ask about monthly cash needs", done: false }, { text: "Send IPS draft to IC", done: false }] },
-  { id: "note_0610", sourceFile: "2026-10-02-half-year-review.pdf", originalText: "Half-year review with Teo Yuwei, 2 October 2026. Attendees: Teo Yuwei, Isabel (RM).\n\nTeo is pleased with the growth portfolio, which is up about 9% year to date. His children begin overseas education in four years and he wants to be sure the money will be available when it is needed.\n\nHe is open to adding private markets exposure, provided it does not tie up too much of the portfolio. He also raised a concern about how much of the portfolio sits in US technology shares.\n\nNext steps: review the technology concentration with the Investment Counsellor and prepare an education funding estimate (already drafted).", clientId: "teo", date: "2026-10-02", title: "Half-year review", summary: ["Happy with growth portfolio, up 9% year to date", "Children's overseas education starts in 4 years", "Open to adding private markets exposure", "Worried about US tech concentration"], checklist: [{ text: "Review tech concentration with IC", done: false }, { text: "Prepare education funding estimate", done: true }] },
-  { id: "note_0715", sourceFile: "2026-10-09-first-meeting.pdf", originalText: "First meeting with Shane, 9 October 2026. Attendees: Shane, Isabel (RM).\n\nShane would like to buy a condominium within two years. He has a moderate appetite for risk but dislikes large drops in value, especially as the purchase date gets closer. He saves roughly S$8k a month.\n\nOpen question: he has not decided on the expected price of the condo. Isabel will confirm his budget, then send the IPS draft to the Investment Counsellor. The risk questionnaire was completed during the meeting.", clientId: "sha", date: "2026-10-09", title: "First meeting", summary: ["Wants to buy a condo within 2 years", "Moderate risk appetite, dislikes large drops", "Saves roughly S$8k a month", "Open question: expected condo price not stated"], checklist: [{ text: "Run the risk questionnaire", done: true }, { text: "Confirm condo budget", done: false }, { text: "Send IPS draft to IC", done: false }] },
+  { id: "note_0318", sourceFile: "2026-09-12-house-purchase-meeting.pdf", originalText: "Meeting with Sergio Ermotti, 12 September 2026. Attendees: Sergio Ermotti, Isabel (RM).\n\nSergio opened by explaining that he and his family have found a house they want to buy, at about S$15m. He expects to pay a deposit of S$3.0m within the next twelve months and would like to fund it without disturbing the part of the portfolio that supports his retirement income.\n\nI asked how firm the timeline is. He said the sellers are flexible but he does not want to be rushed into selling investments in a weak market. He repeated that volatility worries him more than it did a year ago, and that he would prefer to hold more in cash and short-dated bonds until the deposit is paid.\n\nWe agreed that the Liquidity bucket in the IPS should be enlarged, and that the IPS should be updated to version 2. Isabel will confirm the deposit date with him and send the draft to the Portfolio Manager for the revised allocation.", clientId: "ser", date: "2026-09-12", title: "House purchase meeting", summary: ["Plans to buy a S$15m house", "Needs S$3.0m deposit within 12 months", "Wants to keep retirement income intact", "Concerned about market volatility"], checklist: [{ text: "Confirm deposit date with client", done: true }, { text: "Review liquidity bucket", done: false }, { text: "Send IPS v2 draft to PM", done: false }] },
+  { id: "note_0421", sourceFile: "2026-08-04-annual-review.pdf", originalText: "Annual review with David Solomon, 4 August 2026. Attendees: David Solomon, Isabel (RM).\n\nDavid said his priorities are steady income and keeping his capital safe. He is now considering bringing his retirement forward by about two years, though no date has been fixed.\n\nWhen we discussed risk, he said a fall of more than 10% in a single year would make him uncomfortable and likely prompt him to sell. We went through the current holdings and he was happy with the bond-heavy mix.\n\nNext steps: confirm the new retirement date and review his income needs with the Portfolio Manager, since an earlier retirement would change the SAA.", clientId: "dso", date: "2026-08-04", title: "Annual review", summary: ["Wants steady income and capital kept safe", "Retirement may be brought forward by two years", "Would be uncomfortable with a fall of more than 10% in a year"], checklist: [{ text: "Confirm new retirement date", done: false }, { text: "Review income needs with PM", done: false }] },
+  { id: "note_0502", sourceFile: "2026-10-13-first-meeting.pdf", originalText: "First meeting with Jane Fraser, 13 October 2026. Attendees: Jane Fraser, Isabel (RM).\n\nJane recently sold her business and has S$12.1m to invest. She described herself as comfortable with large swings in value in exchange for long-term growth, and said she would not need to touch the capital for at least ten years.\n\nShe would like to set up a family foundation within five years and asked how that might affect how the portfolio is structured. We did not go into detail and agreed to revisit it once the IPS is drafted.\n\nOpen question: she did not state how much cash she needs each month. Isabel will ask, run the risk questionnaire, and then send the IPS draft to the Portfolio Manager.", clientId: "jfr", date: "2026-10-13", title: "First meeting", summary: ["Sold his business and has S$12.1m to invest", "Comfortable with large swings for long-term growth", "Wants to start a family foundation within 5 years", "Open question: monthly cash needs not stated"], checklist: [{ text: "Run the risk questionnaire", done: false }, { text: "Ask about monthly cash needs", done: false }, { text: "Send IPS draft to PM", done: false }] },
+  { id: "note_0610", sourceFile: "2026-10-02-half-year-review.pdf", originalText: "Half-year review with Teo Yuwei, 2 October 2026. Attendees: Teo Yuwei, Isabel (RM).\n\nTeo is pleased with the growth portfolio, which is up about 9% year to date. His children begin overseas education in four years and he wants to be sure the money will be available when it is needed.\n\nHe is open to adding private markets exposure, provided it does not tie up too much of the portfolio. He also raised a concern about how much of the portfolio sits in US technology shares.\n\nNext steps: review the technology concentration with the Portfolio Manager and prepare an education funding estimate (already drafted).", clientId: "teo", date: "2026-10-02", title: "Half-year review", summary: ["Happy with growth portfolio, up 9% year to date", "Children's overseas education starts in 4 years", "Open to adding private markets exposure", "Worried about US tech concentration"], checklist: [{ text: "Review tech concentration with PM", done: false }, { text: "Prepare education funding estimate", done: true }] },
+  { id: "note_0715", sourceFile: "2026-10-09-first-meeting.pdf", originalText: "First meeting with Shane, 9 October 2026. Attendees: Shane, Isabel (RM).\n\nShane would like to buy a condominium within two years. He has a moderate appetite for risk but dislikes large drops in value, especially as the purchase date gets closer. He saves roughly S$8k a month.\n\nOpen question: he has not decided on the expected price of the condo. Isabel will confirm his budget, then send the IPS draft to the Portfolio Manager. The risk questionnaire was completed during the meeting.", clientId: "sha", date: "2026-10-09", title: "First meeting", summary: ["Wants to buy a condo within 2 years", "Moderate risk appetite, dislikes large drops", "Saves roughly S$8k a month", "Open question: expected condo price not stated"], checklist: [{ text: "Run the risk questionnaire", done: true }, { text: "Confirm condo budget", done: false }, { text: "Send IPS draft to PM", done: false }] },
 ];
 
 export const gates: Gate[] = [
   { id: "G1", label: "IPS approval", approver: "rm", state: "approved", approvedAt: "2026-09-20" },
   { id: "G3", label: "Product list", approver: "ps", state: "approved", approvedAt: "2026-10-14 11:20" },
-  { id: "G2", label: "TAA and sections 2–5", approver: "ic", state: "pending" },
+  { id: "G2", label: "TAA and sections 2–5", approver: "pm", state: "pending" },
   { id: "G4", label: "Final pack and PDF", approver: "rm", state: "not_started" },
 ];
 
-export const inboxes: Record<"ic" | "ps", InboxItem[]> = {
-  ic: [
+export const inboxes: Record<"pm" | "ps", InboxItem[]> = {
+  pm: [
     { id: "ic1", clientId: "jfr", clientName: "Jane Fraser", kind: "IPS SAA request", from: "rm", receivedAt: "2026-10-16 09:12", summary: "Onboarding IPS sent. Fill 3L and SAA (parts 2 and 4).", priority: "high", trigger: 1 },
     { id: "ic2", clientId: "ser", clientName: "Sergio Ermotti", kind: "Portfolio adjustment request", from: "ps", receivedAt: "2026-10-14 11:20", summary: "PS approved 4 fixed income products. Propose and approve the TAA.", priority: "high", trigger: 3 },
     { id: "ic3", clientId: "dso", clientName: "David Solomon", kind: "IPS SAA request", from: "rm", receivedAt: "2026-10-12 15:40", summary: "Life event: retirement brought forward. Redo 3L and SAA.", priority: "normal", trigger: 2 },
@@ -180,14 +180,14 @@ export const inboxes: Record<"ic" | "ps", InboxItem[]> = {
 
 export const marketCycle = { phase: "Late expansion", tag: "MKT-0142", asOf: "2026-10-14" };
 export const packSections: PackSection[] = [
-  { n: 1, title: "Latest Client's Profile + Goals", owner: "rm", gate: "G4", status: "draft", body: "Sergio Ermotti, S$5.0m, Balanced. IPS v2 approved 2026-09-20 following the house purchase [NOTE-2026-09-12] [IPS-v2]." },
-  { n: 2, title: "Market view", owner: "ic", gate: "G2", status: "ready", body: "Late expansion [MKT-0142]. Buy fixed income, hold equities and gold, sell cash [CIO-2026Q4-03]." },
-  { n: 3, title: "Current market conditions", owner: "ic", gate: "G2", status: "ready", body: "Growth is slowing while profits remain solid; rate cuts are expected [MKT-0142]." },
-  { n: 4, title: "Portfolio current health", owner: "ic", gate: "G2", status: "flagged", body: "Sharpe 0.82 [CALC-sharpe-v1]. Diversification 71. Tech concentration of 31% looks high." },
-  { n: 5, title: "Old vs new TAA", owner: "ic", gate: "G2", status: "ready", body: "Fixed income to 40 (+5, at band edge); equities to 28; cash to 12 [CALC-taa-v1]." },
-  { n: 6, title: "Product recommendations", owner: "ps", gate: "G3", status: "approved", body: "4 fixed income products shortlisted by PS [PRD-FI-007]." },
-  { n: 7, title: "Sign-off", owner: "rm", gate: null, status: "draft", body: "PS, IC and RM each sign their own line." },
-  { n: 8, title: "Sources and citations", owner: "rm", gate: null, status: "ready", body: "Generated by Pack Builder from the source registry." },
+  { n: 1, order: 1, title: "Latest Client's Profile + Goals + Concerns", owner: "rm", gate: "G4", status: "draft", chart: "saa", body: "• Client: Sergio Ermotti; investable assets of S$5.0m; Balanced risk profile.\n• IPS v2 approved on 2026-09-20 following the residential purchase decision [NOTE-2026-09-12] [IPS-v2].\n• Principal concern: maintaining adequate liquidity for the house purchase [NOTE-2026-09-12].\n• Portfolio is positioned against the IPS v2 SAA [IPS-v2].\n• Expected S$3.0m deposit within twelve months is ring-fenced in the Liquidity bucket [NOTE-2026-09-12]." },
+  { n: 2, order: 2, title: "Market view", owner: "pm", gate: "G2", status: "ready", body: "• Macro regime assessed as late expansion [MKT-0142].\n• CIO stance: buy fixed income, hold equities and gold, sell cash [CIO-2026Q4-03].\n• Growth is moderating while corporate earnings remain resilient [MKT-0142].\n• Policy rate reductions are anticipated, supporting duration [MKT-0142].\n• Equity valuations are elevated, which limits the margin of safety for further index gains [CIO-2026Q4-05].\n• Falling cash yields reduce the carry on liquidity held in deposits [CIO-2026Q4-02]." },
+  { n: 3, order: 3, title: "Portfolio current health", owner: "pm", gate: "G2", status: "flagged", body: "• Sharpe ratio of 0.82 [CALC-sharpe-v1].\n• Diversification score of 71 [CALC-sharpe-v1].\n• Technology concentration of 31% is elevated and flagged for PM review [HLD-20261013].\n• Microsoft Corp and Apple Inc together account for 26% of the portfolio and move closely in sell-offs [HLD-20261013].\n• Singapore rate-sensitive income holdings total 26% and share exposure to a rise in rates [HLD-20261013].\n• Current weights are within the tactical bands set by IPS v2 for all asset classes [IPS-v2]." },
+  { n: 4, order: 4, title: "Old vs new TAA", owner: "pm", gate: "G2", status: "ready", chart: "taa", body: "• Fixed income: increase to 40% (+5 points), at the upper edge of the tactical band [CALC-taa-v1].\n• Equities: reduce to 28% (-5 points from current), reflecting elevated valuations [CIO-2026Q4-05].\n• Cash: reduce to 12% (-1 point from current) as cash yields decline [CIO-2026Q4-02].\n• Hedge funds, private markets, real estate and gold remain at their strategic weights [IPS-v2].\n• Revised TAA is subject to PM approval at G2 [CALC-taa-v1]." },
+  { n: 5, order: 6, title: "Product recommendations", owner: "ps", gate: "G3", status: "approved", body: "• Four fixed income products shortlisted by Product Specialist [PRD-FI-007].\n• Shortlist is consistent with the overweight fixed income position [CIO-2026Q4-03].\n• Lead candidate is the SGD Investment Grade Bond Fund, offering diversified credit exposure [PRD-FI-007].\n• Products fit the Longevity bucket and the client Balanced risk profile [IPS-v2].\n• Recommendations are subject to G3 approval [PRD-FI-007]." },
+  { n: 6, order: 7, title: "Sign-off", owner: "rm", gate: null, status: "draft", kind: "signoff", body: "• Product Specialist sign-off covers the product shortlist.\n• Investment Committee sign-off covers market view and TAA.\n• Relationship Manager sign-off covers client suitability and presentation.\n• Each sign-off is recorded with name, role and timestamp.\n• The pack is released to the client only after all sign-offs are complete." },
+  { n: 7, order: 8, title: "Sources and citations", owner: "rm", gate: null, status: "ready", body: "Sources for this pack are listed on the Sources view; every citation tag in the sections above resolves to a registered source." },
+  { n: 8, order: 5, title: "Individual holding adjustments", owner: "pm", gate: "G2", status: "draft", chart: "holdings", body: "• Microsoft Corp: 16% to 13% (-3 points), trimmed to ease US large-cap technology concentration [HLD-20261013].\n• Apple Inc: 10% to 8% (-2 points), as it moves closely with Microsoft Corp in sell-offs [HLD-20261013].\n• DBS Group Holdings: 7% to 9% (+2 points) to diversify away from US technology into local financials [CIO-2026Q4-05].\n• Singapore Government Bond 10Y: 22% to 25% (+3 points), supporting the overweight fixed income stance [CALC-taa-v1].\n• All other holdings, including US Treasury Bills 3M and the PIMCO Income Fund, are unchanged, so total weight remains 100% [CALC-taa-v1].\n• All adjustments remain within the IPS v2 tactical bands and are subject to PM approval at G2 [IPS-v2]." },
 ];
 
 export const citations: Citation[] = [
@@ -202,7 +202,7 @@ export const citations: Citation[] = [
 
 export const activity: ActivityEvent[] = [
   { id: "a1", at: "2026-10-14 17:05", actor: "RM", role: "rm", text: "Opened quarterly review for Sergio Ermotti" },
-  { id: "a2", at: "2026-10-14 11:20", actor: "PS", role: "ps", text: "Approved product list (G3) and sent to IC" },
+  { id: "a2", at: "2026-10-14 11:20", actor: "PS", role: "ps", text: "Approved product list (G3) and sent to PM" },
   { id: "a3", at: "2026-10-14 08:30", actor: "System", role: "system", text: "Notified PS of new CIO House View" },
   { id: "a4", at: "2026-09-20 10:00", actor: "RM", role: "rm", text: "Approved IPS v2 (G1)" },
 ];
@@ -247,33 +247,33 @@ export const ipsPartsByClient: Record<string, IpsPart[]> = {
   ser: ipsParts,
   dso: [
     { part: 1, title: "Client goals and objectives", owner: "rm", status: "filled", body: "Preserve capital and draw steady income in retirement. Small bequest to grandchildren." },
-    { part: 2, title: "3L buckets and explanation", owner: "ic", status: "filled", body: "Liquidity 20%, Longevity 68%, Legacy 12%." },
+    { part: 2, title: "3L buckets and explanation", owner: "pm", status: "filled", body: "Liquidity 20%, Longevity 68%, Legacy 12%." },
     { part: 3, title: "Client risk profile", owner: "rm", status: "filled", body: "Conservative. Risk limit 2 of 5. Risk capacity: Moderately low. Can tolerate a 6% drawdown." },
-    { part: 4, title: "Strategic Asset Allocation", owner: "ic", status: "filled", body: "Cash 20, Fixed income 48, Equities 18, Hedge funds 2, Private markets 1, Real estate 5, Gold 6." },
+    { part: 4, title: "Strategic Asset Allocation", owner: "pm", status: "filled", body: "Cash 20, Fixed income 48, Equities 18, Hedge funds 2, Private markets 1, Real estate 5, Gold 6." },
     { part: 5, title: "Review rules", owner: "rm", status: "locked", body: "Annual review. Rebalance when drift exceeds 5 points. Benchmark: 20/80 blended index." },
     { part: 6, title: "Signature line", owner: "rm", status: "locked", body: "Signed by RM after client confirmation (G1)." },
   ],
   jfr: [
     { part: 1, title: "Client goals and objectives", owner: "rm", status: "blank", body: "" },
-    { part: 2, title: "3L buckets and explanation", owner: "ic", status: "blank", body: "" },
+    { part: 2, title: "3L buckets and explanation", owner: "pm", status: "blank", body: "" },
     { part: 3, title: "Client risk profile", owner: "rm", status: "blank", body: "" },
-    { part: 4, title: "Strategic Asset Allocation", owner: "ic", status: "blank", body: "" },
+    { part: 4, title: "Strategic Asset Allocation", owner: "pm", status: "blank", body: "" },
     { part: 5, title: "Review rules", owner: "rm", status: "locked", body: "Quarterly review. Rebalance when drift exceeds 5 points." },
     { part: 6, title: "Signature line", owner: "rm", status: "locked", body: "Signed by RM after client confirmation (G1)." },
   ],
   teo: [
     { part: 1, title: "Client goals and objectives", owner: "rm", status: "filled", body: "Grow wealth over 15+ years, fund children's overseas education, build a legacy." },
-    { part: 2, title: "3L buckets and explanation", owner: "ic", status: "filled", body: "Liquidity 10%, Longevity 50%, Legacy 40%." },
+    { part: 2, title: "3L buckets and explanation", owner: "pm", status: "filled", body: "Liquidity 10%, Longevity 50%, Legacy 40%." },
     { part: 3, title: "Client risk profile", owner: "rm", status: "filled", body: "Growth. Risk limit 4 of 5. Risk capacity: Moderately high. Can tolerate a 20% drawdown." },
-    { part: 4, title: "Strategic Asset Allocation", owner: "ic", status: "filled", body: "Cash 8, Fixed income 20, Equities 45, Hedge funds 8, Private markets 6, Real estate 6, Gold 7." },
+    { part: 4, title: "Strategic Asset Allocation", owner: "pm", status: "filled", body: "Cash 8, Fixed income 20, Equities 45, Hedge funds 8, Private markets 6, Real estate 6, Gold 7." },
     { part: 5, title: "Review rules", owner: "rm", status: "locked", body: "Quarterly review. Rebalance when drift exceeds 5 points. Benchmark: 70/30 blended index." },
     { part: 6, title: "Signature line", owner: "rm", status: "locked", body: "Signed by RM after client confirmation (G1)." },
   ],
   sha: [
     { part: 1, title: "Client goals and objectives", owner: "rm", status: "filled", body: "Buy a condo within 2 years, then build retirement savings steadily." },
-    { part: 2, title: "3L buckets and explanation", owner: "ic", status: "blank", body: "" },
+    { part: 2, title: "3L buckets and explanation", owner: "pm", status: "blank", body: "" },
     { part: 3, title: "Client risk profile", owner: "rm", status: "filled", body: "Moderate. Risk limit 3 of 5. Risk capacity: Moderate. Can tolerate a 12% drawdown." },
-    { part: 4, title: "Strategic Asset Allocation", owner: "ic", status: "blank", body: "" },
+    { part: 4, title: "Strategic Asset Allocation", owner: "pm", status: "blank", body: "" },
     { part: 5, title: "Review rules", owner: "rm", status: "locked", body: "Quarterly review. Rebalance when drift exceeds 5 points." },
     { part: 6, title: "Signature line", owner: "rm", status: "locked", body: "Signed by RM after client confirmation (G1)." },
   ],

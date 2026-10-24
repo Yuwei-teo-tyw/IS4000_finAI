@@ -1,7 +1,7 @@
 import { AllocationDonut } from "../../client/AllocationDonut";
 import { HoldingsTable } from "../../client/HoldingsTable";
-import { TaaPie } from "../../ic/TaaPie";
-import { useIcProgress } from "../../../services/workflowStore";
+import { TaaPie } from "../../pm/TaaPie";
+import { usePmProgress } from "../../../services/workflowStore";
 import { BulletList, Loading, Table } from "../../ui";
 import type { PackBlock } from "../../../types/arc";
 import { CHART_LABEL, liveSlices, TABLE_LABEL, useBlockData, type ChartBlock } from "./useBlockData";
@@ -30,7 +30,7 @@ export function ChartBlockView({ block, clientId }: { block: ChartBlock; clientI
 
 export function TableBlockView({ block, clientId }: { block: Extract<PackBlock, { type: "table" }>; clientId: string }) {
   const d = useBlockData(clientId);
-  const prog = useIcProgress(clientId);
+  const prog = usePmProgress(clientId);
   if (!d.ready) return <Loading />;
   const reasonOf = (cls: string, fallback: string) => (prog.taaReasons?.[cls] ?? fallback).split(/\r?\n/).map((l) => l.replace(/^\s*[•\-*]\s*/, "").trim()).filter(Boolean);
   const sign = (n: number) => `${n > 0 ? "+" : ""}${Math.round(n * 10) / 10}`;

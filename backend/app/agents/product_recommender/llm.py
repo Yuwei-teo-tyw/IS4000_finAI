@@ -15,8 +15,8 @@ from typing import Any, Callable, TypeVar
 
 from pydantic import BaseModel, ValidationError
 
-from app.agents.portfolio_manager.explain.llm_client import LLMUnavailable, get_llm
-from app.agents.portfolio_manager.schemas.response import ExplanationStatus
+from app.agents.portfolio_agent.explain.llm_client import LLMUnavailable, get_llm
+from app.agents.portfolio_agent.schemas.response import ExplanationStatus
 from app.agents.product_recommender.config import Settings
 from app.core.tracing import get_langfuse_handler, tracing_enabled
 from app.prompts.prompt_builder import get_prompt, get_prompt_version

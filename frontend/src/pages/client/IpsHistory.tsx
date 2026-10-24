@@ -35,7 +35,7 @@ function VersionCard({ v, clientName, canEdit, onEdit, isActive, canActivate, on
         <div className="mt-6 flex flex-wrap items-center gap-3">
           <button type="button" aria-label="Preview" title="Preview" onClick={() => setPreview(true)} className={iconBtn}><Eye size={18} /></button>
           {canActivate && !isActive && (
-            <span title={v.status === "Draft" && !returned ? "Draft versions cannot be made active until the IC returns the IPS." : "Make this the IPS the AI assistant uses"}>
+            <span title={v.status === "Draft" && !returned ? "Draft versions cannot be made active until the PM returns the IPS." : "Make this the IPS the AI assistant uses"}>
               <Button variant="ghost" disabled={v.status === "Draft" && !returned} onClick={onActivate}>Make active</Button>
             </span>
           )}

@@ -1,23 +1,26 @@
 import { createBrowserRouter, Navigate } from "react-router-dom";
+import LegacyIcRedirect from "./LegacyIcRedirect";
 import AppShell from "../layouts/AppShell";
 import { ChatContainer } from "../components/Chat/ChatContainer";
 import ClientBook from "../pages/rm/ClientBook";
 import RmAssistant from "../pages/rm/RmAssistant";
-import IcAssistant from "../pages/ic/IcAssistant";
+import PmAssistant from "../pages/pm/PmAssistant";
 import OnboardingNotes from "../pages/rm/OnboardingNotes";
 import OnboardingSummary from "../pages/rm/OnboardingSummary";
 import IpsDraft from "../pages/rm/IpsDraft";
 import IpsApproval from "../pages/rm/IpsApproval";
 import QuarterlyReviewStart from "../pages/rm/QuarterlyReviewStart";
 import PackReview from "../pages/rm/PackReview";
-import IcInbox from "../pages/ic/IcInbox";
-import ThreeLBuilder from "../pages/ic/ThreeLBuilder";
-import SaaBuilder from "../pages/ic/SaaBuilder";
-import ProductRecommendations from "../pages/ic/ProductRecommendations";
-import IcMarketHealth from "../pages/ic/IcMarketHealth";
-import TaaWorkspace from "../pages/ic/TaaWorkspace";
-import IcHoldings from "../pages/ic/IcHoldings";
-import IcPack from "../pages/ic/IcPack";
+import PmInbox from "../pages/pm/PmInbox";
+import ThreeLBuilder from "../pages/pm/ThreeLBuilder";
+import SaaBuilder from "../pages/pm/SaaBuilder";
+import SaaWeights from "../pages/pm/SaaWeights";
+import SaaReview from "../pages/pm/SaaReview";
+import ProductRecommendations from "../pages/pm/ProductRecommendations";
+import PmMarketHealth from "../pages/pm/PmMarketHealth";
+import TaaWorkspace from "../pages/pm/TaaWorkspace";
+import PmHoldings from "../pages/pm/PmHoldings";
+import PmPack from "../pages/pm/PmPack";
 import PsInbox from "../pages/ps/PsInbox";
 import MarketResearch from "../pages/ps/MarketResearch";
 import FinaliseProducts from "../pages/ps/FinaliseProducts";
@@ -48,6 +51,7 @@ const client360 = {
 
 export const router = createBrowserRouter([
   { path: "/", element: <Navigate to="/rm/clients" replace /> },
+  { path: "/ic/*", element: <LegacyIcRedirect /> },
   { path: "/legacy-chat", element: <ChatContainer /> },
   {
     path: "/rm",
@@ -67,23 +71,28 @@ export const router = createBrowserRouter([
     ],
   },
   {
-    path: "/ic",
+    path: "/pm",
     element: <AppShell />,
     children: [
       { path: "house-views", element: <HouseViewRecords /> },
       { index: true, element: <Navigate to="inbox" replace /> },
-      { path: "inbox", element: <IcInbox /> },
+      { path: "inbox", element: <PmInbox /> },
       { path: "clients", element: <ClientBook /> },
-      { path: "assistant", element: <IcAssistant /> },
+      { path: "assistant", element: <PmAssistant /> },
       client360,
       { path: "requests/:clientId/3l", element: <ThreeLBuilder /> },
       { path: "requests/:clientId/saa", element: <SaaBuilder /> },
+      // Before the 3L split there was one Edit weights page; send old links to the bucket picker.
+      { path: "requests/:clientId/saa/weights", element: <Navigate to=".." relative="path" replace /> },
+      { path: "requests/:clientId/saa/review", element: <SaaReview /> },
+      { path: "requests/:clientId/saa/:bucket", element: <SaaBuilder /> },
+      { path: "requests/:clientId/saa/:bucket/weights", element: <SaaWeights /> },
       { path: "cases/:clientId/products", element: <ProductRecommendations /> },
       { path: "cases/:clientId/insights", element: <Navigate to="../products" relative="path" replace /> },
-      { path: "cases/:clientId/market-health", element: <IcMarketHealth /> },
+      { path: "cases/:clientId/market-health", element: <PmMarketHealth /> },
       { path: "cases/:clientId/taa", element: <TaaWorkspace /> },
-      { path: "cases/:clientId/holdings", element: <IcHoldings /> },
-      { path: "cases/:clientId/pack", element: <IcPack /> },
+      { path: "cases/:clientId/holdings", element: <PmHoldings /> },
+      { path: "cases/:clientId/pack", element: <PmPack /> },
     ],
   },
   {

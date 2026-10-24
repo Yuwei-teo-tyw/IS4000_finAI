@@ -10,7 +10,7 @@ import { BucketBar, SaaDonut } from "./ips/charts";
 
 const fmt = (s: string) => new Date(s).toLocaleDateString("en-SG", { day: "numeric", month: "long", year: "numeric" });
 const STATIC_RULES = [
-  "The portfolio is reviewed at least quarterly by the Relationship Manager and Investment Counsellor",
+  "The portfolio is reviewed at least quarterly by the Relationship Manager and Portfolio Manager",
   "Rebalance when an asset class drifts outside its allowed range around the SAA",
   "Review the IPS on any major life event",
   "Reissue the IPS on any change in the client risk profile",
@@ -105,7 +105,7 @@ export function IpsDocument({ version: v, clientName, clientId }: Props) {
       </DocSection>
 
       <DocSection n={7} title="Review Rules">
-        <Bullets items={[...(ruleItems.length ? ruleItems : STATIC_RULES), "Investment Counsellor owns the SAA and TAA; Product Specialist owns product selection; Relationship Manager owns the IPS and client contact"]} />
+        <Bullets items={[...(ruleItems.length ? ruleItems : STATIC_RULES), "Portfolio Manager owns the SAA and TAA; Product Specialist owns product selection; Relationship Manager owns the IPS and client contact"]} />
       </DocSection>
 
       <DocSection n={8} title="Acknowledgement & Signature">

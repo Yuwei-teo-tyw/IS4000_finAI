@@ -137,7 +137,7 @@ Operational details:
 
 ### Geneva chat (adviser workspace)
 
-The Geneva chat in the RM / IC / PS workspace (`frontend/src/components/geneva/GenevaChat.tsx`) uses the same LangGraph backend as `/legacy-chat`, over `ws://…/agents/langgraph?session_id=…&greet=false`. Client-data and workflow questions (IPS, goals, notes, holdings, TAA, pack drafts, CIO house view, products) are answered from the workspace. Other questions go to the backend, along with the adviser's role and the client in focus as `context`. The backend turns that context into a system note for the specialists (`app/agents/client_context.py`, prompt `shared.client_context`). Approval pauses for money-moving actions and Market Researcher source links (reader panel) work in Geneva too.
+The Geneva chat in the RM / PM / PS workspace (`frontend/src/components/geneva/GenevaChat.tsx`) uses the same LangGraph backend as `/legacy-chat`, over `ws://…/agents/langgraph?session_id=…&greet=false`. Client-data and workflow questions (IPS, goals, notes, holdings, TAA, pack drafts, CIO house view, products) are answered from the workspace. Other questions go to the backend, along with the adviser's role and the client in focus as `context`. The backend turns that context into a system note for the specialists (`app/agents/client_context.py`, prompt `shared.client_context`). Approval pauses for money-moving actions and Market Researcher source links (reader panel) work in Geneva too.
 
 ### Chat access (optional)
 
@@ -161,28 +161,31 @@ RUN_BACKTEST=1 pytest -m slow                                         # backtest
 
 The regime classifier is score-based and transparent. Every weight and threshold lives in `market_researcher/config.py`, so tune it there and re-run the backtest. The current backtest covers 1980 to the present. It catches **6/6** NBER recessions and makes 2 sustained false recession calls: the 2003 jobless recovery and the 2024 Sahm-rule trigger. See `backtest_report.md`.
 
-## 📊 Portfolio Manager Agent
+## 📊 Portfolio Agent
 
-`backend/app/agents/portfolio_manager/` builds the six SAA templates the IC uses (**A** Capital preservation, **B** Income, **C** Balanced, **D** Growth, **E** Aggressive growth, **F** Opportunistic) into concrete, constraint-checked portfolios for one client. It then compares them, explains the result, and can nominate a preferred option for review. Each portfolio uses the same seven asset classes and growth-asset limits as the IC SAA builder in the frontend.
+`backend/app/agents/portfolio_agent/` builds the six SAA templates the PM uses (**A** Capital preservation, **B** Income, **C** Balanced, **D** Growth, **E** Aggressive growth, **F** Opportunistic) into concrete, constraint-checked portfolios for one client. It then compares them, explains the result, and can nominate a preferred option for review. Each portfolio uses the same seven asset classes and growth-asset limits as the PM SAA builder in the frontend.
 
 It is **proposal-only**: it never executes trades or changes holdings, and every response has `requires_rm_review: true`.
 
 > **Core rule: numbers come from code, not from the LLM.**
 > Python does all allocation, amounts, metrics and validation. The LLM, if configured, only writes narrative. That narrative is rejected if it states a number the engine didn't produce, or claims guarantees, optimality, live data or executed trades.
 
-**Endpoints.** The main app serves these under `/agents/portfolio-manager`; the routes live in `app/endpoints/portfolio_manager.py`.
+**Endpoints.** The main app serves these under `/agents/portfolio-agent`; the routes live in `app/endpoints/portfolio_agent.py`.
 
 | Endpoint | Purpose |
 |---|---|
-| `GET /agents/portfolio-manager/health` | Liveness and the data sources in use |
-| `GET /agents/portfolio-manager/templates` | The six SAA templates A–F (weights, growth share, minimum risk level and horizon) |
-| `POST /agents/portfolio-manager/portfolio/generate` | Validate the profile → fetch market and product data → construct, validate, compare and explain options A–F |
-| `GET /agents/portfolio-manager/portfolio/{request_id}` | A stored proposal. The store is in memory and bounded, so proposals are lost on restart. Returns `404` if unknown |
+| `GET /agents/portfolio-agent/health` | Liveness and the data sources in use |
+| `GET /agents/portfolio-agent/templates` | `?bucket=liquidity` lists the Liquidity templates; otherwise the six SAA templates A–F (weights, growth share, minimum risk level and horizon) |
+| `POST /agents/portfolio-agent/portfolio/generate` | Validate the profile → fetch market and product data → construct, validate, compare and explain options A–F |
+| `GET /agents/portfolio-agent/portfolio/{request_id}` | A stored proposal. The store is in memory and bounded, so proposals are lost on restart. Returns `404` if unknown |
+| `POST /agents/portfolio-agent/portfolio/{request_id}/options/{option_id}/evaluate` | Re-checks the PM's adjusted asset-class weights against the stored proposal (return, drawdown, growth share, fees, currency, concentration, minimum investments, ±5-point band) and returns the efficient frontier. Calculation only; nothing is saved |
+| `POST /agents/portfolio-agent/portfolio/combined` | Checks the portfolio chosen for each 3L bucket together: the 3L total, each bucket's own checks, and combined drawdown, currency and single-product limits. Calculation only |
+| `POST /agents/portfolio-agent/portfolio/{request_id}/ask` | Answers a Geneva chat question about that proposal (plus the PM's picked portfolio, edited weights and current holdings). LLM answer checked by the same guardrails as the narratives, with a deterministic fallback. Read-only |
 
 **Inputs**
 
 - **Client profile and review trigger:** the request body. See `samples/sample_request.json`. Missing or contradictory fields are reported as BLOCKING, MATERIAL or MINOR, never guessed.
-- **Market Researcher output:** a `MarketResearchOutput`, validated with that agent's own Pydantic model (`market_research_output.schema.json`). The Portfolio Manager uses:
+- **Market Researcher output:** a `MarketResearchOutput`, validated with that agent's own Pydantic model (`market_research_output.schema.json`). The Portfolio Agent uses:
   - the regime call and the 12-month recession probability;
   - events, indicators, implications and the quality flags.
 
@@ -201,33 +204,56 @@ Both functions are marked `# INPUT API HERE`.
 
 **Run it**
 
-- **Full stack:** the Portfolio Manager is part of the main backend. Start the main backend as described under Getting Started.
+- **Full stack:** the Portfolio Agent is part of the main backend. Start the main backend as described under Getting Started.
 - **Without Postgres or Docker:**
 
   ```bash
   cd backend
-  python -m app.agents.portfolio_manager serve --port 8001          # only the Portfolio Manager routes, same paths
-  python -m app.agents.portfolio_manager generate app/agents/portfolio_manager/samples/sample_request.json --no-llm
+  python -m app.agents.portfolio_agent serve --port 8001          # only the Portfolio Agent routes, same paths
+  python -m app.agents.portfolio_agent generate app/agents/portfolio_agent/samples/sample_request.json --no-llm
   ```
 
 - **LLM settings:**
-  - `GROQ_API_KEY` in the root `.env` enables LLM narratives. Without it, the agent uses deterministic template explanations.
+  - `PORTFOLIO_GROQ_API_KEY` in the root `.env` gives the Portfolio Agent its own Groq key. If that line is present at all, even empty, the agent never uses the shared `GROQ_API_KEY`. Without either key, the agent uses deterministic template explanations. `GET /agents/portfolio-agent/health` shows which key is in use (`llm_key_source`), never the key itself.
   - `PORTFOLIO_LLM_ENABLED=false` forces the template explanations.
   - `PORTFOLIO_LLM_MODEL` overrides the model. The default is `CURRENT_MODEL` in `app/core/constants.py`.
 
 **Tests:** `cd backend && pytest tests/test_portfolio_*.py`. These run offline: the LLM is faked and the clock is fixed.
 
-**In the frontend.** The agent appears in the Investment Counsellor's **3L And SAA** flow (`/ic/requests/:clientId/3l`, then `saa`):
+**3L buckets.** A generate request can carry a `bucket` (`liquidity`, `longevity` or `legacy`, with its amount, optional horizon, objective and risk level). The engine then builds the SAA for that bucket only (`engine/buckets.py`):
+- The whole bucket amount is invested. The cash reserve and near-term withdrawals are the Liquidity bucket's job, so no bucket carves them out again.
+- The bucket's horizon replaces the client's shortest goal horizon (growth caps, template horizons, lock-ins). Without a horizon or a dated goal, growth is capped and long-horizon templates are left out, rather than a horizon being assumed.
+- A bucket risk level is optional and is always capped by the client's risk capacity. A level above the client's overall appetite is flagged for the RM.
+- **Liquidity** uses its own templates (Cash reserve; Cash and short bonds; Short-term income), never the growth templates. It only takes products the client can get back within its horizon, with no unhedged foreign currency.
+- **Longevity and Legacy** use templates A–F, driven by their own horizon and risk level. Legacy is not assumed to be the riskiest. Because the client's cash needs sit in Liquidity:
+  - Cash in each option is kept to about 5%, and weight that must move somewhere defensive goes to bonds rather than cash. It goes to cash only if needed to meet the drawdown limit.
+  - An option more than 40 growth points below what the client's risk level and the bucket's horizon allow is withdrawn as too cautious. The most growth-oriented option is always kept. For example, an aggressive client with a long horizon gets Growth, Aggressive growth and Opportunistic only.
+- The client's single-product limit is a whole-portfolio share, so inside a bucket it scales with the bucket's share of the 3L. The combined review then enforces the client's own limit across all buckets.
 
-1. On the 3L step, the IC sets the buckets. "Continue to SAA" saves them.
-2. The SAA step shows the agent's inputs and where each came from, and the IC clicks **Run the Portfolio Manager**:
-   - The portfolio is the client's AUM. The **Liquidity bucket** is held separately in cash, and the agent invests the rest.
-   - Risk category, risk limit, **risk capacity** and the drawdown limit come from IPS part 3.
-   - Goals come from goal-plan events more than 3 years out. Nearer goals are funded by the Liquidity bucket.
-   - Fields that aren't captured are sent as missing, never guessed.
-3. Each of the six template cards shows the agent's verdict: whether it is offered, its expected return, stress drawdown, growth share and the agent's preference.
-4. The **Compare** tab has four views: Side by side, Option detail (the agent's mix against the template, products and checks), Products (every candidate, with why it was used or excluded), and Why (labelled rationale and the Market Researcher's input).
-5. The IC still picks the template, edits the weights and sends it back to the RM. The agent never approves anything.
+`POST /agents/portfolio-agent/portfolio/combined` checks the portfolio chosen for each bucket (with any adjusted weights) as one client portfolio:
+- whether the 3L total reconciles;
+- whether every bucket passes its own checks;
+- combined stress drawdown, unhedged currency and the largest single product (counted once across buckets) against the client's limits;
+- amount-weighted metrics and the allocation by asset class and bucket.
+
+It is calculation only: nothing is saved or executed.
+
+**In the frontend.** The agent appears in the Portfolio Manager's **3L And SAA** flow (`/pm/requests/:clientId/3l`, then `saa`):
+
+1. **Client profile and 3L.** The PM reads the RM's IPS and sets the three bucket amounts, which must add up to the portfolio. It warns if goals fall due within 3 years but Liquidity is empty. "Continue to SAA" saves them.
+2. **SAA for each bucket** (`/saa/liquidity`, `/saa/longevity`, `/saa/legacy`), done **in order**:
+   - A bucket's tab opens only once the bucket before it is confirmed (portfolio picked and weights confirmed). The combined review opens only once all three are.
+   - A locked tab says which bucket to confirm first, and typing its URL leads back to the current step.
+   - Finished buckets stay open to go back to, but editing one again un-confirms it and re-locks the steps after it.
+
+   The tabs show each bucket's amount and status: Not started, Pick a portfolio, Check weights, Confirmed, Re-run needed (its 3L amount changed) or No amount. Each bucket shows:
+   - its amount and objective;
+   - the goals it funds: goals due within 3 years go to Liquidity, legacy-type goals (philanthropy, bequest, gift…) to Legacy, the rest to Longevity;
+   - an editable horizon (defaulting to the nearest goal) and an optional bucket risk level.
+
+   The PM runs the Portfolio Agent per bucket. Proposals, selections and drafts are stored per bucket, so switching tabs reloads the stored proposal instead of re-running it, and changing one bucket never touches another. Each bucket has the **Portfolios** and **Compare portfolios** views, the product comparison, and "How this bucket shaped the portfolios" (horizon basis, risk basis, templates considered, rules applied).
+3. **Edit weights per bucket** (`/saa/:bucket/weights`). The weight editor sits beside the efficient frontier and works as before, but amounts are the bucket's. **Confirm and continue** moves to the next bucket that needs attention, and is disabled until every check passes.
+4. **Combined review** (`/saa/review`) shows the allocation by asset class for each bucket and the whole portfolio, the combined metrics, and the cross-bucket checks. **Send back to RM** is enabled only when every bucket is confirmed and every combined check passes. IPS part 4 then lists each bucket's portfolio and the whole-portfolio mix.
 
 The mapping from captured data to agent inputs is in `buildPortfolioInputs` in `frontend/src/services/arcApi.ts`. The frontend calls `VITE_API_BASE`, which defaults to `http://localhost:8000`.
 
@@ -240,7 +266,7 @@ The mapping from captured data to agent inputs is in `buildPortfolioInputs` in `
 
 **How a recommendation is made**
 
-1. **Shelf:** one product shelf, `data/shelf.json` (23 illustrative products, at least 2 per asset class), shared with the Portfolio Manager.
+1. **Shelf:** one product shelf, `data/shelf.json` (23 illustrative products, at least 2 per asset class), shared with the Portfolio Agent.
 2. **Suitability gate:** every hard check must pass. A product that fails is excluded with a code and a reason: `RISK_ABOVE_LIMIT`, `RISK_UNKNOWN`, `LIQUIDITY`, `LIQUIDITY_NEED`, `CURRENCY`, `RESTRICTED`, `SECTOR_EXCLUDED`, `ESG`, `ELIGIBILITY`, `NOT_PREFERRED`, `DATA_INVALID` (`DRAWDOWN` only with `RECOMMENDER_DRAWDOWN_HARD_LIMIT=true`). Unknown data is never a pass, and no score can rescue an excluded product.
 3. **Ranking:** each eligible product gets named score components: `objective_fit`, `house_view`, `risk_budget_use`, `horizon_match`, `currency_fit`, `data_quality` and `rating`. Ties break by product id, so the order is reproducible. **Fees never rank**: they are returned in a separate `costs` block marked `display_only`.
 4. **Reasons:** 3 to 5 cited bullets per shortlisted product, ending with `[HV-...]` (house view page) or the product id (its factsheet).

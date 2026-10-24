@@ -14,8 +14,8 @@ from conftest import FakeLLM, run_async
 from portfolio_helpers import market_fetcher_from, mock_market
 from test_product_recommender import CLIENTS, FIXED_NOW, request
 
-from app.agents.portfolio_manager.explain.llm_client import LLMUnavailable
-from app.agents.portfolio_manager.taxonomy import ASSET_CLASS_ORDER
+from app.agents.portfolio_agent.explain.llm_client import LLMUnavailable
+from app.agents.portfolio_agent.taxonomy import ASSET_CLASS_ORDER
 from app.agents.product_recommender import guardrails
 from app.agents.product_recommender.asset_views.narrative import NarrativeOut, SlotText, view_facts
 from app.agents.product_recommender.config import Settings

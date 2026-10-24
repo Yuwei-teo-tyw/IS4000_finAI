@@ -6,7 +6,7 @@ dropped silently, and data that cannot be verified is treated as a fail.
 Two layers:
 - Core checks (asset class, restrictions, preferred classes, sector
   exclusions, ESG, eligibility, lock-in vs horizon, currency). Shared with
-  the Portfolio Manager, which calls `screen_products()`.
+  the Portfolio Agent, which calls `screen_products()`.
 - Product-level checks (risk rating vs the client's limit, single-product
   drawdown, liquidity need). Used only for recommending individual
   products. The PM builds diversified portfolios and enforces risk and
@@ -17,10 +17,10 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import Optional
 
-from app.agents.portfolio_manager.engine.profile_assessment import ProfileAssessment
-from app.agents.portfolio_manager.schemas.client import ClientProfile, PlannedWithdrawal
-from app.agents.portfolio_manager.schemas.upstream import ProductCandidate
-from app.agents.portfolio_manager.taxonomy import (
+from app.agents.portfolio_agent.engine.profile_assessment import ProfileAssessment
+from app.agents.portfolio_agent.schemas.client import ClientProfile, PlannedWithdrawal
+from app.agents.portfolio_agent.schemas.upstream import ProductCandidate
+from app.agents.portfolio_agent.taxonomy import (
     AssetClass,
     Liquidity,
     parse_asset_class,
@@ -94,7 +94,7 @@ def _context(p: ClientProfile, a: ProfileAssessment, reference_date: date, stale
     )
 
 
-# --- Shared with the Portfolio Manager ---------------------------------------
+# --- Shared with the Portfolio Agent ---------------------------------------
 
 def screen_products(
     products: list[ProductCandidate],
@@ -103,7 +103,7 @@ def screen_products(
     reference_date: date,
     stale_after_days: int,
 ) -> ScreeningResult:
-    """Core checks only, grouped by asset class (the Portfolio Manager's view)."""
+    """Core checks only, grouped by asset class (the Portfolio Agent's view)."""
     ctx = _context(p, a, reference_date, stale_after_days)
     by_class: dict[AssetClass, list[ScreenedProduct]] = {}
     excluded: list[tuple[str, str]] = []

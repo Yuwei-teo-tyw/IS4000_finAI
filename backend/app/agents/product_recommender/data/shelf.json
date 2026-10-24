@@ -1,5 +1,5 @@
 {
-  "_notice": "ILLUSTRATIVE MOCK DATA. These are fictional products. Returns, yields, fees, ratings and availability are invented for prototype testing and must not be presented as real product information. This is the single shelf shared by the Product Recommender and the Portfolio Manager.",
+  "_notice": "ILLUSTRATIVE MOCK DATA. These are fictional products. Returns, yields, fees, ratings and availability are invented for prototype testing and must not be presented as real product information. This is the single shelf shared by the Product Recommender and the Portfolio Agent.",
   "is_illustrative": true,
   "as_of_date": "2026-09-30",
   "base_currency": "SGD",

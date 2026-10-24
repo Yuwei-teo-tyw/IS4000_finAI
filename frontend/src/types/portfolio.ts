@@ -1,13 +1,13 @@
 /**
- * Portfolio Manager agent contract. Mirrors backend/app/agents/portfolio_manager/
+ * Portfolio Agent contract. Mirrors backend/app/agents/portfolio_agent/
  * schemas/{client,response}.py - keep in sync. Pages render the response as-is.
  */
 
 // ---------------------------------------------------------------- Request --
 
-export interface PmGoal { goal: string; target_amount?: number | null; years_to_goal?: number | null; priority?: "High" | "Medium" | "Low" | null; currency?: string | null }
+export interface PaGoal { goal: string; target_amount?: number | null; years_to_goal?: number | null; priority?: "High" | "Medium" | "Low" | null; currency?: string | null }
 
-export interface PmClientProfile {
+export interface PaClientProfile {
   client_id: string;
   base_currency: string;
   total_aum?: number | null;
@@ -19,35 +19,36 @@ export interface PmClientProfile {
   risk_tolerance_score?: number | null;
   risk_capacity?: string | null;
   maximum_acceptable_drawdown?: number | null;
-  financial_goals?: PmGoal[] | null;
+  financial_goals?: PaGoal[] | null;
   current_asset_allocation?: Record<string, number> | null;
 }
 
-export interface PmRequest {
+export interface PaRequest {
   request_id?: string;
   client_id: string;
   trigger?: { life_event?: string | null; requirement_change?: string | null; reason_for_review?: string | null; effective_date?: string | null } | null;
-  client_profile: PmClientProfile;
+  client_profile: PaClientProfile;
+  bucket?: PaBucketContext | null;
 }
 
-/** One input shown to the IC before running the agent: where it came from, or that it is missing. */
-export interface PmInputField { label: string; value: string | null; source: string }
+/** One input shown to the PM before running the agent: where it came from, or that it is missing. */
+export interface PaInputField { label: string; value: string | null; source: string }
 
-export interface PmInputs {
-  request: PmRequest;
-  fields: PmInputField[];
+export interface PaInputs {
+  request: PaRequest;
+  fields: PaInputField[];
   /** Notes on how the 3L buckets and IPS were turned into agent inputs. */
   notes: string[];
 }
 
 // --------------------------------------------------------------- Response --
 
-export type PmBasis = "CLIENT_INPUT" | "OBSERVED_FACT" | "FORECAST" | "SCENARIO" | "ASSUMPTION" | "CALCULATION" | "PRODUCT_DATA" | "RULE" | "LLM_INTERPRETATION";
-export type PmSuitability = "SUITABLE" | "SUITABLE_WITH_MODIFICATIONS" | "NOT_SUITABLE" | "INFEASIBLE";
+export type PaBasis = "CLIENT_INPUT" | "OBSERVED_FACT" | "FORECAST" | "SCENARIO" | "ASSUMPTION" | "CALCULATION" | "PRODUCT_DATA" | "RULE" | "LLM_INTERPRETATION";
+export type PaSuitability = "SUITABLE" | "SUITABLE_WITH_MODIFICATIONS" | "NOT_SUITABLE" | "INFEASIBLE";
 
-export interface PmStatement { statement: string; basis: PmBasis; source: string | null }
+export interface PaStatement { statement: string; basis: PaBasis; source: string | null }
 
-export interface PmProductDetails {
+export interface PaProductDetails {
   sub_asset_class: string | null; issuer: string | null; risk_rating: number | null;
   historical_returns: Record<string, number | null> | null; yield_to_maturity: number | null; distribution_yield: number | null;
   volatility: number | null; maximum_drawdown: number | null; credit_rating: string | null;
@@ -57,24 +58,24 @@ export interface PmProductDetails {
   esg_compliant: boolean | null; data_completeness: string | null;
 }
 
-export interface PmProductSelection {
+export interface PaProductSelection {
   product_id: string; product_name: string; asset_class: string; product_type: string | null;
   currency: string; currency_hedged: boolean | null; allocation_percentage: number; investment_amount: number;
   expected_return_assumption: number | null; expected_return_basis: string | null;
   management_fee: number | null; estimated_transaction_cost: number | null; liquidity: string | null;
   key_rationale: string; key_risks: string[]; data_provenance: "ILLUSTRATIVE_MOCK" | "UPSTREAM_API";
-  as_of_date: string | null; data_warnings: string[]; details: PmProductDetails;
+  as_of_date: string | null; data_warnings: string[]; details: PaProductDetails;
 }
 
-export interface PmCandidateProduct {
+export interface PaCandidateProduct {
   product_id: string; product_name: string; asset_class: string; product_type: string | null;
   currency: string; currency_hedged: boolean | null; management_fee: number | null; liquidity: string | null;
   screening_status: "SELECTED" | "ELIGIBLE_NOT_SELECTED" | "EXCLUDED"; selected_in_options: string[];
   exclusion_reason: string | null; notes: string[]; data_provenance: "ILLUSTRATIVE_MOCK" | "UPSTREAM_API";
-  as_of_date: string | null; details: PmProductDetails;
+  as_of_date: string | null; details: PaProductDetails;
 }
 
-export interface PmMetrics {
+export interface PaMetrics {
   expected_annual_return_pct: number | null; estimated_volatility_pct: number | null; estimated_stress_drawdown_pct: number | null;
   growth_asset_share_pct: number; estimated_annual_fee_pct: number | null; estimated_annual_fee_amount: number | null;
   estimated_one_off_transaction_cost: number | null; high_liquidity_share_pct: number | null; foreign_currency_exposure_pct: number | null;
@@ -83,51 +84,73 @@ export interface PmMetrics {
   calculation_notes: string[];
 }
 
-export interface PmScenarioOutcome { scenario: string; probability: number | null; horizon: string | null; portfolio_return_pct: number | null; portfolio_value_change: number | null; basis: PmBasis }
-export interface PmGoalAlignment { goal: string; priority: string | null; target_amount: number | null; years_to_goal: number | null; projected_value_base_case: number | null; status: "ON_TRACK" | "SHORTFALL" | "NOT_ASSESSABLE"; note: string }
-export interface PmConstraintCheck { constraint: string; limit: number | null; actual: number | null; status: "PASS" | "FAIL" | "UNVERIFIED" | "NOT_APPLICABLE"; detail: string }
+export interface PaScenarioOutcome { scenario: string; probability: number | null; horizon: string | null; portfolio_return_pct: number | null; portfolio_value_change: number | null; basis: PaBasis }
+export interface PaGoalAlignment { goal: string; priority: string | null; target_amount: number | null; years_to_goal: number | null; projected_value_base_case: number | null; status: "ON_TRACK" | "SHORTFALL" | "NOT_ASSESSABLE"; note: string }
+export interface PaConstraintCheck { constraint: string; limit: number | null; actual: number | null; status: "PASS" | "FAIL" | "UNVERIFIED" | "NOT_APPLICABLE"; detail: string }
 
-export interface PmOption {
+export interface PaOption {
   option_id: string; option_name: string; objective: string;
-  suitability_status: PmSuitability; suitability_explanation: string;
+  suitability_status: PaSuitability; suitability_explanation: string;
   eligible_portfolio_value: number | null; base_currency: string | null;
   asset_allocation: { asset_class: string; allocation_percentage: number; investment_amount: number; change_from_current_pp: number | null }[];
-  product_selections: PmProductSelection[];
-  expected_portfolio_return: number | null; estimated_risk_level: string | null; metrics: PmMetrics | null;
-  scenario_analysis: PmScenarioOutcome[]; goal_alignment: PmGoalAlignment[]; constraint_checks: PmConstraintCheck[];
+  /** By product sub-class (e.g. Government bonds within Fixed income), summed from the products. */
+  sub_asset_allocation: { asset_class: string; sub_asset_class: string; allocation_percentage: number; investment_amount: number }[];
+  product_selections: PaProductSelection[];
+  expected_portfolio_return: number | null; estimated_risk_level: string | null; metrics: PaMetrics | null;
+  scenario_analysis: PaScenarioOutcome[]; goal_alignment: PaGoalAlignment[]; constraint_checks: PaConstraintCheck[];
   liquidity_assessment: string; diversification_assessment: string;
-  advantages: string[]; disadvantages: string[]; rationale: PmStatement[]; assumptions: string[]; warnings: string[];
+  advantages: string[]; disadvantages: string[]; rationale: PaStatement[]; assumptions: string[]; warnings: string[];
   narrative: string | null; narrative_source: "LLM_INTERPRETATION" | "DETERMINISTIC_TEMPLATE" | "NONE";
+  /** How this option differs from the next more cautious offered option. */
+  key_differences: string[];
 }
 
-export interface PmMarketIndicator { id: string; name: string; category: string; value: number; unit: string; observation_date: string; signal: string; percentile_10y: number | null; stale: boolean; source: string; source_url: string }
+export interface PaMarketIndicator { id: string; name: string; category: string; value: number; unit: string; observation_date: string; signal: string; percentile_10y: number | null; stale: boolean; source: string; source_url: string }
 
-export interface PmMarketContext {
+export interface PaMarketContext {
   data_source_label: string; run_id: string | null; as_of: string | null; region: string | null; quality_status: string | null;
   regime: { phase: string | null; confidence: string; probabilities: Record<string, number>; recession_prob_12m: number | null; in_recession_prob: number | null; drivers: string[]; conflicting_signals: string[]; changed: boolean } | null;
   events: { id: string; severity: string; description: string; evidence: string[] }[];
-  indicators: PmMarketIndicator[]; market_snapshot: PmMarketIndicator[];
+  indicators: PaMarketIndicator[]; market_snapshot: PaMarketIndicator[];
   news: { title: string; source: string; url: string; published_at: string | null; summary: string; sentiment: string; market_impact: string }[];
   key_themes: string[]; risks: string[]; implications: Record<string, string>;
-  key_observations: PmStatement[]; forecasts: PmStatement[];
-  scenario_details: { name: string; probability: number | null; probability_source: string | null; horizon: string | null; narrative: string; asset_class_returns: Record<string, number>; basis: PmBasis }[];
+  key_observations: PaStatement[]; forecasts: PaStatement[];
+  scenario_details: { name: string; probability: number | null; probability_source: string | null; horizon: string | null; narrative: string; asset_class_returns: Record<string, number>; basis: PaBasis }[];
   assumptions_label: string; long_term_return_assumptions: Record<string, number>; limitations: string[];
 }
 
-export interface PmLiquidityPlan {
+export interface PaLiquidityPlan {
   investable_assets: number | null; minimum_cash_reserve_required: number | null; reserve_already_held_outside_investable_assets: number;
   reserve_carved_out: number | null; near_term_withdrawals_carved_out: number | null; later_withdrawals_not_carved_out: number;
-  eligible_portfolio_value: number | null; notes: PmStatement[];
+  eligible_portfolio_value: number | null; notes: PaStatement[];
 }
 
-export interface PmResponse {
+// ------------------------------------------------------------- 3L buckets --
+export type PaBucketId = "liquidity" | "longevity" | "legacy";
+export const PA_BUCKETS: PaBucketId[] = ["liquidity", "longevity", "legacy"];
+
+/** Sent with a generate request to build the SAA for one 3L bucket. */
+export interface PaBucketContext {
+  bucket: PaBucketId; amount: number; horizon_years?: number | null; objective?: string | null;
+  risk_tolerance_score?: number | null; total_3l_amount?: number | null;
+}
+
+/** How the bucket's purpose shaped the proposal (returned with a bucket proposal). */
+export interface PaBucketSummary {
+  bucket: PaBucketId; label: string; amount: number; share_of_3l_pct: number | null; objective: string;
+  horizon_years: number | null; horizon_basis: string; goals: string[]; risk_level: number | null; risk_basis: string | null;
+  templates_considered: string[]; notes: PaStatement[];
+}
+
+export interface PaResponse {
   request_id: string; client_id: string; analysis_timestamp: string;
+  bucket: PaBucketSummary | null;
   status: "COMPLETED" | "COMPLETED_WITH_WARNINGS" | "INSUFFICIENT_INFORMATION" | "CONSTRAINT_CONFLICT";
   data_status: { client_profile: string; market_analysis: string; product_candidates: string };
   client_profile_summary: { effective_risk_level: number | null; effective_risk_label: string | null; effective_risk_basis: string | null; shortest_goal_horizon_years: number | null; maximum_acceptable_drawdown: number | null; base_currency: string | null };
-  liquidity_plan: PmLiquidityPlan | null;
-  market_context_summary: PmMarketContext;
-  portfolio_options: PmOption[];
+  liquidity_plan: PaLiquidityPlan | null;
+  market_context_summary: PaMarketContext;
+  portfolio_options: PaOption[];
   comparison_matrix: { criterion: string; values: Record<string, string> }[];
   comparison_summary: string | null;
   preferred_option: string | null; preferred_option_rationale: string;
@@ -135,11 +158,76 @@ export interface PmResponse {
   missing_information: { field: string; severity: "BLOCKING" | "MATERIAL" | "MINOR"; impact: string }[];
   conflicts: { fields: string[]; severity: "BLOCKING" | "MATERIAL" | "INFO"; description: string; resolution: string }[];
   excluded_products: { product_id: string; reason: string }[];
-  candidate_products: PmCandidateProduct[];
+  candidate_products: PaCandidateProduct[];
   warnings: string[];
   explanation_status: { source: "LLM" | "DETERMINISTIC_FALLBACK" | "DETERMINISTIC"; llm_attempted: boolean; llm_succeeded: boolean; model: string | null; detail: string };
   requires_rm_review: true; execution_status: "NOT_EXECUTED"; disclaimer: string;
 }
 
-export const OFFERED: PmSuitability[] = ["SUITABLE", "SUITABLE_WITH_MODIFICATIONS"];
-export const isOffered = (o: PmOption) => OFFERED.includes(o.suitability_status);
+// ------------------------------------------------- Adjusted weights (Edit weights) --
+
+export interface PaPortfolioPoint {
+  model_volatility_pct: number | null; model_expected_return_pct: number | null; product_expected_return_pct: number | null;
+  stress_drawdown_pct: number | null; growth_asset_share_pct: number; estimated_annual_fee_pct: number | null; foreign_currency_exposure_pct: number | null;
+}
+
+export interface PaFrontier {
+  asset_classes: string[];
+  points: { volatility_pct: number; expected_return_pct: number; weights: Record<string, number> }[];
+  model_label: string; basis: "ASSUMPTION"; method: string;
+}
+
+export interface PaWeightEvaluation {
+  request_id: string; option_id: string; option_name: string; eligible_portfolio_value: number;
+  lines: { asset_class: string; original_pct: number; adjusted_pct: number; adjusted_amount: number; change_pp: number;
+    expected_return_pct: number | null; stress_drawdown_pct: number | null; model_volatility_pct: number | null }[];
+  original: PaPortfolioPoint; adjusted: PaPortfolioPoint;
+  frontier: PaFrontier | null; frontier_limitation: string | null;
+  checks: PaConstraintCheck[]; valid: boolean; notes: string[];
+}
+
+export const OFFERED: PaSuitability[] = ["SUITABLE", "SUITABLE_WITH_MODIFICATIONS"];
+export const isOffered = (o: PaOption) => OFFERED.includes(o.suitability_status);
+
+/** POST /portfolio/{request_id}/ask: one chat answer grounded in a stored proposal. */
+export interface PaChatTurn { question: string; answer: string }
+export interface PaAnswer {
+  request_id: string;
+  answer: string;
+  source: "LLM" | "DETERMINISTIC_FALLBACK" | "DETERMINISTIC";
+  model: string | null;
+  detail: string;
+  options_referenced: string[];
+  requires_rm_review: true;
+  execution_status: "NOT_EXECUTED";
+}
+/** What the chat shows: the answer plus which proposal it came from. */
+export interface PaChatReply extends PaAnswer {
+  /** "pm" = the proposal the PM is working on in the SAA request; "chat" = a run made just for this chat. */
+  basis: "pm" | "chat";
+  /** The 3L bucket whose proposal answered, when the PM's SAA is built per bucket. */
+  bucketLabel?: string;
+}
+
+// ------------------------------------------------------- Combined 3L review --
+export interface PaBucketChoice { bucket: PaBucketId; request_id: string; option_id: string; weights?: Record<string, number> | null }
+export interface PaCombinedReview {
+  client_id: string; total_amount: number; client_total: number | null;
+  buckets: { bucket: PaBucketId; label: string; request_id: string; option_id: string; option_name: string; amount: number; share_pct: number; point: PaPortfolioPoint; checks_pass: boolean }[];
+  classes: { asset_class: string; amount: number; pct: number; by_bucket: Partial<Record<PaBucketId, number>> }[];
+  combined: {
+    model_volatility_pct: number | null; model_expected_return_pct: number | null; product_expected_return_pct: number | null;
+    stress_drawdown_pct: number | null; growth_asset_share_pct: number; estimated_annual_fee_pct: number | null;
+    foreign_currency_exposure_pct: number; fast_dealing_share_pct: number; largest_product: string | null; largest_product_pct: number | null;
+  };
+  checks: PaConstraintCheck[]; valid: boolean; notes: string[];
+  requires_rm_review: true; execution_status: "NOT_EXECUTED";
+}
+
+/** One bucket on the SAA step, as the frontend prepares it: amount, purpose, goals and the request to send. */
+export interface PaBucketInputs {
+  id: PaBucketId; label: string; amount: number; sharePct: number; objective: string; horizonHint: string;
+  /** Default horizon (years) from the bucket's goals; null when none is dated. The PM can override it. */
+  defaultHorizon: number | null; goals: { label: string; year: number; years: number }[];
+  clientRiskLevel: number; request: PaRequest;
+}

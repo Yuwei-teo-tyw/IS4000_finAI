@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from app.agents.market_researcher.schemas import Indicator, MarketResearchOutput
-from app.agents.portfolio_manager.taxonomy import AssetClass
+from app.agents.portfolio_agent.taxonomy import AssetClass
 from app.agents.product_recommender.asset_views import config as cfg
 from app.agents.product_recommender.asset_views.config import (
     AssetClassSpec,

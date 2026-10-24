@@ -4,10 +4,10 @@ import Sidebar from "./Sidebar";
 import { useActiveClientId } from "./navConfig";
 import GenevaLauncher from "../components/geneva/GenevaLauncher";
 
-/** Routes are literal /rm, /ic, /ps (no :role param), so read the role from the URL. */
+/** Routes are literal /rm, /pm, /ps (no :role param), so read the role from the URL. */
 export function useRole(): Role {
   const seg = useLocation().pathname.split("/")[1];
-  return (seg === "ic" || seg === "ps" ? seg : "rm") as Role;
+  return (seg === "pm" || seg === "ps" ? seg : "rm") as Role;
 }
 
 /** Lux shell: left sidebar (role switcher + workspace nav) and a spacious content column. */

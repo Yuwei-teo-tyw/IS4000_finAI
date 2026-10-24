@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Lock } from "lucide-react";
 import { GenevaMark } from "../../components/documents/GenevaMark";
+import { SCRIPT_FONT } from "../../components/ui";
 import { ROLE_LABEL, type AllocationRow, type Holding, type PackSection, type Role } from "../../types/arc";
 import { ROLE_PEOPLE } from "../../layouts/navConfig";
 import { loadPackDrafts, loadSignatures, savePackDraft, subscribePackDrafts, subscribeSignatures, usePackHistory, type PackSignature } from "../../services/packDraftStore";
@@ -8,7 +9,7 @@ import { useRole } from "../../layouts/AppShell";
 import { hasHeadings } from "../../services/packBlocks";
 import { SectionBlocksView, useSeededBlocks, sourcesFor, Tagged, HangList, isSources, isSignoff, fmtDate, usePackStatus, isHiddenFor, PendingBox } from "./rmShared";
 
-const ROLES: Role[] = ["rm", "ic", "ps"];
+const ROLES: Role[] = ["rm", "pm", "ps"];
 const A3_PRINT_CSS = "@page a3 { size: A3; margin: 18mm; } @media print { .a3-sheet { page: a3; max-width: none; } }";
 const cap = "text-[12px] uppercase tracking-[0.14em] text-ink-muted";
 const quarterOf = (d: Date) => `Q${Math.floor(d.getMonth() / 3) + 1} ${d.getFullYear()}`;
@@ -22,7 +23,7 @@ function DocBlocks({ clientId, n, body, chart }: { clientId: string; n: number; 
 
 function SigMark({ g, who }: { g: PackSignature; who: string }) {
   return g.typed || !g.dataUrl
-    ? <span className="font-serif text-lg italic text-ink">{g.name}</span>
+    ? <span className="text-[22px] leading-tight text-ink" style={{ fontFamily: SCRIPT_FONT }}>{g.name}</span>
     : <img src={g.dataUrl} alt={`${who} signature`} className="h-12 max-w-[140px] object-contain" />;
 }
 
@@ -39,8 +40,8 @@ function SectionSign({ g, who }: { g?: PackSignature; who: string }) {
   );
 }
 
-/** Coupling note: reads IC progress (useIcProgress) and ROLE_PEOPLE directly; revisit when a backend pack API exists. */
-/** Single-column printed rendering of the review pack. Reads drafts, signatures and IC progress live; mock text is used only where no draft exists. */
+/** Coupling note: reads PM progress (usePmProgress) and ROLE_PEOPLE directly; revisit when a backend pack API exists. */
+/** Single-column printed rendering of the review pack. Reads drafts, signatures and PM progress live; mock text is used only where no draft exists. */
 export function PackDocument({ clientId, clientName, version, pack, approved }: {
   clientId: string; clientName: string; version: string; pack: PackSection[]; alloc: AllocationRow[] | undefined; holdings: Holding[] | undefined; approved: boolean;
 }) {

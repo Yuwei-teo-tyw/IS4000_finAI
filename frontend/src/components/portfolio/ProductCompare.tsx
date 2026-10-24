@@ -1,25 +1,25 @@
 import { useMemo, useState, type ReactNode } from "react";
-import type { PmCandidateProduct, PmResponse } from "../../types/portfolio";
+import type { PaCandidateProduct, PaResponse } from "../../types/portfolio";
 import { isOffered } from "../../types/portfolio";
 import { Badge, Table } from "../ui";
-import { currentYield, DASH, fx, historical, LIQUIDITY, pct, years } from "./pmFormat";
+import { currentYield, DASH, fx, historical, LIQUIDITY, pct, years } from "./paFormat";
 
 const MAX = 4;
 
-function status(c: PmCandidateProduct) {
+function status(c: PaCandidateProduct) {
   if (c.screening_status === "SELECTED") return <Badge tone="navy">In {c.selected_in_options.join(", ")}</Badge>;
   if (c.screening_status === "EXCLUDED") return <Badge tone="red">Excluded</Badge>;
   return <Badge tone="grey">Eligible, not used</Badge>;
 }
 
-function reason(c: PmCandidateProduct) {
+function reason(c: PaCandidateProduct) {
   if (c.screening_status === "EXCLUDED") return c.exclusion_reason ?? "Excluded by the client's constraints.";
   if (c.screening_status === "SELECTED") return `Passed every client check; used in option ${c.selected_in_options.join(", ")}.`;
   return "Passed every client check but ranked lower in its asset class, or its asset class was not used.";
 }
 
 /** Every product the Product Specialist supplied, with why it was used or excluded. No scores or rankings are invented. */
-export function ProductCompare({ response }: { response: PmResponse }) {
+export function ProductCompare({ response }: { response: PaResponse }) {
   const options = response.portfolio_options.filter(isOffered);
   const [filter, setFilter] = useState("ALL");
   const [picked, setPicked] = useState<string[]>([]);
@@ -35,7 +35,7 @@ export function ProductCompare({ response }: { response: PmResponse }) {
   const compared = all.filter((c) => picked.includes(c.product_id));
   const toggle = (id: string) => setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : p.length >= MAX ? p : [...p, id]));
 
-  const fields: [string, (c: PmCandidateProduct) => ReactNode][] = [
+  const fields: [string, (c: PaCandidateProduct) => ReactNode][] = [
     ["Asset class", (c) => `${c.asset_class}${c.details.sub_asset_class ? ` · ${c.details.sub_asset_class}` : ""}`],
     ["Issuer", (c) => c.details.issuer ?? DASH],
     ["Status for this client", (c) => <div className="flex flex-col gap-2">{status(c)}<span className="text-xs">{reason(c)}</span></div>],

@@ -36,7 +36,7 @@ function RecordCard({ r }: { r: HouseView }) {
   );
 }
 
-/** Standalone, not client-specific: usable by RM, IC and PS. */
+/** Standalone, not client-specific: usable by RM, PM and PS. */
 export default function HouseViewRecords() {
   const records = useAsync(() => arcApi.getHouseViews(""), []);
   const [order, setOrder] = useState<SortOrder>("latest");

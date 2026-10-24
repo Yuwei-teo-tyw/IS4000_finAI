@@ -12,17 +12,17 @@ from collections import OrderedDict
 from datetime import datetime, timezone
 from typing import Callable, Optional
 
-from app.agents.portfolio_manager.engine.profile_assessment import assess_profile
-from app.agents.portfolio_manager.explain.llm_client import get_llm
-from app.agents.portfolio_manager.schemas.client import ClientProfile
-from app.agents.portfolio_manager.schemas.upstream import UpstreamResult
-from app.agents.portfolio_manager.taxonomy import (
+from app.agents.portfolio_agent.engine.profile_assessment import assess_profile
+from app.agents.portfolio_agent.explain.llm_client import get_llm
+from app.agents.portfolio_agent.schemas.client import ClientProfile
+from app.agents.portfolio_agent.schemas.upstream import UpstreamResult
+from app.agents.portfolio_agent.taxonomy import (
     ASSET_CLASS_ORDER,
     RISK_LEVEL_LABELS,
     AssetClass,
     parse_asset_class,
 )
-from app.agents.portfolio_manager.upstream.market_analysis import fetch_market_analysis
+from app.agents.portfolio_agent.upstream.market_analysis import fetch_market_analysis
 from app.agents.product_recommender import ranking
 from app.agents.product_recommender.asset_views.builder import build_view, headline_only
 from app.agents.product_recommender.asset_views.narrative import llm_narrative

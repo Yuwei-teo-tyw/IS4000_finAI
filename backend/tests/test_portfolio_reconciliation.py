@@ -4,14 +4,14 @@ withholding any option whose numbers fail programmatic validation.
 """
 import pytest
 
-import app.agents.portfolio_manager.service as service_module
+import app.agents.portfolio_agent.service as service_module
 from portfolio_helpers import GENERATE, make_client, offered, option, request_with
-from app.agents.portfolio_manager.engine.construction import Position, finalise
-from app.agents.portfolio_manager.engine.product_screening import ScreenedProduct
-from app.agents.portfolio_manager.engine.validation import validate_option
-from app.agents.portfolio_manager.schemas.response import PortfolioOption
-from app.agents.portfolio_manager.schemas.upstream import ProductCandidate
-from app.agents.portfolio_manager.taxonomy import AssetClass
+from app.agents.portfolio_agent.engine.construction import Position, finalise
+from app.agents.portfolio_agent.engine.product_screening import ScreenedProduct
+from app.agents.portfolio_agent.engine.validation import validate_option
+from app.agents.portfolio_agent.schemas.response import PortfolioOption
+from app.agents.portfolio_agent.schemas.upstream import ProductCandidate
+from app.agents.portfolio_agent.taxonomy import AssetClass
 
 
 def _sp(pid: str) -> ScreenedProduct:

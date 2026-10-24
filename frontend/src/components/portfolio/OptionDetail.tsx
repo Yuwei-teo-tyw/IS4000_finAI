@@ -1,14 +1,15 @@
-import type { PmOption } from "../../types/portfolio";
+import type { PaOption } from "../../types/portfolio";
 import { isOffered } from "../../types/portfolio";
 import { Badge, Card, Table } from "../ui";
-import { currentYield, DASH, fx, historical, LIQUIDITY, pct, sgdAmt, STATUS_LABEL } from "./pmFormat";
+import { allocationOf } from "./allocation";
+import { AllocationView } from "./AllocationView";
+import { currentYield, DASH, fx, historical, LIQUIDITY, pct, sgdAmt, STATUS_LABEL } from "./paFormat";
 
-const ASSETS = ["Cash", "Fixed income", "Equities", "Hedge funds", "Private markets", "Real estate", "Gold"];
 const CHECK_TONE = { PASS: "green", FAIL: "red", UNVERIFIED: "amber", NOT_APPLICABLE: "grey" } as const;
 
-/** One option in full: the agent's mix against the template, its products, and its checks. */
-export function OptionDetail({ option, templateSplit, liquiditySgd }: { option: PmOption | undefined; templateSplit: number[]; liquiditySgd: number | null }) {
-  if (!option) return <Card><p className="text-ink-muted">Pick a template to see the agent's version of it.</p></Card>;
+/** One proposed portfolio in full: every asset class and sub-class, its products, and its checks. */
+export function OptionDetail({ option, liquiditySgd = null, bucketLabel }: { option: PaOption | undefined; liquiditySgd?: number | null; bucketLabel?: string }) {
+  if (!option) return <Card><p className="text-ink-muted">Select a portfolio to see it in detail.</p></Card>;
   if (!isOffered(option)) {
     return (
       <Card>
@@ -18,45 +19,27 @@ export function OptionDetail({ option, templateSplit, liquiditySgd }: { option: 
       </Card>
     );
   }
-  const agent = Object.fromEntries(option.asset_allocation.map((a) => [a.asset_class, a]));
   return (
     <div className="flex flex-col gap-10">
       <Card>
         <div className="flex flex-wrap items-baseline justify-between gap-4">
-          <h3 className="text-xl">{option.option_id} · {option.option_name}: agent's allocation</h3>
+          <h3 className="text-xl">{option.option_id} · {option.option_name}: asset allocation</h3>
           <Badge tone="green">{STATUS_LABEL[option.suitability_status]}</Badge>
         </div>
         <p className="mt-2 text-sm text-ink-muted">
-          Invests {sgdAmt(option.eligible_portfolio_value)}. The Liquidity bucket ({sgdAmt(liquiditySgd)}) is held separately in cash and is not part of these figures.
+          {bucketLabel
+            ? `Invests the ${bucketLabel} bucket's ${sgdAmt(option.eligible_portfolio_value)}. The other buckets have their own portfolios.`
+            : `Invests ${sgdAmt(option.eligible_portfolio_value)}. The Liquidity bucket (${sgdAmt(liquiditySgd)}) is held separately in cash and is not part of these figures.`}
         </p>
-        <div className="mt-8 flex flex-col gap-5">
-          {ASSETS.map((a, i) => {
-            const share = agent[a]?.allocation_percentage ?? 0;
-            const tpl = templateSplit[i] ?? 0;
-            if (!share && !tpl) return null;
-            return (
-              <div key={a}>
-                <div className="mb-1.5 flex flex-wrap items-baseline justify-between gap-2 text-sm">
-                  <span className="text-ink">{a}</span>
-                  <span className="text-ink-muted">template {tpl}% · agent {pct(share, 2)} · {sgdAmt(agent[a]?.investment_amount ?? 0)}</span>
-                </div>
-                <div className="relative h-3 rounded-sm bg-scale-track">
-                  <div className="absolute inset-y-0 left-0 rounded-sm bg-scale-fill" style={{ width: `${Math.min(100, share * 1.5)}%` }} />
-                  <div className="absolute inset-y-[-3px] w-0.5 bg-ink" style={{ left: `${Math.min(100, tpl * 1.5)}%` }} title={`Template ${tpl}%`} />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-        <p className="mt-4 text-xs text-ink-muted">Bar = agent's allocation. Black line = template weight.</p>
+        <div className="mt-8 max-w-2xl"><AllocationView rows={allocationOf(option)} /></div>
         {option.suitability_status === "SUITABLE_WITH_MODIFICATIONS" && (
-          <p className="mt-6 text-sm text-ink-700"><span className="font-semibold">Why it differs from the template: </span>{option.suitability_explanation.replace(/^Template adapted to the client's circumstances: /, "")}</p>
+          <p className="mt-6 text-sm text-ink-700"><span className="font-semibold">How the agent adapted it: </span>{option.suitability_explanation.replace(/^Template adapted to the client's circumstances: /, "")}</p>
         )}
       </Card>
 
       <div>
         <h3 className="mb-2 text-xl">Products</h3>
-        <p className="mb-5 text-sm text-ink-muted">Past returns, current yield and return assumption measure different things and are shown separately. All products are illustrative mock data.</p>
+        <p className="mb-5 text-sm text-ink-muted">Past returns, current yield and return assumption measure different things and are shown separately. All products are illustrative data.</p>
         <Table
           head={["Product", "Amount", "Past returns · historical", "Current yield", "Return assumption · forecast", "Fee p.a.", "Dealing", "Currency"]}
           rows={option.product_selections.map((p) => [

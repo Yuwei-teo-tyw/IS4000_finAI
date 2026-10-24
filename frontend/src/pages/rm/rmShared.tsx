@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useState, type ReactNode } from "react";
-import { Lock, Upload, X } from "lucide-react";
-import { CitationTag, BulletList, Badge, Button, toBulletItems } from "../../components/ui";
+import { Lock, X } from "lucide-react";
+import { CitationTag, BulletList, Badge, Button, SCRIPT_FONT, SignatureBlock, toBulletItems } from "../../components/ui";
 import type { DocSection } from "../../components/export/CompiledDocument";
 import { parseBlocks, hasHeadings, composeBlocks } from "../../services/packBlocks";
 import { ROLE_LABEL, type AllocationRow, type IpsPart, type PackBlock, type PackSection, type Role } from "../../types/arc";
@@ -8,7 +8,7 @@ import { ROLE_PEOPLE } from "../../layouts/navConfig";
 import { BlockEditor, BlockItem, newBlockId, useSectionBlocks } from "../../components/documents/pack";
 import { SaaDonut } from "../../components/documents/ips/charts";
 import { loadPackDrafts, loadRawBlocks, loadSignatures, savePackDraft, subscribePackDrafts, subscribeSignatures, useSectionDone, type PackSignatures as Sigs } from "../../services/packDraftStore";
-import { useAllFinalised, useIcHandover, useReviewRequest } from "../../services/workflowStore";
+import { useAllFinalised, usePmHandover, useReviewRequest } from "../../services/workflowStore";
 import { arcApi } from "../../services/arcApi";
 import { useAsync } from "../../components/ui";
 
@@ -58,7 +58,7 @@ function BodyView({ text }: { text: string }) {
 }
 
 export const onboardingSteps = [
-  { label: "Upload notes" }, { label: "Summary" }, { label: "IPS draft" }, { label: "Send to IC" }, { label: "Approve G1" },
+  { label: "Upload notes" }, { label: "Summary" }, { label: "IPS draft" }, { label: "Send to PM" }, { label: "Approve G1" },
 ];
 
 export const fmtDate = (s: string) =>
@@ -284,26 +284,21 @@ export const packToSections = (clientId: string, pack: PackSection[], override: 
 export const isSignoff = (x: { kind?: string }) => x.kind === "signoff";
 export const isSources = (x: { title: string }) => /^sources/i.test(x.title);
 
-const ALL_ROLES: Role[] = ["rm", "ic", "ps"];
+const ALL_ROLES: Role[] = ["rm", "pm", "ps"];
 const fmtWhen = (iso: string) => new Date(iso).toLocaleString("en-SG", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
-const MAX_BYTES = 1_500_000;
 
-/** Section 6: one sign-off box per role (RM, IC, PS). The current role's box is red-outlined and actionable; others are read-only status. */
-export function SignoffBoxes({ sigs, me, onSign, onRemove }: {
-  sigs: Sigs; me: Role; onSign?: (role: Role, sig: { name: string; dataUrl: string; signedAt: string }) => void; onRemove?: (role: Role) => void;
+/** Sign-off section: one box per role (RM, PM, PS). The current role's box is red-outlined; while it is unsigned, the same
+ *  Type / Draw / Upload signature block the PS uses opens below the boxes. Others are read-only status. */
+export function SignoffBoxes({ sigs, me, clientId, onRemove }: {
+  sigs: Sigs; me: Role; clientId?: string; onRemove?: (role: Role) => void;
 }) {
-  const pick = (file?: File) => {
-    if (!file || !onSign || file.size > MAX_BYTES || !file.type.startsWith("image/")) return;
-    const reader = new FileReader();
-    reader.onload = () => onSign(me, { name: file.name, dataUrl: String(reader.result), signedAt: new Date().toISOString() });
-    reader.readAsDataURL(file);
-  };
   const scope: Record<Role, string> = {
     rm: "Confirms client suitability, goals and the presentation of this pack.",
-    ic: "Confirms the market view, portfolio health and tactical allocation.",
+    pm: "Confirms the market view, portfolio health and tactical allocation.",
     ps: "Confirms the product shortlist, fees and suitability notes.",
   };
   return (
+    <div>
     <div className="grid gap-5 sm:grid-cols-3">
       {ALL_ROLES.map((r) => {
         const sig = sigs[r];
@@ -317,22 +312,26 @@ export function SignoffBoxes({ sigs, me, onSign, onRemove }: {
             <p className="mt-3 text-sm text-ink">{ROLE_PEOPLE[r].person}</p>
             <p className="mt-2 text-[13px] leading-6 text-ink-muted">{scope[r]}</p>
             <div className={`mt-4 flex h-24 items-center justify-center overflow-hidden border ${sig ? "border-hairline bg-surface-100" : "border-dashed border-hairline-strong bg-surface-200"}`}>
-              {sig ? (sig.typed || !sig.dataUrl ? <span className="font-serif text-xl italic text-ink">{sig.name}</span> : <img src={sig.dataUrl} alt={`${ROLE_PEOPLE[r].person} signature`} className="max-h-full max-w-full object-contain p-2" />)
+              {sig ? (sig.typed || !sig.dataUrl ? <span className="text-[26px] leading-tight text-ink" style={{ fontFamily: SCRIPT_FONT }}>{sig.name}</span> : <img src={sig.dataUrl} alt={`${ROLE_PEOPLE[r].person} signature`} className="max-h-full max-w-full object-contain p-2" />)
                 : <span className="text-[13px] italic text-ink-muted">Digital signature pending</span>}
             </div>
             <p className="mt-2 text-[12px] text-ink-muted">{sig ? `Signed ${fmtWhen(sig.signedAt)}` : "Signed on: ____________"}</p>
-            {mine && onSign && (
-              <div className="no-print mt-3 flex items-center gap-2">
-                <label className="inline-flex min-h-9 cursor-pointer items-center gap-2 border border-hairline px-3 text-[13px] text-ink hover:bg-surface-300">
-                  <Upload size={14} />{sig ? "Replace" : "Sign here"}
-                  <input type="file" accept="image/*" className="hidden" onChange={(e) => { pick(e.target.files?.[0]); e.target.value = ""; }} />
-                </label>
-                {sig && <button type="button" onClick={() => onRemove?.(r)} aria-label="Remove signature" title="Remove" className="p-2 text-ink-muted hover:text-negative"><X size={16} /></button>}
+            {mine && clientId && (
+              <div className="no-print mt-3 flex min-h-9 items-center gap-2 text-[13px] text-ink-muted">
+                {sig
+                  ? <button type="button" onClick={() => onRemove?.(r)} aria-label="Remove signature" title="Remove" className="inline-flex items-center gap-1 p-2 text-ink-muted hover:text-negative"><X size={16} />Remove</button>
+                  : "Sign in the box below."}
               </div>
             )}
           </div>
         );
       })}
+    </div>
+    {clientId && !sigs[me] && (
+      <div className="no-print mt-6">
+        <SignatureBlock clientId={clientId} role={me} defaultName={ROLE_PEOPLE[me].person} title={`Sign as ${ROLE_LABEL[me]}`} />
+      </div>
+    )}
     </div>
   );
 }
@@ -346,7 +345,7 @@ const SOURCES_BY_ROLE: Record<Role, string[]> = {
     "Client goals, concerns and constraints as recorded in the CRM relationship file [CRM-0318].",
     "Suitability and affordability checks completed before the review meeting [SUIT-2026-10].",
   ],
-  ic: [
+  pm: [
     "UBS CIO House View, fixed income section, dated 1 Oct 2026 [CIO-2026Q4-03].",
     "Market Research Agent case result covering macro regime and rates outlook [MKT-0142].",
     "Sharpe ratio and volatility computed by the approved calculation engine [CALC-sharpe-v1].",
@@ -360,11 +359,11 @@ const SOURCES_BY_ROLE: Record<Role, string[]> = {
     "Product risk ratings and suitability notes from the product governance register [PRD-RISK-2026].",
     "Issuer credit assessment for structured and fixed income products [CRD-2026-10].",
     "Factsheets and key information documents for every recommended product [KID-2026Q4].",
-    "Consistency check of the shortlist against the IC overweight in fixed income [PS-CHK-004].",
+    "Consistency check of the shortlist against the PM overweight in fixed income [PS-CHK-004].",
   ],
 };
 
-const SRC_HEAD: Record<Role, string> = { rm: "Relationship Manager", ic: "Investment Counsellor", ps: "Product Specialist" };
+const SRC_HEAD: Record<Role, string> = { rm: "Relationship Manager", pm: "Portfolio Manager", ps: "Product Specialist" };
 
 /** Section 7 text -> sources per role (only roles present in the text). Blocks are '## Relationship Manager' etc. */
 function parseSources(text: string | undefined): Partial<Record<Role, string[]>> {
@@ -388,8 +387,8 @@ export function SourcesBoard({ clientId, me, editing: editingProp, hideEditButto
   const n = pack?.find(isSources)?.n;
   const sentRm = !!useReviewRequest(clientId);
   const ps = useAllFinalised().some((f) => f.clientId === clientId);
-  const ic = !!useIcHandover(clientId);
-  const handed: Record<Role, boolean> = { rm: sentRm || ps, ic, ps };
+  const pm = !!usePmHandover(clientId);
+  const handed: Record<Role, boolean> = { rm: sentRm || ps, pm, ps };
   const [editingLocal, setEditing] = useState(false);
   const editing = editingProp ?? editingLocal;
   const [buf, setBuf] = useState<string[]>([]);
@@ -435,10 +434,10 @@ export function SourcesBoard({ clientId, me, editing: editingProp, hideEditButto
 }
 
 /**
- * Single source of truth for section ticks, identical in the RM, IC and PS views of one client's pack.
+ * Single source of truth for section ticks, identical in the RM, PM and PS views of one client's pack.
  * A section is complete only after its owner marked it done and handed it over:
- *  - ps sections: PS finalised and sent to IC (G3, useAllFinalised).
- *  - ic sections: IC sent G2 to RM (useIcHandover).
+ *  - ps sections: PS finalised and sent to PM (G3, useAllFinalised).
+ *  - pm sections: PM sent G2 to RM (usePmHandover).
  *  - rm sections: profile (1) once the RM has saved text; sources once the RM sent the request to PS; sign-off once all three signed.
  */
 export function usePackStatus(clientId: string) {
@@ -450,15 +449,15 @@ export function usePackStatus(clientId: string) {
   const done = useSectionDone(clientId);
   const sent = !!useReviewRequest(clientId);
   const finalisedByPs = useAllFinalised().some((f) => f.clientId === clientId);
-  const icHandedOver = !!useIcHandover(clientId);
+  const pmHandedOver = !!usePmHandover(clientId);
   const complete: Record<number, boolean> = {};
   (pack ?? []).forEach((x) => {
     const text = (drafts[x.n] ?? x.body).trim();
     const marked = !!done[x.n]?.done;
-    if (x.kind === "signoff") complete[x.n] = ["rm", "ic", "ps"].every((r) => sigs[r]);
+    if (x.kind === "signoff") complete[x.n] = ["rm", "pm", "ps"].every((r) => sigs[r]);
     else if (isSources(x)) complete[x.n] = marked && (x.owner === "ps" ? finalisedByPs : sent || finalisedByPs);
     else if (x.owner === "ps") complete[x.n] = marked && finalisedByPs && !!text;
-    else if (x.owner === "ic") complete[x.n] = marked && icHandedOver && !!text;
+    else if (x.owner === "pm") complete[x.n] = marked && pmHandedOver && !!text;
     else complete[x.n] = marked && !!text;
   });
   const total = pack?.length ?? 0;
