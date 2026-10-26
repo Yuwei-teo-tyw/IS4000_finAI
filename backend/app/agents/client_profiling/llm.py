@@ -56,3 +56,35 @@ def local_chat_json(system: str, user: str) -> str:
     req = urllib.request.Request(f"{base}/chat/completions", data=body, headers={"Content-Type": "application/json"})
     with urllib.request.urlopen(req, timeout=float(os.getenv("CLIENT_PROFILING_ANSWER_TIMEOUT_S", "60"))) as r:
         return json.load(r)["choices"][0]["message"]["content"]
+
+
+def backup_model_name():
+    """Optional fallback model (env CLIENT_PROFILING_LLM_BACKUP_MODEL); None when not configured."""
+    v = os.getenv("CLIENT_PROFILING_LLM_BACKUP_MODEL", "").strip()
+    return v or None
+
+
+class ModelRouter:
+    """ChatFn that tries the primary model, then the backup model. `model_used` = the model that produced the last good
+    reply (the backup's name after a fallback); None until a call succeeds. Raises when no model answers."""
+
+    def __init__(self, make, primary=None, backup=None):
+        self.make, self.primary, self.backup = make, primary or model_name(), backup if backup is not None else backup_model_name()
+        self.model_used = None
+
+    def __call__(self, system: str, user: str) -> str:
+        names = [self.primary] + ([self.backup] if self.backup and self.backup != self.primary else [])
+        err = None
+        for name in names:
+            try:
+                out = self.make(name)(system, user)
+                self.model_used = name
+                return out
+            except Exception as e:  # noqa: BLE001 - any connection/HTTP problem moves on to the backup
+                err = e
+        raise err
+
+
+def model_used(chat) -> str:
+    """Name of the model behind `chat` (a ModelRouter reports what it really used; an injected fn counts as the primary)."""
+    return getattr(chat, "model_used", None) or model_name()

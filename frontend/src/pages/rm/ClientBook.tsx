@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { ArrowDownWideNarrow, ArrowUpNarrowWide, CalendarClock, Landmark, Users, type LucideIcon } from "lucide-react";
-import { arcApi } from "../../services/arcApi";
+import { arcApi, bookToClient } from "../../services/arcApi";
 import { Button, Card, Loading, RiskScale, sgd, useAsyncResult } from "../../components/ui";
 import { WelcomeBanner } from "../../components/ui/WelcomeBanner";
 import { useRole } from "../../layouts/AppShell";
 import { fmtDate, usePackStatus } from "./rmShared";
-import type { Client, RiskCategory } from "../../types/arc";
+import type { Client } from "../../types/arc";
 import type { BookClient } from "../../types/clientProfiling";
 import { useActivated, useIpsReturned, useIpsSent } from "../../services/workflowStore";
 
@@ -55,18 +55,9 @@ const NONE = <p className="text-sm text-ink-muted">-</p>;
 
 /** RM-only progress cells; "-" while a phase has not started. Onboarding: IPS draft, sent to PM, returned, active. Pack: sections complete. */
 type Row = Client & { db?: { onboarding: number; pack: number } };
-const RISK_CAP: Record<string, number> = { Conservative: 1, Moderate: 2, Balanced: 3, Growth: 4, Aggressive: 5 };
-/** Backend book row -> the Client view this page uses; fields the DB does not hold stay empty and render as "-". */
+/** Backend book row -> the Client view this page uses, plus the DB progress. */
 function fromBook(b: BookClient): Row {
-  const cat = b.risk_category ?? "";
-  return {
-    id: b.id, name: (b.surname && !b.name.includes(b.surname) ? `${b.name} ${b.surname}` : b.name) || b.id,
-    riskCategory: cat as RiskCategory, riskCap: RISK_CAP[cat] ?? 0, aumSgd: b.aum_sgd ?? 0,
-    nextMeeting: "", nextQuarterlyReview: null,
-    status: (b.status ?? "").toLowerCase().startsWith("monitor") ? "Monitoring Phase" : "Onboarding Phase",
-    ipsVersion: null, sharpe: 0, diversificationScore: 0,
-    db: { onboarding: b.onboarding_progress, pack: b.monitoring_progress },
-  };
+  return { ...bookToClient(b), db: { onboarding: b.onboarding_progress, pack: b.monitoring_progress } };
 }
 
 /** DB progress is the baseline; workflow state only raises it when real workflow state exists for the client. */

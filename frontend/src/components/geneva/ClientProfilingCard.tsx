@@ -1,11 +1,10 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { ChevronRight, FileText } from "lucide-react";
-import { arcApi } from "../../services/arcApi";
-import type { MeetingNote, Role } from "../../types/arc";
+import type { Role } from "../../types/arc";
 import { bothOf, clarifyOptions, routingSource } from "../../types/clientProfiling";
 import type { ClientProfilingSourceChoice, ClientProfilingAnswer, ClientProfilingResult, ClientProfilingSummary, ClientProfilingSection, ClientProfilingSource } from "../../types/clientProfiling";
-import { DocumentPreviewModal } from "../documents/DocumentPreviewModal";
+import { MeetingNoteModal } from "./MeetingNoteModal";
 
 const label = "text-xs font-semibold uppercase tracking-[0.12em] text-ink-muted";
 const KINDS = ["documented", "calculated", "inferred", "missing"];
@@ -53,24 +52,9 @@ export function SourceRow({ sources, role, onOpenNote }: { sources?: ClientProfi
   return l.length ? <div className="flex flex-wrap items-center gap-1.5"><span className="text-[12px] text-ink-muted">Sources</span>{l.map((s) => <SourceChip key={`${s.type}-${s.id}`} s={s} role={role} onOpenNote={onOpenNote} />)}</div> : null;
 }
 
-/** Original meeting note in the same preview modal the Meeting notes list uses. */
+/** Original meeting note in a centred modal (cited passage highlighted). */
 export function NoteModal({ source, onClose }: { source: ClientProfilingSource; onClose: () => void }) {
-  const [note, setNote] = useState<MeetingNote | null | undefined>(undefined);
-  useEffect(() => { arcApi.getMeetingNotes(source.client_id).then((ns) => setNote(ns.find((n) => n.id === source.id) ?? null), () => setNote(null)); }, [source]);
-  return (
-    <DocumentPreviewModal withMark title={note?.sourceFile ?? source.label} onClose={onClose}>
-      <article className="mx-auto w-full max-w-[780px] border border-hairline bg-surface-100 px-12 py-14 text-ink">
-        <p className={label}>Original meeting notes</p>
-        <h1 className="mt-6 text-3xl font-light">{note?.title ?? source.label}</h1>
-        <p className="mt-3 text-sm text-ink-muted">{fmtDate(note?.date ?? source.date)}</p>
-        <div className="mt-8 space-y-5 border-t border-hairline pt-8">
-          {note ? note.originalText.split(/\n\s*\n/).map((p, i) => <p key={i} className="text-base leading-relaxed text-ink">{p}</p>)
-            : <p className="text-base leading-relaxed text-ink">{note === undefined ? "Loading…" : source.passage ?? "The original note is not available in this workspace."}</p>}
-        </div>
-        {note && source.passage && <p className="mt-8 border-l-2 border-ink-muted pl-4 text-sm italic text-ink-700">Cited passage: {source.passage}</p>}
-      </article>
-    </DocumentPreviewModal>
-  );
+  return <MeetingNoteModal clientId={source.client_id} noteId={source.id} passage={source.passage} fallbackLabel={source.label} fallbackDate={source.date} onClose={onClose} />;
 }
 
 function SectionBlock({ sec, role, onOpenNote }: { sec: ClientProfilingSection; role: Role; onOpenNote: (s: ClientProfilingSource) => void }) {

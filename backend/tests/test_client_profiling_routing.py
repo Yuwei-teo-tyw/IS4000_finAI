@@ -177,3 +177,24 @@ def test_question_for_client_with_no_notes_says_no_results_without_a_model_call(
         return "{}"
     r = handle_chat("What did the client say about her cash reserve?", "ser", answer_chat=chat)  # seeded client without notes
     assert r.tool == "get_meeting_note" and r.status == "not_found" and r.message == "No meeting notes found." and calls == []
+
+
+def test_client_lookup_store_down_is_source_specific_no_fallback(ips, monkeypatch):
+    monkeypatch.setattr(service, "resolve_client", blow)
+    r = handle_chat("What does the IPS say?", "jfr", source="ips")
+    assert r.tool == "source_unavailable" and "IPS database is unavailable" in r.message and "not used the meeting notes" in r.message
+    r = handle_chat("What did the client say?", "jfr", source="notes")
+    assert r.tool == "source_unavailable" and "meeting-notes database is unavailable" in r.message and "not used the IPS" in r.message
+    assert ips.calls == []
+
+
+def test_ips_model_off_message_names_ips_and_never_uses_notes(ips, monkeypatch):
+    ips.result = None
+    monkeypatch.setattr(service, "answer_question", blow)
+    r = handle_chat("What does the IPS say?", "jfr", router_chat=router("ips"))
+    assert r.tool == "routing_unavailable" and "IPS" in r.message and "not used the meeting notes" in r.message and r.sources == []
+
+
+def test_router_timeout_default_leaves_room_for_the_10s_no_results_bound():
+    from app.agents.client_profiling import source_router
+    assert "CLIENT_PROFILING_ROUTER_TIMEOUT_S\", \"5\"" in open(source_router.__file__).read()

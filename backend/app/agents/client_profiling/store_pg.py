@@ -8,6 +8,7 @@ Tests may isolate in a throwaway schema via PostgresStore(schema=...) or CLIENT_
 """
 from __future__ import annotations
 
+import json
 import os
 import threading
 from typing import Optional
@@ -18,8 +19,8 @@ from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
 from . import embeddings
-from .store import (DEFAULT_DATA_DIR, UPLOADS_FILE, BaseStore, Client, DocumentStore, IpsPartDoc, IpsVersion,
-                    MeetingNoteDoc, StoreUnavailableError, _check_progress)
+from .store import (DEFAULT_DATA_DIR, DEFAULT_RM, IPS_CHAT_CAP, UPLOADS_FILE, BaseStore, Client, DocumentStore, IpsPartDoc, IpsVersion,
+                    MeetingNoteDoc, StoreUnavailableError, _check_chat, _check_progress)
 
 _SEEDED: set[tuple[str, str, str]] = set()
 _LOCK = threading.Lock()
@@ -34,6 +35,10 @@ _IPS_CHUNK_DDL = """CREATE TABLE IF NOT EXISTS cp_ips_chunks (
     id BIGSERIAL PRIMARY KEY, client_id TEXT NOT NULL, version INTEGER NOT NULL, part_n INTEGER NOT NULL,
     chunk_idx INTEGER NOT NULL, text TEXT NOT NULL, embedding vector(768),
     UNIQUE (client_id, version, part_n, chunk_idx))"""
+
+_GUIDE_DDL = """CREATE TABLE IF NOT EXISTS cp_guide_chunks (
+    id BIGSERIAL PRIMARY KEY, chunk_idx INTEGER NOT NULL UNIQUE, heading TEXT NOT NULL DEFAULT '',
+    text TEXT NOT NULL, embedding vector(768))"""
 
 # Read-only convenience views: client_name is joined live from cp_clients (never copied), falling back to the
 # client id when the name is empty. Chunk views omit the 768-dim embedding so table viewers stay readable.
@@ -78,6 +83,23 @@ _DDL = [
     "CREATE INDEX IF NOT EXISTS cp_meeting_notes_client_idx ON cp_meeting_notes (client_id, note_date)",
     # The old per-RM book table is replaced by cp_clients.in_book (single RM); drop it only if it exists.
     "DROP TABLE IF EXISTS cp_client_book",
+    """CREATE TABLE IF NOT EXISTS cp_strategies (
+        code TEXT PRIMARY KEY, name TEXT NOT NULL, risk_label TEXT NOT NULL DEFAULT '',
+        expected_return_pct DOUBLE PRECISION, volatility_pct DOUBLE PRECISION, max_drawdown_pct DOUBLE PRECISION,
+        longest_drawdown_years DOUBLE PRECISION, stress JSONB NOT NULL DEFAULT '{}'::jsonb)""",
+    """CREATE TABLE IF NOT EXISTS cp_strategy_allocations (
+        strategy_code TEXT NOT NULL REFERENCES cp_strategies(code) ON DELETE CASCADE,
+        asset_class TEXT NOT NULL, weight_pct DOUBLE PRECISION NOT NULL, PRIMARY KEY (strategy_code, asset_class))""",
+    """CREATE TABLE IF NOT EXISTS cp_ips_chat (
+        id TEXT PRIMARY KEY, client_id TEXT NOT NULL, seq BIGSERIAL, role TEXT NOT NULL, kind TEXT NOT NULL DEFAULT 'chat',
+        text TEXT NOT NULL, ts TIMESTAMPTZ NOT NULL DEFAULT now(), meta JSONB)""",
+    "ALTER TABLE cp_ips_chat ADD COLUMN IF NOT EXISTS rm_id TEXT NOT NULL DEFAULT 'rm_default'",
+    "CREATE INDEX IF NOT EXISTS cp_ips_chat_client_idx ON cp_ips_chat (client_id, rm_id, seq)",
+    "ALTER TABLE cp_ips_versions ADD COLUMN IF NOT EXISTS data JSONB NOT NULL DEFAULT '{}'::jsonb",
+    """CREATE TABLE IF NOT EXISTS cp_strategy_overrides (
+        id BIGSERIAL PRIMARY KEY, client_id TEXT NOT NULL, portfolio TEXT NOT NULL, from_strategy TEXT NOT NULL DEFAULT '',
+        to_strategy TEXT NOT NULL, reason TEXT NOT NULL DEFAULT '', rm_id TEXT NOT NULL DEFAULT 'rm_default',
+        ts TIMESTAMPTZ NOT NULL DEFAULT now())""",
     *_VIEW_DDL,
 ]
 
@@ -127,6 +149,7 @@ class PostgresStore(BaseStore):
                     conn.execute("CREATE EXTENSION IF NOT EXISTS vector SCHEMA public")
                     conn.execute(_CHUNK_DDL)
                     conn.execute(_IPS_CHUNK_DDL)
+                    conn.execute(_GUIDE_DDL)
                     ok = True
                     try:
                         with conn.transaction():
@@ -226,6 +249,17 @@ class PostgresStore(BaseStore):
     def _seed(self, conn: psycopg.Connection) -> None:
         d = self.data_dir
         load = DocumentStore._load
+        sfile = d / "strategies.json"
+        if sfile.exists():
+            for s in json.loads(sfile.read_text(encoding="utf-8"))["strategies"]:
+                conn.execute(
+                    "INSERT INTO cp_strategies (code, name, risk_label, expected_return_pct, volatility_pct, max_drawdown_pct, "
+                    "longest_drawdown_years, stress) VALUES (%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING",
+                    (s["code"], s["name"], s.get("risk_label", ""), s.get("expected_return_pct"), s.get("volatility_pct"),
+                     s.get("max_drawdown_pct"), s.get("longest_drawdown_years"), Jsonb(s.get("stress") or {})))
+                for ac, w in (s.get("allocation") or {}).items():
+                    conn.execute("INSERT INTO cp_strategy_allocations (strategy_code, asset_class, weight_pct) "
+                                 "VALUES (%s,%s,%s) ON CONFLICT DO NOTHING", (s["code"], ac, w))
         for c in load(d / "clients.json", "clients"):
             c = Client(**c)
             conn.execute(
@@ -273,7 +307,7 @@ class PostgresStore(BaseStore):
     # ---- documents ----
     def get_ips_versions(self, client_id: str) -> list[IpsVersion]:
         with self._connect() as conn:
-            rows = conn.execute("SELECT client_id, version, status, issued_on, author, summary, parts "
+            rows = conn.execute("SELECT client_id, version, status, issued_on, author, summary, parts, data "
                                 "FROM cp_ips_versions WHERE client_id = %s ORDER BY version DESC",
                                 (client_id,)).fetchall()
         return [IpsVersion(**{**r, "parts": [IpsPartDoc(**p) for p in r["parts"]]}) for r in rows]
@@ -305,14 +339,14 @@ class PostgresStore(BaseStore):
         return note.model_copy(deep=True)
 
     def update_note(self, client_id: str, note_id: str, title: Optional[str] = None,
-                    text: Optional[str] = None) -> Optional[MeetingNoteDoc]:
-        """Edit title/text of one of this client's notes only; None if no such note for that client."""
+                    text: Optional[str] = None, date: Optional[str] = None) -> Optional[MeetingNoteDoc]:
+        """Edit title/date/text of one of this client's notes only; None if no such note for that client."""
         with self._connect() as conn:
             r = conn.execute(
-                "UPDATE cp_meeting_notes SET title = COALESCE(%s, title), text = COALESCE(%s, text) "
-                "WHERE client_id = %s AND id = %s "
+                "UPDATE cp_meeting_notes SET title = COALESCE(%s, title), text = COALESCE(%s, text), "
+                "note_date = COALESCE(%s, note_date) WHERE client_id = %s AND id = %s "
                 "RETURNING id, client_id, note_date, title, source_file, text",
-                (title, text, client_id, note_id)).fetchone()
+                (title, text, date, client_id, note_id)).fetchone()
         if r and text is not None:
             self._reindex_note(client_id, note_id, r["text"])
         return self._note(r) if r else None
@@ -343,7 +377,7 @@ class PostgresStore(BaseStore):
         return r is not None
 
     def save_ips(self, client_id: str, parts: list[IpsPartDoc], version: Optional[int] = None, summary: Optional[str] = None,
-                 author: Optional[str] = None, status: str = "Active") -> Optional[IpsVersion]:
+                 author: Optional[str] = None, status: str = "Active", data: Optional[dict] = None) -> Optional[IpsVersion]:
         from datetime import date
         with self._connect() as conn:
             if conn.execute("SELECT 1 FROM cp_clients WHERE id = %s", (client_id,)).fetchone() is None:
@@ -351,8 +385,8 @@ class PostgresStore(BaseStore):
             pj = Jsonb([p.model_dump() for p in parts])
             if version is not None:
                 r = conn.execute("UPDATE cp_ips_versions SET parts = %s, summary = COALESCE(%s, summary), "
-                                 "author = COALESCE(%s, author) WHERE client_id = %s AND version = %s RETURNING version",
-                                 (pj, summary, author, client_id, version)).fetchone()
+                                 "author = COALESCE(%s, author), data = COALESCE(%s, data) WHERE client_id = %s AND version = %s RETURNING version",
+                                 (pj, summary, author, Jsonb(data) if data is not None else None, client_id, version)).fetchone()
                 if r is None:
                     return None
             else:
@@ -361,10 +395,30 @@ class PostgresStore(BaseStore):
                 if status == "Active":
                     conn.execute("UPDATE cp_ips_versions SET status = 'Superseded' WHERE client_id = %s AND status = 'Active'",
                                  (client_id,))
-                conn.execute("INSERT INTO cp_ips_versions (client_id, version, status, issued_on, author, summary, parts) "
-                             "VALUES (%s,%s,%s,%s,%s,%s,%s)",
-                             (client_id, version, status, date.today().isoformat(), author or "", summary or "", pj))
+                conn.execute("INSERT INTO cp_ips_versions (client_id, version, status, issued_on, author, summary, parts, data) "
+                             "VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
+                             (client_id, version, status, date.today().isoformat(), author or "", summary or "", pj,
+                              Jsonb(data or {})))
         return next((v for v in self.get_ips_versions(client_id) if v.version == version), None)
+
+    def delete_ips(self, client_id: str, version: int) -> bool:
+        """Remove one IPS version and its chunks. If it was Active, the newest remaining version becomes Active."""
+        with self._connect() as conn:
+            r = conn.execute("DELETE FROM cp_ips_versions WHERE client_id = %s AND version = %s RETURNING status",
+                             (client_id, version)).fetchone()
+            if r is None:
+                return False
+            if r["status"] == "Active" and conn.execute("SELECT 1 FROM cp_ips_versions WHERE client_id = %s AND status = 'Active'",
+                                                        (client_id,)).fetchone() is None:
+                conn.execute("UPDATE cp_ips_versions SET status = 'Active' WHERE client_id = %s AND version = "
+                             "(SELECT MAX(version) FROM cp_ips_versions WHERE client_id = %s)", (client_id, client_id))
+        if self.vector_enabled:
+            try:
+                with self._connect() as conn:
+                    conn.execute("DELETE FROM cp_ips_chunks WHERE client_id = %s AND version = %s", (client_id, version))
+            except Exception:
+                pass
+        return True
 
     def drop_stale_ips_chunks(self, client_id: str, keep_version: Optional[int]) -> None:
         if not self.vector_enabled:
@@ -439,3 +493,120 @@ class PostgresStore(BaseStore):
             return [dict(r) for r in rows] or None
         except Exception:
             return None
+
+    # ---- model strategies (cp_strategies + cp_strategy_allocations), same shape as data/strategies.json ----
+    def list_strategies(self) -> list[dict]:
+        with self._connect() as conn:
+            rows = conn.execute("SELECT * FROM cp_strategies ORDER BY code").fetchall()
+            allocs = conn.execute("SELECT strategy_code, asset_class, weight_pct FROM cp_strategy_allocations").fetchall()
+        if not rows:  # table empty (e.g. seed=False): same data from the JSON file
+            return super().list_strategies()
+        order = ("Bonds", "Liquidity", "Alternative Investments", "Equities", "Other")
+        out = []
+        for r in rows:
+            a = {x["asset_class"]: _num(x["weight_pct"]) for x in allocs if x["strategy_code"] == r["code"]}
+            a = {**{k: a[k] for k in order if k in a}, **{k: v for k, v in a.items() if k not in order}}
+            out.append({"code": r["code"], "name": r["name"], "risk_label": r["risk_label"], "allocation": a,
+                        "expected_return_pct": _num(r["expected_return_pct"]), "volatility_pct": _num(r["volatility_pct"]),
+                        "max_drawdown_pct": _num(r["max_drawdown_pct"]),
+                        "longest_drawdown_years": _num(r["longest_drawdown_years"]), "stress": r["stress"] or {}})
+        return out
+
+    # ---- investor-profile guide chunks (cp_guide_chunks, pgvector) ----
+    def index_guide(self) -> Optional[bool]:
+        """Replace all guide chunks with freshly embedded ones. Never raises; None = no pgvector."""
+        if not self.vector_enabled:
+            return None
+        try:
+            from .guide import guide_chunks
+            items = guide_chunks()
+            vecs = embeddings.embed_documents([f"{h}. {t}" for h, t in items]) if items else []
+            if vecs is None:
+                return False
+            with self._connect() as conn:
+                conn.execute("DELETE FROM cp_guide_chunks")
+                for i, ((h, t), v) in enumerate(zip(items, vecs)):
+                    conn.execute("INSERT INTO cp_guide_chunks (chunk_idx, heading, text, embedding) VALUES (%s,%s,%s,%s::vector)",
+                                 (i, h, t, embeddings.vector_literal(v)))
+            return True
+        except Exception:
+            return False
+
+    def search_guide(self, query: str, k: int = 4) -> Optional[list[dict]]:
+        if not self.vector_enabled or not (query or "").strip():
+            return None
+        try:
+            qv = embeddings.embed_query(query)
+            if qv is None:
+                return None
+            from .guide import guide_chunks
+            with self._connect() as conn:
+                n = conn.execute("SELECT count(*) AS n FROM cp_guide_chunks").fetchone()["n"]
+            if n != len(guide_chunks()):  # missing or stale (guide file changed): lazy (re)index
+                if not self.index_guide():
+                    return None
+            lit = embeddings.vector_literal(qv)
+            with self._connect() as conn:
+                rows = conn.execute("SELECT heading, text, 1 - (embedding <=> %s::vector) AS score FROM cp_guide_chunks "
+                                    "ORDER BY embedding <=> %s::vector LIMIT %s", [lit, lit, k]).fetchall()
+            return [dict(r) for r in rows] or None
+        except Exception:
+            return None
+
+    # ---- IPS chat history (cp_ips_chat) ----
+    @staticmethod
+    def _chat(r: dict) -> dict:
+        return {"id": r["id"], "role": r["role"], "kind": r["kind"], "text": r["text"],
+                "ts": r["ts"].isoformat(), "meta": r["meta"]}
+
+    def list_ips_chat(self, client_id: str, limit: int = IPS_CHAT_CAP, rm_id: str = DEFAULT_RM) -> list[dict]:
+        if limit <= 0:
+            return []
+        with self._connect() as conn:
+            rows = conn.execute("SELECT id, role, kind, text, ts, meta FROM (SELECT * FROM cp_ips_chat WHERE client_id = %s "
+                                "AND rm_id = %s ORDER BY seq DESC LIMIT %s) t ORDER BY seq",
+                                (client_id, rm_id or DEFAULT_RM, limit)).fetchall()
+        return [self._chat(r) for r in rows]
+
+    def append_ips_chat(self, client_id: str, role: str, text: str, kind: str = "chat", meta: Optional[dict] = None,
+                        rm_id: str = DEFAULT_RM) -> dict:
+        _check_chat(role, kind)
+        import uuid
+        rm = rm_id or DEFAULT_RM
+        with self._connect() as conn:
+            r = conn.execute("INSERT INTO cp_ips_chat (id, client_id, rm_id, role, kind, text, meta) VALUES (%s,%s,%s,%s,%s,%s,%s) "
+                             "RETURNING id, role, kind, text, ts, meta",
+                             (f"ipsc_{uuid.uuid4().hex[:12]}", client_id, rm, role, kind, text,
+                              Jsonb(meta) if meta is not None else None)).fetchone()
+            dropped = conn.execute("DELETE FROM cp_ips_chat WHERE client_id = %s AND rm_id = %s AND seq NOT IN "
+                                   "(SELECT seq FROM cp_ips_chat WHERE client_id = %s AND rm_id = %s ORDER BY seq DESC LIMIT %s)",
+                                   (client_id, rm, client_id, rm, IPS_CHAT_CAP)).rowcount
+        return {**self._chat(r), "truncated": dropped > 0}
+
+    def clear_ips_chat(self, client_id: str, rm_id: str = DEFAULT_RM) -> int:
+        with self._connect() as conn:
+            return conn.execute("DELETE FROM cp_ips_chat WHERE client_id = %s AND rm_id = %s", (client_id, rm_id or DEFAULT_RM)).rowcount
+
+    # ---- audit log of manual 3L strategy overrides ----
+    def log_strategy_override(self, client_id: str, portfolio: str, from_strategy: str, to_strategy: str, reason: str = "",
+                              rm_id: str = DEFAULT_RM) -> dict:
+        with self._connect() as conn:
+            r = conn.execute("INSERT INTO cp_strategy_overrides (client_id, portfolio, from_strategy, to_strategy, reason, rm_id) "
+                             "VALUES (%s,%s,%s,%s,%s,%s) RETURNING ts", (client_id, portfolio, from_strategy, to_strategy, reason,
+                                                                         rm_id or DEFAULT_RM)).fetchone()
+        return {"clientId": client_id, "portfolio": portfolio, "from": from_strategy, "to": to_strategy, "reason": reason,
+                "rmId": rm_id or DEFAULT_RM, "ts": r["ts"].isoformat()}
+
+    def list_strategy_overrides(self, client_id: str) -> list[dict]:
+        with self._connect() as conn:
+            rows = conn.execute("SELECT client_id, portfolio, from_strategy, to_strategy, reason, rm_id, ts FROM cp_strategy_overrides "
+                                "WHERE client_id = %s ORDER BY id", (client_id,)).fetchall()
+        return [{"clientId": r["client_id"], "portfolio": r["portfolio"], "from": r["from_strategy"], "to": r["to_strategy"],
+                 "reason": r["reason"], "rmId": r["rm_id"], "ts": r["ts"].isoformat()} for r in rows]
+
+
+def _num(v):
+    if v is None:
+        return None
+    f = float(v)
+    return int(f) if f == int(f) else f

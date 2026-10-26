@@ -38,7 +38,7 @@ def local_router_chat(system: str, user: str) -> str:
         "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
     }).encode()
     req = urllib.request.Request(f"{base}/chat/completions", data=body, headers={"Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=float(os.getenv("CLIENT_PROFILING_ROUTER_TIMEOUT_S", "10"))) as r:
+    with urllib.request.urlopen(req, timeout=float(os.getenv("CLIENT_PROFILING_ROUTER_TIMEOUT_S", "5"))) as r:
         return json.load(r)["choices"][0]["message"]["content"]
 
 

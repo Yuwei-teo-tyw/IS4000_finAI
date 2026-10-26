@@ -8,7 +8,9 @@ Private to this agent, NOT the app's intent parser/triage (untouched). Read-only
 import re
 from typing import Optional
 
+from .alloc_dialogue import allocation_intent, handle_allocation_turn, pending_from_history
 from .answer import answer_question
+from .guide import answer_guide_question, is_guide_question
 from .extract import extract_key_facts
 from .llm import ChatFn, model_name
 from .presentation import build_sections, short_message
@@ -37,6 +39,9 @@ def handle_chat(
     router_chat: Optional[ChatFn] = None,  # fake for the source router (tests); see the routing comment below
     book: Optional[list[str]] = None,  # client ids the RM oversees; None = no restriction
     source: Optional[str] = None,  # "notes" | "ips" | "both": the adviser's explicit choice; None = route automatically
+    allocation: Optional[dict] = None,  # IS-89/90: the current 3L allocation {"buckets": [{id, strategy, justification}]}
+    history: Optional[list] = None,  # IS-90: earlier turns [{role, text, proposal?}]
+    pending_proposal: Optional[dict] = None,  # IS-90: an unconfirmed proposal from the previous turn
 ) -> ToolResult:
     # Input guards first: no store access, no model call.
     text = (message or "").strip()
@@ -46,7 +51,20 @@ def handle_chat(
         return ToolResult(tool="invalid_question", status="needs_clarification",
                           message="Your question is over 1,000 characters. Please shorten or rephrase it.")
     store = store or get_default_store()
-    res = resolve_client(message, client_id, store=store)
+    # 3L / strategies A-F / risk-budget questions are answered from the Investor Profile guide + strategy table
+    # (deterministic fast path: no client resolution needed, no router call). Explicit notes/ips/both choices win.
+    alloc_intent = None
+    if source not in ("guide", "notes", "ips", "both"):  # IS-89/90: justify / challenge / confirm the 3L allocation
+        alloc_intent = allocation_intent(text, history, pending_proposal or pending_from_history(history))
+        if alloc_intent == "challenge" and allocation is None and not _is_alloc_followup(history):
+            alloc_intent = None  # "does she want more liquidity?" is a notes question unless an allocation is in play
+    if source == "guide" or (not alloc_intent and source not in ("notes", "ips", "both") and is_guide_question(text)):
+        return _handle_guide(message, store, client_id, answer_chat)
+    try:
+        res = resolve_client(message, client_id, store=store)
+    except StoreUnavailableError:  # same Postgres holds both sources: say so, and never answer from the other one
+        down, other = ("IPS", "meeting notes") if source == "ips" else ("meeting-notes", "IPS")
+        return _unavailable(down, other)
     if res.status != "ok":  # ambiguous/unknown: never guess, never return client data
         cands = res.candidates if book is None else [c for c in res.candidates if c.get("id") in set(book)]
         return ToolResult(tool="resolve_client", status=res.status, message=res.message, candidates=cands)
@@ -54,6 +72,11 @@ def handle_chat(
     if book is not None and cid not in set(book):  # before ANY retrieval or model call
         return ToolResult(tool="access_denied", status="insufficient_information",
                           message="I cannot access this client's meeting notes because they are not in your book.")
+    if alloc_intent:
+        res_a = handle_allocation_turn(store, cid, message, history, allocation, pending_proposal, answer_chat)
+        if res_a is not None:
+            return ToolResult(tool="allocation_dialogue", status="ok" if res_a["status"] == "ok" else "insufficient_information",
+                              client_id=cid, message=res_a["text"], data={"allocation_dialogue": res_a})
     # Source routing (IS-78/79/80). Order: guards -> client -> book check (above) -> source -> retrieval.
     # An explicit `source` is the adviser's choice (confidence 1). Summaries are always notes (no router call).
     # Compatibility: tests inject only `answer_chat` (a fake for the notes call); with no router_chat and no
@@ -93,6 +116,21 @@ def handle_chat(
     return r
 
 
+def _is_alloc_followup(history) -> bool:
+    for h in reversed(history or []):
+        if isinstance(h, dict) and h.get("role") in ("assistant", "agent"):
+            return bool(re.search(r"\b(?:Agrees|Disagrees|Partly agrees)\b", str(h.get("text"))))
+    return False
+
+
+def _handle_guide(message, store, cid, chat) -> ToolResult:
+    ans = answer_guide_question(message, store, chat)
+    ok = ans["status"] == "ok"
+    return ToolResult(tool="get_guide", status="ok" if ok else "insufficient_information", client_id=cid,
+                      message=ans["text"],
+                      data={"answer": ans, "routing": {"method": "deterministic", "source": "guide", "confidence": 1.0}})
+
+
 def _routing_unavailable() -> ToolResult:
     return ToolResult(tool="routing_unavailable", status="insufficient_information",
                       message="The local model is unavailable, so this question was not routed.",
@@ -117,7 +155,10 @@ def _handle_ips(message, store, cid, chat, info) -> ToolResult:
     except StoreUnavailableError:
         return _unavailable("IPS", "meeting notes", cid)
     if ans is None:
-        return _routing_unavailable()
+        r = _routing_unavailable()
+        r.client_id = cid
+        r.message = "The local model is unavailable, so I could not answer from the IPS. I have not used the meeting notes instead."
+        return r
     st = ans.get("status")
     if st == "no_ips":
         status, msg = "not_found", "This client has no IPS yet."

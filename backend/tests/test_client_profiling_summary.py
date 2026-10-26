@@ -2,7 +2,7 @@
 import json
 import threading
 
-from app.agents.client_profiling.answer import CANNOT
+from app.agents.client_profiling.answer import CANNOT, NOT_ENOUGH
 from app.agents.client_profiling.answer import answer_question
 from app.agents.client_profiling.extract import extract_key_facts
 from app.agents.client_profiling.service import handle_chat
@@ -160,9 +160,9 @@ def _qa(**kw):
 
 def test_inference_validated():
     a = _qa(answerable=False, inference="Inference (not stated in the notes): she may prefer low-volatility bonds.")
-    assert a["status"] == "cannot_answer" and a["text"] == CANNOT and a["inference"].startswith("Inference")
+    assert a["status"] == "cannot_answer" and a["text"] == NOT_ENOUGH and a["inference"].startswith("Inference")
     assert _qa(answerable=False, inference="She would accept 77% in equities.")["inference"] == ""
-    assert _qa(answerable=False)["inference"] == ""
+    assert _qa(answerable=False)["inference"] == "" and _qa(answerable=False)["text"] == CANNOT
     assert _qa(answerable=False, inference="she likes bonds")["inference"].startswith("Inference (not stated in the notes):")
 
 

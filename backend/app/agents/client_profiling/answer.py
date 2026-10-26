@@ -17,7 +17,8 @@ from .schemas import ClientProfile, SourceRef
 from .store import DocumentStore
 
 CANNOT = "I cannot find the answer in this client's meeting notes."
-MAX_CONTEXT_CHARS = 8000
+NOT_ENOUGH = "There is not enough information in the meeting notes to answer this."
+MAX_CONTEXT_CHARS = 12000
 MAX_ANSWER_CHARS = 600
 SUGGESTION_NOTE = "Suggestion by the agent from the meeting notes; not confirmed by the client."
 
@@ -26,7 +27,10 @@ SYSTEM = (
     "- in_scope: true only if the question is about this client's meetings, profile, finances, goals or preferences as "
     "evidenced by the notes; false otherwise (weather, trivia, news, coding, others). If false leave everything else empty.\n"
     "- broad: true only for overview/summary/recap questions, false for a specific fact.\n"
-    "- answer: one short sentence (max 15 words) with the exact figures asked for; no ids or markdown. cites = snippet ids exactly as written in brackets (N1, N2, F3, C0), never note ids. Copy figures exactly as written in the records (S$150,000, not 150k).\n"
+    "- answer: one short sentence (max 15 words; goals questions follow the GOALS rule instead) with the exact figures asked for; no ids or markdown. cites = snippet ids exactly as written in brackets (N1, N2, F3, C0), never note ids. Copy figures exactly as written in the records (S$150,000, not 150k).\n"
+    "- GOALS: for a question about goals, objectives, targets, aims, plans, wishes or what she wants, `answer` MUST combine ALL of these found in ANY meeting (up to 45 words, separated by semicolons): "
+    "(1) stated priorities, (2) every quantified target, amount, time frame or number of years ('wants her portfolio to hit 700M within 8 years' is a goal), (3) growth wishes, (4) the client's age if stated. Copy figures verbatim. "
+    "Do NOT stop after the first priority sentence; read to the END of every note, including the last line.\n"
     "- groups: [] unless broad. If broad: 2 groups, each at most 2 bullets of at most 10 words, with cites.\n"
     "- explanation: if broad is false you MUST output risk_category \"\", text \"\", recommended_asset_classes [], cites []. "
     "If broad: risk_category = the client's risk category as the notes show it (e.g. Conservative / very risk averse), \"\" if not shown; "
@@ -157,6 +161,10 @@ def answer_question(question: str, store: DocumentStore, profile: ClientProfile,
     result = _validate(out, context, refs, kinds, question)
     result["summary_request"] = False
     result["inference"] = _validate_inference(out.get("inference"), context, question) if result["status"] != "ok" else ""
+    if result["inference"] and result["status"] != "ok":  # nothing in the notes answers it: say so, then the labelled inference
+        result["text"] = NOT_ENOUGH
+    if result["status"] == "ok":
+        _add_goal_targets(result, question, store, profile)  # deterministic backstop: the small model skips quantified targets
     if result["status"] != "ok" or out.get("broad") is not True:
         return result
     facts = _topic_facts(profile)
@@ -168,6 +176,37 @@ def answer_question(question: str, store: DocumentStore, profile: ClientProfile,
         _ensure_income(expl, profile)
         result["explanation"] = expl
     return result
+
+
+_GOAL_Q = re.compile(r"\b(goals?|objectives?|targets?|aims?|aspirations?|wishes|wants?|plans?|priorit\w+)\b", re.I)
+_TARGET_S = re.compile(r"\b(hit|reach|reaching|target\w*|aim\w*|achiev\w*|grow to|double|goal)\b.*\d|\d.*\b(hit|reach|target\w*|aim\w*|achiev\w*|grow to|double)\b", re.I)
+_AGE_S = re.compile(r"\b\d{1,3}[- ]years?[- ]old\b|\baged? \d{1,3}\b", re.I)
+
+
+def _add_goal_targets(result: dict, question: str, store, profile: ClientProfile) -> None:
+    """For goals/objectives questions, append verbatim note sentences that state a quantified target, time frame or the
+    client's age when the reply does not already carry their figures. Only sentences from this client's notes (grounded)."""
+    from .retrieval import note_ref
+    if not _GOAL_Q.search(question or ""):
+        return
+    have = _numbers(result.get("text", "") + " " + " ".join(l["text"] for s in result.get("sections", []) for l in s["lines"]))
+    add, srcs = [], []
+    for note in store.get_notes(profile.client_id):
+        for sent in re.split(r"(?<=[.!?])\s+|\n+", note.text):
+            sent = sent.strip().rstrip(".")
+            nums = _numbers(sent)
+            if sent and nums and (_TARGET_S.search(sent) or _AGE_S.search(sent)) and not nums <= have and sent not in add:
+                add.append(sent)
+                srcs.append(note_ref(note, sent[:300]))
+                have |= nums
+    if not add:
+        return
+    text = (result.get("text", "").rstrip(" .;") + ". " if result.get("text") else "") + "Also on record: " + "; ".join(add) + "."
+    if len(text) > MAX_ANSWER_CHARS * 2:
+        return
+    seen = {(x["id"], x.get("passage")) for x in result.get("sources", [])}
+    result["text"] = text
+    result["sources"] = list(result.get("sources", [])) + [r.model_dump(mode="json") for r in srcs if (r.id, r.passage) not in seen]
 
 
 _GENERIC = {"summary", "summaries", "summarise", "summarize", "summarised", "summarized", "summarising", "recap", "overview", "sum", "up",

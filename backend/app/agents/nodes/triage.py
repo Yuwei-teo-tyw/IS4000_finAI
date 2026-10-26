@@ -26,7 +26,8 @@ class RoutingDecision(BaseModel):
             "market conditions right now, "
             "'client_profiling' for questions about THE CLIENT IN FOCUS: what they said or want in meetings, "
             "summarise or recap their meeting notes, or their income, spending, cash reserve, risk attitude, "
-            "asset-class preferences, horizon or goals as recorded in meeting notes, "
+            "asset-class preferences, horizon or goals as recorded in meeting notes, questions about their IPS "
+            "(investment policy statement), and questions comparing the meeting notes with the IPS, "
             "'meta' if the user is asking what this assistant/platform can do, which specialists or "
             "agents are available, or for help/options about the platform itself rather than asking "
             "an actual question, "
@@ -86,7 +87,7 @@ class TriageAgent:
             if not (state.get("client_id") or "").strip():
                 # Guard: nothing to look up without a client in focus - never guess one.
                 return {
-                    "messages": [AIMessage(content="Please select or open a client first, then ask again about their meeting notes.")],
+                    "messages": [AIMessage(content="Please select or open a client first, then ask again about their meeting notes or IPS.")],
                     "current_agent": "triage",
                     "next_agent": None,
                     "conversation_ended": False,

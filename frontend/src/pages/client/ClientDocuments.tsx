@@ -24,7 +24,7 @@ function FullDocuments() {
       <IpsHistory clientId={clientId} clientName={client.name} />
 
       <div>
-        <Section title="Portfolio analytics" hint="Computed by code.">
+        <Section title="Portfolio analytics" hint="Computed by code." mock>
           <div className="grid gap-8 md:grid-cols-3">
             <div><Stat label="Sharpe ratio" value={client.sharpe.toFixed(2)} note="Return per unit of risk" /><p className="mt-3 text-sm text-ink-muted"><CitationTag tag="CALC-sharpe-v1" /></p></div>
             <div><Stat label="Diversification score" value={`${client.diversificationScore}/100`} /><p className="mt-3 text-sm text-ink-muted"><CitationTag tag="CALC-divscore-v1" /></p></div>
@@ -34,13 +34,13 @@ function FullDocuments() {
       </div>
 
       <div>
-        <Section title="Correlation heatmap">
+        <Section title="Correlation heatmap" mock>
           <Card className="!p-8"><CorrelationHeatmap labels={corr.labels} matrix={corr.matrix} /></Card>
         </Section>
       </div>
 
       <div>
-        <Section title="Holdings that move together">
+        <Section title="Holdings that move together" mock>
           <div className="grid gap-8 md:grid-cols-2">
             {clusters.map((c) => (
               <Card key={c.id} className="!p-8">
@@ -54,7 +54,7 @@ function FullDocuments() {
       </div>
 
       <div>
-        <Section title="Holdings"><HoldingsTable holdings={holdings} /></Section>
+        <Section title="Holdings" mock><HoldingsTable holdings={holdings} /></Section>
       </div>
 
       <div>

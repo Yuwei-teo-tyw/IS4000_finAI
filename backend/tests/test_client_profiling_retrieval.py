@@ -93,7 +93,7 @@ def test_extract_jfr_from_notes_only(store):
     assert p.get("drawdown_tolerance_pct").value == 10 and p.get("max_loss_at_drawdown_sgd").value == 50_000_000
     assert p.get("risk_classification") is None and p.get("risk_tolerance").kind == "inferred"
     assert all(s.type == "meeting_note" for f in p.facts for s in f.sources)
-    assert p.get("investment_horizon").value == ["at least ten years"]
+    assert set(p.get("investment_horizon").value) == {"at least ten years", "within 8 years"}
     assert {"capital_preservation", "income", "growth"} <= set(p.get("goals").value)
     assert set(p.get("restrictions").value) == {"tobacco", "thermal coal", "hedge funds", "private markets"}
     assert p.get("currency_preference").value == ["SGD", "USD"]

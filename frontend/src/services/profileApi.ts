@@ -1,6 +1,7 @@
-import { profileByClient, defaultProfile, type ClientProfile } from "../mock/profile";
+import { profileByClient, defaultProfile, DEFAULT_REVIEW_RULES, type ClientProfile } from "../mock/profile";
 
 export type { ClientProfile };
+export { DEFAULT_REVIEW_RULES };
 
 const delay = <T,>(v: T, ms = 120) => new Promise<T>((r) => setTimeout(() => r(v), ms));
 

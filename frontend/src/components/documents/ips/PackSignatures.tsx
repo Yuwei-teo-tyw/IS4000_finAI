@@ -5,6 +5,7 @@ import { ROLE_LABEL, type Role } from "../../../types/arc";
 import type { PackSignatures as Sigs } from "../../../services/packDraftStore";
 
 const ORDER: Role[] = ["ps", "pm", "rm"];
+const RM_SIGNATURE = "/signature-isabel.png";
 const MAX_BYTES = 1_500_000;
 const fmtWhen = (iso: string) => new Date(iso).toLocaleString("en-SG", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 
@@ -22,7 +23,8 @@ export function PackSignatures({ sigs, onUpload, onRemove }: Props) {
   return (
     <div className="mt-8 grid grid-cols-1 gap-8 sm:grid-cols-3">
       {ORDER.map((r) => {
-        const sig = sigs[r];
+        // The RM's signature defaults to the Isabel signature on file, dated today (display only; nothing is stored).
+        const sig = sigs[r] ?? (r === "rm" ? { name: "signature-isabel.png", dataUrl: RM_SIGNATURE, signedAt: new Date().toISOString() } : undefined);
         return (
           <div key={r} className="avoid-break min-w-0">
             <p className="text-[12px] uppercase tracking-[0.12em] text-ink-muted">{ROLE_LABEL[r]}</p>

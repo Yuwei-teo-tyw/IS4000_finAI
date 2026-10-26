@@ -22,7 +22,24 @@ export interface ClientProfilingBoth { notes: ClientProfilingBothBlock; ips: Cli
 /** data.answer of get_ips. */
 export interface ClientProfilingIpsAnswer { status: "ok" | "cannot_answer" | "no_ips" | "out_of_scope"; text: string; sources: ClientProfilingSource[] }
 /** POST /agents/client-profiling/chat request extras. */
-export interface ClientProfilingRequestOpts { source?: ClientProfilingSourceChoice; }
+export interface AllocationBucketRef { id: string; strategy: string; strategyName?: string; justification?: string }
+/** A change the agent proposes; it is applied only by a later confirm turn that echoes this back as `pending_proposal`. */
+export interface AllocationProposal { buckets: AllocationBucketRef[]; changes: string[] }
+/** data.allocation_dialogue of tool "allocation_dialogue". */
+export interface AllocationDialogue {
+  status: string; text: string;
+  stance: "agree" | "disagree" | "partial" | null; stanceLabel: string | null;
+  applied: boolean; proposal: AllocationProposal | null;
+  allocation: { buckets: AllocationBucketRef[] } | null;
+  sources: ClientProfilingSource[]; offer?: { action: string; label: string } | null;
+}
+export interface ClientProfilingRequestOpts {
+  source?: ClientProfilingSourceChoice;
+  /** The current 3L allocation (the IPS threeL); the backend falls back to the newest saved IPS. */
+  allocation?: { buckets: { id: string; strategy: string; justification?: string }[] };
+  /** The unconfirmed proposal from the previous turn, echoed back on the RM's confirm turn. */
+  pending_proposal?: AllocationProposal | null;
+}
 
 /** One row of the backend client book DB. */
 export interface BookClient {

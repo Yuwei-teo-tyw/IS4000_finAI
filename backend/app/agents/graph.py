@@ -45,7 +45,7 @@ from app.agents.client_context import format_client_context
 from app.agents.nodes.triage import TriageAgent
 from app.agents.nodes.general import GeneralAssistant
 from app.agents.nodes.market_researcher import MarketResearcher
-from app.agents.nodes.client_profiling import ClientProfilingNode
+from app.agents.nodes.client_profiling import ClientProfilingNode, parse_source_choice
 from app.agents.nodes.context_manager import ContextManager
 from app.agents.nodes.eval_agent import EvalAgent
 from app.agents.nodes.pii_guard import PIIGuard
@@ -76,8 +76,12 @@ def entry_router(state: AgentState) -> str:
     directly instead of re-routing through triage every turn.
     """
     agent = state.get("current_agent")
-    # client_profiling is deliberately not sticky: it only makes sense with a
-    # client open and for notes questions, so every new message is re-triaged.
+    # client_profiling is deliberately not sticky (every new message is re-triaged), except when it just asked
+    # "meeting notes or IPS?": a short reply naming a source resumes there with the original question.
+    if state.get("pending_source_question") and agent == "client_profiling":
+        human = [m for m in state["messages"] if m.type == "human"]
+        if human and parse_source_choice(str(human[-1].content)):
+            return "client_profiling"
     if agent in SPECIALISTS and agent != "client_profiling":
         return agent
     return "triage"

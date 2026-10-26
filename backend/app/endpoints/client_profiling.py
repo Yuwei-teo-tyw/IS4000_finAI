@@ -8,16 +8,20 @@ submitted values (client data).
 """
 from typing import Annotated, Literal, Optional
 
-from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, File, Form, Header, HTTPException, Query, Request, UploadFile
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
-from pydantic import BaseModel, Field, field_validator
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
 
 from app.agents.client_profiling.ips_assist import ips_assist
+from app.agents.client_profiling.ips_generate import SECTIONS as IPS_GEN_SECTIONS, generate_ips_section
+from app.agents.client_profiling.strategies import allowed_strategies, load_strategies
+from app.agents.client_profiling.threel import discuss_allocation
 from app.agents.client_profiling.schemas import SourceRef, ToolResult
 from app.agents.client_profiling.ingest import IngestError, ingest_note
 from app.agents.client_profiling.service import handle_chat
-from app.agents.client_profiling.store import StoreUnavailableError, get_default_store
+from app.agents.client_profiling.ips_model import merge_section, new_ips_data, normalize_data, render_parts
+from app.agents.client_profiling.store import DEFAULT_RM, IPS_CHAT_CAP, StoreUnavailableError, get_default_store
 
 PREFIX = "/agents/client-profiling"
 
@@ -72,12 +76,47 @@ class ProfilingChatRequest(BaseModel):
     book: Optional[list[Annotated[str, Field(max_length=40)]]] = Field(default=None, max_length=200)
     # Deprecated and IGNORED: the server always applies the DB book. Still accepted so old callers do not get a 422.
     source: Optional[Literal["notes", "ips", "both"]] = None  # explicit source choice (answers a "which source?" clarification)
+    # IS-89/90 allocation dialogue: all optional. allocation = {"buckets": [{id, strategy, justification}]} (default: the client's
+    # latest saved IPS threeL); history = [{role, text, proposal?}] (default: this RM's stored IPS chat); pending_proposal is echoed.
+    allocation: Optional[dict] = None
+    history: Optional[list[dict]] = Field(default=None, max_length=100)
+    pending_proposal: Optional[dict] = None
+
+
+def _allocation_from_ips(store, client_id: Optional[str]) -> Optional[dict]:
+    """The client's current 3L allocation from the newest saved IPS (structured data.threeL), else None."""
+    if not client_id:
+        return None
+    try:
+        for v in store.get_ips_versions(client_id):
+            if v.data and v.data.get("threeL"):
+                return {"buckets": [{"id": b["portfolio"].lower(), "strategy": b["strategy"], "justification": b.get("reason", "")}
+                                    for b in v.data["threeL"]]}
+    except Exception:
+        return None
+    return None
+
+
+def _stored_history(store, client_id: Optional[str], rm: str) -> Optional[list]:
+    fn = getattr(store, "list_ips_chat", None)
+    if not client_id or not callable(fn):
+        return None
+    try:
+        rows = fn(client_id, limit=IPS_CHAT_CAP, rm_id=rm)
+    except Exception:
+        return None
+    return [{"role": r["role"], "text": r["text"], **({"proposal": r["meta"]["proposal"]} if (r.get("meta") or {}).get("proposal") else {})}
+            for r in rows] or None
 
 
 @router.post("/chat", response_model=ToolResult)
-async def chat(body: ProfilingChatRequest) -> ToolResult:
-    book = get_default_store().book_ids()  # StoreUnavailableError -> guard; client-supplied `book` is ignored
-    return handle_chat(body.message, body.client_id, book=book, source=body.source)
+async def chat(body: ProfilingChatRequest, x_rm_id: Optional[str] = Header(default=None), rm_id: Optional[str] = Query(default=None)) -> ToolResult:
+    store = get_default_store()
+    book = store.book_ids()  # StoreUnavailableError -> guard; client-supplied `book` is ignored
+    allocation = body.allocation or _allocation_from_ips(store, body.client_id)
+    history = body.history if body.history is not None else _stored_history(store, body.client_id, _rm(x_rm_id, rm_id))
+    return handle_chat(body.message, body.client_id, book=book, source=body.source, allocation=allocation, history=history,
+                       pending_proposal=body.pending_proposal)
 
 
 class IpsAssistRequest(BaseModel):
@@ -109,6 +148,245 @@ async def ips_assist_endpoint(body: IpsAssistRequest) -> IpsAssistResponse:
     _require_in_book(store, body.client_id)
     return IpsAssistResponse(**ips_assist(store, body.client_id, body.section, body.mode, body.current_text, body.message,
                                     selection=body.selection))
+
+
+class IpsGenerateRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+    client_id: str = Field(min_length=1, max_length=40, validation_alias=AliasChoices("client_id", "clientId"))
+    section: Literal["demographics", "philosophy", "goals", "risk", "allocation"]
+    version: Optional[int] = Field(default=None, ge=1)  # continue saving into this (draft) version; None = start a new one
+
+
+class IpsGenerateAllRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+    client_id: str = Field(min_length=1, max_length=40, validation_alias=AliasChoices("client_id", "clientId"))
+
+
+@router.get("/ips-generate/sections")
+async def ips_generate_sections() -> list[dict]:
+    """The AI IPS generation sections, in the order the frontend should call them."""
+    return [{"id": i, "label": l} for i, l in IPS_GEN_SECTIONS]
+
+
+def _autosave(store, client_id: str, results: list[dict], version: Optional[int]) -> Optional[dict]:
+    """Merge generated section results into the structured IPS and persist it (new Draft version, or `version` in place).
+    Returns None when nothing was generated (no notes / no model): no empty version is created."""
+    if not any(r.get("status") == "ok" for r in results):
+        return None
+    cur = next((v for v in store.get_ips_versions(client_id) if v.version == version), None) if version else None
+    if version and cur is None:
+        raise HTTPException(status_code=404, detail="IPS version not found for this client")
+    data = normalize_data(cur.data if cur and cur.data else new_ips_data())
+    for r in results:
+        merge_section(data, r)
+    from app.agents.client_profiling.store import IpsPartDoc
+    parts = [IpsPartDoc(**p) for p in render_parts(data)]
+    saved = store.save_ips(client_id, parts, version=version, summary="AI-generated draft from meeting notes",
+                           author="AI draft", status="Draft", data=data)
+    return _ips_json(saved) if saved else None
+
+
+@router.post("/ips-generate")
+async def ips_generate(body: IpsGenerateRequest) -> dict:
+    """Draft one IPS section from the client's meeting notes (local model) and save it: no manual save needed.
+    Response = the section result (+ `model`) and, when something was generated, `saved: true`, `version` and `ips`."""
+    store = get_default_store()
+    _require_in_book(store, body.client_id)
+    res = generate_ips_section(store, body.client_id, body.section)
+    ips = _autosave(store, body.client_id, [res], body.version)
+    res.update({"saved": ips is not None, "version": ips["version"] if ips else None, "ips": ips, "saved_ips": ips})
+    return res
+
+
+@router.post("/ips-generate/all")
+async def ips_generate_all(body: IpsGenerateAllRequest) -> dict:
+    """Generate every section in order, save ONE new draft IPS version and return it with per-section progress events."""
+    store = get_default_store()
+    _require_in_book(store, body.client_id)
+    results = [generate_ips_section(store, body.client_id, sid) for sid, _l in IPS_GEN_SECTIONS]
+    ips = _autosave(store, body.client_id, results, None)
+    events = [{"section": r["section"], "status": r["status"], "message": r["message"], "model": r.get("model")} for r in results]
+    model = next((r["model"] for r in results if r.get("model")), None)
+    return {"sections": results, "events": events, "model": model,
+            "modelMessage": "" if model else next((r.get("modelMessage", "") for r in results if r.get("modelMessage")), ""),
+            "saved": ips is not None, "version": ips["version"] if ips else None, "ips": ips, "saved_ips": ips}
+
+
+def _strategy_json(s: dict) -> dict:
+    g = lambda *keys: next((s[k] for k in keys if k in s), None)  # noqa: E731  (accept snake_case or camelCase rows)
+    return {"code": g("code"), "name": g("name"), "riskLabel": g("riskLabel", "risk_label"), "allocation": g("allocation"),
+            "expectedReturnPct": g("expectedReturnPct", "expected_return_pct"), "volatilityPct": g("volatilityPct", "volatility_pct"),
+            "maxDrawdownPct": g("maxDrawdownPct", "max_drawdown_pct"),
+            "longestDrawdownYears": g("longestDrawdownYears", "longest_drawdown_years")}
+
+
+@router.get("/strategies")
+async def get_strategies() -> dict:
+    """Model investment strategies A-F (asset-class mix, expected return, volatility, drawdowns) for the 3L allocation."""
+    store, rows = get_default_store(), None
+    fn = getattr(store, "list_strategies", None)
+    if callable(fn):
+        rows = fn()
+    rows = rows or load_strategies()
+    from app.agents.client_profiling import strategies as _s
+    return {"source": _s._raw().get("source", ""), "liquidityAllowed": allowed_strategies("liquidity"),
+            "strategies": [_strategy_json(dict(r) if isinstance(r, dict) else vars(r)) for r in rows]}
+
+
+class _Turn(BaseModel):
+    role: Literal["user", "assistant"]
+    text: str = Field(max_length=4000)
+
+
+class _AllocBucketIn(BaseModel):
+    id: Literal["liquidity", "longevity", "legacy"]
+    strategy: str = Field(min_length=1, max_length=2)
+    justification: Optional[str] = Field(default=None, max_length=2000)
+
+
+class _AllocIn(BaseModel):
+    buckets: list[_AllocBucketIn] = Field(max_length=3)
+
+
+class AllocationDiscussRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+    client_id: str = Field(min_length=1, max_length=40, validation_alias=AliasChoices("client_id", "clientId"))
+    message: str = Field(min_length=1, max_length=2000)
+    history: list[_Turn] = Field(default_factory=list, max_length=40)
+    allocation: Optional[_AllocIn] = None
+
+    @field_validator("message")
+    @classmethod
+    def _msg_not_blank(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("must not be blank")
+        return v
+
+
+@router.post("/ips-allocation/discuss")
+async def ips_allocation_discuss(body: AllocationDiscussRequest) -> dict:
+    """Discuss the 3L allocation with the agent: it follows, partly follows or disagrees (with reasons). Read-only."""
+    store = get_default_store()
+    _require_in_book(store, body.client_id)
+    return discuss_allocation(store, body.client_id, body.message.strip(), [t.model_dump() for t in body.history],
+                              body.allocation.model_dump() if body.allocation else None)
+
+
+# --- IPS chat history: persisted per client AND per RM (Postgres cp_ips_chat or JSON); cap IPS_CHAT_CAP messages ---
+class IpsChatIn(BaseModel):
+    role: Literal["user", "assistant"]
+    text: str = Field(min_length=1, max_length=20000)
+    kind: Literal["chat", "generation", "discuss"] = "chat"
+    meta: Optional[dict] = None
+
+
+def _rm(x_rm_id: Optional[str], rm_id: Optional[str]) -> str:
+    """RM identity: header `X-RM-Id` (or query `rm_id`); a missing one is the default RM."""
+    return ((x_rm_id or rm_id or "").strip()[:80]) or DEFAULT_RM
+
+
+def _chat_store(client_id: str, method: str):
+    store = get_default_store()
+    _require_in_book(store, client_id)
+    fn = getattr(store, method, None)
+    if not callable(fn):
+        raise HTTPException(status_code=503, detail="IPS chat history is not available")
+    return fn
+
+
+def _history_down(e: Exception) -> JSONResponse:
+    """DB unreachable: say so explicitly so the frontend keeps the conversation in the session instead."""
+    return JSONResponse({"detail": "IPS chat history is unavailable.", "historyAvailable": False, "messages": []}, status_code=503)
+
+
+def _msg_json(m) -> dict:
+    d = dict(m) if isinstance(m, dict) else {k: getattr(m, k, None) for k in ("id", "role", "kind", "text", "ts", "meta")}
+    return {"id": str(d.get("id")), "role": d.get("role"), "kind": d.get("kind") or "chat", "text": d.get("text") or "",
+            "ts": str(d.get("ts") or ""), "meta": d.get("meta")}
+
+
+@router.delete("/ips/{client_id}/{version}")
+async def delete_client_ips(client_id: str, version: int) -> dict:
+    store = get_default_store()
+    _require_in_book(store, client_id)
+    try:
+        ok = store.delete_ips(client_id, version)
+    except StoreUnavailableError:
+        raise HTTPException(status_code=503, detail="IPS database is unavailable")
+    if not ok:
+        raise HTTPException(status_code=404, detail=f"IPS v{version} not found")
+    return {"deleted": True, "version": version}
+
+
+TRUNCATED_MSG = f"IPS chat history keeps only the latest {IPS_CHAT_CAP} messages; the oldest were removed."
+
+
+@router.get("/ips-chat/{client_id}")
+async def get_ips_chat(client_id: str, x_rm_id: Optional[str] = Header(default=None), rm_id: Optional[str] = Query(default=None)) -> dict:
+    fn = _chat_store(client_id, "list_ips_chat")
+    try:
+        rows = fn(client_id, limit=IPS_CHAT_CAP, rm_id=_rm(x_rm_id, rm_id))
+    except StoreUnavailableError as e:
+        return _history_down(e)
+    full = len(rows) >= IPS_CHAT_CAP
+    return {"messages": [_msg_json(m) for m in rows], "historyAvailable": True, "cap": IPS_CHAT_CAP, "truncated": full,
+            "message": TRUNCATED_MSG if full else ""}
+
+
+@router.post("/ips-chat/{client_id}")
+async def post_ips_chat(client_id: str, body: IpsChatIn, x_rm_id: Optional[str] = Header(default=None),
+                        rm_id: Optional[str] = Query(default=None)) -> dict:
+    fn = _chat_store(client_id, "append_ips_chat")
+    if not body.text.strip():
+        raise HTTPException(status_code=422, detail="text must not be blank")
+    try:
+        row = fn(client_id, body.role, body.text, kind=body.kind, meta=body.meta, rm_id=_rm(x_rm_id, rm_id))
+    except StoreUnavailableError as e:
+        return _history_down(e)
+    trunc = bool(row.get("truncated")) if isinstance(row, dict) else False
+    return {**_msg_json(row), "truncated": trunc, "historyAvailable": True, "message": TRUNCATED_MSG if trunc else ""}
+
+
+@router.delete("/ips-chat/{client_id}")
+async def delete_ips_chat(client_id: str, x_rm_id: Optional[str] = Header(default=None), rm_id: Optional[str] = Query(default=None)) -> dict:
+    fn = _chat_store(client_id, "clear_ips_chat")
+    try:
+        fn(client_id, rm_id=_rm(x_rm_id, rm_id))
+    except StoreUnavailableError as e:
+        return _history_down(e)
+    return {"cleared": True}
+
+
+class OverrideIn(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+    client_id: str = Field(min_length=1, max_length=40, validation_alias=AliasChoices("clientId", "client_id"))
+    portfolio: str = Field(min_length=1, max_length=20)
+    from_strategy: Optional[str] = Field(default="", max_length=2, validation_alias=AliasChoices("from", "from_strategy"))
+    to_strategy: str = Field(min_length=1, max_length=2, validation_alias=AliasChoices("to", "to_strategy"))
+    reason: str = Field(default="", max_length=2000)
+
+
+@router.post("/ips-allocation/override")
+async def ips_allocation_override(body: OverrideIn, x_rm_id: Optional[str] = Header(default=None),
+                                  rm_id: Optional[str] = Query(default=None)) -> dict:
+    """Audit-log a manual 3L strategy override by the RM (who, when, from -> to, reason). Liquidity stays A or B."""
+    store = get_default_store()
+    _require_in_book(store, body.client_id)
+    pf, to = body.portfolio.strip().lower(), body.to_strategy.strip().upper()
+    if pf not in ("liquidity", "longevity", "legacy"):
+        raise HTTPException(status_code=422, detail="portfolio must be Liquidity, Longevity or Legacy")
+    if to not in allowed_strategies(pf):
+        raise HTTPException(status_code=422, detail="Liquidity may only use Strategy A or B" if pf == "liquidity" else "unknown strategy")
+    row = store.log_strategy_override(body.client_id, pf.capitalize(), (body.from_strategy or "").strip().upper(), to,
+                                      body.reason.strip(), rm_id=_rm(x_rm_id, rm_id))
+    return {"ok": True, "ts": row["ts"], "override": row}
+
+
+@router.get("/ips-allocation/overrides/{client_id}")
+async def ips_allocation_overrides(client_id: str) -> dict:
+    store = get_default_store()
+    _require_in_book(store, client_id)
+    return {"overrides": store.list_strategy_overrides(client_id)}
 
 
 def _client_name(store, client_id: str) -> str:
@@ -156,6 +434,7 @@ async def list_meeting_notes(client_id: str) -> list[dict]:
 class NoteEditRequest(BaseModel):
     title: str = Field(min_length=1, max_length=200)
     original_text: str = Field(min_length=1, max_length=20000)
+    date: Optional[str] = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")  # optional YYYY-MM-DD edit
 
     @field_validator("title", "original_text")
     @classmethod
@@ -170,7 +449,7 @@ async def update_meeting_note(client_id: str, note_id: str, body: NoteEditReques
     """Edit a note's title and text; 404 unless the note belongs to that client."""
     store = get_default_store()
     _require_in_book(store, client_id)
-    note = store.update_note(client_id, note_id, title=body.title, text=body.original_text)
+    note = store.update_note(client_id, note_id, title=body.title, text=body.original_text, date=body.date)
     if note is None:
         raise HTTPException(status_code=404, detail="Meeting note not found for this client")
     return {**_note_json(note), "indexing": _indexing(store, note)}
@@ -179,6 +458,7 @@ async def update_meeting_note(client_id: str, note_id: str, body: NoteEditReques
 # --- IPS read API (Postgres/JSON store is the source of truth; no writes here) ---
 def _ips_json(v) -> dict:
     return {"version": v.version, "issuedOn": v.issued_on, "status": v.status, "author": v.author, "summary": v.summary,
+            "data": normalize_data(v.data, signed=v.issued_on),
             "parts": [{"part": p.part, "title": p.title, "owner": p.owner, "status": p.status, "body": p.body}
                       for p in sorted(v.parts, key=lambda p: p.part)]}
 
@@ -191,7 +471,8 @@ async def get_client_ips(client_id: str) -> dict:
         raise HTTPException(status_code=404, detail="Unknown client")
     versions = store.get_ips_versions(client_id)
     current = next((v.version for v in versions if v.status == "Active"), None)
-    return {"client_id": client_id, "client_name": _client_name(store, client_id), "current_version": current, "versions": [_ips_json(v) for v in versions]}
+    return {"client_id": client_id, "client_name": _client_name(store, client_id),
+            "clientName": _client_name(store, client_id), "current_version": current, "versions": [_ips_json(v) for v in versions]}
 
 
 # --- IPS write API: save, then index the current version so it is searchable immediately (US-17) ---
@@ -205,7 +486,8 @@ class IpsPartIn(BaseModel):
 
 class IpsSaveRequest(BaseModel):
     version: Optional[int] = Field(default=None, ge=1)  # None = create the next version; set = edit that version in place
-    parts: list[IpsPartIn] = Field(min_length=1, max_length=20)
+    parts: list[IpsPartIn] = Field(default_factory=list, max_length=20)  # may be empty when `data` is sent (parts are rendered)
+    data: Optional[dict] = None  # structured IPS JSON (schemas.py); lifeEvents with manual:true are kept
     summary: Optional[str] = Field(default=None, max_length=1000)
     author: Optional[str] = Field(default=None, max_length=80)
     status: Literal["Active", "Draft"] = "Active"  # only used when creating a new version
@@ -229,8 +511,12 @@ async def save_client_ips(client_id: str, body: IpsSaveRequest) -> dict:
     store = get_default_store()
     _require_in_book(store, client_id)
     from app.agents.client_profiling.store import IpsPartDoc
-    parts = [IpsPartDoc(**p.model_dump()) for p in body.parts]
-    saved = store.save_ips(client_id, parts, version=body.version, summary=body.summary, author=body.author, status=body.status)
+    if not body.parts and body.data is None:
+        raise HTTPException(status_code=422, detail="parts or data is required")
+    data = normalize_data(body.data) if body.data is not None else None
+    parts = [IpsPartDoc(**p.model_dump()) for p in body.parts] or [IpsPartDoc(**p) for p in render_parts(data)]
+    kw = {"data": data} if data is not None else {}
+    saved = store.save_ips(client_id, parts, version=body.version, summary=body.summary, author=body.author, status=body.status, **kw)
     if saved is None:
         raise HTTPException(status_code=404, detail="IPS version not found for this client")
-    return {"client_id": client_id, "ips": _ips_json(saved), "indexing": _index_after_save(store, client_id, saved.version)}
+    return {"client_id": client_id, "clientName": _client_name(store, client_id), "ips": _ips_json(saved), "indexing": _index_after_save(store, client_id, saved.version)}

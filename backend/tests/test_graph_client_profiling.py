@@ -182,3 +182,76 @@ def test_graph_end_to_end_routes_to_client_profiling(monkeypatch):
     assert result["current_agent"] == "client_profiling"
     assert calls[0]["book"] == ["C007"]
     assert fakes["eval"].calls == []  # skip_eval: no eval LLM call
+
+
+# --- IS-78/79/80: source clarification, compare, labels, IPS triage --------
+
+from app.agents.nodes.client_profiling import parse_source_choice  # noqa: E402
+
+CLARIFY = ToolResult(tool="clarify_source", status="needs_clarification", client_id="C001",
+                     message="Do you mean the meeting notes or the IPS?",
+                     data={"options": [{"source": "notes", "label": "Meeting notes"}, {"source": "ips", "label": "IPS"},
+                                       {"source": "both", "label": "Both"}]})
+
+
+def test_parse_source_choice():
+    assert parse_source_choice("the IPS") == "ips"
+    assert parse_source_choice("Meeting notes") == "notes"
+    assert parse_source_choice("both") == "both"
+    assert parse_source_choice("meeting notes and the IPS") == "both"
+    assert parse_source_choice("what is the weather in Singapore today please tell me") is None
+    assert parse_source_choice("") is None
+
+
+def test_node_clarify_lists_options_and_sets_pending(monkeypatch):
+    _stub_handle_chat(monkeypatch, CLARIFY)
+    out = run_async(ClientProfilingNode().run(_state(text="What did we agree on risk?")))
+    text = out["messages"][0].content
+    assert "Meeting notes, IPS, Both" in text and out["pending_source_question"] == "What did we agree on risk?"
+    assert out["skip_eval"] is True
+
+
+def test_node_reply_resumes_original_question_with_chosen_source(monkeypatch):
+    calls = _stub_handle_chat(monkeypatch, ToolResult(tool="get_ips", data={"answer": {"status": "ok", "text": "Balanced.", "sources": [
+        SourceRef(type="ips", id="C001:v1", client_id="C001", version=1, label="IPS v1").model_dump(mode="json")]}}))
+    state = {**_state(text="the IPS"), "pending_source_question": "What did we agree on risk?"}
+    out = run_async(ClientProfilingNode().run(state))
+    assert calls == [{"message": "What did we agree on risk?", "client_id": "C001", "book": ["C001"], "source": "ips"}]
+    assert out["messages"][0].content == "Balanced.\n\nSources: IPS v1" and out["pending_source_question"] is None
+
+
+def test_node_non_choice_reply_is_a_new_question(monkeypatch):
+    calls = _stub_handle_chat(monkeypatch, ToolResult(tool="get_meeting_note", message="x"))
+    state = {**_state(text="What is his cash reserve?"), "pending_source_question": "What did we agree on risk?"}
+    run_async(ClientProfilingNode().run(state))
+    assert calls[0]["message"] == "What is his cash reserve?" and "source" not in calls[0]
+
+
+def test_node_compare_renders_labelled_blocks(monkeypatch):
+    note = SourceRef(type="meeting_note", id="n1", client_id="C001", date="2026-03-18").model_dump(mode="json")
+    ips = SourceRef(type="ips", id="C001:v2", client_id="C001", version=2, label="IPS v2").model_dump(mode="json")
+    _stub_handle_chat(monkeypatch, ToolResult(tool="compare_sources", data={"both": {
+        "notes": {"label": "Meeting notes", "answer": {"text": "Wants lower risk.", "sources": [note]}},
+        "ips": {"label": "IPS", "answer": {"text": "Risk category: Balanced.", "sources": [ips]}}}}))
+    text = run_async(ClientProfilingNode().run(_state(text="Compare the meeting notes with the IPS")))["messages"][0].content
+    assert "### Meeting notes\n\nWants lower risk.\nSource (Meeting notes): 2026-03-18" in text
+    assert "### IPS\n\nRisk category: Balanced.\nSource (IPS): IPS v2" in text
+
+
+def test_entry_router_resumes_client_profiling_only_on_source_pick():
+    base = {"current_agent": "client_profiling", "pending_source_question": "q"}
+    assert entry_router({**base, "messages": [HumanMessage(content="IPS")]}) == "client_profiling"
+    assert entry_router({**base, "messages": [HumanMessage(content="what is inflation")]}) == "triage"
+    assert entry_router({"current_agent": "client_profiling", "messages": [HumanMessage(content="IPS")]}) == "triage"
+
+
+def test_triage_ips_question_goes_to_client_profiling(monkeypatch):
+    out = run_async(_triage(monkeypatch, "client_profiling").run({**_state(text="What does the IPS say about liquidity?")}))
+    assert out["next_agent"] == "client_profiling"
+    out = run_async(_triage(monkeypatch, "client_profiling").run({**_state(client_id=None, text="What does the IPS say?")}))
+    assert "meeting notes or IPS" in out["messages"][0].content
+
+
+def test_triage_prompts_mention_ips():
+    from app.prompts.prompt_builder import get_prompt
+    assert "IPS" in get_prompt("triage.routing_system") and "IPS" in get_prompt("triage.introduction")

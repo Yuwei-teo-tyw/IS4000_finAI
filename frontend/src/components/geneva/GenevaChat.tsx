@@ -3,19 +3,24 @@ import { Check, ChevronDown, ArrowUp, MessageSquarePlus, Search, Trash2 } from "
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import type { Client } from "../../types/arc";
 import { pathForClient, setActiveClientId } from "../../layouts/navConfig";
-import { arcApi, assetClassSlug, GenevaBackendError, ClientProfilingError, PortfolioAgentError, ProductRecommenderError, shortlistRow } from "../../services/arcApi";
+import { arcApi, bookToClient, assetClassSlug, GenevaBackendError, ClientProfilingError, PortfolioAgentError, ProductRecommenderError, shortlistRow } from "../../services/arcApi";
 import { ClientProfilingCard } from "./ClientProfilingCard";
-import type { ClientProfilingResult, ClientProfilingSourceChoice } from "../../types/clientProfiling";
+import type { AllocationDialogue, AllocationProposal, ClientProfilingResult, ClientProfilingSourceChoice } from "../../types/clientProfiling";
 import { profileApi } from "../../services/profileApi";
 import type { PaBucketId, PaChatReply, PaChatTurn } from "../../types/portfolio";
 import { RefLine, ViewHeadline } from "../ps/AssetViewParts";
 import type { PrAssetView } from "../../types/productRecommender";
 import { findProducts } from "../../utils/productMatch";
-import { toggleSelection, useActiveIps, useSelection, loadSelection, saveSelection, getIpsDraftExtras, appendIpsDraftNote } from "../../services/workflowStore";
+import { saveIpsDraftExtras, toggleSelection, useActiveIps, useSelection, loadSelection, saveSelection, getIpsDraftExtras, appendIpsDraftNote } from "../../services/workflowStore";
+import { IPS_GEN_SECTIONS, type IpsGenSectionResult,type IpsChatMessage, type IpsDiscussResult } from "../../types/arc";
+import { historyNotice, STANCE_CHIP, NO_MODEL_NOTICE } from "../../services/ipsChatHistory";
+import { subscribeIpsGen, type IpsGenEvent } from "../../services/ipsGenBus";
+import { getIpsRun } from "../../services/ipsGenStore";
 import type { GenevaPendingAction, GenevaReply, MacroView, MarketAnswer, MarketRow, Role } from "../../types/arc";
 import { Badge, BulletList, Button, CitationTag, DirectionArrow, Table, toBulletItems } from "../ui";
 import { savePackDraft } from "../../services/packDraftStore";
 import { appendChatContext } from "../../services/chatContextStore";
+import { MeetingNoteModal } from "./MeetingNoteModal";
 import { GenevaMarkdown, Tagged, type SourceRef } from "./GenevaMarkdown";
 import { GenevaArticlePanel } from "./GenevaArticlePanel";
 
@@ -68,6 +73,119 @@ interface Msg {
   /** IPS draft editor answer: bullets the RM can add to a bucket's explanation box. */
   ipsExplain?: { bullets: string[]; named: PaBucketId | null; buckets: PaBucketId[]; added: PaBucketId[] };
   approval?: { action: GenevaPendingAction | null; status: "pending" | "approved" | "declined" };
+  /** AI IPS generation evidence, filled progressively from ipsGenBus events. */
+  ipsGen?: { clientName: string; sections: IpsGenSectionResult[]; status: "running" | "done" | "error"; error?: string; model?: string; saved?: boolean; unavailable?: boolean };
+  /** Reply to a question about the 3L allocation: stance of the agent, suggested change (if any) and the notes behind it. */
+  discuss?: { stance: IpsDiscussResult["stance"]; buckets?: { id: string; strategy: string; strategyName?: string; justification?: string }[]; changes: string[]; citations: IpsDiscussResult["citations"]; applied?: boolean; /** Pending change from the backend: applied only by a confirm turn that echoes it back. */ proposal?: AllocationProposal | null };
+}
+
+const BUCKET_LABEL: Record<string, string> = { liquidity: "Liquidity portfolio", longevity: "Longevity portfolio", legacy: "Legacy portfolio" };
+const STANCE_LABEL = STANCE_CHIP;
+/** Follow-up questions about the written IPS go to the allocation agent when they touch allocation, strategy or justification. */
+/** A short reply to a pending proposal ("confirm", "yes", "no"): goes to the allocation agent even without a bucket name. */
+const PROPOSAL_REPLY = /^\s*(yes|yep|yeah|ok(ay)?|sure|confirm\w*|apply|go ahead|please do|do it|approve|proceed|no|nope|cancel|never ?mind|keep|don'?t|leave it)\b/i;
+const ALLOC_INTENT = /allocation|strateg|liquidity|longevity|legacy|justif|\bwhy\b|growth|fixed income|disagree|\b3l\b|bucket|equit|income|balanced|yield/i;
+const bucketLine = (b: { id: string; strategy: string; strategyName?: string }) => `${BUCKET_LABEL[b.id] ?? b.id} - ${b.strategy}${b.strategyName ? ` ${b.strategyName}` : ""}`;
+
+/** The newest allocation known in a chat: a discuss reply that changed it, else the one generated. */
+/** The proposal waiting for the RM's answer: only the newest agent message can hold one. */
+function pendingProposalOf(msgs: Msg[]): AllocationProposal | null {
+  const last = [...msgs].reverse().find((m) => m.from === "agent");
+  return last?.discuss?.proposal && !last.discuss.applied ? last.discuss.proposal : null;
+}
+function latestAllocation(msgs: Msg[]): { id: string; strategy: string; strategyName?: string; justification?: string }[] | undefined {
+  for (let i = msgs.length - 1; i >= 0; i--) {
+    const m = msgs[i];
+    if (m.discuss?.buckets?.length) return m.discuss.buckets;
+    const a = m.ipsGen?.sections.find((r) => r.section === "allocation")?.allocation;
+    if (a?.buckets?.length) return a.buckets;
+  }
+  return undefined;
+}
+
+/** A saved IPS chat row becomes a chat message again after a reload. */
+function restoreMsg(h: IpsChatMessage): Msg {
+  if (h.role === "user") return { from: "user", text: h.text };
+  const meta = (h.meta ?? {}) as { stance?: IpsDiscussResult["stance"]; buckets?: NonNullable<Msg["discuss"]>["buckets"]; changes?: string[]; proposal?: AllocationProposal | null; applied?: boolean };
+  if (h.kind === "discuss") return { from: "agent", text: h.text, discuss: { stance: meta.stance ?? "info", buckets: meta.buckets, changes: meta.changes ?? [], citations: [], proposal: meta.proposal ?? null, applied: meta.applied } };
+  return { from: "agent", text: h.text, reply: { text: h.text, runId: null } };
+}
+
+/** Evidence per IPS section: which meeting note each filled item was pulled from. Sections that have not arrived yet show as thinking steps. */
+function IpsGenView({ g, clientId }: { g: NonNullable<Msg["ipsGen"]>; clientId: string; role?: Role }) {
+  const [note, setNote] = useState<{ id: string; passage?: string; date?: string; title?: string } | null>(null);
+  const pending = IPS_GEN_SECTIONS.filter((s) => !g.sections.some((r) => r.section === s.id));
+  const running = g.status === "running";
+  const model = g.model ?? g.sections.find((r) => r.model)?.model;
+  const sub = "mt-1 border-l border-hairline-strong pl-3 text-[14px] leading-6 text-ink-muted";
+  return (
+    <div className="min-w-0 space-y-8 font-light">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <p className="text-[22px] leading-9 tracking-tight text-ink">{`AI IPS generation · ${g.clientName}`}</p>
+        {model && !g.unavailable && <span className="inline-flex items-center border border-hairline-strong px-3 py-1 text-[12px] tracking-[0.06em] text-ink">{`Model: ${model}`}</span>}
+        {g.saved && <span className="inline-flex items-center border border-hairline-strong px-3 py-1 text-[12px] uppercase tracking-[0.14em] text-ink">Saved</span>}
+      </div>
+      {IPS_GEN_SECTIONS.map((def) => {
+        const r = g.sections.find((x) => x.section === def.id);
+        if (!r) return null;
+        const ev = r.evidence ?? [];
+        return (
+          <section key={def.id} className="animate-geneva-in">
+            <h4 className="text-[22px] font-light tracking-tight">{def.label}</h4>
+            {r.status !== "ok" ? <p className="mt-3 text-[16px] leading-7 text-ink-700">{r.message}</p> : def.id === "allocation" && r.allocation ? (
+              <div className="mt-3 space-y-6">
+                {r.allocation.summary && <p className="text-[16px] leading-7 text-ink-700">{r.allocation.summary}</p>}
+                {r.allocation.buckets.map((b) => (
+                  <div key={b.id}>
+                    <h5 className="text-[18px] font-light tracking-tight text-ink">{bucketLine(b)}</h5>
+                    <ul className="mt-2 list-disc space-y-3 pl-5 text-[16px] leading-7 text-ink-700">
+                      <li>{b.justification}</li>
+                      {(b.evidence ?? []).map((e, i) => (
+                        <li key={`${e.noteId}-${i}`}>
+                          <span>{e.item}</span>
+                          <span className="text-ink-muted">{" — from meeting note "}{e.date ?? ""}{e.title ? ` “${e.title}”` : ""} </span>
+                          <button type="button" onClick={() => setNote({ id: e.noteId, passage: e.passage, date: e.date, title: e.title })} className="underline-offset-2 hover:underline" aria-label={`Open meeting note ${e.title ?? e.noteId}`}><CitationTag tag={e.noteId} /></button>
+                          {e.passage && <p className={sub}>“{e.passage}”</p>}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <ul className="mt-3 list-disc space-y-3 pl-5 text-[16px] leading-7 text-ink-700">
+                {ev.length === 0 ? <li>Nothing stated in the meeting notes</li> : ev.map((e, i) => (
+                  <li key={`${e.noteId}-${i}`}>
+                    <span>{e.item}</span>
+                    <span className="text-ink-muted">{" — from meeting note "}{e.date ?? ""}{e.title ? ` “${e.title}”` : ""} </span>
+                    <button type="button" onClick={() => setNote({ id: e.noteId, passage: e.passage, date: e.date, title: e.title })} className="underline-offset-2 hover:underline" aria-label={`Open meeting note ${e.title ?? e.noteId}`}><CitationTag tag={e.noteId} /></button>
+                    {e.passage && <p className={sub}>“{e.passage}”</p>}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        );
+      })}
+      {running && (
+        <div className="min-h-[120px] border-t border-hairline pt-5">
+          <p className="text-[26px] font-light tracking-tight"><span className="animate-geneva-flow">Reading the meeting notes</span></p>
+          <ol className="mt-4">
+            {pending.map((s, i) => (
+              <li key={s.id} className="flex items-center gap-5 py-2">
+                <span className="animate-geneva-flow w-7 text-xs tabular-nums tracking-[0.12em]">{String(g.sections.length + i + 1).padStart(2, "0")}</span>
+                <span className="animate-geneva-flow text-[16px] font-light">{i === 0 ? `Filling ${s.label.toLowerCase()}…` : s.label}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+      {g.status === "error" && <p className="text-[16px] leading-7 text-negative">{g.error}</p>}
+      {g.status === "done" && !g.unavailable && <p className="text-[17px] leading-7 text-ink-700">{g.saved ? "Draft saved automatically to the IPS versions. Open it to review and edit before sending." : "Draft ready in the IPS editor."} Please ascertain these facts against the meeting notes before sending.</p>}
+      {g.unavailable && <p className="text-[17px] leading-7 text-ink-700">{NO_MODEL_NOTICE}</p>}
+      {note && <MeetingNoteModal clientId={clientId} noteId={note.id} passage={note.passage} fallbackLabel={note.title} fallbackDate={note.date} onClose={() => setNote(null)} />}
+    </div>
+  );
 }
 
 /* ---- PS asset-class view: "What's the view on fixed income?" (one class named, view wording, no product wording) ---- */
@@ -276,7 +394,7 @@ function RecommendView({ r, picked, onToggle, clientId }: { r: Recommend; picked
 
 /* ---- PS finalise-by-prompt: detect "I'm happy with X and Y" and match product names ---- */
 const FINALISE_INTENT = /\b(finali[sz]e|happy with|ok with|okay with|fine with|good with|comfortable with|go with|going with|proceed with|shortlist|i like|i(?:'|’)ll take|i want to (?:take|go|proceed|keep)|i(?:'|’)m (?:ok|ok?ay|happy|fine) )/i;
-interface Chat { id: number; title: string; messages: Msg[]; sessionId: string }
+interface Chat { id: number; title: string; messages: Msg[]; sessionId: string; /** Dedicated AI IPS chat: saved to the server and answers allocation questions. */ ips?: boolean }
 
 function Direction({ d }: { d: MacroView["direction"] }) {
   return <DirectionArrow d={d === "Up" ? "up" : d === "Down" ? "down" : "flat"} size={16} />;
@@ -361,13 +479,26 @@ function AnswerView({ a, picked, onToggle, clientId, role }: { a: MarketAnswer; 
 }
 
 /** The only client switcher in the app: the green-dot pill opens a small menu of clients. */
-function ClientSwitcher({ clientId, name }: { clientId: string; name: string | null }) {
+function ClientSwitcher({ clientId, name, role }: { clientId: string; name: string | null; role: Role }) {
   const [open, setOpen] = useState(false);
   const [clients, setClients] = useState<Client[]>([]);
   const ref = useRef<HTMLDivElement>(null);
   const { pathname, search } = useLocation();
   const navigate = useNavigate();
-  useEffect(() => { let on = true; arcApi.listClients().then((c) => { if (on) setClients(c); }); return () => { on = false; }; }, []);
+  // The RM's chat reads the client book DB (the same ids the profiling agent checks access against); PM/PS still use the mock list.
+  useEffect(() => {
+    let on = true;
+    const load = role === "rm" ? arcApi.listBook().then((b) => b.clients.map(bookToClient)) : arcApi.listClients();
+    load.then((c) => { if (on) setClients(c); }, () => { if (on) setClients([]); });
+    return () => { on = false; };
+  }, [role]);
+  // A stale or mock active client (e.g. the old default `jfr`) is not in the RM's book: move to the first real book client.
+  useEffect(() => {
+    if (role !== "rm" || clients.length === 0 || clients.some((c) => c.id === clientId)) return;
+    setActiveClientId(clients[0].id);
+    const next = pathForClient(pathname, clients[0].id);
+    if (next) navigate(next + search, { replace: true });
+  }, [role, clients, clientId, pathname, search, navigate]);
   useEffect(() => {
     if (!open) return;
     const away = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
@@ -433,6 +564,93 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
   }
   const ipsVersion = activeIps ?? clientIps ?? null;
   const nextId = useRef(2);
+  const nameRef = useRef<string | null>(null);
+  nameRef.current = clientName;
+  /** AI IPS generation: one dedicated chat per run. Events replay for 5s, so handled ones are tracked by identity. */
+  const genChat = useRef<number | null>(null);
+  const handled = useRef(new WeakSet<IpsGenEvent>());
+  const genSections = useRef<IpsGenSectionResult[]>([]);
+  /** Messages already on the server (restored or saved); everything else in an IPS chat is saved once. */
+  const saved = useRef(new WeakSet<Msg>());
+  /** Notices about the saved IPS conversation (history unavailable, 100-message cap). Shown above the composer. */
+  const [historyNote, setHistoryNote] = useState<string | null>(null);
+  // Saved IPS chat survives closing the sidebar and reloads: load it when the client chat mounts.
+  useEffect(() => {
+    let on = true;
+    setHistoryNote(null);
+    arcApi.listIpsChatPage(clientId).then(({ messages: h, truncated, historyAvailable }) => {
+      if (!on) return;
+      setHistoryNote(historyNotice({ failed: !historyAvailable, truncated }));
+      if (h.length === 0) return;
+      const messages = h.map(restoreMsg);
+      messages.forEach((m) => saved.current.add(m));
+      setChats((cs) => cs.some((c) => c.ips && c.messages.every((m) => saved.current.has(m))) ? cs
+        : cs.map((c) => c.id === 1 && c.messages.length === 0 ? { ...c, title: "IPS chat", messages, ips: true } : c));
+    }).catch(() => { if (on) setHistoryNote(historyNotice({ failed: true })); });
+    return () => { on = false; };
+  }, [clientId]);
+  useEffect(() => {
+    chats.forEach((c) => {
+      if (!c.ips) return;
+      c.messages.forEach((m) => {
+        if (m.ipsGen || m.approval || saved.current.has(m) || !m.text) return;
+        saved.current.add(m);
+        arcApi.appendIpsChat(clientId, m.from === "user" ? { role: "user", text: m.text, kind: "chat" }
+          : { role: "assistant", text: m.text, kind: m.discuss ? "discuss" : "chat", meta: m.discuss ? { stance: m.discuss.stance, buckets: m.discuss.buckets, changes: m.discuss.changes, proposal: m.discuss.proposal ?? null, applied: !!m.discuss.applied } : null })
+          .then((r) => { if (r && r.historyAvailable === false) setHistoryNote(historyNotice({ failed: true })); else if (r?.truncated) setHistoryNote(historyNotice({ truncated: true })); })
+          .catch(() => setHistoryNote(historyNotice({ failed: true })));
+      });
+    });
+  }, [chats, clientId]);
+  const clearHistory = async () => {
+    if (!window.confirm("Clear the saved IPS conversation for this client? This removes it for good.")) return;
+    try { await arcApi.clearIpsChat(clientId); } catch { setHistoryNote(historyNotice({ failed: true })); return; }
+    setHistoryNote(null);
+    setChats((cs) => cs.map((c) => c.ips ? { ...c, messages: c.messages.filter((m) => m.ipsGen) } : c));
+  };
+  useEffect(() => {
+    genChat.current = null;
+    const apply = (id: number, fn: (g: NonNullable<Msg["ipsGen"]>) => NonNullable<Msg["ipsGen"]>) =>
+      setChats((cs) => cs.map((c) => c.id !== id ? c : { ...c, messages: c.messages.map((m) => m.ipsGen ? { ...m, ipsGen: fn(m.ipsGen) } : m) }));
+    const open = (name: string) => {
+      const id = nextId.current++;
+      genChat.current = id;
+      genSections.current = [];
+      const msg: Msg = { from: "agent", text: "", ipsGen: { clientName: name, sections: [], status: "running" } };
+      setChats((cs) => [...cs, { ...blank(id), title: "AI IPS generation", messages: [msg], ips: true }]);
+      setActiveId(id);
+      return id;
+    };
+    // A run may already be going (or just have finished) while the sidebar was closed: rebuild its view from the store.
+    const existing = getIpsRun(clientId);
+    if (existing) {
+      const id = nextId.current++;
+      genChat.current = id;
+      genSections.current = existing.sections;
+      const msg: Msg = { from: "agent", text: "", ipsGen: { clientName: existing.clientName, sections: existing.sections, status: existing.status, error: existing.error, model: existing.unavailable ? undefined : existing.model, saved: existing.status === "done" ? existing.saved : undefined, unavailable: existing.unavailable } };
+      setChats((cs) => [...cs, { ...blank(id), title: "AI IPS generation", messages: [msg], ips: true }]);
+      setActiveId(id);
+    }
+    return subscribeIpsGen((e) => {
+      if (e.clientId !== clientId || handled.current.has(e)) return;
+      handled.current.add(e);
+      // Replayed events of a run already restored from the store would only duplicate it.
+      if (existing && e.type === "start") return;
+      nearBottom.current = true;
+      if (e.type === "model") { apply(genChat.current ?? open(nameRef.current ?? "Client"), (g) => ({ ...g, model: e.model, unavailable: e.unavailable })); return; }
+      if (e.type === "start") { open(e.clientName ?? nameRef.current ?? "Client"); apply(genChat.current!, (g) => ({ ...g, model: e.model })); return; }
+      const id = genChat.current ?? open(nameRef.current ?? "Client");
+      if (e.type === "section") {
+        genSections.current = [...genSections.current.filter((r) => r.section !== e.result.section), e.result];
+        apply(id, (g) => ({ ...g, model: g.model ?? e.result.model ?? undefined, sections: [...g.sections.filter((r) => r.section !== e.result.section), e.result] }));
+      } else if (e.type === "done") {
+        apply(id, (g) => ({ ...g, status: "done", model: e.unavailable ? undefined : e.model ?? g.model, saved: e.saved, unavailable: e.unavailable }));
+        // The generation line in the saved IPS chat is written by ipsGenStore (works with the sidebar closed).
+      }
+      else apply(id, (g) => ({ ...g, status: "error", error: e.message }));
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientId]);
   const chat = chats.find((c) => c.id === activeId) ?? chats[0];
   const busy = working?.chatId === chat.id;
   /** What produced the latest agent answer: a local model, a hosted API model, or plain rules. */
@@ -458,7 +676,7 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
   useEffect(() => {
     const el = scrollRef.current;
     if (el && nearBottom.current) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-  }, [chat.messages.length, working?.shown]);
+  }, [chat.messages, working?.shown]);
 
   const patch = (id: number, fn: (c: Chat) => Chat) => setChats((cs) => cs.map((c) => (c.id === id ? fn(c) : c)));
   const newChat = () => {
@@ -517,6 +735,64 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
     patch(chat.id, (c) => ({ ...c, messages: c.messages.map((m, j) => j === msgIndex && m.ipsExplain ? { ...m, ipsExplain: { ...m.ipsExplain, added: [...m.ipsExplain.added, b] } } : m) }));
   };
 
+  /** The allocation the backend should reason about: the live IPS editor values, else the newest one in this chat; otherwise the backend reads the saved IPS. */
+  const currentAllocation = (msgs: Msg[]): { buckets: { id: string; strategy: string; justification?: string }[] } | undefined => {
+    const x = getIpsDraftExtras(clientId);
+    const ids = ["liquidity", "longevity", "legacy"] as const;
+    if (x.allocation && ids.some((b) => x.allocation?.[b])) return { buckets: ids.filter((b) => x.allocation?.[b]).map((b) => ({ id: b, strategy: x.allocation![b]!, justification: x.allocationNotes?.[b] })) };
+    const l = latestAllocation(msgs);
+    return l ? { buckets: l.map((b) => ({ id: b.id, strategy: b.strategy, justification: b.justification })) } : undefined;
+  };
+  /** One 3L allocation turn through the Client Profiling /chat (stance, proposal, applied). History is stored server-side per RM, so none is sent; a pending proposal is echoed back for the confirm turn. */
+  const runAllocationTurn = async (id: number, text: string, pending: AllocationProposal | null) => {
+    const msgs = chats.find((c) => c.id === id)?.messages ?? [];
+    const current = currentAllocation(msgs);
+    try {
+      const r = await withThinking(id, arcApi.clientProfilingChat(clientId, text, null, { allocation: current, pending_proposal: pending }), ["Allocation agent fired", "Reading the meeting notes and strategy table…", "Weighing your point…", "Consolidating…"]);
+      const d = r.tool === "allocation_dialogue" ? (r.data?.allocation_dialogue as AllocationDialogue | undefined) : undefined;
+      if (!d) {
+        // Not an allocation turn after all: show it like any profiling answer.
+        if (r.tool !== "out_of_scope" && r.data?.routing?.method !== "unavailable") patch(id, (c) => ({ ...c, messages: [...c.messages, { from: "agent", text: r.message, profiling: r }] }));
+        else patch(id, (c) => ({ ...c, messages: [...c.messages, { from: "agent", text: r.message || "I can only answer questions about this client's meeting notes or IPS here." }] }));
+        return;
+      }
+      const now = d.allocation?.buckets ?? current?.buckets ?? [];
+      const changes = (d.proposal?.changes ?? []).map((bid) => {
+        const to = d.proposal?.buckets.find((b) => b.id === bid);
+        return `${BUCKET_LABEL[bid] ?? bid}: ${now.find((b) => b.id === bid)?.strategy ?? "-"} to ${to?.strategy ?? "-"} ${to?.strategyName ?? ""}`.trim();
+      });
+      const msg: Msg = { from: "agent", text: d.text.replace(/^(Agrees|Disagrees|Partly agrees)\.\s*/, ""), discuss: {
+        stance: d.stance ?? "info", buckets: now, changes, applied: d.applied, proposal: d.proposal ?? null,
+        citations: (d.sources ?? []).map((x) => ({ noteId: x.id, date: x.date, title: x.label, passage: x.passage })) } };
+      // A new answer settles any earlier pending proposal (applied, rejected or replaced): its Apply button goes away.
+      patch(id, (c) => ({ ...c, messages: [...c.messages.map((m) => m.discuss?.proposal ? { ...m, discuss: { ...m.discuss, proposal: null, applied: m.discuss.applied || (d.applied && !!pending) } } : m), msg] }));
+      if (d.applied) afterApplied(d);
+    } catch (e) {
+      patch(id, (c) => ({ ...c, messages: [...c.messages, { from: "agent", text: failText(e) }] }));
+    } finally {
+      setWorking((w) => (w?.chatId === id ? null : w));
+    }
+  };
+  /** The backend confirmed a change: put it in the IPS draft (the open editor autosaves it); with no editor open, save it into the Draft IPS and refresh the versions list. */
+  const afterApplied = (d: AllocationDialogue) => {
+    const buckets = d.allocation?.buckets ?? [];
+    if (!buckets.length) return;
+    const allocation: Record<string, string> = {}; const allocationNotes: Record<string, string> = {};
+    buckets.forEach((b) => { allocation[b.id] = b.strategy; if (b.justification) allocationNotes[b.id] = b.justification; });
+    saveIpsDraftExtras(clientId, { allocation, allocationNotes });
+    if (!document.querySelector("[data-ips-editor]")) {
+      void arcApi.applyAllocationToIps(clientId, buckets).then((ok) => { if (ok) window.dispatchEvent(new CustomEvent("ips-versions-changed", { detail: { clientId } })); });
+    }
+  };
+  /** "Apply change": the confirm turn. Only the backend applies it, and only for the proposal echoed back. */
+  const applyChange = (chatId: number, idx: number) => {
+    const c = chats.find((x) => x.id === chatId); const proposal = c?.messages[idx]?.discuss?.proposal;
+    if (!proposal || busy) return;
+    nearBottom.current = true;
+    patch(chatId, (cc) => ({ ...cc, messages: [...cc.messages, { from: "user", text: "confirm" }] }));
+    setWorking({ chatId, steps: [], shown: 0 });
+    void runAllocationTurn(chatId, "confirm", proposal);
+  };
   const send = async (raw: string, profilingClient?: string, source?: ClientProfilingSourceChoice, resend = false) => {
     const text = raw.trim();
     if (!text || busy || awaitingApproval) return;
@@ -526,6 +802,10 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
     setDraft("");
     patch(id, (c) => ({ ...c, title: c.messages.length === 0 ? text.slice(0, 40) : c.title, messages: resend ? c.messages : [...c.messages, { from: "user", text }] }));
     setWorking({ chatId: id, steps: [], shown: 0 });
+    if (chat.ips && !profilingClient) {
+      const pending = pendingProposalOf(chat.messages);
+      if (ALLOC_INTENT.test(text) || (pending && PROPOSAL_REPLY.test(text))) { await runAllocationTurn(id, text, pending); return; }
+    }
     if (onIpsDraft && !profilingClient) {
       // On the IPS draft editor every question is about the proposed portfolios; answered by the Portfolio Agent from the draft weights + client profile.
       const history: PaChatTurn[] = [];
@@ -577,7 +857,7 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
         const down = tool === "routing_unavailable" || tool === "unavailable" || r.data?.routing?.method === "unavailable";
         const msg = down
           ? (r.message?.trim() || "The local model is unavailable, so I couldn't answer. Please try again once it is running.")
-          : "I can only answer questions about this client's meeting notes here.";
+          : "I can only answer questions about this client's meeting notes or IPS here.";
         patch(id, (c) => ({ ...c, messages: [...c.messages, { from: "agent", text: msg }] }));
       }
       if (profilingClient || mine) {
@@ -730,7 +1010,7 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
 
       <section className="flex min-h-0 min-w-0 flex-1 flex-col">
         <div className="flex flex-wrap items-center justify-end gap-3 border-b border-hairline px-6 py-3 sm:px-10">
-          <ClientSwitcher clientId={clientId} name={clientName} />
+          <ClientSwitcher clientId={clientId} name={clientName} role={role} />
           <Link to={`/${role}/clients/${clientId}/documents`} title="Open the client's IPS" className="inline-flex items-center gap-2.5 rounded-full border border-hairline-strong bg-surface-100 px-4 py-1.5 text-[13px] text-ink hover:bg-surface-300">
             <span className={`size-2 rounded-full ${ipsVersion ? "bg-positive" : "bg-ink-muted"}`} />
             {ipsVersion ? `Using IPS v${ipsVersion}` : "No active IPS"}
@@ -745,6 +1025,7 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
           <div className="flex min-h-0 flex-1 flex-col items-center justify-center-safe overflow-y-auto px-8 py-10">
             <img src="/ubs-logo.png" alt="Geneva" className="ubs-logo mb-5 h-10 w-auto" />
             <h2 className="mb-8 text-center text-3xl font-light">{HEADING[role]}</h2>
+            {historyNote && <p role="status" className="mb-3 border-l border-hairline-strong pl-3 text-[13px] font-light text-ink-muted">Geneva: {historyNote}</p>}
             {composer}
             <ul className="mt-6 w-full max-w-4xl">
               {SEEDED[role].map((q) => (
@@ -780,6 +1061,32 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
                   {m.assetView && <AssetViewCard v={m.assetView} clientId={clientId} />}
                   {m.answer && <AnswerView a={m.answer} picked={pickedNames} onToggle={toggle} clientId={clientId} role={role} />}
                   {m.profiling && <ClientProfilingCard r={m.profiling} role={role} onAsk={(cid) => send(chat.messages[i - 1]?.text ?? "", cid)} onSource={(src) => send(lastUserBefore(chat.messages, i), m.profilingClient, src, true)} />}
+                  {m.discuss && (
+                    <div className="space-y-5 font-light">
+                      <span className="inline-flex items-center border border-hairline-strong px-3 py-1 text-[12px] uppercase tracking-[0.14em] text-ink">{STANCE_LABEL[m.discuss.stance] ?? m.discuss.stance}</span>
+                      <p className="text-[17px] leading-7 text-ink-700">{m.text}</p>
+                      {m.discuss.changes.length > 0 && (
+                        <div>
+                          <p className={label}>Suggested change to the allocation</p>
+                          <ul className="mt-2 list-disc space-y-1 pl-5 text-[16px] leading-7 text-ink-700">{m.discuss.changes.map((c) => <li key={c}>{c}</li>)}</ul>
+                          {m.discuss.proposal && !m.discuss.applied ? (
+                            <div className="mt-4 flex items-center gap-4">
+                              <Button variant="primary" size="sm" disabled={busy} onClick={() => applyChange(chat.id, i)}>Apply change</Button>
+                              <span className="text-[14px] text-ink-muted">Nothing changes until you confirm.</span>
+                            </div>
+                          ) : m.discuss.applied ? <p className="mt-3 text-[14px] text-ink-muted">Applied to the IPS draft.</p>
+                            : <p className="mt-2 text-[14px] text-ink-muted">Not applied.</p>}
+                        </div>
+                      )}
+                      {m.discuss.changes.length === 0 && m.discuss.applied && <p className="text-[14px] text-ink-muted">Applied to the IPS draft.</p>}
+                      {m.discuss.citations.length > 0 && (
+                        <ul className="space-y-1 text-[14px] leading-6 text-ink-muted">
+                          {m.discuss.citations.map((c, k) => <li key={k}>{c.noteId && <CitationTag tag={c.noteId} />}{` ${c.date ?? ""} ${c.title ?? ""}`}{c.passage && <span>{` “${c.passage}”`}</span>}</li>)}
+                        </ul>
+                      )}
+                    </div>
+                  )}
+                  {m.ipsGen && <IpsGenView g={m.ipsGen} clientId={clientId} role={role} />}
                   {m.reply && <GenevaMarkdown text={m.reply.text} runId={m.reply.runId} onOpenSource={setSource} />}
                   {m.approval && (
                     <div className="space-y-6 font-light">
@@ -835,6 +1142,12 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
               
             </div>
             <div className="px-10 pb-8 pt-2">
+              {chat.ips && chat.messages.some((m) => !m.ipsGen) && (
+                <div className="mx-auto mb-2 flex w-full max-w-4xl justify-end">
+                  <button type="button" onClick={clearHistory} className="inline-flex items-center gap-1.5 text-[13px] font-light text-ink-muted hover:text-ink"><Trash2 size={13} strokeWidth={1.5} />Clear history</button>
+                </div>
+              )}
+              {historyNote && <p role="status" className="mx-auto mb-3 w-full max-w-4xl border-l border-hairline-strong pl-3 text-[13px] font-light text-ink-muted">Geneva: {historyNote}</p>}
               {composer}
             </div>
           </>

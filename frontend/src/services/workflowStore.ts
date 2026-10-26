@@ -142,8 +142,18 @@ export const useAllIpsSent = (): string[] => Object.keys(ipsSent.use());
 export interface IpsDraftExtras {
   buckets?: Bucket3L[]; saaNotes?: Partial<Record<BucketId, string>>;
   demo?: Record<string, string>; risk?: Record<string, string>;
+  /** Investment philosophy statement blanks (RM-filled). */
+  philosophy?: { approach?: string; believes?: string; avoids?: string; statement?: string };
   signatures?: { client?: string; rm?: string };
+  /** Strategy code (A-F) chosen per 3L bucket, and the justification text per bucket. */
+  allocation?: { liquidity?: string; longevity?: string; legacy?: string };
+  allocationNotes?: Record<string, string>;
   saaPortfolios?: Partial<Record<BucketId, SaaPortfolio>>;
+  /** Structured IPS fields (backend JSON shape, read tolerantly). */
+  targets?: import("../components/documents/ips/ipsTypes").IpsTarget[];
+  lifeEvents?: import("../components/documents/ips/ipsTypes").IpsLifeEvent[];
+  reviewRules?: { title: string; text: string }[];
+  rmSignedDate?: string;
 }
 const ipsExtras = createStore<Record<string, IpsDraftExtras>>("wf-ips-extras", {});
 export const getIpsDraftExtras = (clientId: string): IpsDraftExtras => ipsExtras.read()[clientId] ?? {};

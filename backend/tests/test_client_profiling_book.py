@@ -76,7 +76,7 @@ def test_notes_gate_403(client):
 def test_chat_always_uses_db_book_and_ignores_client_book(client, monkeypatch):
     seen = {}
 
-    def fake(message, client_id, book=None, source=None):
+    def fake(message, client_id, book=None, source=None, **kw):
         seen["book"] = book
         return ep.ToolResult(status="ok", tool="x", message="m")
     monkeypatch.setattr(ep, "handle_chat", fake)
@@ -103,7 +103,7 @@ def test_chat_answers_for_jft(client, monkeypatch):
 
     def fake_answer(messages, **kw):
         return "Jane Fraser asked about her conservative profile."
-    monkeypatch.setattr(ep, "handle_chat", lambda m, c, book=None, source=None: real(m, c, book=book, source=source,
+    monkeypatch.setattr(ep, "handle_chat", lambda m, c, book=None, source=None, **kw: real(m, c, book=book, source=source,
                                                                                     answer_chat=fake_answer, router_chat=fake_answer))
     r = client.post(f"{U}/chat", json={"message": "What did Jane Fraser say about risk?", "client_id": "jft"}).json()
     assert r["status"] != "unavailable" and "not in your book" not in r["message"]

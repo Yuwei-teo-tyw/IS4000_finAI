@@ -9,7 +9,8 @@ from __future__ import annotations
 import json
 import os
 import re
-from datetime import date
+import uuid
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Literal, Optional
 
@@ -26,6 +27,7 @@ class Client(BaseModel):
     surname: str = ""
     risk_category: Optional[str] = None
     risk_cap: Optional[int] = None
+    gender: Optional[str] = None  # recorded gender ("female"/"male"); never inferred from the name
     aum_sgd: Optional[float] = None
     status: Optional[str] = None
     in_book: bool = False
@@ -49,6 +51,7 @@ class IpsVersion(BaseModel):
     author: str = ""
     summary: str = ""
     parts: list[IpsPartDoc] = Field(default_factory=list)
+    data: dict = Field(default_factory=dict)  # structured IPS JSON (see schemas.py); {} for versions saved as text only
 
     def part(self, n: int) -> Optional[IpsPartDoc]:
         return next((p for p in self.parts if p.part == n), None)
@@ -59,6 +62,19 @@ def _check_progress(onboarding, monitoring) -> None:
         raise ValueError("onboarding_progress must be 0..5")
     if monitoring is not None and not 0 <= monitoring <= 100:
         raise ValueError("monitoring_progress must be 0..100")
+
+
+DEFAULT_RM = "rm_default"
+IPS_CHAT_CAP = 100  # messages kept per (client, RM); the oldest are dropped beyond this
+CHAT_ROLES = ("user", "assistant")
+CHAT_KINDS = ("chat", "generation", "discuss")
+
+
+def _check_chat(role: str, kind: str) -> None:
+    if role not in CHAT_ROLES:
+        raise ValueError(f"role must be one of {CHAT_ROLES}")
+    if kind not in CHAT_KINDS:
+        raise ValueError(f"kind must be one of {CHAT_KINDS}")
 
 
 class MeetingNoteDoc(BaseModel):
@@ -121,7 +137,7 @@ class BaseStore:
         raise NotImplementedError
 
     def update_note(self, client_id: str, note_id: str, title: Optional[str] = None,
-                    text: Optional[str] = None) -> Optional[MeetingNoteDoc]:
+                    text: Optional[str] = None, date: Optional[str] = None) -> Optional[MeetingNoteDoc]:
         raise NotImplementedError
 
     def note_indexing(self, client_id: str, note_id: str) -> dict:
@@ -156,9 +172,59 @@ class BaseStore:
     def count_ips_chunks(self, client_id: str, version: int) -> int:
         return 0
 
+    # ---- model strategies A-F and the investor-profile guide (RAG context) ----
+    def list_strategies(self) -> list[dict]:
+        """Strategies in the shape of data/strategies.json (code, name, risk_label, allocation, ..., stress)."""
+        from . import strategies
+        return [json.loads(json.dumps(s)) for s in strategies.load_strategies()]
+
+    def search_guide(self, query: str, k: int = 4) -> Optional[list[dict]]:
+        """Semantic top-k guide chunks [{text, heading, score}], or None when unsupported (keyword fallback in guide.py)."""
+        return None
+
+    # ---- IPS chat history (dedicated IPS assistant), per client AND per RM; JSON store keeps it in memory ----
+    def _chat_rows(self) -> dict:
+        if not hasattr(self, "_ips_chat"):
+            self._ips_chat = {}
+        return self._ips_chat
+
+    def list_ips_chat(self, client_id: str, limit: int = IPS_CHAT_CAP, rm_id: str = DEFAULT_RM) -> list[dict]:
+        """This RM's messages for the client, oldest first, at most `limit` (the most recent ones)."""
+        rows = self._chat_rows().get((client_id, rm_id or DEFAULT_RM), [])
+        return [json.loads(json.dumps(r)) for r in rows[-limit:]] if limit > 0 else []
+
+    def append_ips_chat(self, client_id: str, role: str, text: str, kind: str = "chat", meta: Optional[dict] = None,
+                        rm_id: str = DEFAULT_RM) -> dict:
+        """Append one message; beyond IPS_CHAT_CAP the oldest are dropped and the returned row has truncated=True."""
+        _check_chat(role, kind)
+        rows = self._chat_rows().setdefault((client_id, rm_id or DEFAULT_RM), [])
+        row = {"id": f"ipsc_{uuid.uuid4().hex[:12]}", "role": role, "kind": kind, "text": text,
+               "ts": datetime.now(timezone.utc).isoformat(), "meta": meta}
+        rows.append(row)
+        dropped = max(0, len(rows) - IPS_CHAT_CAP)
+        if dropped:
+            del rows[:dropped]
+        return {**json.loads(json.dumps(row)), "truncated": bool(dropped)}
+
+    def clear_ips_chat(self, client_id: str, rm_id: str = DEFAULT_RM) -> int:
+        return len(self._chat_rows().pop((client_id, rm_id or DEFAULT_RM), []))
+
+    # ---- audit log of manual 3L strategy overrides ----
+    def log_strategy_override(self, client_id: str, portfolio: str, from_strategy: str, to_strategy: str, reason: str = "",
+                              rm_id: str = DEFAULT_RM) -> dict:
+        if not hasattr(self, "_overrides"):
+            self._overrides = []
+        row = {"clientId": client_id, "portfolio": portfolio, "from": from_strategy, "to": to_strategy, "reason": reason,
+               "rmId": rm_id or DEFAULT_RM, "ts": datetime.now(timezone.utc).isoformat()}
+        self._overrides.append(row)
+        return dict(row)
+
+    def list_strategy_overrides(self, client_id: str) -> list[dict]:
+        return [dict(r) for r in getattr(self, "_overrides", []) if r["clientId"] == client_id]
+
     # ---- IPS writes ----
     def save_ips(self, client_id: str, parts: list[IpsPartDoc], version: Optional[int] = None, summary: Optional[str] = None,
-                 author: Optional[str] = None, status: str = "Active") -> Optional[IpsVersion]:
+                 author: Optional[str] = None, status: str = "Active", data: Optional[dict] = None) -> Optional[IpsVersion]:
         """Edit IPS `version` in place (None if it does not exist) or, when version is None, create the next version.
         A new Active version supersedes the previously Active one. Returns the saved version."""
         raise NotImplementedError
@@ -274,8 +340,8 @@ class DocumentStore(BaseStore):
         tmp.replace(self._uploads_path)
 
     def update_note(self, client_id: str, note_id: str, title: Optional[str] = None,
-                    text: Optional[str] = None) -> Optional[MeetingNoteDoc]:
-        """Edit title/text of one of this client's notes; None if it is not that client's. Persisted for uploads;
+                    text: Optional[str] = None, date: Optional[str] = None) -> Optional[MeetingNoteDoc]:
+        """Edit title/date/text of one of this client's notes; None if it is not that client's. Persisted for uploads;
         seed notes are edited in memory only (the seed JSON is never rewritten)."""
         n = next((n for n in self._notes if n.id == note_id and n.client_id == client_id), None)
         if n is None:
@@ -284,12 +350,14 @@ class DocumentStore(BaseStore):
             n.title = title
         if text is not None:
             n.text = text
+        if date is not None:
+            n.date = date
         if n.id.startswith(UPLOAD_ID_PREFIX):
             self._write_uploads()
         return n.model_copy(deep=True)
 
     def save_ips(self, client_id: str, parts: list[IpsPartDoc], version: Optional[int] = None, summary: Optional[str] = None,
-                 author: Optional[str] = None, status: str = "Active") -> Optional[IpsVersion]:
+                 author: Optional[str] = None, status: str = "Active", data: Optional[dict] = None) -> Optional[IpsVersion]:
         """In-memory only (the seed JSON is never rewritten)."""
         if self.get_client(client_id) is None:
             raise ValueError(f"unknown client {client_id!r}")
@@ -302,6 +370,8 @@ class DocumentStore(BaseStore):
                 cur.summary = summary
             if author is not None:
                 cur.author = author
+            if data is not None:
+                cur.data = json.loads(json.dumps(data))
             return cur.model_copy(deep=True)
         nxt = max((i.version for i in self._ips if i.client_id == client_id), default=0) + 1
         if status == "Active":
@@ -309,9 +379,21 @@ class DocumentStore(BaseStore):
                 if i.client_id == client_id and i.status == "Active":
                     i.status = "Superseded"
         new = IpsVersion(client_id=client_id, version=nxt, status=status, issued_on=date.today().isoformat(),
-                         author=author or "", summary=summary or "", parts=[p.model_copy(deep=True) for p in parts])
+                         author=author or "", summary=summary or "", parts=[p.model_copy(deep=True) for p in parts],
+                         data=json.loads(json.dumps(data or {})))
         self._ips.append(new)
         return new.model_copy(deep=True)
+
+    def delete_ips(self, client_id: str, version: int) -> bool:
+        """Remove one IPS version (in memory). If it was Active, the newest remaining version becomes Active."""
+        cur = next((i for i in self._ips if i.client_id == client_id and i.version == version), None)
+        if cur is None:
+            return False
+        self._ips.remove(cur)
+        rest = sorted((i for i in self._ips if i.client_id == client_id), key=lambda i: -i.version)
+        if cur.status == "Active" and rest and not any(i.status == "Active" for i in rest):
+            rest[0].status = "Active"
+        return True
 
     # ---- client book (in memory; the seed file is never rewritten) ----
     def _row(self, client_id: str) -> Optional[Client]:

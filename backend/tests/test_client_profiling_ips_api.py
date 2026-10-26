@@ -24,7 +24,7 @@ def test_ser_two_versions_newest_first(client):
     assert j["client_id"] == "ser" and j["current_version"] == 2
     assert [(v["version"], v["status"]) for v in j["versions"]] == [(2, "Active"), (1, "Superseded")]
     v = j["versions"][0]
-    assert set(v) == {"version", "issuedOn", "status", "author", "summary", "parts"}
+    assert set(v) == {"version", "issuedOn", "status", "author", "summary", "parts", "data"}
     assert [p["part"] for p in v["parts"]] == [1, 2, 3, 4, 5, 6]
     assert set(v["parts"][0]) == {"part", "title", "owner", "status", "body"}
 
