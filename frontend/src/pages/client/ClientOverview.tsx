@@ -19,7 +19,7 @@ export default function ClientOverview() {
   return (
     <div className="flex flex-col gap-4">
       <div className="-mb-6">
-      <Section title="Summary" hint="Computed by code from the client portfolio.">
+      <Section title="Summary" hint="AUM comes from the client database for book clients; Sharpe ratio and diversification are mock data." mock>
         <div className="grid gap-8 md:grid-cols-3">
           <Stat label="AUM" value={sgd(client.aumSgd)} />
           <Stat label="Sharpe ratio" value={client.sharpe ? client.sharpe.toFixed(2) : "n/a"} />
@@ -28,11 +28,11 @@ export default function ClientOverview() {
       </Section>
       </div>
 
-      <Section title="Goal projection">
+      <Section title="Goal projection" mock>
         <Card className="!p-8"><GoalProjection data={goal} /></Card>
       </Section>
 
-      <Section title="3L and allocation">
+      <Section title="3L and allocation" mock>
         <Card className="mb-8 !p-8">
           <div className="grid gap-10 lg:grid-cols-2">
             <div className="flex flex-col gap-7">
@@ -90,7 +90,7 @@ export default function ClientOverview() {
         </Card>
       </Section>
 
-      <Section title="Holdings">
+      <Section title="Holdings" mock>
         <HoldingsExplorer clientId={clientId} />
       </Section>
     </div>

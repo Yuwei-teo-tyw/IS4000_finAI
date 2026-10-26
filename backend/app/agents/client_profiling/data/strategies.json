@@ -1,0 +1,30 @@
+{
+  "source": "UBS \"Your Investor Profile\" (January 2025), pages 5-8",
+  "liquidity_allowed": ["A", "B"],
+  "strategies": [
+    {"code": "A", "name": "Fixed Income", "risk_label": "Very low risk tolerance",
+     "allocation": {"Bonds": 95, "Liquidity": 5, "Alternative Investments": 0, "Equities": 0, "Other": 0},
+     "expected_return_pct": 2.0, "volatility_pct": 2.5, "max_drawdown_pct": 15, "longest_drawdown_years": 4,
+     "stress": {"event": "Interest Rate Hikes", "loss_pct": 10, "time_under_water": "Ongoing"}},
+    {"code": "B", "name": "Income", "risk_label": "Low risk tolerance",
+     "allocation": {"Bonds": 72, "Liquidity": 5, "Alternative Investments": 7, "Equities": 13, "Other": 3},
+     "expected_return_pct": 3.0, "volatility_pct": 4.5, "max_drawdown_pct": 15, "longest_drawdown_years": 4,
+     "stress": {"event": "Financial Crisis", "loss_pct": 13, "time_under_water": "1 year 5 months"}},
+    {"code": "C", "name": "Yield", "risk_label": "Moderate risk tolerance",
+     "allocation": {"Bonds": 51, "Liquidity": 5, "Alternative Investments": 11, "Equities": 29, "Other": 4},
+     "expected_return_pct": 3.5, "volatility_pct": 7.0, "max_drawdown_pct": 25, "longest_drawdown_years": 4,
+     "stress": {"event": "Financial Crisis", "loss_pct": 22, "time_under_water": "1 year 11 months"}},
+    {"code": "D", "name": "Balanced", "risk_label": "Medium-high risk tolerance",
+     "allocation": {"Bonds": 33, "Liquidity": 5, "Alternative Investments": 11, "Equities": 47, "Other": 4},
+     "expected_return_pct": 4.5, "volatility_pct": 9.0, "max_drawdown_pct": 35, "longest_drawdown_years": 6,
+     "stress": {"event": "Financial Crisis", "loss_pct": 29, "time_under_water": "2 years 8 months"}},
+    {"code": "E", "name": "Growth", "risk_label": "High risk tolerance",
+     "allocation": {"Bonds": 15, "Liquidity": 5, "Alternative Investments": 7, "Equities": 70, "Other": 3},
+     "expected_return_pct": 5.0, "volatility_pct": 11.5, "max_drawdown_pct": 45, "longest_drawdown_years": 6,
+     "stress": {"event": "Financial Crisis", "loss_pct": 37, "time_under_water": "3 years 0 months"}},
+    {"code": "F", "name": "Equities", "risk_label": "Highest risk tolerance",
+     "allocation": {"Bonds": 0, "Liquidity": 5, "Alternative Investments": 0, "Equities": 95, "Other": 0},
+     "expected_return_pct": 6.0, "volatility_pct": 14.0, "max_drawdown_pct": 50, "longest_drawdown_years": 7,
+     "stress": {"event": "Financial Crisis", "loss_pct": 43, "time_under_water": "4 years 9 months"}}
+  ]
+}

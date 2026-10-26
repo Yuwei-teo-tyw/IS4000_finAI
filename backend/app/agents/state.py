@@ -34,3 +34,5 @@ class AgentState(TypedDict):
     pii_redacted: bool                 # True if PIIGuard scrubbed something from the latest message
     client_context: Optional[str]      # Geneva workspace note for this turn (role + client), see client_context.py
     scope_checked: bool                # True once this turn's routing is settled (triage routed, or a scope check passed)
+    client_id: Optional[str]           # raw workspace client id for this turn (None when no client is open); used by the Client Profiling node
+    pending_source_question: Optional[str]  # question awaiting the adviser's "meeting notes or IPS?" pick (Client Profiling node)

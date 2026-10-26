@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { ArrowDownWideNarrow, ArrowUpNarrowWide, CalendarClock, Landmark, Users, type LucideIcon } from "lucide-react";
-import { arcApi } from "../../services/arcApi";
-import { Button, Card, Loading, RiskScale, sgd, useAsync } from "../../components/ui";
+import { arcApi, bookToClient } from "../../services/arcApi";
+import { Button, Card, Loading, RiskScale, sgd, useAsyncResult } from "../../components/ui";
 import { WelcomeBanner } from "../../components/ui/WelcomeBanner";
 import { useRole } from "../../layouts/AppShell";
 import { fmtDate, usePackStatus } from "./rmShared";
+import type { Client } from "../../types/arc";
+import type { BookClient } from "../../types/clientProfiling";
 import { useActivated, useIpsReturned, useIpsSent } from "../../services/workflowStore";
 
 const TODAY = new Date("2026-10-17");
@@ -52,6 +54,33 @@ const SEED_PACK: Record<string, number | null> = { ser: null, teo: null, dso: 0 
 const NONE = <p className="text-sm text-ink-muted">-</p>;
 
 /** RM-only progress cells; "-" while a phase has not started. Onboarding: IPS draft, sent to PM, returned, active. Pack: sections complete. */
+type Row = Client & { db?: { onboarding: number; pack: number } };
+/** Backend book row -> the Client view this page uses, plus the DB progress. */
+function fromBook(b: BookClient): Row {
+  return { ...bookToClient(b), db: { onboarding: b.onboarding_progress, pack: b.monitoring_progress } };
+}
+
+/** DB progress is the baseline; workflow state only raises it when real workflow state exists for the client. */
+function DbProgressCells({ clientId, db }: { clientId: string; db: { onboarding: number; pack: number } }) {
+  const sent = !!useIpsSent(clientId);
+  const returned = useIpsReturned(clientId);
+  const active = useActivated(clientId);
+  const wf = active ? 5 : returned ? 4 : sent ? 3 : 0;
+  const step = Math.min(5, Math.max(db.onboarding, wf));
+  const pct = Math.max(0, Math.min(100, db.pack));
+  return (
+    <>
+      <Bar done={step} total={5} label={`Onboarding progress, ${step} of 5`} />
+      <div>
+        <div className="h-[3px] w-full bg-hairline" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} aria-label={`Review pack progress, ${pct}%`}>
+          <div className="h-full bg-brand" style={{ width: `${pct}%` }} />
+        </div>
+        <p className="mt-1.5 text-xs text-ink-muted">{pct}%</p>
+      </div>
+    </>
+  );
+}
+
 function ProgressCells({ clientId, monitoring }: { clientId: string; monitoring: boolean }) {
   const sent = !!useIpsSent(clientId);
   const returned = useIpsReturned(clientId);
@@ -69,19 +98,26 @@ function ProgressCells({ clientId, monitoring }: { clientId: string; monitoring:
 export default function ClientBook() {
   const role = useRole();
   const isRm = role === "rm";
-  const clients = useAsync(() => arcApi.listClients());
+  const { data: loaded, error } = useAsyncResult<{ list: Row[]; message?: string }>(async () => {
+    if (!isRm) return { list: await arcApi.listClients() };
+    const b = await arcApi.listBook();
+    return { list: b.clients.map(fromBook), message: b.message };
+  }, [isRm]);
+  const clients = loaded?.list;
   const [furthestFirst, setFurthestFirst] = useState(false);
   const [filter, setFilter] = useState<"all" | "Onboarding" | "Monitoring">("all");
+  if (error) return <div><WelcomeBanner role={role} /><Card><p className="text-lg text-ink">{error.message}</p></Card></div>;
   if (!clients) return <Loading />;
+  if (isRm && clients.length === 0) return <div><WelcomeBanner role={role} /><Card><p className="text-lg text-ink">{loaded?.message ?? "No clients in your book"}</p></Card></div>;
   const total = clients.reduce((a, c) => a + c.aumSgd, 0);
   const sorted = [...clients].sort((a, b) => {
-    const diff = new Date(a.nextMeeting).getTime() - new Date(b.nextMeeting).getTime();
+    const diff = (new Date(a.nextMeeting).getTime() || 0) - (new Date(b.nextMeeting).getTime() || 0);
     return furthestFirst ? -diff : diff;
   });
   const onboarding = sorted.filter((c) => c.status.startsWith("Onboarding"));
   const monitoring = sorted.filter((c) => !c.status.startsWith("Onboarding"));
   const groups = [{ title: "Onboarding", list: onboarding }, { title: "Monitoring", list: monitoring }].filter((g) => g.list.length && (filter === "all" || filter === g.title));
-  const earliest = [...clients].sort((a, b) => a.nextMeeting.localeCompare(b.nextMeeting))[0]?.nextMeeting;
+  const earliest = [...clients].filter((c) => c.nextMeeting).sort((a, b) => a.nextMeeting.localeCompare(b.nextMeeting))[0]?.nextMeeting;
 
   return (
     <div>
@@ -123,13 +159,15 @@ export default function ClientBook() {
         {g.list.map((c) => (
           <Card key={c.id} className={`grid gap-y-4 !px-8 !py-6 ${isRm ? COLS_RM : COLS}`}>
             <p className="text-xl text-ink">{c.name}</p>
-            <div><RiskScale value={c.riskCap} /><p className="mt-2 text-xs text-ink-muted">{c.riskCategory}, {c.riskCap} of 5</p></div>
+            {c.riskCap ? <div><RiskScale value={c.riskCap} /><p className="mt-2 text-xs text-ink-muted">{c.riskCategory}, {c.riskCap} of 5</p></div> : NONE}
             <p className="text-sm font-semibold">{sgd(c.aumSgd)}</p>
-            <div className="text-sm">
-              <p className="font-semibold">{fmtDate(c.nextMeeting)}</p>
-              <p className="mt-1 text-ink-muted">{relative(c.nextMeeting)}</p>
-            </div>
-            {isRm && <ProgressCells clientId={c.id} monitoring={g.title === "Monitoring"} />}
+            {c.nextMeeting ? (
+              <div className="text-sm">
+                <p className="font-semibold">{fmtDate(c.nextMeeting)}</p>
+                <p className="mt-1 text-ink-muted">{relative(c.nextMeeting)}</p>
+              </div>
+            ) : NONE}
+            {isRm && (c.db ? <DbProgressCells clientId={c.id} db={c.db} /> : <ProgressCells clientId={c.id} monitoring={g.title === "Monitoring"} />)}
             <div><Button to={`/${role}/clients/${c.id}`}>Open</Button></div>
           </Card>
         ))}

@@ -15,6 +15,7 @@ from app.core import db  # noqa: E402
 from app.agents.graph import MultiAgentGraph  # noqa: E402
 from app.endpoints import router as endpoints_router  # noqa: E402
 from app.endpoints.market_researcher import router as market_researcher_router  # noqa: E402
+from app.endpoints.review_pack import router as review_pack_router  # noqa: E402
 from app.endpoints.market_researcher import ui_router as market_researcher_ui_router  # noqa: E402
 from app.endpoints.portfolio_agent import router as portfolio_agent_router  # noqa: E402
 from app.endpoints.portfolio_agent import install_validation_handler as install_pm_validation_handler  # noqa: E402
@@ -22,6 +23,7 @@ from app.endpoints.product_recommender import PREFIX as PRODUCT_RECOMMENDER_PREF
 from app.endpoints.product_recommender import router as product_recommender_router  # noqa: E402
 from app.endpoints.risk_compliance import PREFIX as RISK_COMPLIANCE_PREFIX  # noqa: E402
 from app.endpoints.risk_compliance import router as risk_compliance_router  # noqa: E402
+from app.endpoints.client_profiling import router as client_profiling_router  # noqa: E402
 from app.agents.market_researcher.cache import PostgresCache, init_market_tables  # noqa: E402
 from app.agents.market_researcher.runs import MarketResearchRunner, PostgresRunRegistry  # noqa: E402
 from app.agents.market_researcher.service import MarketResearchService  # noqa: E402
@@ -64,11 +66,13 @@ app.add_middleware(
 )
 
 app.include_router(endpoints_router)
+app.include_router(review_pack_router)
 app.include_router(market_researcher_router)
 app.include_router(market_researcher_ui_router)
 app.include_router(portfolio_agent_router)
 app.include_router(product_recommender_router)
 app.include_router(risk_compliance_router)
+app.include_router(client_profiling_router)
 install_pm_validation_handler(app, extra_prefixes=(PRODUCT_RECOMMENDER_PREFIX, RISK_COMPLIANCE_PREFIX))
 
 
@@ -81,4 +85,5 @@ async def root():
         "portfolio_agent": "/agents/portfolio-agent",
         "product_recommender": "/agents/product-recommender",
         "risk_compliance": "/agents/risk-compliance",
+        "client_profiling": "/agents/client-profiling",
     }

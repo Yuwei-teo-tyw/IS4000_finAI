@@ -19,3 +19,5 @@ python-dotenv
 httpx
 yfinance
 trafilatura
+jinja2
+pypdf

@@ -51,11 +51,20 @@ export function PageHeader({ eyebrow, title, subtitle, actions }: { eyebrow?: st
   );
 }
 
-export function Section({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
+/** Marks UI backed by seeded frontend mock data rather than the database. */
+export function MockTag({ note = "Illustrative data seeded in the frontend; not read from the database." }: { note?: string }) {
+  return (
+    <span title={note} className="inline-flex items-center rounded-sm border border-dashed border-hairline-strong px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-muted">
+      Mock data
+    </span>
+  );
+}
+
+export function Section({ title, hint, mock = false, children }: { title: string; hint?: string; mock?: boolean; children: ReactNode }) {
   return (
     <section className="mb-16">
       <div className="mb-7 max-w-[680px]">
-        <h2 className="text-[28px] leading-[34px]">{title}</h2>
+        <h2 className="flex flex-wrap items-center gap-3 text-[28px] leading-[34px]">{title}{mock && <MockTag />}</h2>
         {hint && <p className="mt-2 text-sm text-ink-muted">{hint}</p>}
       </div>
       {children}

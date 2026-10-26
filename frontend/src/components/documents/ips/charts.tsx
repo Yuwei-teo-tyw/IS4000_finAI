@@ -1,7 +1,8 @@
 import type { AllocationRow, Bucket3L } from "../../../types/arc";
 import { sgd, SliceTooltip, useSliceTooltip } from "../../ui";
 
-const BUCKET_BG = { liquidity: "bg-chart-liquidity", longevity: "bg-chart-equities", legacy: "bg-chart-alternatives" } as const;
+export const BUCKET_BG = { liquidity: "bg-chart-liquidity", longevity: "bg-chart-equities", legacy: "bg-chart-alternatives" } as const;
+export const BUCKET_VAR = { liquidity: "var(--chart-liquidity)", longevity: "var(--chart-equities)", legacy: "var(--chart-alternatives)" } as const;
 const CLASS_COLOR: Record<string, string> = {
   Cash: "var(--chart-liquidity)", "Fixed income": "var(--chart-bonds)", Equities: "var(--chart-equities)",
 };
@@ -68,11 +69,52 @@ export function SaaDonut({ rows }: { rows: AllocationRow[] }) {
           ))}
         </ul>
       </div>
-      <ul className="min-w-0 space-y-2">
-        {rows.map((a) => (
-          <li key={a.assetClass} className="avoid-break break-words border-b border-hairline pb-2">
-            {a.assetClass} {a.saa}% <span className="text-ink-muted">(min {Math.max(0, a.saa - a.band)}% – max {a.saa + a.band}%)</span>
-          </li>
+      <SaaRows rows={rows} />
+    </div>
+  );
+}
+
+export function SaaRows({ rows }: { rows: AllocationRow[] }) {
+  return (
+    <ul className="min-w-0 space-y-2">
+      {rows.map((a) => (
+        <li key={a.assetClass} className="avoid-break break-words border-b border-hairline pb-2">
+          {a.assetClass} {a.saa}% <span className="text-ink-muted">(min {Math.max(0, a.saa - a.band)}% – max {a.saa + a.band}%)</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/* ---------- Strategy donut: one strategy's strategic asset allocation with % legend ---------- */
+
+const STRAT_COLOR: Record<string, string> = {
+  Bonds: "var(--chart-bonds)", Liquidity: "var(--chart-liquidity)", Equities: "var(--chart-equities)",
+  "Alternative Investments": "var(--chart-alternatives)", Other: "var(--ink-muted)",
+};
+
+export function StrategyDonut({ allocation, label }: { allocation?: Record<string, number>; label: string }) {
+  const r = 60, c = 2 * Math.PI * r;
+  const rows = Object.entries(allocation ?? {}).filter(([, v]) => v > 0);
+  const total = rows.reduce((s, [, v]) => s + v, 0) || 1;
+  let offset = 0;
+  return (
+    <div className="flex min-w-0 flex-col items-center gap-4 sm:flex-row" data-testid="strategy-donut">
+      <svg viewBox="0 0 160 160" className="h-[160px] w-[160px] shrink-0" role="img" aria-label={label}>
+        <g transform="rotate(-90 80 80)">
+          <circle cx="80" cy="80" r={r} fill="none" stroke="var(--scale-track)" strokeWidth="26" />
+          {rows.map(([k, v]) => {
+            const len = (v / total) * c;
+            const el = <circle key={k} data-slice={k} cx="80" cy="80" r={r} fill="none" stroke={STRAT_COLOR[k] ?? "var(--ink-muted)"} strokeWidth="26" strokeDasharray={`${len} ${c - len}`} strokeDashoffset={-offset}><title>{`${k} ${v}%`}</title></circle>;
+            offset += len;
+            return el;
+          })}
+        </g>
+        {!rows.length && <text x="80" y="84" textAnchor="middle" fontSize="12" fill="var(--ink-muted)">No strategy</text>}
+      </svg>
+      <ul className="min-w-0 flex-1 space-y-1 self-stretch text-[13px]">
+        {rows.map(([k, v]) => (
+          <li key={k} className="flex items-center gap-2"><i className="inline-block h-3 w-3 shrink-0" style={{ background: STRAT_COLOR[k] ?? "var(--ink-muted)" }} />{k}<span className="ml-auto">{v}%</span></li>
         ))}
       </ul>
     </div>

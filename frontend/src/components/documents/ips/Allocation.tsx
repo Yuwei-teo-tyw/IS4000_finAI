@@ -1,0 +1,131 @@
+import { useRef, useState } from "react";
+import { arcApi } from "../../../services/arcApi";
+import { Badge, useAsync } from "../../ui";
+import type { Strategy } from "../../../types/arc";
+import { EDIT_BOX, WRAP } from "./parts";
+import { StrategyDonut } from "./charts";
+
+export type AllocBucketId = "liquidity" | "longevity" | "legacy";
+/** Tolerant shape of backend threeL[] items: {portfolio,strategy,reason,source,default,conflict}. */
+export interface ThreeLMeta {
+  strategy?: string; reason?: string;
+  source?: string | { date?: string; title?: string; id?: string };
+  default?: boolean;
+  conflict?: string | { dates?: string[]; note?: string } | boolean;
+}
+const BUCKETS: { id: AllocBucketId; label: string }[] = [
+  { id: "liquidity", label: "Liquidity" }, { id: "longevity", label: "Longevity" }, { id: "legacy", label: "Legacy" },
+];
+const FALLBACK: Strategy[] = [
+  ["A", "Fixed Income"], ["B", "Income"], ["C", "Yield"], ["D", "Balanced"], ["E", "Growth"], ["F", "Equities"],
+].map(([code, name]) => ({ code, name, allocation: {} }));
+export const LIQ_MESSAGE = "Liquidity is limited to Strategy A or B";
+
+const sourceText = (s: ThreeLMeta["source"]) =>
+  !s ? "" : typeof s === "string" ? s : [s.title ?? s.id, s.date].filter(Boolean).join(", ");
+const conflictText = (c: ThreeLMeta["conflict"]) =>
+  !c ? "" : typeof c === "string" ? c
+    : c === true ? "Meeting notes disagree on this strategy."
+      : c.note ?? (c.dates?.length ? `Meeting notes of ${c.dates.join(" and ")} give different strategies.` : "Meeting notes disagree on this strategy.");
+
+/** Strategy boxes A-F. Disabled boxes are inert for click AND keyboard. Read-only mode renders the same boxes without interaction. */
+export function StrategyBoxes({ bucket, label, strategies, value, editing, onPick }: {
+  bucket: AllocBucketId; label: string; strategies: Strategy[]; value?: string; editing: boolean; onPick?: (code: string) => void;
+}) {
+  return (
+    <div>
+      <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={`${label} strategy`}>
+        {strategies.map((st) => {
+          const c = st.code;
+          const disabled = bucket === "liquidity" && c > "B";
+          const on = value === c;
+          const cls = `flex size-[84px] flex-col items-center justify-center border px-1 text-center ${on ? "border-2 border-ink bg-surface-100 text-ink" : "border-hairline-strong text-ink"} ${disabled ? "cursor-not-allowed bg-surface-200 text-ink-muted opacity-50" : editing ? "bg-surface-100 hover:border-ink" : "bg-surface-100"}`;
+          const inner = (<><span className="text-[18px] leading-5">{c}</span><span className="mt-0.5 text-[11px] leading-3 text-ink-muted">{st.name}</span></>);
+          if (!editing) return <div key={c} role="radio" aria-checked={on} aria-disabled="true" data-strategy={c} className={cls}>{inner}</div>;
+          return (
+            <button key={c} type="button" role="radio" aria-checked={on} data-strategy={c}
+              aria-disabled={disabled || undefined} tabIndex={disabled ? -1 : undefined}
+              title={disabled ? LIQ_MESSAGE : undefined}
+              onKeyDown={disabled ? (e) => { if (e.key === "Enter" || e.key === " ") e.preventDefault(); } : undefined}
+              onClick={() => { if (!disabled) onPick?.(c); }}
+              className={cls}>{inner}</button>
+          );
+        })}
+      </div>
+      {bucket === "liquidity" && <p className="mt-2 text-[12px] text-ink-muted" data-testid="liq-note">{LIQ_MESSAGE}</p>}
+    </div>
+  );
+}
+
+/**
+ * Three 3L portfolios. Per portfolio: row 1 = strategy boxes + donut of the selected strategy, row 2 = reason box.
+ * Same layout in preview (read-only) and editor. `proposed` is Geneva's strategy; a different pick requires a reason, which is logged.
+ */
+export function AllocationBuckets({ allocation, notes, editing, blank, onPick, onNote, proposed, meta, clientId }: {
+  allocation: Partial<Record<AllocBucketId, string>>; notes?: Record<string, string>;
+  editing: boolean; blank: boolean; onPick?: (bucket: AllocBucketId, code: string) => void;
+  onNote?: (bucket: AllocBucketId, v: string) => void;
+  proposed?: Partial<Record<AllocBucketId, string>>; meta?: Partial<Record<AllocBucketId, ThreeLMeta>>; clientId?: string;
+}) {
+  const table = useAsync(() => arcApi.getStrategies().then((r) => r.strategies).catch(() => [] as Strategy[]), []);
+  const strategies = table && table.length ? table : FALLBACK;
+  const [local, setLocal] = useState<Record<string, string>>({});
+  const logged = useRef<Record<string, string>>({});
+  if (!editing && !blank && !Object.values(allocation).some(Boolean) && !Object.values(meta ?? {}).some((m) => m?.strategy))
+    return <p className="text-ink-muted">3L's Strategic Asset Allocations not yet completed.</p>;
+
+  return (
+    <div className="mt-8 space-y-6">
+      <p className="text-[12px] uppercase tracking-[0.06em] text-ink-muted">3L's Strategic Asset Allocations</p>
+      {BUCKETS.map(({ id, label }) => {
+        const m = meta?.[id];
+        const code = blank && !editing ? undefined : allocation[id] ?? m?.strategy;
+        const s = strategies.find((x) => x.code === code);
+        const reason = local[id] ?? notes?.[id] ?? m?.reason ?? "";
+        const prop = proposed?.[id] ?? m?.strategy;
+        const differs = editing && !!code && !!prop && code !== prop;
+        const needReason = differs && !reason.trim();
+        const src = sourceText(m?.source);
+        const conflict = conflictText(m?.conflict);
+        const logOverride = () => {
+          if (!differs || !reason.trim() || !code) return;
+          const key = `${code}|${reason.trim()}`;
+          if (logged.current[id] === key) return;
+          logged.current[id] = key;
+          void arcApi.logStrategyOverride({ clientId: clientId ?? "", bucket: id, proposed: prop, chosen: code, reason: reason.trim() });
+        };
+        return (
+          <section key={id} data-bucket={id} className="avoid-break min-w-0 border border-hairline p-5">
+            <div className="flex flex-wrap items-center gap-2">
+              <h4 className="font-normal text-ink">{label} portfolio{code ? <span className="font-light"> · {code} - {s?.name ?? ""}</span> : null}</h4>
+              {m?.default && <Badge tone="grey">Default</Badge>}
+            </div>
+            {conflict && <p className="mt-2 border-l-2 border-hairline-strong pl-3 text-[13px] text-ink-muted" data-testid="conflict-note">{conflict}</p>}
+            <div className="mt-4 grid min-w-0 grid-cols-1 gap-6 lg:grid-cols-2">
+              <StrategyBoxes bucket={id} label={label} strategies={strategies} value={code} editing={editing} onPick={(c) => onPick?.(id, c)} />
+              <StrategyDonut allocation={s?.allocation} label={`${label} strategic asset allocation${s ? `, Strategy ${s.code}` : ""}`} />
+            </div>
+            <div className="mt-5 min-w-0">
+              <label htmlFor={`reason-${id}`} className="text-[13px] text-ink-muted">Reason for {label} strategy</label>
+              {src && <p className="text-[12px] text-ink-muted">Source: {src}</p>}
+              {!src && m?.default && <p className="text-[12px] text-ink-muted">Default: no meeting note states this strategy.</p>}
+              {editing ? (
+                <>
+                  <textarea id={`reason-${id}`} value={reason} rows={3} onBlur={logOverride}
+                    onChange={(e) => { setLocal((l) => ({ ...l, [id]: e.target.value })); onNote?.(id, e.target.value); }}
+                    placeholder={differs ? `Why Strategy ${code} instead of Geneva's Strategy ${prop}` : "Why this strategy suits the client"}
+                    className={`mt-1 block w-full px-2 py-2 text-[14px] leading-[22px] placeholder:text-ink-muted ${EDIT_BOX}`} />
+                  {needReason && <p role="alert" className="mt-1 text-[13px] text-negative">A reason is required: you chose Strategy {code}, Geneva proposed Strategy {prop}. The change is logged.</p>}
+                </>
+              ) : (
+                <div id={`reason-${id}`} className={`mt-1 min-h-[72px] whitespace-pre-wrap px-2 py-2 text-[14px] leading-[22px] ${EDIT_BOX} ${WRAP}`}>
+                  {reason || <span className="text-ink-muted">No reason recorded.</span>}
+                </div>
+              )}
+            </div>
+          </section>
+        );
+      })}
+    </div>
+  );
+}

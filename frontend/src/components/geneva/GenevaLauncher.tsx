@@ -4,7 +4,11 @@ import { ChevronsRight, ExternalLink } from "lucide-react";
 import type { Role } from "../../types/arc";
 import { useAsync } from "../ui";
 import { arcApi } from "../../services/arcApi";
+import { subscribeIpsGen, type IpsGenEvent } from "../../services/ipsGenBus";
 import { GenevaChat } from "./GenevaChat";
+
+/** Start events already acted on (the bus replays recent events to new subscribers, e.g. after a remount). */
+const opened = new WeakSet<IpsGenEvent>();
 
 const MIN_W = 420;
 const DEFAULT_W = 560;
@@ -38,6 +42,13 @@ export default function GenevaLauncher({ role, clientId }: { role: Role; clientI
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
+  // AI IPS generation for this client opens the panel, even while it is closed.
+  useEffect(() => subscribeIpsGen((e) => {
+    if (e.type !== "start" || e.clientId !== clientId || opened.has(e)) return;
+    opened.add(e);
+    set(true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [clientId]);
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") set(false); };

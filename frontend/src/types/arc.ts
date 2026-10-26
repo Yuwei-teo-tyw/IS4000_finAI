@@ -44,13 +44,39 @@ export interface PackSection { n: number; title: string; owner: Role; gate: Gate
   order?: number }
 export interface Citation { tag: string; what: string; system: string; asOf: string; ref: string }
 export interface ActivityEvent { id: string; at: string; actor: string; role: Role | "system"; text: string }
-export interface MeetingNote { id: string; clientId: string; date: string; title: string; sourceFile: string; originalText: string; summary: string[]; checklist: { text: string; done: boolean }[] }
+/** Search-index state reported by the backend after a note upload or edit (chunks is null for the JSON store). */
+export interface NoteIndexing { status: "indexed" | "pending"; chunks: number | null; message: string }
+export interface MeetingNote { indexing?: NoteIndexing; id: string; clientId: string; clientName?: string; date: string; title: string; sourceFile: string; originalText: string; summary: string[]; checklist: { text: string; done: boolean }[] }
 
 export interface CorrelationMatrix { labels: string[]; matrix: number[][] }
 export interface AllocationGroup { label: string; value: number; color: "chart-equities" | "chart-bonds" | "chart-alternatives" | "chart-liquidity" }
 export interface CaseStep { who: string; what: string; by: string; state: "done" | "waiting" | "not_started" }
 
-export interface IpsVersion { version: number; issuedOn: string; status: "Active" | "Superseded" | "Draft"; author: string; summary: string; parts: IpsPart[] }
+export interface IpsVersion { clientName?: string; version: number; issuedOn: string; status: "Active" | "Superseded" | "Draft"; author: string; summary: string; parts: IpsPart[]; /** Structured IPS JSON from the backend (see backend schemas.py); absent on mock versions. */ data?: IpsData }
+
+/** Backend structured IPS JSON (`data` of an IPS version). Read tolerantly; every field is optional. */
+export interface IpsNoteRef { id?: string; date?: string; title?: string }
+export interface IpsThreeLItem {
+  portfolio: string; strategy: string; strategyName?: string; reason?: string;
+  source?: { noteId?: string; date?: string; title?: string; passage?: string } | null;
+  default?: boolean;
+  conflict?: { note?: string; message?: string; dates?: string[]; latest?: unknown; earlier?: unknown } | null;
+}
+export interface IpsData {
+  goals?: { key: string; title: string; bullets: string[]; empty?: boolean; placeholder?: string }[];
+  targets?: { amount?: number | string | null; currency?: string | null; horizonYears?: number | null; text?: string; source_note?: IpsNoteRef | string | null }[];
+  lifeEvents?: { id?: string; date?: string | null; year?: number | null; label: string; detail?: string; source_note?: IpsNoteRef | string | null; manual?: boolean }[];
+  reviewRules?: { title: string; text: string }[];
+  threeL?: IpsThreeLItem[];
+  threeLStatus?: "ok" | "no_notes" | "unavailable"; threeLMessage?: string;
+  riskScore?: number | null;
+  model?: string | null; modelMessage?: string;
+  notIncluded?: string[];
+  rmSignatureImage?: string; rmSignedDate?: string;
+  demographics?: { fields?: Record<string, string> }; philosophy?: { approach?: string; believes?: string; avoids?: string };
+  risk?: { fields?: Record<string, string>; bullets?: string[] };
+  [k: string]: unknown;
+}
 
 export interface GoalProjection {
   points: { year: number; projected: number; required: number }[];
@@ -98,4 +124,79 @@ export interface GenevaArticle {
   url: string; source: string | null; title: string | null; published: string | null; author: string | null;
   summary: string | null; topics: string[]; sentiment: "risk_on" | "risk_off" | "neutral" | null;
   market_impact: "low" | "medium" | "high" | null; status: "ok" | "unavailable"; reason: string | null; paragraphs: string[];
+}
+
+/** Investment philosophy: clause blanks plus an optional free-text statement that, when set, overrides the composed sentence. */
+export interface Philosophy { approach?: string; believes?: string; avoids?: string; statement?: string }
+
+/** AI IPS generation (Client Profiling Agent reads the client's meeting notes and fills the IPS). Sections run in this order. */
+export type IpsGenSectionId = "demographics" | "philosophy" | "goals" | "risk" | "allocation";
+export const IPS_GEN_SECTIONS: { id: IpsGenSectionId; label: string }[] = [
+  { id: "demographics", label: "Client demographics" },
+  { id: "philosophy", label: "Investment philosophy" },
+  { id: "goals", label: "Goals & objectives" },
+  { id: "risk", label: "Risk profile" },
+  { id: "allocation", label: "3L allocation" },
+];
+
+/** Strategy A-F from the strategy table (asset-class weights in %). */
+export interface Strategy {
+  code: string; name: string; riskLabel?: string;
+  allocation: Record<string, number>;
+  expectedReturnPct?: number; volatilityPct?: number; maxDrawdownPct?: number; longestDrawdownYears?: number;
+}
+export interface IpsAllocationBucket {
+  id: "liquidity" | "longevity" | "legacy";
+  strategy: string; strategyName: string; justification: string;
+  evidence?: IpsGenEvidence[];
+}
+export interface IpsAllocation { riskCategory?: string; summary?: string; buckets: IpsAllocationBucket[] }
+export interface IpsChatMessage {
+  id: string; role: "user" | "assistant"; kind: "chat" | "generation" | "discuss";
+  text: string; ts: string; meta?: Record<string, unknown> | null;
+}
+export interface IpsDiscussResult {
+  answer: string; stance: "agree" | "disagree" | "partial" | "info"; model?: string;
+  allocation?: { buckets: Omit<IpsAllocationBucket, "evidence">[] };
+  citations: { noteId?: string; date?: string; title?: string; passage?: string }[];
+}
+/** One generated section. Only facts found in the notes are filled; everything else stays empty. */
+export interface IpsGenSectionResult {
+  section: IpsGenSectionId;
+  status: "ok" | "no_notes" | "unavailable";
+  message: string;
+  /** demographics: KV label -> value ("Date of birth / age", "Occupation", "Employment / income source", "Annual income", "AUM"); risk: "Risk category" | "Risk tolerance (willingness)" | "Risk capacity (ability)" | "Time horizon" | "Liquidity needs". */
+  fields: Record<string, string>;
+  philosophy?: Philosophy;
+  /** goals: one string per bullet; risk: loss-tolerance bullets. */
+  bullets: string[];
+  sources: { id: string; date?: string; label?: string }[];
+  /** Per-item provenance shown to the RM in the Geneva sidebar: which meeting note each filled item was pulled from. */
+  evidence?: IpsGenEvidence[];
+  /** Chat model id the backend actually used. */
+  model?: string | null;
+  modelMessage?: string;
+  allocation?: IpsAllocation;
+  /** Auto-save result: the backend stores a Draft version as soon as something is generated. */
+  saved?: boolean; version?: number | null;
+  ips?: IpsVersion | null; saved_ips?: IpsVersion | null;
+}
+/** One filled item and the meeting note it came from. */
+export interface IpsGenEvidence {
+  /** What was filled, e.g. "Annual income: About S$10m" or the bullet text. */
+  item: string;
+  noteId: string; date?: string; title?: string;
+  /** Verbatim supporting passage from the note. */
+  passage?: string;
+}
+/** All generated sections merged; IpsDraft prefills the live editor from this. */
+export interface IpsGenerated {
+  demo: Record<string, string>; risk: Record<string, string>;
+  philosophy: Philosophy;
+  text: { 1?: string; 3?: string };
+  sources: { id: string; date?: string; label?: string }[];
+  /** Per-item provenance merged across sections (unique). */
+  evidence?: IpsGenEvidence[];
+  allocation?: IpsAllocation;
+  model?: string;
 }

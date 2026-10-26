@@ -10,9 +10,11 @@ import { bulletLines, toBulletItems } from "../utils/bullets";
 import { findProducts } from "../utils/productMatch";
 import { askBackend, confirmBackendAction, fetchBackendArticle, newSessionId } from "./genevaBackend";
 export { GenevaBackendError } from "./genevaBackend";
+import { philosophySentence } from "./ipsText";
+import type { BookClient, BookResult, ClientProfilingRequestOpts, ClientProfilingResult, IpsAssistMode, IpsAssistResult } from "../types/clientProfiling";
 import type {
   ActivityEvent, AllocationRow, Bucket3L, Client, Gate, GateId, GateState, Holding, InboxItem, IpsPart, MacroBrief, MarketRow,
-  MarketView, HouseView, PackRenderInput, MarketAnswer, MeetingNote, IpsVersion, PackSection, Product, ProductClass, Role, AllocationGroup, CorrelationMatrix, GoalProjection, SectionDraft, GenevaArticle, GenevaContext, GenevaReply,
+  MarketView, HouseView, PackRenderInput, MarketAnswer, MeetingNote, IpsVersion, PackSection, Product, ProductClass, Role, AllocationGroup, CorrelationMatrix, GoalProjection, SectionDraft, GenevaArticle, GenevaContext, GenevaReply, IpsGenSectionId, IpsGenSectionResult, IpsGenerated, IpsGenEvidence, Strategy, IpsChatMessage, IpsDiscussResult, IpsData,
 } from "../types/arc";
 import { PA_BUCKETS } from "../types/portfolio";
 import type {
@@ -86,6 +88,26 @@ const buildIpsHistory = (clientId: string): IpsVersion[] => {
   ];
 };
 
+/** Backend IPS (database) is the source of truth for the read side; null when unreachable so callers fall back to mock. */
+const fetchRemoteIps = async (clientId: string): Promise<{ current_version: number | null; versions: IpsVersion[] } | null> => {
+  try {
+    const res = await fetch(`${CP_URL}/ips/${encodeURIComponent(clientId)}`, { signal: AbortSignal.timeout(4000) });
+    if (!res.ok) return null;
+    const j = (await res.json()) as { current_version: number | null; versions: IpsVersion[]; client_name?: string; clientName?: string };
+    if (!Array.isArray(j.versions)) return null;
+    const cn = j.clientName ?? j.client_name;
+    return { ...j, versions: j.versions.map((v) => ({ ...v, clientName: v.clientName ?? cn })) };
+  } catch { return null; }
+};
+
+/** Local in-session workflow on top of the database copy: onboarding drafts activated here show Active, and the PM's returned 3L/SAA parts show on the newest version. */
+const overlayIpsWorkflow = (clientId: string, list: IpsVersion[]): IpsVersion[] => {
+  const base = m.clients.find((x) => x.id === clientId);
+  if (!base || base.status !== "Onboarding Phase" || !list.length) return list;
+  const activated = effective(base).status === "Monitoring Phase";
+  return list.map((v, i) => (i === 0 ? { ...v, status: activated && v.status === "Draft" ? "Active" : v.status, parts: withPmReturn(clientId, v.parts) } : v));
+};
+
 const withEdits = (clientId: string, list: IpsVersion[]): IpsVersion[] =>
   list.map((v) => (ipsEdits[`${clientId}:${v.version}`] ? { ...v, parts: ipsEdits[`${clientId}:${v.version}`] } : v));
 
@@ -118,9 +140,40 @@ function professionaliseText(input: ProfessionaliseInput, it: { label: string; t
   return bullets.join("\n");
 }
 
+const RISK_CAP: Record<string, number> = { Conservative: 1, Moderate: 2, Balanced: 3, Growth: 4, Aggressive: 5 };
+/** Backend book row -> Client view; fields the DB does not hold stay empty. */
+export function bookToClient(b: BookClient): Client {
+  const cat = b.risk_category ?? "";
+  return {
+    id: b.id, name: (b.surname && !b.name.includes(b.surname) ? `${b.name} ${b.surname}` : b.name) || b.id,
+    riskCategory: cat as Client["riskCategory"], riskCap: RISK_CAP[cat] ?? 0, aumSgd: b.aum_sgd ?? 0,
+    nextMeeting: "", nextQuarterlyReview: null,
+    status: (b.status ?? "").toLowerCase().startsWith("monitor") ? "Monitoring Phase" : "Onboarding Phase",
+    ipsVersion: null, sharpe: 0, diversificationScore: 0,
+  };
+}
+/** Mock clients first; otherwise the RM's backend book (e.g. Jane Fraser `jft`). Undefined when neither has the id. */
+async function getClient(id: string): Promise<Client | undefined> {
+  const mock = m.clients.filter((c) => c.id === id).map(effective)[0];
+  if (mock) return delay(mock);
+  try {
+    const row = (await listBook()).clients.find((c) => c.id === id);
+    return row ? bookToClient(row) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export const arcApi = {
+  getStrategies: (): ReturnType<typeof getStrategies> => getStrategies(),
+  logStrategyOverride: (i: Parameters<typeof logStrategyOverride>[0]) => logStrategyOverride(i),
+  discussAllocation: (i: Parameters<typeof discussAllocation>[0]) => discussAllocation(i),
+  listIpsChat: (c: string) => listIpsChat(c),
+  listIpsChatPage: (c: string) => listIpsChatPage(c),
+  appendIpsChat: (c: string, m: Parameters<typeof appendIpsChat>[1]) => appendIpsChat(c, m),
+  clearIpsChat: (c: string) => clearIpsChat(c),
   listClients: (): Promise<Client[]> => delay(m.clients.map(effective)),
-  getClient: (id: string): Promise<Client | undefined> => delay(m.clients.filter((c) => c.id === id).map(effective)[0]),
+  getClient,
   getHoldings: (clientId: string): Promise<Holding[]> => delay(m.holdingsByClient[clientId] ?? m.holdings),
   getCorrelation: (_clientId: string): Promise<CorrelationMatrix> => delay({ labels: [...m.holdingLabels], matrix: m.holdingsCorrelation }),
   getAllocationGroups: (clientId: string): Promise<AllocationGroup[]> => delay(m.allocationGroupsFor(clientId)),
@@ -147,6 +200,12 @@ export const arcApi = {
   getBucketInputs: (clientId: string): Promise<PaBucketInputs[]> => buildBucketInputs(clientId),
   /** Backend check of the chosen portfolio for every bucket, as one client portfolio. Calculation only. */
   reviewCombined: (choices: PaBucketChoice[], clientTotal: number | null): Promise<PaCombinedReview> => reviewCombined(choices, clientTotal),
+  /** Geneva chat: Client Profiling Agent (IPS and meeting notes; proposals only). */
+  clientProfilingChat,
+  /** RM Client Book from the backend DB (onboarding and monitoring progress included). */
+  listBook,
+  /** IPS section assist (write / professionalise); proposals only, the RM accepts. */
+  ipsAssist,
   /**
    * Geneva chat: a question about the client's portfolio, answered by the Portfolio Agent from the
    * proposal the PM is working on (with their picked portfolio and edited weights), or, when there is none,
@@ -156,28 +215,112 @@ export const arcApi = {
     askPortfolioAgent(clientId, question, history),
   getAllocation: (clientId: string): Promise<AllocationRow[]> => delay(m.allocationByClient[clientId] ?? m.allocation),
   getSaaTemplates: () => delay(m.saaTemplates),
-  getIps: (clientId: string): Promise<IpsPart[]> => delay(withPmReturn(clientId, m.ipsPartsByClient[clientId] ?? m.ipsParts)),
-  getMeetingNotes: (clientId: string): Promise<MeetingNote[]> => delay(m.meetingNotes.filter((n) => n.clientId === clientId)),
-  /** Newest first. Onboarding clients return [] or a single Draft. */
-  getIpsHistory: (clientId: string): Promise<IpsVersion[]> => delay(withEdits(clientId, buildIpsHistory(clientId))),
-  /** Mock upload: appends a note to the in-memory list so getMeetingNotes returns it. */
-  uploadMeetingNote: (clientId: string, fileName: string): Promise<MeetingNote> => {
-    const note: MeetingNote = {
-      id: `note_up_${Date.now()}`, clientId, date: "2026-10-17", title: fileName.replace(/\.[^.]+$/, ""), sourceFile: fileName,
-      originalText: `Original contents of ${fileName} (demo preview).\n\nIn the live system this shows the uploaded document or the transcript of the recording, exactly as received.`,
-      summary: [`Notes extracted from ${fileName}`, "Client goals and constraints captured", "Follow-ups flagged for the Relationship Manager"],
-      checklist: [{ text: "Review extracted notes", done: false }, { text: "Update IPS draft", done: false }],
-    };
-    m.meetingNotes.unshift(note);
-    return delay(note, 600);
+  /** Save an IPS (new version, or edit when `version` is set); the backend vectorizes it. Returns the confirmation text ("IPS v3 indexed" / "IPS saved, but not yet searchable"); throws the backend message (e.g. "Client is not in your book"). */
+  /** Deletes one IPS version from the database (and any local edits of it). Throws when the backend cannot delete it. */
+  deleteIps: async (clientId: string, version: number): Promise<void> => {
+    await cpJson<{ deleted: boolean }>(`/ips/${encodeURIComponent(clientId)}/${version}`, { method: "DELETE" });
+    delete ipsEdits[`${clientId}:${version}`];
   },
-  /** Mock edit: mutates the in-memory note so getMeetingNotes and the preview show the edited text. */
-  updateMeetingNote: (noteId: string, patch: { title: string; originalText: string }): Promise<MeetingNote> => {
+  saveClientIps: async (clientId: string, parts: { part: number; title: string; owner?: string; status?: string; body: string }[], opts: { version?: number; summary?: string; author?: string; status?: "Active" | "Draft"; data?: IpsData } = {}): Promise<{ version: number; indexing: { status: "indexed" | "pending"; chunks: number; message: string } }> => {
+    const res = await fetch(`${CP_URL}/ips/${encodeURIComponent(clientId)}`, {
+      method: "POST", headers: rmHeaders(), body: JSON.stringify({ parts, ...opts }),
+    });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(typeof j.detail === "string" ? j.detail : "IPS could not be saved");
+    return { version: j.ips.version, indexing: j.indexing };
+  },
+  /** The IPS template with every field empty: what a brand-new onboarder's IPS starts from (same parts and layout as any IPS). */
+  getBlankIpsParts: (): Promise<IpsPart[]> => delay(m.ipsParts.map((p) => ({ ...p, status: "blank" as const, body: "" }))),
+  /** The 3L buckets with names and horizons but no amounts or purposes, for a blank IPS. */
+  getBlank3L: (): Promise<Bucket3L[]> => delay(m.buckets3L.map((b) => ({ ...b, amountSgd: 0, pct: 0, purpose: "" }))),
+  /** The IPS version the editor opens: `version` if given, else the newest Draft, else the current/newest one. Null when the backend has none (mock fallback). */
+  getIpsVersionRecord: async (clientId: string, version?: number): Promise<IpsVersion | null> => {
+    const remote = await fetchRemoteIps(clientId);
+    if (!remote || !remote.versions.length) return null;
+    const vs = remote.versions;
+    return (version ? vs.find((x) => x.version === version) : undefined)
+      ?? (version ? undefined : [...vs].filter((x) => x.status === "Draft").sort((a, b) => b.version - a.version)[0])
+      ?? vs.find((x) => x.version === remote.current_version) ?? vs[0] ?? null;
+  },
+  /** Writes a confirmed 3L allocation into the client's saved DRAFT IPS (data.threeL) when no editor is open. Never touches an Active IPS. Returns whether it saved. */
+  applyAllocationToIps: async (clientId: string, buckets: { id: string; strategy: string; strategyName?: string; justification?: string }[]): Promise<boolean> => {
+    const rec = await arcApi.getIpsVersionRecord(clientId);
+    if (!rec || rec.status !== "Draft" || !rec.data) return false;
+    const old = new Map((rec.data.threeL ?? []).map((b) => [String(b.portfolio).toLowerCase(), b]));
+    const threeL = buckets.map((b) => {
+      const o = old.get(b.id);
+      return { ...o, portfolio: b.id[0].toUpperCase() + b.id.slice(1), strategy: b.strategy, strategyName: b.strategyName ?? o?.strategyName ?? "",
+        reason: b.justification || o?.reason || "", default: o?.strategy === b.strategy ? !!o?.default : false };
+    });
+    try {
+      await arcApi.saveClientIps(clientId, rec.parts.map((p) => ({ part: p.part, title: p.title, owner: p.owner, status: p.status, body: p.body })),
+        { version: rec.version, author: "Relationship Manager", data: { ...rec.data, threeL } });
+      return true;
+    } catch { return false; }
+  },
+  getIps: async (clientId: string): Promise<IpsPart[]> => {
+    const remote = await fetchRemoteIps(clientId);
+    if (remote && remote.versions.length) {
+      const v = remote.versions.find((x) => x.version === remote.current_version) ?? remote.versions[0];
+      return delay(withPmReturn(clientId, v.parts));
+    }
+    return delay(withPmReturn(clientId, m.ipsPartsByClient[clientId] ?? m.ipsParts));
+  },
+  /** The backend is the source of truth when it responds (its version replaces local copies with the same id); backend down => local only. */
+  getMeetingNotes: async (clientId: string): Promise<MeetingNote[]> => {
+    try {
+      const res = await fetch(`${CP_URL}/meeting-notes/${encodeURIComponent(clientId)}`, { signal: AbortSignal.timeout(4000) });
+      if (res.ok) {
+        const remote = ((await res.json()) as MeetingNote[]).filter((n) => n.clientId === clientId);
+        const rids = new Set(remote.map((n) => n.id));
+        const others = m.meetingNotes.filter((n) => n.clientId !== clientId || !rids.has(n.id));
+        m.meetingNotes.splice(0, m.meetingNotes.length, ...remote, ...others);
+      }
+    } catch { /* backend unavailable: show the local notes */ }
+    return delay(m.meetingNotes.filter((n) => n.clientId === clientId));
+  },
+  /** Newest first. Onboarding clients return [] or a single Draft. */
+  getIpsHistory: async (clientId: string): Promise<IpsVersion[]> => {
+    const remote = await fetchRemoteIps(clientId);
+    return delay(withEdits(clientId, remote ? overlayIpsWorkflow(clientId, remote.versions) : buildIpsHistory(clientId)));
+  },
+  /** Uploads the file to the backend meeting-notes database (PDF/TXT text is extracted there) and mirrors the stored note locally. Errors are surfaced, never faked. */
+  uploadMeetingNote: async (clientId: string, file: File): Promise<MeetingNote> => {
+    const body = new FormData();
+    body.append("client_id", clientId);
+    body.append("file", file);
+    let res: Response;
+    try { res = await fetch(`${CP_URL}/meeting-notes`, { method: "POST", body, signal: AbortSignal.timeout(60_000) }); }
+    catch { throw new ClientProfilingError("UNREACHABLE", `Cannot reach the backend at ${API_BASE}, so ${file.name} was not saved.`); }
+    const json: unknown = await res.json().catch(() => null);
+    if (!res.ok) {
+      const detail = (json as { detail?: unknown } | null)?.detail;
+      throw new ClientProfilingError("REJECTED", typeof detail === "string" ? `${file.name}: ${detail}` : `${file.name}: upload failed (HTTP ${res.status}).`);
+    }
+    const note = json as MeetingNote;
+    if (!m.meetingNotes.some((n) => n.id === note.id)) m.meetingNotes.unshift(note);
+    return note;
+  },
+  /** Saves the edit to the backend meeting-notes database, then refreshes the local copy. Errors are surfaced, never faked. */
+  updateMeetingNote: async (noteId: string, patch: { title: string; originalText: string; date?: string }): Promise<MeetingNote> => {
     const note = m.meetingNotes.find((n) => n.id === noteId);
-    if (!note) return Promise.reject(new Error(`Meeting note ${noteId} not found`));
-    note.title = patch.title;
-    note.originalText = patch.originalText;
-    return delay(note, 400);
+    if (!note) throw new Error(`Meeting note ${noteId} not found`);
+    let res: Response;
+    try {
+      res = await fetch(`${CP_URL}/meeting-notes/${encodeURIComponent(note.clientId)}/${encodeURIComponent(noteId)}`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: patch.title, original_text: patch.originalText, ...(patch.date ? { date: patch.date } : {}) }), signal: AbortSignal.timeout(15_000),
+      });
+    } catch { throw new ClientProfilingError("UNREACHABLE", `Cannot reach the backend at ${API_BASE}, so the edit was not saved.`); }
+    const json: unknown = await res.json().catch(() => null);
+    if (!res.ok) {
+      const detail = (json as { detail?: unknown } | null)?.detail;
+      const msg = typeof detail === "string" ? detail : `Saving the edit failed (HTTP ${res.status}).`;
+      throw new ClientProfilingError(res.status === 404 ? "NOT_FOUND" : res.status >= 500 ? "SERVER" : "REJECTED", msg);
+    }
+    const saved = json as MeetingNote;
+    Object.assign(note, saved);
+    return note;
   },
   getGates: (_clientId: string): Promise<Gate[]> => delay(m.gates),
   getInbox: (role: Exclude<Role, "rm">): Promise<InboxItem[]> => delay(m.inboxes[role]),
@@ -510,6 +653,235 @@ export class PortfolioAgentError extends Error {
     this.kind = kind;
     this.details = details;
   }
+}
+
+/* ---- Client Profiling Agent: IPS and meeting-note questions. Proposals only; nothing is saved or executed. ---- */
+const CP_URL = `${API_BASE}/agents/client-profiling`;
+const CP_TIMEOUT_MS = 90_000;
+/** The RM whose IPS chat history and override audit rows are scoped by the backend (header X-RM-Id). No auth yet: the backend's default RM. */
+export const CURRENT_RM_ID = "rm_default";
+const rmHeaders = (): Record<string, string> => ({ "Content-Type": "application/json", "X-RM-Id": CURRENT_RM_ID });
+export class ClientProfilingError extends Error {
+  kind: "UNREACHABLE" | "TIMEOUT" | "REJECTED" | "NOT_FOUND" | "SERVER" | "INVALID_RESPONSE";
+  details: string[];
+  constructor(kind: ClientProfilingError["kind"], message: string, details: string[] = []) {
+    super(message);
+    this.kind = kind;
+    this.details = details;
+  }
+}
+/** The IPS chat history database is down (HTTP 503 {historyAvailable:false}); the conversation continues in the session only. */
+export class HistoryUnavailableError extends ClientProfilingError {
+  constructor() { super("SERVER", "History unavailable. This conversation continues for this session but is not saved."); }
+}
+export async function clientProfilingChat(clientId: string, text: string, ipsVersion?: number | null, opts: ClientProfilingRequestOpts = {}): Promise<ClientProfilingResult> {
+  let res: Response;
+  try {
+    res = await fetch(`${CP_URL}/chat`, {
+      method: "POST", headers: rmHeaders(),
+      body: JSON.stringify({ message: text, client_id: clientId, ...(ipsVersion != null ? { ips_version: ipsVersion } : {}), ...(opts.source ? { source: opts.source } : {}),
+        ...(opts.allocation ? { allocation: opts.allocation } : {}), ...(opts.pending_proposal ? { pending_proposal: opts.pending_proposal } : {}) }),
+      signal: AbortSignal.timeout(CP_TIMEOUT_MS),
+    });
+  } catch (err) {
+    if (err instanceof DOMException && (err.name === "TimeoutError" || err.name === "AbortError")) throw new ClientProfilingError("TIMEOUT", "The Client Profiling Agent did not respond in time.");
+    throw new ClientProfilingError("UNREACHABLE", `Cannot reach the Client Profiling Agent at ${API_BASE}.`, ["Start the backend: cd backend, then run the main app."]);
+  }
+  const json: unknown = await res.json().catch(() => null);
+  if (!res.ok) {
+    const detail = (json as { detail?: unknown } | null)?.detail;
+    if (res.status === 422 && Array.isArray(detail)) {
+      throw new ClientProfilingError("REJECTED", "The Client Profiling Agent rejected the request.",
+        detail.map((d: { loc?: unknown[]; msg?: string }) => `${(d.loc ?? []).filter((x) => x !== "body").join(" › ")}: ${d.msg ?? "invalid"}`));
+    }
+    const msg = typeof detail === "string" ? detail : `HTTP ${res.status}`;
+    if (res.status === 404) throw new ClientProfilingError("NOT_FOUND", msg === "Not Found" ? "The running backend does not have the Client Profiling Agent yet. Restart it so it runs the latest code." : msg);
+    throw new ClientProfilingError("SERVER", `The Client Profiling Agent returned an error (${msg}).`);
+  }
+  const r = json as Partial<ClientProfilingResult> | null;
+  if (!r || typeof r.tool !== "string" || typeof r.status !== "string" || typeof r.message !== "string") {
+    throw new ClientProfilingError("INVALID_RESPONSE", "The Client Profiling Agent's response did not match the expected format.");
+  }
+  return { ...r, data: r.data ?? {}, sources: r.sources ?? [], candidates: r.candidates ?? [] } as ClientProfilingResult;
+}
+
+/** The RM's client book from the backend client book DB (single source of truth). Never falls back to mock data. */
+export async function listBook(): Promise<BookResult> {
+  let res: Response;
+  try {
+    res = await fetch(`${CP_URL}/book`, { signal: AbortSignal.timeout(15_000) });
+  } catch (err) {
+    if (err instanceof DOMException && (err.name === "TimeoutError" || err.name === "AbortError")) throw new ClientProfilingError("TIMEOUT", "The client book did not load in time.");
+    throw new ClientProfilingError("UNREACHABLE", `Cannot reach the backend at ${API_BASE}, so the client book cannot be loaded.`, ["Start the backend: cd backend, then run the main app."]);
+  }
+  const json: unknown = await res.json().catch(() => null);
+  if (!res.ok) {
+    const detail = (json as { detail?: unknown } | null)?.detail;
+    if (res.status === 503) throw new ClientProfilingError("SERVER", "The client database is unavailable.");
+    if (res.status === 404) throw new ClientProfilingError("NOT_FOUND", "The running backend does not have the client book yet. Restart it so it runs the latest code.");
+    throw new ClientProfilingError("SERVER", `The client book returned an error (${typeof detail === "string" ? detail : `HTTP ${res.status}`}).`);
+  }
+  const r = json as Partial<BookResult> | null;
+  if (!r || !Array.isArray(r.clients)) throw new ClientProfilingError("INVALID_RESPONSE", "The client book response did not match the expected format.");
+  return { clients: r.clients, ...(r.message ? { message: r.message } : {}) };
+}
+
+export async function ipsAssist(req: { clientId: string; section: string; mode: IpsAssistMode; currentText: string; selection?: string; message: string }): Promise<IpsAssistResult> {
+  let res: Response;
+  try {
+    res = await fetch(`${CP_URL}/ips-assist`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ client_id: req.clientId, section: req.section, mode: req.mode, current_text: req.currentText, selection: req.selection ?? "", message: req.message }),
+      signal: AbortSignal.timeout(CP_TIMEOUT_MS),
+    });
+  } catch (err) {
+    if (err instanceof DOMException && (err.name === "TimeoutError" || err.name === "AbortError")) throw new ClientProfilingError("TIMEOUT", "Geneva did not respond in time.");
+    throw new ClientProfilingError("UNREACHABLE", `Cannot reach the Client Profiling Agent at ${API_BASE}.`, ["Start the backend: cd backend, then run the main app."]);
+  }
+  const json: unknown = await res.json().catch(() => null);
+  if (!res.ok) {
+    const detail = (json as { detail?: unknown } | null)?.detail;
+    const msg = typeof detail === "string" ? detail : `HTTP ${res.status}`;
+    if (res.status === 404) throw new ClientProfilingError("NOT_FOUND", msg === "Not Found" ? "The running backend does not have IPS assist yet. Restart it so it runs the latest code." : msg);
+    if (res.status === 422) throw new ClientProfilingError("REJECTED", "Geneva rejected the request.");
+    throw new ClientProfilingError("SERVER", `Geneva returned an error (${msg}).`);
+  }
+  const r = json as Partial<IpsAssistResult> | null;
+  if (!r || typeof r.status !== "string" || typeof r.message !== "string") throw new ClientProfilingError("INVALID_RESPONSE", "Geneva's response did not match the expected format.");
+  return { original: "", revised: "", ...r, notes: r.notes ?? [], sources: r.sources ?? [] } as IpsAssistResult;
+}
+
+/** AI IPS generation: one section per call. The backend auto-saves a Draft version; pass the `version` of the first response to keep filling the same draft. */
+export async function generateIpsSection(clientId: string, section: IpsGenSectionId, version?: number | null): Promise<IpsGenSectionResult> {
+  let res: Response;
+  try {
+    res = await fetch(`${CP_URL}/ips-generate`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ client_id: clientId, section, ...(version ? { version } : {}) }),
+      signal: AbortSignal.timeout(CP_TIMEOUT_MS),
+    });
+  } catch (err) {
+    if (err instanceof DOMException && (err.name === "TimeoutError" || err.name === "AbortError")) throw new ClientProfilingError("TIMEOUT", "Geneva did not respond in time.");
+    throw new ClientProfilingError("UNREACHABLE", `Cannot reach the Client Profiling Agent at ${API_BASE}.`, ["Start the backend: cd backend, then run the main app."]);
+  }
+  const json: unknown = await res.json().catch(() => null);
+  if (!res.ok) {
+    const detail = (json as { detail?: unknown } | null)?.detail;
+    const msg = typeof detail === "string" ? detail : `HTTP ${res.status}`;
+    if (res.status === 403) throw new ClientProfilingError("REJECTED", msg);
+    if (res.status === 503) throw new ClientProfilingError("SERVER", "The client database is unavailable.");
+    if (res.status === 404) throw new ClientProfilingError("NOT_FOUND", msg === "Not Found" ? "The running backend does not have AI IPS generation yet. Restart it so it runs the latest code." : msg);
+    if (res.status === 422) throw new ClientProfilingError("REJECTED", "Geneva rejected the request.");
+    throw new ClientProfilingError("SERVER", `Geneva returned an error (${msg}).`);
+  }
+  const r = json as Partial<IpsGenSectionResult> | null;
+  if (!r || typeof r.status !== "string" || typeof r.message !== "string") throw new ClientProfilingError("INVALID_RESPONSE", "Geneva's response did not match the expected format.");
+  return { section, fields: {}, bullets: [], sources: [], ...r } as IpsGenSectionResult;
+}
+
+/** Pure: merge the section results into what the IPS editor prefills. Empty values are dropped. */
+export function mergeIpsGenerated(results: IpsGenSectionResult[]): IpsGenerated {
+  const keep = (o: Record<string, string> | undefined, keys: string[]) => {
+    const out: Record<string, string> = {};
+    for (const k of keys) { const v = (o?.[k] ?? "").trim(); if (v) out[k] = v; }
+    return out;
+  };
+  const by = (id: IpsGenSectionId) => results.find((r) => r.section === id);
+  const join = (b?: string[]) => (b ?? []).map((x) => x.trim()).filter(Boolean).join("\n");
+  const philosophy: IpsGenerated["philosophy"] = {};
+  for (const k of ["approach", "believes", "avoids"] as const) { const v = (by("philosophy")?.philosophy?.[k] ?? "").trim(); if (v) philosophy[k] = v; }
+  const statement = philosophySentence(philosophy); if (statement) philosophy.statement = statement;
+  const text: IpsGenerated["text"] = {};
+  const goals = join(by("goals")?.bullets); if (goals) text[1] = goals;
+  const loss = join(by("risk")?.bullets); if (loss) text[3] = loss;
+  const seen = new Set<string>(); const sources: IpsGenerated["sources"] = [];
+  for (const r of results) for (const s of r.sources ?? []) if (s.id && !seen.has(s.id)) { seen.add(s.id); sources.push(s); }
+  const ev = new Set<string>(); const evidence: IpsGenEvidence[] = [];
+  for (const r of results) for (const e of r.evidence ?? []) { const key = `${e.noteId}|${e.item}`; if (!ev.has(key)) { ev.add(key); evidence.push(e); } }
+  const alloc = by("allocation")?.allocation;
+  const model = results.find((r) => r.model)?.model;
+  return {
+    ...(alloc && alloc.buckets?.length ? { allocation: alloc } : {}),
+    ...(model ? { model } : {}),
+    demo: keep(by("demographics")?.fields, ["Date of birth / age", "Occupation", "Employment / income source", "Annual income", "AUM"]),
+    risk: keep(by("risk")?.fields, ["Risk category", "Risk tolerance (willingness)", "Risk capacity (ability)", "Time horizon", "Liquidity needs"]),
+    philosophy, text, sources, evidence,
+  };
+}
+
+/** Shared fetch for the Client Profiling Agent's JSON endpoints. */
+async function cpJson<T>(path: string, init?: RequestInit): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(`${CP_URL}${path}`, { ...init, headers: rmHeaders(), signal: AbortSignal.timeout(CP_TIMEOUT_MS) });
+  } catch (err) {
+    if (err instanceof DOMException && (err.name === "TimeoutError" || err.name === "AbortError")) throw new ClientProfilingError("TIMEOUT", "Geneva did not respond in time.");
+    throw new ClientProfilingError("UNREACHABLE", `Cannot reach the Client Profiling Agent at ${API_BASE}.`, ["Start the backend: cd backend, then run the main app."]);
+  }
+  const json: unknown = await res.json().catch(() => null);
+  if (!res.ok) {
+    const detail = (json as { detail?: unknown } | null)?.detail;
+    const msg = typeof detail === "string" ? detail : `HTTP ${res.status}`;
+    if (res.status === 403) throw new ClientProfilingError("REJECTED", msg);
+    if (res.status === 503 && (json as { historyAvailable?: unknown } | null)?.historyAvailable === false) throw new HistoryUnavailableError();
+    if (res.status === 404) throw new ClientProfilingError("NOT_FOUND", msg === "Not Found" ? "The running backend does not have this feature yet. Restart it so it runs the latest code." : msg);
+    throw new ClientProfilingError("SERVER", `Geneva returned an error (${msg}).`);
+  }
+  return json as T;
+}
+
+/** Strategy table A-F (asset-class mix, return, volatility, drawdown). */
+export async function getStrategies(): Promise<{ strategies: Strategy[]; liquidityAllowed: string[] }> {
+  const r = await cpJson<{ strategies?: Strategy[]; liquidityAllowed?: string[] }>("/strategies");
+  return { strategies: r.strategies ?? [], liquidityAllowed: r.liquidityAllowed ?? ["A", "B"] };
+}
+
+/** RM challenges or asks about the 3L allocation; the agent agrees or disagrees with reasons from the notes. */
+export async function discussAllocation(input: {
+  clientId: string; message: string; history: { role: "user" | "assistant"; text: string }[];
+  allocation?: { buckets: { id: string; strategy: string }[] };
+}): Promise<IpsDiscussResult> {
+  const r = await cpJson<Partial<IpsDiscussResult>>("/ips-allocation/discuss", {
+    method: "POST",
+    body: JSON.stringify({ client_id: input.clientId, clientId: input.clientId, message: input.message, history: input.history, allocation: input.allocation }),
+  });
+  return { answer: "", stance: "info", citations: [], ...r } as IpsDiscussResult;
+}
+
+/** Log an RM strategy choice that differs from Geneva's proposal, with the reason (audit log, Liquidity A/B only). Best effort: never blocks saving. */
+export async function logStrategyOverride(input: { clientId: string; bucket: string; proposed?: string; chosen: string; reason: string }): Promise<boolean> {
+  const portfolio = input.bucket ? input.bucket[0].toUpperCase() + input.bucket.slice(1).toLowerCase() : "";
+  try {
+    await cpJson<unknown>("/ips-allocation/override", { method: "POST", body: JSON.stringify({ clientId: input.clientId, portfolio, from: input.proposed ?? "", to: input.chosen, reason: input.reason }) });
+    return true;
+  } catch { return false; }
+}
+
+export interface IpsChatPage { messages: IpsChatMessage[]; truncated: boolean; message: string; historyAvailable: boolean }
+export async function listIpsChat(clientId: string): Promise<IpsChatMessage[]> {
+  return (await listIpsChatPage(clientId)).messages;
+}
+/** Messages plus the backend's `truncated` flag and `message` (oldest dropped at the cap). `historyAvailable:false` when the database is down. */
+export async function listIpsChatPage(clientId: string): Promise<IpsChatPage> {
+  try {
+    const r = await cpJson<{ messages?: IpsChatMessage[]; truncated?: boolean; message?: string }>(`/ips-chat/${encodeURIComponent(clientId)}`);
+    return { messages: r.messages ?? [], truncated: Boolean(r.truncated), message: r.message ?? "", historyAvailable: true };
+  } catch (e) {
+    if (e instanceof HistoryUnavailableError) return { messages: [], truncated: false, message: e.message, historyAvailable: false };
+    throw e;
+  }
+}
+export async function appendIpsChat(clientId: string, msg: { role: "user" | "assistant"; text: string; kind?: IpsChatMessage["kind"]; meta?: Record<string, unknown> | null }): Promise<{ truncated?: boolean; message?: string; historyAvailable: boolean }> {
+  try {
+    const r = await cpJson<{ truncated?: boolean; message?: string }>(`/ips-chat/${encodeURIComponent(clientId)}`, { method: "POST", body: JSON.stringify(msg) });
+    return { truncated: r.truncated, message: r.message, historyAvailable: true };
+  } catch (e) {
+    if (e instanceof HistoryUnavailableError) return { historyAvailable: false, message: e.message };
+    throw e;
+  }
+}
+export async function clearIpsChat(clientId: string): Promise<void> {
+  await cpJson<unknown>(`/ips-chat/${encodeURIComponent(clientId)}`, { method: "DELETE" });
 }
 
 const shortS = (n: number) => `S$${(n / 1_000_000).toFixed(2)}m`;

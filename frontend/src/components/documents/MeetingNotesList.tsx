@@ -9,15 +9,20 @@ import { SortByDate, type SortOrder } from "./SortByDate";
 
 const fmt = (s: string) => new Date(s).toLocaleDateString("en-SG", { day: "numeric", month: "short", year: "numeric" });
 
-function NoteEditor({ note, onCancel, onSaved }: { note: MeetingNote; onCancel: () => void; onSaved: () => void }) {
+function NoteEditor({ note, onCancel, onSaved }: { note: MeetingNote; onCancel: () => void; onSaved: (message?: string) => void }) {
   const [title, setTitle] = useState(note.title);
   const [text, setText] = useState(note.originalText);
+  const [date, setDate] = useState(note.date.slice(0, 10));
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
   const save = async () => {
-    setBusy(true);
-    await arcApi.updateMeetingNote(note.id, { title, originalText: text });
-    setBusy(false);
-    onSaved();
+    setBusy(true); setError("");
+    try {
+      const saved = await arcApi.updateMeetingNote(note.id, { title, originalText: text, date: date || undefined });
+      onSaved(saved.indexing?.message);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "The edit could not be saved.");
+    } finally { setBusy(false); }
   };
   return (
     <div className="flex flex-col gap-6">
@@ -26,12 +31,17 @@ function NoteEditor({ note, onCancel, onSaved }: { note: MeetingNote; onCancel: 
         <input id={`nt-${note.id}`} value={title} onChange={(e) => setTitle(e.target.value)} className="mt-2 w-full rounded-sm border border-hairline-strong bg-surface-100 px-4 py-3 text-base text-ink" />
       </div>
       <div>
+        <label htmlFor={`nd-${note.id}`} className="text-sm text-ink-muted">Date</label>
+        <input id={`nd-${note.id}`} type="date" value={date} onChange={(e) => setDate(e.target.value)} className="mt-2 rounded-sm border border-hairline-strong bg-surface-100 px-4 py-3 text-base text-ink" />
+      </div>
+      <div>
         <label htmlFor={`nx-${note.id}`} className="text-sm text-ink-muted">Original notes</label>
         <textarea id={`nx-${note.id}`} rows={10} value={text} onChange={(e) => setText(e.target.value)} className="mt-2 w-full rounded-sm border border-hairline-strong bg-surface-100 p-4 text-base leading-relaxed text-ink" />
       </div>
       <div className="flex flex-wrap items-center gap-4">
-        <Button variant="gold" onClick={save} disabled={busy || !title.trim()}>{busy ? "Saving…" : "Save"}</Button>
+        <Button variant="gold" onClick={save} disabled={busy || !title.trim() || !text.trim() || !date}>{busy ? "Saving…" : "Save"}</Button>
         <Button variant="ghost" onClick={onCancel} disabled={busy}>Cancel</Button>
+        {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
       </div>
     </div>
   );
@@ -40,6 +50,7 @@ function NoteEditor({ note, onCancel, onSaved }: { note: MeetingNote; onCancel: 
 export function MeetingNotesList({ notes, clientName = "", onChanged }: { notes: MeetingNote[]; clientName?: string; onChanged?: () => void }) {
   const role = useRole();
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [notice, setNotice] = useState<{ id: string; message: string } | null>(null);
   const [order, setOrder] = useState<SortOrder>("latest");
   const [open, setOpen] = useState<MeetingNote | null>(null);
   const sorted = useMemo(
@@ -55,9 +66,11 @@ export function MeetingNotesList({ notes, clientName = "", onChanged }: { notes:
           <Card key={n.id} className="!p-8">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted">{fmt(n.date)}</p>
             {editingId === n.id ? (
-              <div className="mt-4"><NoteEditor note={n} onCancel={() => setEditingId(null)} onSaved={() => { setEditingId(null); onChanged?.(); }} /></div>
+              <div className="mt-4"><NoteEditor note={n} onCancel={() => setEditingId(null)} onSaved={(message) => { setEditingId(null); setNotice(message ? { id: n.id, message } : null); onChanged?.(); }} /></div>
             ) : (<>
             <h3 className="mt-2 text-xl">{n.title}</h3>
+            {(n.clientName || clientName) && <p className="mt-1 text-sm text-ink-muted">{n.clientName || clientName}</p>}
+            {notice?.id === n.id && <p role="status" className="mt-3 text-sm text-ink">{notice.message}</p>}
             <div className="mt-6 flex flex-wrap items-center justify-between gap-4 border-t border-hairline pt-5">
               <span className="inline-flex items-center gap-2 text-sm text-ink-muted"><FileText size={16} />{n.sourceFile}</span>
               <div className="flex items-center gap-3">
@@ -74,7 +87,7 @@ export function MeetingNotesList({ notes, clientName = "", onChanged }: { notes:
           <article className="mx-auto w-full max-w-[780px] border border-hairline bg-surface-100 px-12 py-14 text-ink">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted">Original meeting notes</p>
             <h1 className="mt-6 text-3xl font-light">{open.title}</h1>
-            <p className="mt-3 text-sm text-ink-muted">{clientName ? `${clientName} · ` : ""}{fmt(open.date)} · {open.sourceFile}</p>
+            <p className="mt-3 text-sm text-ink-muted">{(open.clientName || clientName) ? `${open.clientName || clientName} · ` : ""}{fmt(open.date)} · {open.sourceFile}</p>
             <div className="mt-8 space-y-5 border-t border-hairline pt-8">
               {open.originalText.split(/\n\s*\n/).map((para, i) => <p key={i} className="text-base leading-relaxed text-ink">{para}</p>)}
             </div>

@@ -73,6 +73,24 @@ Two independent things live in the same Postgres database, both keyed by the sam
 
 Written by `touch_session()` on every WebSocket turn (see `endpoints/__init__.py`). This table holds **no conversation content** - just enough to serve `GET /sessions` without touching LangGraph's storage at all.
 
+### `cp_clients`, `cp_ips_versions`, `cp_meeting_notes` - Client Profiling Agent data (owned by `agents/client_profiling/store_pg.py`)
+
+| table | key | holds |
+|-------|-----|-------|
+| `cp_clients` | `id` | name, surname, risk_category, risk_cap, aum_sgd, status, plus the RM's book: `in_book` BOOLEAN (default false), `onboarding_progress` 0-5 (steps done of 5), `monitoring_progress` 0-100 (review-pack %). There is one RM, so the book is just the clients with `in_book` (`GET /agents/client-profiling/book`; `/chat` and the notes/ips-assist routes always use it server-side, a client-supplied `book` is ignored, others get 403 "Client is not in your book"). Seed: only test client `jft` is in the book. Columns are added with `ADD COLUMN IF NOT EXISTS`; the old `cp_client_book` table is dropped on init if it exists. |
+| `cp_ips_versions` | `(client_id, version)` | status (Active/Superseded/Draft), issued_on, author, summary, `parts` JSONB (IPS sections) |
+| `cp_meeting_notes` | `id` | client_id, note_date, title, source_file, text, `origin` (`seed`/`upload`), created_at |
+
+Created with `CREATE TABLE IF NOT EXISTS` and seeded once per process from `agents/client_profiling/data/*.json` using `INSERT ... ON CONFLICT DO NOTHING` - existing rows (user edits, uploaded notes) are never overwritten or deleted. Select the backend with `CLIENT_PROFILING_STORE=postgres` (default) or `json` (offline tests). If Postgres is unreachable the agent reports "database unavailable" instead of silently falling back to JSON.
+
+**`cp_note_chunks`** (optional, pgvector): `(note_id, chunk_idx)` unique, `client_id`, `text` (~400-char paragraph/sentence windows) and `embedding vector(768)` with an HNSW cosine index. It is created only if `CREATE EXTENSION vector` succeeds on first use (needs a superuser and the `pgvector/pgvector:pg16` image in `docker-compose.yml`); otherwise `store.vector_enabled` is false and the agent keeps its keyword / full-notes behaviour with no errors.
+
+**`cp_ips_chunks`** (optional, pgvector, separate from notes): `(client_id, version, part_n, chunk_idx)` unique, `text`, `embedding vector(768)` + HNSW cosine index, created alongside `cp_note_chunks`. `search_ips` reads only the client's current IPS version (Active, else latest Draft) and is backfilled lazily; notes search never reads this table and IPS search never reads `cp_note_chunks`.
+**Read-only views (client name next to every record)**: `v_meeting_notes`, `v_ips_versions`, `v_note_chunks`, `v_ips_chunks`. Each is `CREATE OR REPLACE VIEW` (idempotent, rebuilt on every init, after the tables) and exposes `client_id` plus `client_name`, joined live from `cp_clients.name` (falls back to the client id when the name is empty; renaming a client changes the view, nothing is copied). `v_meeting_notes` / `v_ips_versions` carry all original columns; the chunk views carry the chunk `text` but omit the 768-dim `embedding`, and are only created when pgvector is available. `GET /meeting-notes/{id}` items include `clientName` and `GET /ips/{id}` includes `client_name`; `client_id` stays the lookup key.
+- Embeddings come from the local OpenAI-compatible server (`CLIENT_PROFILING_LLM_URL`, model `CLIENT_PROFILING_EMBED_MODEL`, default `text-embedding-nomic-embed-text-v1.5`); any embedding failure leaves the note un-chunked and it is retried on the next search.
+- Chunks are replaced on note add/edit and backfilled lazily on the first search; `search_notes(client_id, query, k)` always filters `WHERE client_id = %s` and returns `None` when semantic search is unavailable.
+- Recreate the container to switch images (data volume is kept): `docker compose up -d --force-recreate postgres`.
+
 ### `checkpoints`, `checkpoint_blobs`, `checkpoint_writes`, `checkpoint_migrations` - actual conversation state (owned by LangGraph's `AsyncPostgresSaver`)
 
 These four tables are created and fully managed by LangGraph (`checkpointer.setup()` runs once in `app.py`'s lifespan) - nothing in this codebase writes to them directly:

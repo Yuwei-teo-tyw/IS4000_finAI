@@ -15,7 +15,17 @@ const BACK = { rm: ["clients", "Back to Client Book"], pm: ["inbox", "Back to In
 export default function ClientLayout() {
   const role = useRole();
   const { state, pathname } = useLocation() as { state: { from?: string; fromLabel?: string } | null; pathname: string };
-  const { clientId, client } = useClient();
+  const { clientId, client, notFound } = useClient();
+  if (notFound) {
+    return (
+      <div>
+        <Link to={`/${role}/${BACK[role][0]}`} className="mb-8 inline-flex items-center gap-2 text-sm font-semibold text-ink hover:text-ink-muted">
+          <ArrowLeft size={16} /> {BACK[role][1]}
+        </Link>
+        <p className="text-lg text-ink">Client not found</p>
+      </div>
+    );
+  }
   if (!client) return <Loading />;
   const [backTo, backLabel] = BACK[role];
   const onboarding = client.status === "Onboarding Phase";

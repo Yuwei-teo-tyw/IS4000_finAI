@@ -209,3 +209,4 @@ __marimo__/
 .env
 # Market researcher agent output files (JSON runs)
 backend/data/
+backend/app/agents/client_profiling/data/uploaded_meeting_notes.json

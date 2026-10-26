@@ -69,12 +69,11 @@ export function getNav(role: Role, _clientId: string): NavItem[] {
 }
 
 const STORAGE_KEY = "arc.activeClient";
-// Every client in the client book (mock/data.ts `clients`); an id missing here cannot be selected anywhere.
-const VALID_IDS = ["ser", "dso", "jfr", "teo", "sha"];
+// Any id is selectable: mock clients (mock/data.ts) for PM/PS and the database client book for the RM (e.g. `jft`).
 const DEFAULT_ID = "jfr";
 
 function isValid(id: string | null | undefined): id is string {
-  return !!id && VALID_IDS.includes(id);
+  return !!id && id !== "clients";
 }
 
 function readStored(): string | null {
@@ -110,7 +109,7 @@ const getSnapshot = () => current;
 
 /** Reactive: every subscriber (shell, chat, pages) updates at once. */
 export function setActiveClientId(id: string) {
-  if (!VALID_IDS.includes(id)) return;
+  if (!isValid(id)) return;
   writeStored(id);
   if (current !== id) { current = id; listeners.forEach((fn) => fn()); }
 }
