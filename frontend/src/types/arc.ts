@@ -44,7 +44,9 @@ export interface PackSection { n: number; title: string; owner: Role; gate: Gate
   order?: number }
 export interface Citation { tag: string; what: string; system: string; asOf: string; ref: string }
 export interface ActivityEvent { id: string; at: string; actor: string; role: Role | "system"; text: string }
-export interface MeetingNote { id: string; clientId: string; date: string; title: string; sourceFile: string; originalText: string; summary: string[]; checklist: { text: string; done: boolean }[] }
+/** Search-index state reported by the backend after a note upload or edit (chunks is null for the JSON store). */
+export interface NoteIndexing { status: "indexed" | "pending"; chunks: number | null; message: string }
+export interface MeetingNote { indexing?: NoteIndexing; id: string; clientId: string; clientName?: string; date: string; title: string; sourceFile: string; originalText: string; summary: string[]; checklist: { text: string; done: boolean }[] }
 
 export interface CorrelationMatrix { labels: string[]; matrix: number[][] }
 export interface AllocationGroup { label: string; value: number; color: "chart-equities" | "chart-bonds" | "chart-alternatives" | "chart-liquidity" }

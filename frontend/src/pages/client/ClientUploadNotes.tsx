@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { CheckCircle2, FileText, UploadCloud, X } from "lucide-react";
+import type { NoteIndexing } from "../../types/arc";
 import { arcApi } from "../../services/arcApi";
 import { Button, Card, Loading, useAsync } from "../../components/ui";
 import { useClient } from "../../components/client/useClient";
@@ -12,7 +13,9 @@ export default function ClientUploadNotes() {
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<number | null>(null);
+  const [indexing, setIndexing] = useState<{ file: string; info: NoteIndexing }[]>([]);
   const [drag, setDrag] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [version, setVersion] = useState(0);
   const input = useRef<HTMLInputElement>(null);
   const notes = useAsync(() => arcApi.getMeetingNotes(clientId), [clientId, version]);
@@ -27,9 +30,15 @@ export default function ClientUploadNotes() {
   const upload = async () => {
     setBusy(true);
     const n = files.length;
-    for (const f of files) await arcApi.uploadMeetingNote(clientId, f.name);
-    setFiles([]);
-    setDone(n);
+    const failed: File[] = []; const errs: string[] = []; const idx: { file: string; info: NoteIndexing }[] = [];
+    for (const f of files) {
+      try { const saved = await arcApi.uploadMeetingNote(clientId, f); if (saved.indexing) idx.push({ file: f.name, info: saved.indexing }); }
+      catch (e) { failed.push(f); errs.push(e instanceof Error ? e.message : String(e)); }
+    }
+    setFiles(failed);
+    setIndexing(idx);
+    setError(errs.length ? errs.join(" ") : null);
+    setDone(n - failed.length);
     setBusy(false);
     setVersion((v) => v + 1);
   };
@@ -67,12 +76,18 @@ export default function ClientUploadNotes() {
 
         <div className="mt-8 flex flex-wrap items-center gap-6">
           <Button variant="gold" onClick={upload} disabled={!files.length || busy}>{busy ? "Uploading…" : "Upload Notes"}</Button>
-          {done !== null && (
+          {done !== null && done > 0 && (
             <p className="inline-flex items-center gap-2 text-sm font-semibold text-positive">
               <CheckCircle2 size={18} /> {done} {done === 1 ? "file" : "files"} uploaded successfully
             </p>
           )}
         </div>
+        {indexing.length > 0 && (
+          <ul aria-live="polite" className="mt-4 flex flex-col gap-1 text-sm text-ink-muted">
+            {indexing.map((x, i) => <li key={`${x.file}-${i}`}>{x.file}: {x.info.message}</li>)}
+          </ul>
+        )}
+        {error && <p role="alert" className="mt-4 text-sm text-negative">{error}</p>}
       </Card>
 
       <section>

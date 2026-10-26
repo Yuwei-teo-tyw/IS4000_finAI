@@ -1,0 +1,55 @@
+{
+  "_disclaimer": "FICTIONAL SEED DATA for development and testing only. All people, amounts and documents are invented.",
+  "meeting_notes": [
+    {
+      "id": "note_1013",
+      "client_id": "jfr",
+      "date": "2026-10-13",
+      "title": "First meeting",
+      "source_file": "2026-10-13-first-meeting.pdf",
+      "text": "First meeting with Jane Fraser, 13 October 2026. Attendees: Jane Fraser, Isabel (RM).\n\nJane is the Chief Executive Officer of CityBank. She earns an annual income of S$10m from salary and bonus. Investable assets managed with the bank total S$500m.\n\nJane described herself as very risk averse. She said a fall of more than 10% in a single year would make her very uncomfortable and likely prompt her to sell. Her priorities are keeping her capital safe and steady income. She prefers cash, government bonds and high-grade bonds.\n\nShe is open to adding some blue-chip equities, up to about 10% of her assets. She would like her assets to grow modestly over time, but she does not want an aggressive approach. She has been investing mainly in deposits and bonds and is not familiar with complex products.\n\nShe does not want hedge funds or private markets in the portfolio, and would like to avoid tobacco and thermal coal. She has a general interest in responsible investing.\n\nShe would not need to touch most of the capital for at least ten years. Jane wants the portfolio to stay mainly in SGD, with some USD.\n\nOpen question: she did not state her monthly spending. Isabel will ask, run the risk questionnaire, and then send the IPS draft to the Portfolio Manager.",
+      "origin": "mirrored_from_frontend_mock",
+      "fictional": true
+    },
+    {
+      "id": "note_1020",
+      "client_id": "jfr",
+      "date": "2026-10-20",
+      "title": "Risk questionnaire follow-up",
+      "source_file": "2026-10-20-risk-questionnaire-follow-up.pdf",
+      "text": "Follow-up meeting with Jane Fraser, 20 October 2026. Attendees: Jane Fraser, Isabel (RM).\n\nWe went through the risk questionnaire. Jane confirmed that she is very risk averse and that a fall of more than 10% in a single year would make her very uncomfortable and likely prompt her to sell.\n\nJane spends about S$150,000 a month on living costs. She would like to keep a cash reserve of S$30m so that she never has to sell investments to meet her expenses.\n\nShe is now open to adding up to 15% in blue-chip equities, up from the 10% discussed at the first meeting, as the modest growth part of her assets. She prefers the rest to stay in cash, government bonds and high-grade bonds.\n\nJane would like to keep her currency mix mainly in SGD, with up to 20% in USD. She would like her assets to grow steadily and expects to stay invested for at least ten years.\n\nOpen question: she has not yet told us about assets held outside the bank or any liabilities. Isabel will ask and then update the IPS draft with the Portfolio Manager.",
+      "origin": "mirrored_from_frontend_mock",
+      "fictional": true
+    },
+    {
+      "id": "note_9001",
+      "client_id": "mlm",
+      "date": "2026-09-30",
+      "title": "Review meeting",
+      "source_file": "2026-09-30-review-meeting.pdf",
+      "text": "Marcus Lim reviewed his portfolio with his relationship manager. He is comfortable with a balanced approach and wants to keep about 20% in cash. He asked to revisit his property exposure next quarter.",
+      "origin": "seed",
+      "fictional": true
+    },
+    {
+      "id": "note_jft_1013",
+      "client_id": "jft",
+      "date": "2026-10-13",
+      "title": "First meeting",
+      "source_file": "2026-10-13-first-meeting.pdf",
+      "text": "First meeting with Jane Fraser, 13 October 2026. Attendees: Jane Fraser, Isabel (RM).\n\nJane is the Chief Executive Officer of CityBank. She earns an annual income of S$10m from salary and bonus. Investable assets managed with the bank total S$500m.\n\nJane described herself as very risk averse. She said a fall of more than 10% in a single year would make her very uncomfortable and likely prompt her to sell. Her priorities are keeping her capital safe and steady income. She prefers cash, government bonds and high-grade bonds.\n\nShe is open to adding some blue-chip equities, up to about 10% of her assets. She would like her assets to grow modestly over time, but she does not want an aggressive approach. She has been investing mainly in deposits and bonds and is not familiar with complex products.\n\nShe does not want hedge funds or private markets in the portfolio, and would like to avoid tobacco and thermal coal. She has a general interest in responsible investing.\n\nShe would not need to touch most of the capital for at least ten years. Jane wants the portfolio to stay mainly in SGD, with some USD.\n\nOpen question: she did not state her monthly spending. Isabel will ask, run the risk questionnaire, and then send the IPS draft to the Portfolio Manager.",
+      "origin": "mirrored_from_frontend_mock",
+      "fictional": true
+    },
+    {
+      "id": "note_jft_1020",
+      "client_id": "jft",
+      "date": "2026-10-20",
+      "title": "Risk questionnaire follow-up",
+      "source_file": "2026-10-20-risk-questionnaire-follow-up.pdf",
+      "text": "Follow-up meeting with Jane Fraser, 20 October 2026. Attendees: Jane Fraser, Isabel (RM).\n\nWe went through the risk questionnaire. Jane confirmed that she is very risk averse and that a fall of more than 10% in a single year would make her very uncomfortable and likely prompt her to sell.\n\nJane spends about S$150,000 a month on living costs. She would like to keep a cash reserve of S$30m so that she never has to sell investments to meet her expenses.\n\nShe is now open to adding up to 15% in blue-chip equities, up from the 10% discussed at the first meeting, as the modest growth part of her assets. She prefers the rest to stay in cash, government bonds and high-grade bonds.\n\nJane would like to keep her currency mix mainly in SGD, with up to 20% in USD. She would like her assets to grow steadily and expects to stay invested for at least ten years.\n\nOpen question: she has not yet told us about assets held outside the bank or any liabilities. Isabel will ask and then update the IPS draft with the Portfolio Manager.",
+      "origin": "mirrored_from_frontend_mock",
+      "fictional": true
+    }
+  ]
+}

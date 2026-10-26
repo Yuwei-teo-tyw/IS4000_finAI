@@ -7,10 +7,10 @@ export interface ClientProfile {
 export const profileByClient: Record<string, ClientProfile> = {
   jfr: {
     dateOfBirth: "14 March 1971", age: 55, nationality: "Singaporean", residency: "Singapore", occupation: "Chief Executive Officer", maritalStatus: "Married",
-    dependants: "2 children", incomeSource: "Salary and bonus; dividend income", taxResidency: "Singapore",
-    goals: ["Fund the S$3.0m deposit for a family home within 12 months", "Retain lifetime income", "Leave a legacy for two children"],
-    timeHorizon: "Medium to long term (12 months for liquidity, 15+ years for growth)", liquidityNeeds: "High over the next 12 months for the house deposit",
-    lossTolerance: ["Can tolerate a drawdown of about 12%", "Volatility concerns have increased since last year"],
+    dependants: "2 children", incomeSource: "Salary and bonus (about S$10m a year)", taxResidency: "Singapore",
+    goals: ["Keep capital safe with steady income", "Modest growth through a small blue-chip equity allocation", "Maintain a S$30m cash reserve for living costs"],
+    timeHorizon: "Long term (at least ten years)", liquidityNeeds: "About S$150,000 a month in living costs; S$30m cash reserve",
+    lossTolerance: ["Very risk averse; a fall above 10% in a year would be very uncomfortable", "Likely to sell after a large drawdown"],
   },
   dso: {
     dateOfBirth: "2 July 1962", age: 64, nationality: "Singaporean", residency: "Singapore", occupation: "Senior executive, approaching retirement", maritalStatus: "Married",

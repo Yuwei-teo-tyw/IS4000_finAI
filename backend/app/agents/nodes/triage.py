@@ -19,11 +19,14 @@ from app.prompts.prompt_builder import get_prompt
 
 class RoutingDecision(BaseModel):
     """Routing decision for an incoming user message."""
-    destination: Literal["market", "general", "meta"] = Field(
+    destination: Literal["market", "general", "meta", "client_profiling"] = Field(
         description=(
             "'market' for questions about current macro/economic conditions - interest rates and "
             "Treasury yields, inflation, jobs data, the economic cycle or recession risk, or overall "
             "market conditions right now, "
+            "'client_profiling' for questions about THE CLIENT IN FOCUS: what they said or want in meetings, "
+            "summarise or recap their meeting notes, or their income, spending, cash reserve, risk attitude, "
+            "asset-class preferences, horizon or goals as recorded in meeting notes, "
             "'meta' if the user is asking what this assistant/platform can do, which specialists or "
             "agents are available, or for help/options about the platform itself rather than asking "
             "an actual question, "
@@ -77,6 +80,25 @@ class TriageAgent:
                 "conversation_ended": False,
                 "handoff_message": None,
                 "skip_eval": True,
+            }
+
+        if destination == "client_profiling":
+            if not (state.get("client_id") or "").strip():
+                # Guard: nothing to look up without a client in focus - never guess one.
+                return {
+                    "messages": [AIMessage(content="Please select or open a client first, then ask again about their meeting notes.")],
+                    "current_agent": "triage",
+                    "next_agent": None,
+                    "conversation_ended": False,
+                    "handoff_message": None,
+                    "skip_eval": True,
+                }
+            return {
+                "current_agent": "client_profiling",
+                "next_agent": "client_profiling",
+                "scope_checked": True,
+                "conversation_ended": False,
+                "handoff_message": None,
             }
 
         if destination == "market":

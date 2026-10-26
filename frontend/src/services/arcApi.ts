@@ -10,6 +10,7 @@ import { bulletLines, toBulletItems } from "../utils/bullets";
 import { findProducts } from "../utils/productMatch";
 import { askBackend, confirmBackendAction, fetchBackendArticle, newSessionId } from "./genevaBackend";
 export { GenevaBackendError } from "./genevaBackend";
+import type { BookResult, ClientProfilingRequestOpts, ClientProfilingResult, IpsAssistMode, IpsAssistResult } from "../types/clientProfiling";
 import type {
   ActivityEvent, AllocationRow, Bucket3L, Client, Gate, GateId, GateState, Holding, InboxItem, IpsPart, MacroBrief, MarketRow,
   MarketView, HouseView, PackRenderInput, MarketAnswer, MeetingNote, IpsVersion, PackSection, Product, ProductClass, Role, AllocationGroup, CorrelationMatrix, GoalProjection, SectionDraft, GenevaArticle, GenevaContext, GenevaReply,
@@ -86,6 +87,24 @@ const buildIpsHistory = (clientId: string): IpsVersion[] => {
   ];
 };
 
+/** Backend IPS (database) is the source of truth for the read side; null when unreachable so callers fall back to mock. */
+const fetchRemoteIps = async (clientId: string): Promise<{ current_version: number | null; versions: IpsVersion[] } | null> => {
+  try {
+    const res = await fetch(`${CP_URL}/ips/${encodeURIComponent(clientId)}`, { signal: AbortSignal.timeout(4000) });
+    if (!res.ok) return null;
+    const j = (await res.json()) as { current_version: number | null; versions: IpsVersion[] };
+    return Array.isArray(j.versions) ? j : null;
+  } catch { return null; }
+};
+
+/** Local in-session workflow on top of the database copy: onboarding drafts activated here show Active, and the PM's returned 3L/SAA parts show on the newest version. */
+const overlayIpsWorkflow = (clientId: string, list: IpsVersion[]): IpsVersion[] => {
+  const base = m.clients.find((x) => x.id === clientId);
+  if (!base || base.status !== "Onboarding Phase" || !list.length) return list;
+  const activated = effective(base).status === "Monitoring Phase";
+  return list.map((v, i) => (i === 0 ? { ...v, status: activated && v.status === "Draft" ? "Active" : v.status, parts: withPmReturn(clientId, v.parts) } : v));
+};
+
 const withEdits = (clientId: string, list: IpsVersion[]): IpsVersion[] =>
   list.map((v) => (ipsEdits[`${clientId}:${v.version}`] ? { ...v, parts: ipsEdits[`${clientId}:${v.version}`] } : v));
 
@@ -147,6 +166,12 @@ export const arcApi = {
   getBucketInputs: (clientId: string): Promise<PaBucketInputs[]> => buildBucketInputs(clientId),
   /** Backend check of the chosen portfolio for every bucket, as one client portfolio. Calculation only. */
   reviewCombined: (choices: PaBucketChoice[], clientTotal: number | null): Promise<PaCombinedReview> => reviewCombined(choices, clientTotal),
+  /** Geneva chat: Client Profiling Agent (IPS and meeting notes; proposals only). */
+  clientProfilingChat,
+  /** RM Client Book from the backend DB (onboarding and monitoring progress included). */
+  listBook,
+  /** IPS section assist (write / professionalise); proposals only, the RM accepts. */
+  ipsAssist,
   /**
    * Geneva chat: a question about the client's portfolio, answered by the Portfolio Agent from the
    * proposal the PM is working on (with their picked portfolio and edited weights), or, when there is none,
@@ -156,28 +181,69 @@ export const arcApi = {
     askPortfolioAgent(clientId, question, history),
   getAllocation: (clientId: string): Promise<AllocationRow[]> => delay(m.allocationByClient[clientId] ?? m.allocation),
   getSaaTemplates: () => delay(m.saaTemplates),
-  getIps: (clientId: string): Promise<IpsPart[]> => delay(withPmReturn(clientId, m.ipsPartsByClient[clientId] ?? m.ipsParts)),
-  getMeetingNotes: (clientId: string): Promise<MeetingNote[]> => delay(m.meetingNotes.filter((n) => n.clientId === clientId)),
-  /** Newest first. Onboarding clients return [] or a single Draft. */
-  getIpsHistory: (clientId: string): Promise<IpsVersion[]> => delay(withEdits(clientId, buildIpsHistory(clientId))),
-  /** Mock upload: appends a note to the in-memory list so getMeetingNotes returns it. */
-  uploadMeetingNote: (clientId: string, fileName: string): Promise<MeetingNote> => {
-    const note: MeetingNote = {
-      id: `note_up_${Date.now()}`, clientId, date: "2026-10-17", title: fileName.replace(/\.[^.]+$/, ""), sourceFile: fileName,
-      originalText: `Original contents of ${fileName} (demo preview).\n\nIn the live system this shows the uploaded document or the transcript of the recording, exactly as received.`,
-      summary: [`Notes extracted from ${fileName}`, "Client goals and constraints captured", "Follow-ups flagged for the Relationship Manager"],
-      checklist: [{ text: "Review extracted notes", done: false }, { text: "Update IPS draft", done: false }],
-    };
-    m.meetingNotes.unshift(note);
-    return delay(note, 600);
+  getIps: async (clientId: string): Promise<IpsPart[]> => {
+    const remote = await fetchRemoteIps(clientId);
+    if (remote && remote.versions.length) {
+      const v = remote.versions.find((x) => x.version === remote.current_version) ?? remote.versions[0];
+      return delay(withPmReturn(clientId, v.parts));
+    }
+    return delay(withPmReturn(clientId, m.ipsPartsByClient[clientId] ?? m.ipsParts));
   },
-  /** Mock edit: mutates the in-memory note so getMeetingNotes and the preview show the edited text. */
-  updateMeetingNote: (noteId: string, patch: { title: string; originalText: string }): Promise<MeetingNote> => {
+  /** The backend is the source of truth when it responds (its version replaces local copies with the same id); backend down => local only. */
+  getMeetingNotes: async (clientId: string): Promise<MeetingNote[]> => {
+    try {
+      const res = await fetch(`${CP_URL}/meeting-notes/${encodeURIComponent(clientId)}`, { signal: AbortSignal.timeout(4000) });
+      if (res.ok) {
+        const remote = ((await res.json()) as MeetingNote[]).filter((n) => n.clientId === clientId);
+        const rids = new Set(remote.map((n) => n.id));
+        const others = m.meetingNotes.filter((n) => n.clientId !== clientId || !rids.has(n.id));
+        m.meetingNotes.splice(0, m.meetingNotes.length, ...remote, ...others);
+      }
+    } catch { /* backend unavailable: show the local notes */ }
+    return delay(m.meetingNotes.filter((n) => n.clientId === clientId));
+  },
+  /** Newest first. Onboarding clients return [] or a single Draft. */
+  getIpsHistory: async (clientId: string): Promise<IpsVersion[]> => {
+    const remote = await fetchRemoteIps(clientId);
+    return delay(withEdits(clientId, remote ? overlayIpsWorkflow(clientId, remote.versions) : buildIpsHistory(clientId)));
+  },
+  /** Uploads the file to the backend meeting-notes database (PDF/TXT text is extracted there) and mirrors the stored note locally. Errors are surfaced, never faked. */
+  uploadMeetingNote: async (clientId: string, file: File): Promise<MeetingNote> => {
+    const body = new FormData();
+    body.append("client_id", clientId);
+    body.append("file", file);
+    let res: Response;
+    try { res = await fetch(`${CP_URL}/meeting-notes`, { method: "POST", body, signal: AbortSignal.timeout(60_000) }); }
+    catch { throw new ClientProfilingError("UNREACHABLE", `Cannot reach the backend at ${API_BASE}, so ${file.name} was not saved.`); }
+    const json: unknown = await res.json().catch(() => null);
+    if (!res.ok) {
+      const detail = (json as { detail?: unknown } | null)?.detail;
+      throw new ClientProfilingError("REJECTED", typeof detail === "string" ? `${file.name}: ${detail}` : `${file.name}: upload failed (HTTP ${res.status}).`);
+    }
+    const note = json as MeetingNote;
+    if (!m.meetingNotes.some((n) => n.id === note.id)) m.meetingNotes.unshift(note);
+    return note;
+  },
+  /** Saves the edit to the backend meeting-notes database, then refreshes the local copy. Errors are surfaced, never faked. */
+  updateMeetingNote: async (noteId: string, patch: { title: string; originalText: string }): Promise<MeetingNote> => {
     const note = m.meetingNotes.find((n) => n.id === noteId);
-    if (!note) return Promise.reject(new Error(`Meeting note ${noteId} not found`));
-    note.title = patch.title;
-    note.originalText = patch.originalText;
-    return delay(note, 400);
+    if (!note) throw new Error(`Meeting note ${noteId} not found`);
+    let res: Response;
+    try {
+      res = await fetch(`${CP_URL}/meeting-notes/${encodeURIComponent(note.clientId)}/${encodeURIComponent(noteId)}`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: patch.title, original_text: patch.originalText }), signal: AbortSignal.timeout(15_000),
+      });
+    } catch { throw new ClientProfilingError("UNREACHABLE", `Cannot reach the backend at ${API_BASE}, so the edit was not saved.`); }
+    const json: unknown = await res.json().catch(() => null);
+    if (!res.ok) {
+      const detail = (json as { detail?: unknown } | null)?.detail;
+      const msg = typeof detail === "string" ? detail : `Saving the edit failed (HTTP ${res.status}).`;
+      throw new ClientProfilingError(res.status === 404 ? "NOT_FOUND" : res.status >= 500 ? "SERVER" : "REJECTED", msg);
+    }
+    const saved = json as MeetingNote;
+    Object.assign(note, saved);
+    return note;
   },
   getGates: (_clientId: string): Promise<Gate[]> => delay(m.gates),
   getInbox: (role: Exclude<Role, "rm">): Promise<InboxItem[]> => delay(m.inboxes[role]),
@@ -510,6 +576,94 @@ export class PortfolioAgentError extends Error {
     this.kind = kind;
     this.details = details;
   }
+}
+
+/* ---- Client Profiling Agent: IPS and meeting-note questions. Proposals only; nothing is saved or executed. ---- */
+const CP_URL = `${API_BASE}/agents/client-profiling`;
+const CP_TIMEOUT_MS = 90_000;
+export class ClientProfilingError extends Error {
+  kind: "UNREACHABLE" | "TIMEOUT" | "REJECTED" | "NOT_FOUND" | "SERVER" | "INVALID_RESPONSE";
+  details: string[];
+  constructor(kind: ClientProfilingError["kind"], message: string, details: string[] = []) {
+    super(message);
+    this.kind = kind;
+    this.details = details;
+  }
+}
+export async function clientProfilingChat(clientId: string, text: string, ipsVersion?: number | null, opts: ClientProfilingRequestOpts = {}): Promise<ClientProfilingResult> {
+  let res: Response;
+  try {
+    res = await fetch(`${CP_URL}/chat`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: text, client_id: clientId, ...(ipsVersion != null ? { ips_version: ipsVersion } : {}), ...(opts.source ? { source: opts.source } : {}) }),
+      signal: AbortSignal.timeout(CP_TIMEOUT_MS),
+    });
+  } catch (err) {
+    if (err instanceof DOMException && (err.name === "TimeoutError" || err.name === "AbortError")) throw new ClientProfilingError("TIMEOUT", "The Client Profiling Agent did not respond in time.");
+    throw new ClientProfilingError("UNREACHABLE", `Cannot reach the Client Profiling Agent at ${API_BASE}.`, ["Start the backend: cd backend, then run the main app."]);
+  }
+  const json: unknown = await res.json().catch(() => null);
+  if (!res.ok) {
+    const detail = (json as { detail?: unknown } | null)?.detail;
+    if (res.status === 422 && Array.isArray(detail)) {
+      throw new ClientProfilingError("REJECTED", "The Client Profiling Agent rejected the request.",
+        detail.map((d: { loc?: unknown[]; msg?: string }) => `${(d.loc ?? []).filter((x) => x !== "body").join(" › ")}: ${d.msg ?? "invalid"}`));
+    }
+    const msg = typeof detail === "string" ? detail : `HTTP ${res.status}`;
+    if (res.status === 404) throw new ClientProfilingError("NOT_FOUND", msg === "Not Found" ? "The running backend does not have the Client Profiling Agent yet. Restart it so it runs the latest code." : msg);
+    throw new ClientProfilingError("SERVER", `The Client Profiling Agent returned an error (${msg}).`);
+  }
+  const r = json as Partial<ClientProfilingResult> | null;
+  if (!r || typeof r.tool !== "string" || typeof r.status !== "string" || typeof r.message !== "string") {
+    throw new ClientProfilingError("INVALID_RESPONSE", "The Client Profiling Agent's response did not match the expected format.");
+  }
+  return { ...r, data: r.data ?? {}, sources: r.sources ?? [], candidates: r.candidates ?? [] } as ClientProfilingResult;
+}
+
+/** The RM's client book from the backend client book DB (single source of truth). Never falls back to mock data. */
+export async function listBook(): Promise<BookResult> {
+  let res: Response;
+  try {
+    res = await fetch(`${CP_URL}/book`, { signal: AbortSignal.timeout(15_000) });
+  } catch (err) {
+    if (err instanceof DOMException && (err.name === "TimeoutError" || err.name === "AbortError")) throw new ClientProfilingError("TIMEOUT", "The client book did not load in time.");
+    throw new ClientProfilingError("UNREACHABLE", `Cannot reach the backend at ${API_BASE}, so the client book cannot be loaded.`, ["Start the backend: cd backend, then run the main app."]);
+  }
+  const json: unknown = await res.json().catch(() => null);
+  if (!res.ok) {
+    const detail = (json as { detail?: unknown } | null)?.detail;
+    if (res.status === 503) throw new ClientProfilingError("SERVER", "The client database is unavailable.");
+    if (res.status === 404) throw new ClientProfilingError("NOT_FOUND", "The running backend does not have the client book yet. Restart it so it runs the latest code.");
+    throw new ClientProfilingError("SERVER", `The client book returned an error (${typeof detail === "string" ? detail : `HTTP ${res.status}`}).`);
+  }
+  const r = json as Partial<BookResult> | null;
+  if (!r || !Array.isArray(r.clients)) throw new ClientProfilingError("INVALID_RESPONSE", "The client book response did not match the expected format.");
+  return { clients: r.clients, ...(r.message ? { message: r.message } : {}) };
+}
+
+export async function ipsAssist(req: { clientId: string; section: string; mode: IpsAssistMode; currentText: string; selection?: string; message: string }): Promise<IpsAssistResult> {
+  let res: Response;
+  try {
+    res = await fetch(`${CP_URL}/ips-assist`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ client_id: req.clientId, section: req.section, mode: req.mode, current_text: req.currentText, selection: req.selection ?? "", message: req.message }),
+      signal: AbortSignal.timeout(CP_TIMEOUT_MS),
+    });
+  } catch (err) {
+    if (err instanceof DOMException && (err.name === "TimeoutError" || err.name === "AbortError")) throw new ClientProfilingError("TIMEOUT", "Geneva did not respond in time.");
+    throw new ClientProfilingError("UNREACHABLE", `Cannot reach the Client Profiling Agent at ${API_BASE}.`, ["Start the backend: cd backend, then run the main app."]);
+  }
+  const json: unknown = await res.json().catch(() => null);
+  if (!res.ok) {
+    const detail = (json as { detail?: unknown } | null)?.detail;
+    const msg = typeof detail === "string" ? detail : `HTTP ${res.status}`;
+    if (res.status === 404) throw new ClientProfilingError("NOT_FOUND", msg === "Not Found" ? "The running backend does not have IPS assist yet. Restart it so it runs the latest code." : msg);
+    if (res.status === 422) throw new ClientProfilingError("REJECTED", "Geneva rejected the request.");
+    throw new ClientProfilingError("SERVER", `Geneva returned an error (${msg}).`);
+  }
+  const r = json as Partial<IpsAssistResult> | null;
+  if (!r || typeof r.status !== "string" || typeof r.message !== "string") throw new ClientProfilingError("INVALID_RESPONSE", "Geneva's response did not match the expected format.");
+  return { original: "", revised: "", ...r, notes: r.notes ?? [], sources: r.sources ?? [] } as IpsAssistResult;
 }
 
 const shortS = (n: number) => `S$${(n / 1_000_000).toFixed(2)}m`;

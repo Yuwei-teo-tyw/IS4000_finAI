@@ -1,0 +1,85 @@
+{
+  "_disclaimer": "FICTIONAL SEED DATA for development and testing only. All people, amounts and documents are invented.",
+  "clients": [
+    {
+      "id": "ser",
+      "name": "Sergio Ermotti",
+      "surname": "Ermotti",
+      "risk_category": "Balanced",
+      "risk_cap": 3,
+      "aum_sgd": 5000000,
+      "status": "Monitoring Phase",
+      "next_meeting": "2026-10-21",
+      "fictional": true
+    },
+    {
+      "id": "dso",
+      "name": "David Solomon",
+      "surname": "Solomon",
+      "risk_category": "Conservative",
+      "risk_cap": 2,
+      "aum_sgd": 2800000,
+      "status": "Monitoring Phase",
+      "next_meeting": "2026-10-28",
+      "fictional": true
+    },
+    {
+      "id": "jfr",
+      "name": "Jane Fraser",
+      "surname": "Fraser",
+      "risk_category": "Conservative",
+      "risk_cap": 2,
+      "aum_sgd": 500000000,
+      "status": "Onboarding Phase",
+      "next_meeting": "2026-11-14",
+      "fictional": true
+    },
+    {
+      "id": "jft",
+      "name": "Jane Fraser (test)",
+      "surname": "Fraser",
+      "risk_category": "Conservative",
+      "risk_cap": 2,
+      "aum_sgd": 500000000,
+      "status": "Onboarding Phase",
+      "next_meeting": "2026-11-14",
+      "in_book": true,
+      "onboarding_progress": 0,
+      "monitoring_progress": 0,
+      "fictional": true
+    },
+    {
+      "id": "teo",
+      "name": "Teo Yuwei",
+      "surname": "Yuwei",
+      "risk_category": "Growth",
+      "risk_cap": 4,
+      "aum_sgd": 7400000,
+      "status": "Monitoring Phase",
+      "next_meeting": "2026-11-05",
+      "fictional": true
+    },
+    {
+      "id": "sha",
+      "name": "Shane",
+      "surname": "Shane",
+      "risk_category": "Moderate",
+      "risk_cap": 3,
+      "aum_sgd": 3600000,
+      "status": "Onboarding Phase",
+      "next_meeting": "2026-10-30",
+      "fictional": true
+    },
+    {
+      "id": "mlm",
+      "name": "Marcus Lim",
+      "surname": "Lim",
+      "risk_category": "Balanced",
+      "risk_cap": 3,
+      "aum_sgd": 4200000,
+      "status": "Monitoring Phase",
+      "next_meeting": "2026-11-20",
+      "fictional": true
+    }
+  ]
+}

@@ -1,7 +1,8 @@
 import type { AllocationRow, Bucket3L } from "../../../types/arc";
 import { sgd, SliceTooltip, useSliceTooltip } from "../../ui";
 
-const BUCKET_BG = { liquidity: "bg-chart-liquidity", longevity: "bg-chart-equities", legacy: "bg-chart-alternatives" } as const;
+export const BUCKET_BG = { liquidity: "bg-chart-liquidity", longevity: "bg-chart-equities", legacy: "bg-chart-alternatives" } as const;
+export const BUCKET_VAR = { liquidity: "var(--chart-liquidity)", longevity: "var(--chart-equities)", legacy: "var(--chart-alternatives)" } as const;
 const CLASS_COLOR: Record<string, string> = {
   Cash: "var(--chart-liquidity)", "Fixed income": "var(--chart-bonds)", Equities: "var(--chart-equities)",
 };
@@ -68,13 +69,19 @@ export function SaaDonut({ rows }: { rows: AllocationRow[] }) {
           ))}
         </ul>
       </div>
-      <ul className="min-w-0 space-y-2">
-        {rows.map((a) => (
-          <li key={a.assetClass} className="avoid-break break-words border-b border-hairline pb-2">
-            {a.assetClass} {a.saa}% <span className="text-ink-muted">(min {Math.max(0, a.saa - a.band)}% – max {a.saa + a.band}%)</span>
-          </li>
-        ))}
-      </ul>
+      <SaaRows rows={rows} />
     </div>
+  );
+}
+
+export function SaaRows({ rows }: { rows: AllocationRow[] }) {
+  return (
+    <ul className="min-w-0 space-y-2">
+      {rows.map((a) => (
+        <li key={a.assetClass} className="avoid-break break-words border-b border-hairline pb-2">
+          {a.assetClass} {a.saa}% <span className="text-ink-muted">(min {Math.max(0, a.saa - a.band)}% – max {a.saa + a.band}%)</span>
+        </li>
+      ))}
+    </ul>
   );
 }

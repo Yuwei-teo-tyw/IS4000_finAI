@@ -90,3 +90,46 @@ class FakeLLM:
 @pytest.fixture
 def fake_llm():
     return FakeLLM()
+
+
+@pytest.fixture(autouse=True)
+def _no_local_llm_for_profiling(request, monkeypatch):
+    """Client Profiling tests must be deterministic: never call a local model that may be running."""
+    if "client_profiling" in request.node.nodeid and not request.node.get_closest_marker("live"):
+        monkeypatch.setenv("CLIENT_PROFILING_LLM_ENABLED", "false")
+
+
+@pytest.fixture(autouse=True)
+def _json_store_for_profiling(request, monkeypatch):
+    """Offline client_profiling tests use the JSON store (no DB); the default singleton is reset around each test.
+    test_client_profiling_pg.py builds its own PostgresStore in a throwaway schema."""
+    if "client_profiling" in request.node.nodeid:
+        from app.agents.client_profiling import store as store_mod
+        monkeypatch.setenv("CLIENT_PROFILING_STORE", "json")
+        store_mod.reset_default_store()
+        yield
+        store_mod.reset_default_store()
+    else:
+        yield
+
+
+def fake_chat_reply(system: str, user: str) -> str:
+    """Test stand-in for the single local model call: JSON {in_scope, broad, answerable, ...} (test-side keywords)."""
+    import json
+    q = user.rsplit("Adviser's question:", 1)[-1].lower()
+    base = {"in_scope": True, "broad": False, "answerable": False, "answer": "", "groups": [], "cites": [],
+            "explanation": {"risk_category": "", "text": "", "recommended_asset_classes": [], "cites": []}}
+    if any(k in q for k in ("weather", "capital of")):
+        base["in_scope"] = False
+    return json.dumps(base)
+
+
+@pytest.fixture
+def fake_router(monkeypatch):
+    """Opt-in: enable the local model with a fake (for HTTP-level tests that cannot pass answer_chat=)."""
+    monkeypatch.setenv("CLIENT_PROFILING_LLM_ENABLED", "true")
+    from app.agents.client_profiling import answer as answer_mod
+    monkeypatch.setattr(answer_mod, "local_chat_json", fake_chat_reply)
+    from app.agents.client_profiling import source_router
+    monkeypatch.setattr(source_router, "local_router_chat",  # the source router: these legacy tests are all meeting-notes questions
+                        lambda system, user: '{"source": "notes", "confidence": 0.95}')

@@ -3,7 +3,8 @@
  * Same seam style as packDraftStore: swap the bodies for a saved-state API later, keep the hooks.
  */
 import { useSyncExternalStore } from "react";
-import type { MarketRow } from "../types/arc";
+import type { Bucket3L, MarketRow } from "../types/arc";
+import type { BucketId, SaaPortfolio } from "../components/documents/ips/SaaPortfolios";
 import { recordPackEdit, saveSignature, setSectionDone } from "./packDraftStore";
 
 /** One-time reset of stale demo state in this tab, so Jane Fraser and David Solomon start from the seeded zero progress. Bump SEED_VERSION to reset again. */
@@ -137,7 +138,32 @@ export const withdrawPmToRm = (clientId: string) => {
 const ipsSent = createStore<Record<string, { sentAt: string }>>("wf-ips-sent", {});
 export const useIpsSent = (clientId: string): { sentAt: string } | undefined => ipsSent.use()[clientId];
 export const useAllIpsSent = (): string[] => Object.keys(ipsSent.use());
-export const sendIpsToPm = (clientId: string) => ipsSent.write({ ...ipsSent.read(), [clientId]: { sentAt: new Date().toISOString() } });
+/** RM's 3L proportions and SAA explanation written on the IPS draft; travel with the draft when it is sent. */
+export interface IpsDraftExtras {
+  buckets?: Bucket3L[]; saaNotes?: Partial<Record<BucketId, string>>;
+  demo?: Record<string, string>; risk?: Record<string, string>;
+  signatures?: { client?: string; rm?: string };
+  saaPortfolios?: Partial<Record<BucketId, SaaPortfolio>>;
+}
+const ipsExtras = createStore<Record<string, IpsDraftExtras>>("wf-ips-extras", {});
+export const getIpsDraftExtras = (clientId: string): IpsDraftExtras => ipsExtras.read()[clientId] ?? {};
+export const useIpsDraftExtras = (clientId: string): IpsDraftExtras => ipsExtras.use()[clientId] ?? {};
+/** Append text as new bullet line(s) to a bucket's RM explanation (used by the Geneva chat); live in the editor. */
+export const appendIpsDraftNote = (clientId: string, id: BucketId, text: string): void => {
+  const lines = text.split("\n").map((l) => l.replace(/^\s*[•\-*]\s*/, "").trim()).filter(Boolean);
+  if (!lines.length) return;
+  const cur = getIpsDraftExtras(clientId).saaNotes ?? {};
+  const prev = (cur[id] ?? "").trimEnd();
+  saveIpsDraftExtras(clientId, { saaNotes: { ...cur, [id]: [prev, ...lines.map((l) => `• ${l}`)].filter(Boolean).join("\n") } });
+};
+export const saveIpsDraftExtras = (clientId: string, patch: IpsDraftExtras) =>
+  ipsExtras.write({ ...ipsExtras.read(), [clientId]: { ...ipsExtras.read()[clientId], ...patch } });
+
+export const sendIpsToPm = (clientId: string, extras?: IpsDraftExtras) => {
+  if (extras) saveIpsDraftExtras(clientId, extras);
+  sendIpsToPmRaw(clientId);
+};
+const sendIpsToPmRaw = (clientId: string) => ipsSent.write({ ...ipsSent.read(), [clientId]: { sentAt: new Date().toISOString() } });
 
 /** RM pulls a sent IPS back to keep editing (also clears any PM return). */
 export const withdrawIpsFromPm = (clientId: string) => {

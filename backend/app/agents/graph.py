@@ -4,10 +4,12 @@ Multi-agent graph built on LangGraph's StateGraph.
 Graph shape:
 
     START --> pii_guard --> context_manager --(entry_router: resumes with whichever agent owned the session)--> triage | market_researcher | general
+    (client_profiling is never resumed directly - it is re-triaged each turn)
 
     triage    --(route_after_triage)-->    market_researcher | general | END
     general   --(route_after_general)-->   general_tools | triage (handoff) | eval | END
     market_researcher --(route_after_market_researcher)--> triage (handoff) | eval | END
+    client_profiling --(route_after_client_profiling)--> general (out of scope) | END
     general_tools   --> general     (loop back with tool results)
 
     eval --(route_after_eval)--> market_researcher | general | triage (regenerate) | END (approved/flagged)
@@ -43,6 +45,7 @@ from app.agents.client_context import format_client_context
 from app.agents.nodes.triage import TriageAgent
 from app.agents.nodes.general import GeneralAssistant
 from app.agents.nodes.market_researcher import MarketResearcher
+from app.agents.nodes.client_profiling import ClientProfilingNode
 from app.agents.nodes.context_manager import ContextManager
 from app.agents.nodes.eval_agent import EvalAgent
 from app.agents.nodes.pii_guard import PIIGuard
@@ -54,9 +57,10 @@ AGENT_DISPLAY_NAMES = {
     "triage": "Triage Agent",
     "general": "General Assistant",
     "market_researcher": "Market Researcher",
+    "client_profiling": "Client Profiling Agent",
 }
 
-SPECIALISTS = ("market_researcher", "general")
+SPECIALISTS = ("market_researcher", "general", "client_profiling")
 
 EMPTY_RESPONSE = {"message_result": "", "data": {}}
 
@@ -72,7 +76,9 @@ def entry_router(state: AgentState) -> str:
     directly instead of re-routing through triage every turn.
     """
     agent = state.get("current_agent")
-    if agent in SPECIALISTS:
+    # client_profiling is deliberately not sticky: it only makes sense with a
+    # client open and for notes questions, so every new message is re-triaged.
+    if agent in SPECIALISTS and agent != "client_profiling":
         return agent
     return "triage"
 
@@ -103,6 +109,12 @@ def route_after_market_researcher(state: AgentState) -> str:
     return "eval"  # rendered pipeline output - still gets the compliance review
 
 
+def route_after_client_profiling(state: AgentState) -> str:
+    if state.get("next_agent") == "general":
+        return "general"  # out of scope for the notes agent - the General agent answers
+    return END  # deterministic notes answer, nothing for the eval LLM to review
+
+
 def route_after_eval(state: AgentState) -> str:
     if state.get("eval_verdict") == "regenerate":
         agent = state.get("current_agent")
@@ -115,6 +127,7 @@ def build_graph(checkpointer: BaseCheckpointSaver):
     triage_agent = TriageAgent()
     general_agent = GeneralAssistant()
     market_agent = MarketResearcher()
+    client_profiling_agent = ClientProfilingNode()
     context_manager = ContextManager()
     eval_agent = EvalAgent()
     pii_guard = PIIGuard()
@@ -127,6 +140,7 @@ def build_graph(checkpointer: BaseCheckpointSaver):
     workflow.add_node("triage", triage_agent.run)
     workflow.add_node("general", general_agent.run)
     workflow.add_node("market_researcher", market_agent.run)
+    workflow.add_node("client_profiling", client_profiling_agent.run)
     workflow.add_node("general_tools", search_tools)
     workflow.add_node("eval", eval_agent.run)
 
@@ -147,6 +161,9 @@ def build_graph(checkpointer: BaseCheckpointSaver):
     workflow.add_conditional_edges(
         "market_researcher", route_after_market_researcher,
         {"triage": "triage", "eval": "eval", END: END}
+    )
+    workflow.add_conditional_edges(
+        "client_profiling", route_after_client_profiling, {"general": "general", END: END}
     )
     workflow.add_edge("general_tools", "general")
     workflow.add_conditional_edges(
@@ -204,6 +221,7 @@ class MultiAgentGraph:
                     "messages": [HumanMessage(content=message)],
                     "client_context": format_client_context(context),
                     "scope_checked": False,
+                    "client_id": (context or {}).get("client_id") if isinstance(context, dict) else None,
                 },
                 config=config,
             )

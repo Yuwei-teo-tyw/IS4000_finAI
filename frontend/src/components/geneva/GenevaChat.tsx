@@ -3,12 +3,15 @@ import { Check, ChevronDown, ArrowUp, MessageSquarePlus, Search, Trash2 } from "
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import type { Client } from "../../types/arc";
 import { pathForClient, setActiveClientId } from "../../layouts/navConfig";
-import { arcApi, assetClassSlug, GenevaBackendError, PortfolioAgentError, ProductRecommenderError, shortlistRow } from "../../services/arcApi";
-import type { PaChatReply, PaChatTurn } from "../../types/portfolio";
+import { arcApi, assetClassSlug, GenevaBackendError, ClientProfilingError, PortfolioAgentError, ProductRecommenderError, shortlistRow } from "../../services/arcApi";
+import { ClientProfilingCard } from "./ClientProfilingCard";
+import type { ClientProfilingResult, ClientProfilingSourceChoice } from "../../types/clientProfiling";
+import { profileApi } from "../../services/profileApi";
+import type { PaBucketId, PaChatReply, PaChatTurn } from "../../types/portfolio";
 import { RefLine, ViewHeadline } from "../ps/AssetViewParts";
 import type { PrAssetView } from "../../types/productRecommender";
 import { findProducts } from "../../utils/productMatch";
-import { toggleSelection, useActiveIps, useSelection, loadSelection, saveSelection } from "../../services/workflowStore";
+import { toggleSelection, useActiveIps, useSelection, loadSelection, saveSelection, getIpsDraftExtras, appendIpsDraftNote } from "../../services/workflowStore";
 import type { GenevaPendingAction, GenevaReply, MacroView, MarketAnswer, MarketRow, Role } from "../../types/arc";
 import { Badge, BulletList, Button, CitationTag, DirectionArrow, Table, toBulletItems } from "../ui";
 import { savePackDraft } from "../../services/packDraftStore";
@@ -59,6 +62,11 @@ interface Recommend {
 interface Msg {
   from: "user" | "agent"; text: string; answer?: MarketAnswer; finalise?: string[]; recommend?: Recommend; assetView?: PrAssetView;
   reply?: { text: string; runId: string | null };
+  profiling?: ClientProfilingResult;
+  /** Set when the answer came from a pinned-client ask, so a source choice re-asks for the same client. */
+  profilingClient?: string;
+  /** IPS draft editor answer: bullets the RM can add to a bucket's explanation box. */
+  ipsExplain?: { bullets: string[]; named: PaBucketId | null; buckets: PaBucketId[]; added: PaBucketId[] };
   approval?: { action: GenevaPendingAction | null; status: "pending" | "approved" | "declined" };
 }
 
@@ -95,9 +103,53 @@ function AssetViewCard({ v, clientId }: { v: PrAssetView; clientId: string }) {
   );
 }
 
+/* ---- IPS draft editor: "why is this allocation right for her?" ---- */
+const IPS_BUCKET_LABEL: Record<PaBucketId, string> = { liquidity: "Liquidity", longevity: "Longevity", legacy: "Legacy" };
+const IPS_BUCKETS: PaBucketId[] = ["liquidity", "longevity", "legacy"];
+/** Highlight only: which bucket the question names. Not used for routing. */
+const namedBucket = (q: string): PaBucketId | null => IPS_BUCKETS.find((b) => q.toLowerCase().includes(b)) ?? null;
+/** Question + the draft's proposed weights + the client's profile facts, so the Portfolio Agent answers from them. */
+async function buildIpsDraftQuestion(clientId: string, question: string): Promise<{ q: string; buckets: PaBucketId[] }> {
+  const saa = getIpsDraftExtras(clientId).saaPortfolios ?? {};
+  const buckets = IPS_BUCKETS.filter((b) => saa[b]);
+  const prof = await profileApi.getClientProfile(clientId).catch(() => null);
+  const w = buckets.map((b) => `${IPS_BUCKET_LABEL[b]} ${saa[b]!.optionName ?? saa[b]!.optionId}: ${Object.entries(saa[b]!.weights).filter(([, v]) => v > 0).map(([k, v]) => `${k} ${Math.round(v * 10) / 10}%`).join(", ")}`).join("; ");
+  const facts = prof ? `Client: age ${prof.age}; horizon ${prof.timeHorizon}; income ${prof.incomeSource}; liquidity ${prof.liquidityNeeds}; loss tolerance ${prof.lossTolerance.join(" / ")}; goals ${prof.goals.join(" / ")}.` : "";
+  const brief = `${question}\n\nProposed portfolios on the IPS draft (answer only from these and the client facts, short bullets): ${w || "none yet"}. ${facts}`;
+  return { q: brief, buckets };
+}
+/** Short bullet lines from an agent answer. */
+function answerBullets(md: string): string[] {
+  const clean = (t: string) => t.replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/[*_`#>]+/g, "").replace(/\s+/g, " ").trim();
+  const body = md.split(/\n\s*_Portfolio Agent/)[0];
+  const lines = body.split("\n").map((l) => l.trim()).filter(Boolean);
+  const listed = lines.filter((l) => /^([-*•]|\d+[.)])\s+/.test(l)).map((l) => clean(l.replace(/^([-*•]|\d+[.)])\s+/, "")));
+  const out = listed.length ? listed : clean(body).split(/(?<=[.!?])\s+/);
+  return out.filter((x) => x.length > 3).slice(0, 5);
+}
+function IpsExplainCard({ x, onAdd }: { x: NonNullable<Msg["ipsExplain"]>; onAdd: (b: PaBucketId) => void }) {
+  return (
+    <div className="space-y-6 font-light">
+      <ul className="list-disc space-y-2 pl-5 text-[17px] leading-7 text-ink-700">{x.bullets.map((b) => <li key={b}>{b}</li>)}</ul>
+      {x.buckets.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3">
+          {x.buckets.map((b) => x.added.includes(b) ? (
+            <span key={b} className="inline-flex items-center gap-2 rounded-sm border border-hairline px-4 py-2 text-[14px] text-ink-muted"><Check size={14} />Added to {IPS_BUCKET_LABEL[b]} explanation</span>
+          ) : (
+            <Button key={b} variant={x.named === b ? "primary" : "secondary"} size="sm" onClick={() => onAdd(b)}>Add to {IPS_BUCKET_LABEL[b]} explanation</Button>
+          ))}
+        </div>
+      )}
+      <p className="text-sm text-ink-muted">Drafted by the Portfolio Agent. Nothing is added until you press a button, and you can edit it in the editor.</p>
+    </div>
+  );
+}
+
 const MATCH_INTENT = /read client ips.*(research market|match products)/i;
 /** Agent failures are shown, never replaced with mock answers. */
-const failText = (e: unknown) => e instanceof ProductRecommenderError || e instanceof PortfolioAgentError
+/** The user text that prompted the agent message at index i. */
+const lastUserBefore = (msgs: Msg[], i: number) => { for (let j = i - 1; j >= 0; j--) if (msgs[j].from === "user") return msgs[j].text; return ""; };
+const failText = (e: unknown) => e instanceof ProductRecommenderError || e instanceof PortfolioAgentError || e instanceof ClientProfilingError
   ? [e.message, ...e.details].join(" ")
   : e instanceof GenevaBackendError ? e.message
   : `Something went wrong: ${e instanceof Error ? e.message : String(e)}`;
@@ -357,13 +409,15 @@ function ClientSwitcher({ clientId, name }: { clientId: string; name: string | n
 
 /** The one Geneva chat. Used full-page (AI Assistant) and inside the floating launcher (compact). Style rules: AGENTS.md "Chatbot style". */
 export function GenevaChat({ role, clientId, compact = false }: { role: Role; clientId: string; compact?: boolean }) {
+  const { pathname: routePath } = useLocation();
+  const onIpsDraft = role === "rm" && /\/clients\/[^/]+\/ips-draft\/?$/.test(routePath);
   const blank = (id: number): Chat => ({ id, title: "New chat", messages: [], sessionId: arcApi.newChatSession(role, clientId) });
   const [chats, setChats] = useState<Chat[]>(() => [blank(1)]);
   const [source, setSource] = useState<SourceRef | null>(null);
   const closeSource = useCallback(() => setSource(null), []);
   const [activeId, setActiveId] = useState(1);
   const [draft, setDraft] = useState("");
-  const [working, setWorking] = useState<{ chatId: number; steps: string[]; shown: number } | null>(null);
+  const [working, setWorking] = useState<{ chatId: number; steps: string[]; shown: number; model?: string } | null>(null);
   const picked = useSelection(clientId);
   const pickedNames = picked.map((r) => r.product);
   const toggle = (r: MarketRow) => toggleSelection(clientId, r);
@@ -381,6 +435,16 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
   const nextId = useRef(2);
   const chat = chats.find((c) => c.id === activeId) ?? chats[0];
   const busy = working?.chatId === chat.id;
+  /** What produced the latest agent answer: a local model, a hosted API model, or plain rules. */
+  const engine = (() => {
+    const last = [...chat.messages].reverse().find((m) => m.from === "agent" && !m.approval);
+    const rt = (last?.profiling?.data as { routing?: { method?: string; model?: string | null } } | undefined)?.routing;
+    if (rt?.method === "local_llm") return { label: `Local LLM · ${rt.model ?? ""}`, dot: "bg-positive" };
+    if (rt?.method === "regex") return { label: "Regex", dot: "bg-ink-muted" };
+    if (last?.reply) return { label: "API model · Groq", dot: "bg-link" };
+    if (last) return { label: "Rules", dot: "bg-ink-muted" };
+    return { label: "No model yet", dot: "bg-ink-muted" };
+  })();
   /** A paused money-moving action must be approved or declined before the chat can continue. */
   const awaitingApproval = chat.messages.some((m) => m.approval?.status === "pending");
 
@@ -410,14 +474,15 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
   };
 
   /** Run a backend call under the thinking card; "Thinking…" appears if it takes a moment, "Consolidating…" once it lands. */
-  const withThinking = async <T,>(id: number, call: Promise<T>, steps: string[] = BACKEND_STEPS): Promise<T> => {
+  const withThinking = async <T,>(id: number, call: Promise<T>, steps: string[] = BACKEND_STEPS, detect?: (r: T) => string | null): Promise<T> => {
     setWorking({ chatId: id, steps, shown: 1 });
     const timer = setTimeout(() => setWorking((w) => (w?.chatId === id && w.shown < steps.length - 1 ? { ...w, shown: steps.length - 1 } : w)), 1700);
     try {
       const r = await call;
       clearTimeout(timer);
-      setWorking({ chatId: id, steps, shown: steps.length });
-      await sleep(600);
+      const model = detect?.(r) ?? undefined;
+      setWorking({ chatId: id, steps, shown: steps.length, model });
+      await sleep(model ? 1100 : 600);
       return r;
     } finally {
       clearTimeout(timer);
@@ -445,15 +510,81 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
     }
   };
 
-  const send = async (raw: string) => {
+  const addIpsNote = (msgIndex: number, b: PaBucketId) => {
+    const x = chat.messages[msgIndex]?.ipsExplain;
+    if (!x || x.added.includes(b)) return;
+    appendIpsDraftNote(clientId, b, x.bullets.map((t) => `- ${t}`).join("\n"));
+    patch(chat.id, (c) => ({ ...c, messages: c.messages.map((m, j) => j === msgIndex && m.ipsExplain ? { ...m, ipsExplain: { ...m.ipsExplain, added: [...m.ipsExplain.added, b] } } : m) }));
+  };
+
+  const send = async (raw: string, profilingClient?: string, source?: ClientProfilingSourceChoice, resend = false) => {
     const text = raw.trim();
     if (!text || busy || awaitingApproval) return;
     const id = chat.id;
     const sessionId = chat.sessionId;
     nearBottom.current = true;
     setDraft("");
-    patch(id, (c) => ({ ...c, title: c.messages.length === 0 ? text.slice(0, 40) : c.title, messages: [...c.messages, { from: "user", text }] }));
+    patch(id, (c) => ({ ...c, title: c.messages.length === 0 ? text.slice(0, 40) : c.title, messages: resend ? c.messages : [...c.messages, { from: "user", text }] }));
     setWorking({ chatId: id, steps: [], shown: 0 });
+    if (onIpsDraft && !profilingClient) {
+      // On the IPS draft editor every question is about the proposed portfolios; answered by the Portfolio Agent from the draft weights + client profile.
+      const history: PaChatTurn[] = [];
+      chat.messages.forEach((m, i) => {
+        const next = chat.messages[i + 1];
+        if (m.from === "user" && next?.from === "agent" && next.text) history.push({ question: m.text, answer: next.text });
+      });
+      try {
+        const { q, buckets } = await buildIpsDraftQuestion(clientId, text);
+        const r = await withThinking(id, arcApi.askPortfolioAgent(clientId, q, history), PA_STEPS);
+        const bullets = answerBullets(r.answer);
+        patch(id, (c) => ({ ...c, messages: [...c.messages, { from: "agent", text: bullets.join(" "), ipsExplain: { bullets, named: namedBucket(text), buckets, added: [] } }] }));
+      } catch (e) {
+        patch(id, (c) => ({ ...c, messages: [...c.messages, { from: "agent", text: failText(e) }] }));
+      } finally {
+        setWorking((w) => (w?.chatId === id ? null : w));
+      }
+      return;
+    }
+    if (profilingClient || role === "rm" || role === "pm") {
+      // Every rm/pm message is probed; the backend's local LLM decides. Out of scope, model off, or probe failure => fall through silently.
+      let r: ClientProfilingResult | null = null;
+      try {
+        const opts = { source };
+        r = profilingClient
+          ? await withThinking(id, arcApi.clientProfilingChat(profilingClient, text, null, opts), ["Choosing the right tool…", "Reading this client's records…", "Writing a sourced answer…"], (x) => x?.data?.routing?.method === "local_llm" ? (x.data.routing.model ?? null) : null)
+          : await (async () => {
+            const steps = ["Client Profiling Agent fired", "Reading this client's meeting notes…", "Checking the answer against the notes…", "Consolidating…"];
+            setWorking({ chatId: id, steps, shown: 1 });
+            const tick = setInterval(() => setWorking((w) => (w?.chatId === id && w.shown < steps.length ? { ...w, shown: w.shown + 1 } : w)), 1500);
+            try { return await arcApi.clientProfilingChat(clientId, text, ipsVersion, opts); } finally { clearInterval(tick); }
+          })();
+      } catch (e) {
+        if (profilingClient) patch(id, (c) => ({ ...c, messages: [...c.messages, { from: "agent", text: failText(e) }] }));
+      }
+      const usedModel = r?.data?.routing?.method === "local_llm" ? (r.data.routing.model ?? undefined) : undefined;
+      if (usedModel && !profilingClient) {
+        setWorking((w) => (w?.chatId === id ? { ...w, shown: w.steps.length, model: usedModel } : w));
+        await sleep(1100);
+      }
+      const mine = !!r && r.tool !== "out_of_scope" && r.data?.routing?.method !== "unavailable";
+      if (r && mine) {
+        patch(id, (c) => ({ ...c, messages: [...c.messages, { from: "agent", text: r.message, profiling: r, profilingClient }] }));
+        appendChatContext(clientId, role, { q: text, a: markdownPlain(r.message) });
+      }
+      if (profilingClient && r && !mine) {
+        // Pinned client: never swallow the result; say plainly why there is no answer.
+        const tool = String(r.tool);
+        const down = tool === "routing_unavailable" || tool === "unavailable" || r.data?.routing?.method === "unavailable";
+        const msg = down
+          ? (r.message?.trim() || "The local model is unavailable, so I couldn't answer. Please try again once it is running.")
+          : "I can only answer questions about this client's meeting notes here.";
+        patch(id, (c) => ({ ...c, messages: [...c.messages, { from: "agent", text: msg }] }));
+      }
+      if (profilingClient || mine) {
+        setWorking((w) => (w?.chatId === id ? null : w));
+        return;
+      }
+    }
     if (role === "ps" && MATCH_INTENT.test(text)) {
       try {
         const { steps, rec } = await buildRecommendation(clientId, ipsVersion);
@@ -542,7 +673,7 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
       // Client-data and workflow intents are answered from the workspace; anything else goes to the LangGraph backend.
       const a = await arcApi.answerLocally(role, clientId, text, ipsVersion);
       if (!a) {
-        addReply(id, await withThinking(id, arcApi.askBackend(role, clientId, sessionId, text, ipsVersion)), text);
+        addReply(id, await withThinking(id, arcApi.askBackend(role, clientId, sessionId, text, ipsVersion), BACKEND_STEPS, () => "Groq"), text);
         return;
       }
       setWorking({ chatId: id, steps: a.steps, shown: 0 });
@@ -601,9 +732,14 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
         <div className="flex flex-wrap items-center justify-end gap-3 border-b border-hairline px-6 py-3 sm:px-10">
           <ClientSwitcher clientId={clientId} name={clientName} />
           <Link to={`/${role}/clients/${clientId}/documents`} title="Open the client's IPS" className="inline-flex items-center gap-2.5 rounded-full border border-hairline-strong bg-surface-100 px-4 py-1.5 text-[13px] text-ink hover:bg-surface-300">
-            <span className={`size-2 rounded-full ${ipsVersion ? "bg-[#2e8b57]" : "bg-ink-muted"}`} />
+            <span className={`size-2 rounded-full ${ipsVersion ? "bg-positive" : "bg-ink-muted"}`} />
             {ipsVersion ? `Using IPS v${ipsVersion}` : "No active IPS"}
           </Link>
+          <button type="button" title="Model used for the last answer"
+            className="inline-flex items-center gap-2.5 rounded-full border border-hairline-strong bg-surface-100 px-4 py-1.5 text-[13px] text-ink hover:bg-surface-300">
+            <span className={`size-2 rounded-full ${engine.dot}`} />
+            {engine.label}
+          </button>
         </div>
         {chat.messages.length === 0 && !busy ? (
           <div className="flex min-h-0 flex-1 flex-col items-center justify-center-safe overflow-y-auto px-8 py-10">
@@ -640,8 +776,10 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
                     </div>
                   )}
                   {m.recommend && <RecommendView r={m.recommend} picked={pickedNames} onToggle={toggle} clientId={clientId} />}
+                  {m.ipsExplain && <IpsExplainCard x={m.ipsExplain} onAdd={(b) => addIpsNote(i, b)} />}
                   {m.assetView && <AssetViewCard v={m.assetView} clientId={clientId} />}
                   {m.answer && <AnswerView a={m.answer} picked={pickedNames} onToggle={toggle} clientId={clientId} role={role} />}
+                  {m.profiling && <ClientProfilingCard r={m.profiling} role={role} onAsk={(cid) => send(chat.messages[i - 1]?.text ?? "", cid)} onSource={(src) => send(lastUserBefore(chat.messages, i), m.profilingClient, src, true)} />}
                   {m.reply && <GenevaMarkdown text={m.reply.text} runId={m.reply.runId} onOpenSource={setSource} />}
                   {m.approval && (
                     <div className="space-y-6 font-light">
@@ -684,6 +822,13 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
                         </li>
                       );
                     })}
+                    {working.model && (
+                      <li className="animate-geneva-in flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-hairline py-4">
+                        <span className="animate-geneva-flow w-7 text-xs tabular-nums tracking-[0.12em]">{String(working.shown + 1).padStart(2, "0")}</span>
+                        <span className="animate-geneva-flow text-[16px] font-light">Answered with</span>
+                        <span className="inline-flex items-center border border-hairline-strong px-3.5 py-1.5 text-[12px] font-medium tracking-[0.06em] text-ink">{working.model}</span>
+                      </li>
+                    )}
                   </ol>
                 </div>
               )}

@@ -338,7 +338,6 @@ export function SignoffBoxes({ sigs, me, clientId, onRemove }: {
 
 const SOURCES_BY_ROLE: Record<Role, string[]> = {
   rm: [
-    "Meeting notes of 12 Sep 2026 on the residential purchase and liquidity needs [NOTE-2026-09-12].",
     "Finalised Investment Policy Statement version 2, approved by the client and RM [IPS-v2].",
     "Client risk questionnaire and capacity-for-loss assessment held in the client database [KYC-2026-03].",
     "Holdings snapshot from the bank portfolio system, read-only, as of 13 Oct 2026 [HLD-20261013].",

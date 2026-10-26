@@ -20,3 +20,4 @@ httpx
 yfinance
 trafilatura
 jinja2
+pypdf
