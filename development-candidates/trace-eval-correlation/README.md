@@ -5,6 +5,16 @@ evidence they came from: case → agent span → LLM span → request receipt �
 independent assessment → artifact hashes. It reads historical evidence read-only. It does
 not score, admit, replay, upload or own any state.
 
+## Reviewed V3 integration state
+
+V3 and its remediation are committed and locally integrated on
+`codex/trace-eval-v3-latest-main` at reviewed HEAD
+`94b73581f25d555825553186bff5d26cbf4771e0`, based on fetched main
+`6a34a69e70b89aed93065e2d8a9e236fc2e1071f`. The independent pre-PR gate returned
+`V3_PREPR_QG_PASS_READY_FOR_OWNER_PUBLICATION_REVIEW`. This local integration has
+not been published or merged into main. The QG-1 documentation correction is
+uncommitted and awaits independent delta review; no publication is authorized.
+
 ## Commands
 
 Run from this directory with any Python 3.12 environment that has `pydantic>=2.7`; tests
@@ -74,20 +84,39 @@ and the Codex audit report in a separate worktree) is **not tracked in Git and i
 packaged by this commit**. A clone without those directories cannot rebuild or `verify`
 the representative index: `build` reports the sources UNAVAILABLE and
 `tests/test_historical_evidence.py` skips with an `UNAVAILABLE` reason. The committed
-index remains a record of what that evidence contained when pinned on 2026-10-27. All other
-tests use synthetic fixtures written to a temporary directory and run without the
-historical evidence. JUnit XML gate outputs are kept locally only (they embed the machine
-hostname); `reports/gate*.txt` carry the results.
+index remains a record of what that evidence contained when pinned on 2026-10-27.
+Separately, five V3 archive checks require `TRACE_EVAL_V3_ROOT`; missing access deliberately
+fails them with an `UNAVAILABLE` reason. Synthetic fixture tests run in temporary directories.
+JUnit XML gate outputs are kept locally only (they embed the machine hostname);
+`reports/gate*.txt` carry the results.
+
+All **62/62 V3 source files are absent** from the fetched main tree identified above;
+this candidate does not add those archives or prepared inputs. Reproducing the archived
+V3 index requires external evidence-root provisioning: bind a root containing all pinned
+files with `--root evidence=<repository-with-archived-V3-evidence>` for CLI commands and
+set `TRACE_EVAL_V3_ROOT` to that root for the required tests. A fresh clone alone cannot
+rebuild either historical index. Evidence delivery or publication needs a separate owner
+decision; local reproduction does not make the sources available to teammates.
 
 ## Fresh clone: what reproduces
 
-| Scope | Needs | Result |
-|---|---|---|
-| Portable | This directory only | 83 synthetic tests, `schema` regeneration, ruff and mypy. The two historical tests skip as `UNAVAILABLE`. |
-| Original source machine | The untracked evidence roots at the manifest's relative locations | `verify` reproduces the committed index byte for byte, and all pins verify. |
-| Not reproducible elsewhere | — | Rebuilding the representative index. `build` reports the sources UNAVAILABLE (exit 2) and `verify` reports NOT_REPRODUCED. Neither is a new result. |
+The independent pre-PR gate recorded these full-adapter results at reviewed HEAD;
+the two historical-source tests remain unavailable from the isolated review location:
 
-The committed index is a historical, source-dependent snapshot. The adapter-local
+| Scope | Needs | Observed result |
+|---|---|---|
+| Full adapter tests without V3 root | This directory and test dependencies; `TRACE_EVAL_V3_ROOT` unset | 123 passed, 5 failed, 2 historical-source skips (`UNAVAILABLE`); exit 1. |
+| Full adapter tests with explicit V3 root | All 62 pinned V3 files and `TRACE_EVAL_V3_ROOT` set | 128 passed, 2 historical-source skips (`UNAVAILABLE`); exit 0. |
+| V3 index reproduction | External V3 evidence root bound with CLI `--root evidence=...` | `build` and `verify` reproduce the committed V3 index byte for byte. |
+| Representative index reproduction | External historical campaign and audit roots bound with CLI `--root` overrides | `build` and `verify` reproduce the committed representative index byte for byte; this is separate from the skipped pytest checks. |
+| Portable static checks | This directory and Python/tool dependencies | `schema` regeneration, Ruff lint/format and strict mypy pass without historical evidence. |
+
+The five V3 failures without access are deliberate fail-closed required-verification
+failures, not successful checks or optional skips. The two historical-source skips are
+not passes. Their relative-root portability remains deferred (P3-7); provision explicit
+CLI roots for representative reproduction. See [V3_HANDOFF.md](V3_HANDOFF.md) for commands.
+
+The committed indexes are historical, source-dependent snapshots. The adapter-local
 `.gitattributes` forces LF line endings. Without it, `core.autocrlf=true` checkouts change
 the manifest bytes, and so the embedded `manifest_sha256`, which breaks byte verification.
 

@@ -1,8 +1,20 @@
 # Orchestrator V3 offline reader handoff
 
-The reviewed baseline is preserved at `af78ad3944576c7eaec40295b64a0161a1d0047e`.
-P3 remediation is uncommitted and requires a fresh independent Quality Gate.
+## Current reviewed integration state
+
+V3 and the P3 remediation are committed and locally integrated at reviewed HEAD
+`94b73581f25d555825553186bff5d26cbf4771e0` on `codex/trace-eval-v3-latest-main`,
+based on fetched main `6a34a69e70b89aed93065e2d8a9e236fc2e1071f`.
+The independent pre-PR gate returned
+`V3_PREPR_QG_PASS_READY_FOR_OWNER_PUBLICATION_REVIEW`, with QG-1 documenting stale
+README/handoff wording. This QG-1 documentation correction is uncommitted and awaits
+independent delta review. No publication or merge into main has occurred or is authorized.
 This is offline correlation readiness, not verified end-to-end agent capability.
+
+The original reviewed baseline `af78ad3944576c7eaec40295b64a0161a1d0047e` and its
+historical results below remain preserved. The previous uncommitted-remediation status
+described in the preserved remediation report is historical; it is not the state of
+reviewed HEAD `94b7358`.
 
 ## Scope and evidence
 
@@ -32,9 +44,11 @@ This is offline correlation readiness, not verified end-to-end agent capability.
 ## Reproduce
 
 Use Python 3.12 from the original repository's `backend/.venv/Scripts/python.exe`.
-From this adapter directory, bind the original repository containing the archived V3
-evidence (it may be absent in a fresh clone). Set `$Python` to that interpreter and
-`$EvidenceRoot` to that repository's absolute path, then run in PowerShell:
+All 62/62 required V3 source files are absent from fetched main at the base identified
+above, and this candidate does not add historical evidence. A fresh clone alone cannot
+reproduce the archived index. Provision an external root containing the pinned archive
+and prepared inputs. From this adapter directory, set `$Python` to that interpreter and
+`$EvidenceRoot` to the provisioned repository's absolute path, then run in PowerShell:
 
 ```powershell
 $env:PYTHONPATH = 'src'
@@ -46,14 +60,43 @@ $env:TRACE_EVAL_V3_ROOT = $EvidenceRoot
 & $Python -m mypy src
 ```
 
-Reviewed-baseline evidence (preserved in Git): 105 tests passed, two existing
+## Verification at reviewed HEAD 94b7358
+
+The independent pre-PR gate reproduced the following results; these are recorded
+review results, not new test runs for this documentation correction:
+
+| Full adapter suite configuration | Result |
+|---|---|
+| Explicit `TRACE_EVAL_V3_ROOT` containing all 62 pinned files | 128 passed, 2 historical-source skips; exit 0. |
+| `TRACE_EVAL_V3_ROOT` unset | 123 passed, 5 failed, 2 historical-source skips; exit 1. |
+
+The five failures are deliberate fail-closed `UNAVAILABLE` results for required V3
+archive/reproduction checks. They do not count as success or optional skips. The two
+historical-source skips are also `UNAVAILABLE` and are not passes. Explicit-root CLI
+verification separately reproduced the representative index; it does not turn those
+skipped pytest checks into passes. Ruff lint/format and strict mypy passed at reviewed HEAD.
+
+Current index SHA-256 values, independently rebuilt and verified at that gate:
+
+- V3: `2cf95c0685b314c0ed1122fd4d37ca652046a4b3c2a69156eca42c2b52190fd1`.
+- Representative: `185013d018ca892a6a2b9f1cc1032315aaf8634189ccc944035f6d45ef7c2afc`.
+
+All 28 V3 records remain `PARTIAL` and performance-ineligible. Synthetic correlation
+labels are not verified execution traces; missing spans/prompt binding and unverified
+usage prevent end-to-end performance claims. `COMPLETE` describes source/index integrity.
+
+## Historical baseline at af78ad3
+
+Original reviewed-baseline evidence (preserved in Git): 105 tests passed, two existing
 historical-source tests skipped (`UNAVAILABLE`).
 The actual V3 archive test passed. Ruff and strict mypy passed. Build returned `COMPLETE`
 with 28 partial records and 56 gap warnings; verify returned `REPRODUCED`.
 `COMPLETE` describes index/source integrity, not complete trace coverage or model acceptance.
 Reviewed-baseline SHA256: `078075018cc8eb894c6810578336d19c2da6e03074e83dadfe4a6a7ad84078e7`.
-Current remediation results/hash and exact independent recheck instructions are in
+Historical remediation results/hash and exact independent recheck instructions are in
 [reports/V3_REMEDIATION_REPORT.md](reports/V3_REMEDIATION_REPORT.md).
+
+## Remaining constraints and owner decisions
 
 V3 archive and committed-index reproduction tests require `TRACE_EVAL_V3_ROOT` explicitly;
 missing access fails those required checks with `UNAVAILABLE`, rather than counting a skip
@@ -64,7 +107,10 @@ P3-7 historical-test portability and P3-8 adapter version/record-ID redesign are
 residual findings requiring separate owner decisions. No version bump or record-ID change
 is included. Consumers must use the separate identity fields rather than splitting record IDs.
 
-The existing representative index, evidence and main are unchanged. Extra files beyond
-the requested implementation list are this review/reproduction handoff, the requested
-separate index and its CLI-required SHA256 sidecar. Retain the isolated worktree and local
-feature branch for fresh independent Quality Gate review; no integration is authorized.
+This documentation correction leaves the representative index, historical evidence and
+main unchanged. Retain the isolated worktree and local
+branch for independent documentation-delta review and owner publication review. External
+evidence-root delivery, public disclosure of workstation metadata in preserved review
+reports, and any future publication require separate owner decisions. The six uncommitted
+integration reports/logs remain local evidence and must stay out of staging. No commit,
+push, PR creation, merge or publication is authorized by this handoff.
