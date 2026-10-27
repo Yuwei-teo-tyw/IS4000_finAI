@@ -8,12 +8,11 @@ Read-only: never writes to the store or the official IPS. Text is never logged. 
 import json
 import os
 import re
-import urllib.request
 from typing import Optional
 
 from .answer import _NUM, _numbers, build_context
 from .extract import extract_key_facts
-from .llm import ChatFn, enabled, model_name
+from .llm import ChatFn, enabled, model_name, post_chat
 from .store import DocumentStore
 
 MAX_REVISED_CHARS = 3000
@@ -39,15 +38,12 @@ _WRITE_SCHEMA = {"type": "object", "properties": {"revised": {"type": "string"},
 def _chat_for(name: str, schema: dict) -> ChatFn:
     """Local-model call (constrained JSON, temperature 0, same env vars as llm.py). Raises on any problem."""
     def call(system: str, user: str) -> str:
-        base = os.getenv("CLIENT_PROFILING_LLM_URL", "http://localhost:1234/v1").rstrip("/")
-        body = json.dumps({
+        body = {
             "model": model_name(), "temperature": 0, "max_tokens": int(os.getenv("CLIENT_PROFILING_IPS_MAX_TOKENS", "500")),
             "response_format": {"type": "json_schema", "json_schema": {"name": name, "strict": True, "schema": schema}},
             "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
-        }).encode()
-        req = urllib.request.Request(f"{base}/chat/completions", data=body, headers={"Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=float(os.getenv("CLIENT_PROFILING_ANSWER_TIMEOUT_S", "60"))) as r:
-            return json.load(r)["choices"][0]["message"]["content"]
+        }
+        return post_chat(body, float(os.getenv("CLIENT_PROFILING_ANSWER_TIMEOUT_S", "60")))["choices"][0]["message"]["content"]
     return call
 
 

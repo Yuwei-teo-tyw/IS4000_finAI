@@ -1,7 +1,8 @@
+import { useEffect } from "react";
 import InboxList, { type InboxRow } from "../../components/inbox/InboxList";
 import { arcApi } from "../../services/arcApi";
 import { useAsync } from "../../components/ui";
-import { loadReturned, useAllFinalised, useAllIpsReturned, useAllIpsSent } from "../../services/workflowStore";
+import { loadReturned, sendIpsToPm, useAllFinalised, useAllIpsReturned, useAllIpsSent } from "../../services/workflowStore";
 import { setActiveClientId } from "../../layouts/navConfig";
 
 const IPS_KIND = "IPS SAA request";
@@ -11,7 +12,15 @@ export default function PmInbox() {
   const clients = useAsync(() => arcApi.listClients());
   const seeded = useAsync(() => arcApi.getInbox("pm"));
   const finalised = useAllFinalised();
-  const ipsSent = useAllIpsSent();
+  const localSent = useAllIpsSent();
+  /** The backend is the source of truth for what the RM sent (IS-101); the browser flag alone misses sends made from another browser or session. */
+  const backendSent = useAsync(async () => {
+    const list = await arcApi.listClients();
+    const st = await Promise.all(list.map((c) => arcApi.getIpsSendStatus(c.id).then((s) => (s.sent ? c.id : null), () => null)));
+    return st.filter((x): x is string => !!x);
+  });
+  const ipsSent = [...new Set([...localSent, ...(backendSent ?? [])])];
+  useEffect(() => { (backendSent ?? []).forEach((id) => { if (!localSent.includes(id)) sendIpsToPm(id); }); }, [backendSent, localSent]);
   useAllIpsReturned();
   const returned = loadReturned();
   /** Live-first: an IPS request exists for every client whose IPS the RM sent; a review request for every PS-finalised list. Seeds only add priority. */

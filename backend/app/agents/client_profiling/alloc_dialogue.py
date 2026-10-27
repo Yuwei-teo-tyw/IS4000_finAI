@@ -15,7 +15,7 @@ from typing import Optional
 
 from .answer import _numbers
 from .llm import ChatFn, enabled, local_chat_json
-from .strategies import allowed_strategies, get_strategy, metric_text
+from .strategies import allowed_strategies, get_strategy, metric_text, rate_of_return_text
 from .threel import (BUCKET_IDS, BUCKETS, LIQUIDITY_LIMIT_MSG, _BUCKET_QUERY, _norm_current, _table_numbers, best_evidence,
                      discuss_allocation, strategy_name)
 
@@ -180,7 +180,7 @@ def justify_allocation(store, client_id: str, message: str, allocation: Optional
 
 def _bucket(b: str, cur: dict) -> dict:
     return {"id": b, "strategy": cur[b]["strategy"], "strategyName": strategy_name(cur[b]["strategy"]),
-            "justification": cur[b].get("justification", "")}
+            "rateOfReturn": rate_of_return_text(cur[b]["strategy"]), "justification": cur[b].get("justification", "")}
 
 
 # --- IS-90 challenge ----------------------------------------------------------------------------------------------

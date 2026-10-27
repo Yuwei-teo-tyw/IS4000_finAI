@@ -1,0 +1,15 @@
+{
+  "sqltools.connections": [
+    {
+      "name": "finAI Postgres (local docker)",
+      "driver": "PostgreSQL",
+      "server": "localhost",
+      "port": 5432,
+      "database": "fin_ai_agents",
+      "username": "postgres",
+      "askForPassword": true,
+      "connectionTimeout": 15
+    }
+  ],
+  "sqltools.useNodeRuntime": true
+}

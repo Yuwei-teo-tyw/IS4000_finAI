@@ -5,6 +5,7 @@
  * Pages must NEVER import from src/mock directly.
  */
 import * as m from "../mock/data";
+import type { ClientPortfolio, ThreeLValidation } from "../types/arc";
 import { getActiveIps, isActivated, isIpsReturned, loadPmProgress } from "./workflowStore";
 import { bulletLines, toBulletItems } from "../utils/bullets";
 import { findProducts } from "../utils/productMatch";
@@ -204,6 +205,8 @@ export const arcApi = {
   clientProfilingChat,
   /** RM Client Book from the backend DB (onboarding and monitoring progress included). */
   listBook,
+  /** IS-75: server-side check that Liquidity + Longevity + Legacy = 100. */
+  validateThreeLProportion: (v: { liquidity: number; longevity: number; legacy: number }): Promise<ThreeLValidation> => validateThreeLProportion(v),
   /** IPS section assist (write / professionalise); proposals only, the RM accepts. */
   ipsAssist,
   /**
@@ -220,6 +223,41 @@ export const arcApi = {
   deleteIps: async (clientId: string, version: number): Promise<void> => {
     await cpJson<{ deleted: boolean }>(`/ips/${encodeURIComponent(clientId)}/${version}`, { method: "DELETE" });
     delete ipsEdits[`${clientId}:${version}`];
+  },
+  /** IS-97: portfolio of a client. null = not in the RM's book (403/404) or portfolio data unavailable. A client with no holdings returns the status "no_holdings" payload (AUM label "No holdings yet", no value), not null. */
+  getClientPortfolio: async (clientId: string): Promise<ClientPortfolio | null> => {
+    // Not in the book (403) or unknown (404) = no portfolio, no tab. A network failure, timeout or 5xx throws so the page can offer Retry.
+    const res = await fetch(`${API_BASE}/agents/client-portfolio/${encodeURIComponent(clientId)}`, { headers: rmHeaders(), signal: AbortSignal.timeout(CP_TIMEOUT_MS) });
+    if (res.status === 403 || res.status === 404 || res.status === 503) return null;  // 503 = portfolio database unreachable: the page says so and shows no numbers
+    if (!res.ok) throw new Error(`Portfolio request failed (${res.status})`);
+    const r = (await res.json().catch(() => null)) as ClientPortfolio | null;
+    return r?.available && (r.status === "ok" || r.status === "no_holdings" || r.status === "no_priced_holdings") ? r : null;
+  },
+  /** IS-101: current send-to-PM status of the client's IPS (Draft / Sent to PM / Returned by PM / No IPS) and whether the PM's copy is older than the latest save. */
+  getIpsSendStatus: (clientId: string): Promise<IpsSendStatus> => cpJson<IpsSendStatus>(`/ips-send/${encodeURIComponent(clientId)}`),
+  /** Sends one IPS version (null = latest) to the PM. Throws IpsSendError (message is shown to the RM) when it is not sent. */
+  sendIpsToPm: async (clientId: string, version: number | null): Promise<IpsSendResult> => {
+    let res: Response;
+    try {
+      res = await fetch(`${CP_URL}/ips-send/${encodeURIComponent(clientId)}`, { method: "POST", headers: rmHeaders(), body: JSON.stringify({ version }), signal: AbortSignal.timeout(CP_TIMEOUT_MS) });
+    } catch { throw new IpsSendError("Not sent. The IPS is still a Draft."); }
+    const j = (await res.json().catch(() => null)) as (Partial<IpsSendResult> & { detail?: unknown; message?: string }) | null;
+    if (!res.ok || !j || j.status !== "Sent to PM") {
+      if (res.status === 409 && typeof j?.detail === "string") throw new IpsSendError(j.detail);
+      throw new IpsSendError("Not sent. The IPS is still a Draft.");
+    }
+    return { status: "Sent to PM", version: Number(j.version), sentAt: String(j.sentAt), emptySections: Array.isArray(j.emptySections) ? j.emptySections : [] };
+  },
+  /** Pulls the sent IPS back to Draft. */
+  withdrawIpsSend: async (clientId: string): Promise<void> => { await cpJson<{ status: string }>(`/ips-send/${encodeURIComponent(clientId)}`, { method: "DELETE" }); },
+  /** The exact IPS (content + version) that was sent to the PM; null when nothing was sent through the backend (legacy flag) or the backend is unreachable. */
+  getSentIpsSnapshot: async (clientId: string): Promise<IpsVersion | null> => {
+    try {
+      const j = await cpJson<Partial<IpsVersion> & { ips?: IpsVersion; sentAt?: string }>(`/ips-send/${encodeURIComponent(clientId)}/snapshot`);
+      const v = (j.ips ?? j) as IpsVersion & { sentAt?: string };
+      if (!v || typeof v.version !== "number" || !Array.isArray(v.parts)) return null;
+      return { ...v, sentAt: j.sentAt ?? v.sentAt } as IpsVersion;
+    } catch { return null; }
   },
   saveClientIps: async (clientId: string, parts: { part: number; title: string; owner?: string; status?: string; body: string }[], opts: { version?: number; summary?: string; author?: string; status?: "Active" | "Draft"; data?: IpsData } = {}): Promise<{ version: number; indexing: { status: "indexed" | "pending"; chunks: number; message: string } }> => {
     const res = await fetch(`${CP_URL}/ips/${encodeURIComponent(clientId)}`, {
@@ -661,6 +699,10 @@ const CP_TIMEOUT_MS = 90_000;
 /** The RM whose IPS chat history and override audit rows are scoped by the backend (header X-RM-Id). No auth yet: the backend's default RM. */
 export const CURRENT_RM_ID = "rm_default";
 const rmHeaders = (): Record<string, string> => ({ "Content-Type": "application/json", "X-RM-Id": CURRENT_RM_ID });
+/** IS-101 send-to-PM contract. */
+export interface IpsSendStatus { sent: boolean; status: "Draft" | "Sent to PM" | "Returned by PM" | "No IPS"; sentVersion: number | null; sentAt: string | null; latestVersion: number | null; outdated: boolean; message: string }
+export interface IpsSendResult { status: "Sent to PM"; version: number; sentAt: string; emptySections: string[] }
+export class IpsSendError extends Error {}
 export class ClientProfilingError extends Error {
   kind: "UNREACHABLE" | "TIMEOUT" | "REJECTED" | "NOT_FOUND" | "SERVER" | "INVALID_RESPONSE";
   details: string[];
@@ -779,6 +821,67 @@ export async function generateIpsSection(clientId: string, section: IpsGenSectio
   return { section, fields: {}, bullets: [], sources: [], ...r } as IpsGenSectionResult;
 }
 
+/** Final NDJSON line of the stream: the single autosave of the new Draft version. */
+export interface IpsGenStreamDone { saved: boolean; version: number | null; ips: unknown; model: string | null; modelMessage: string; error?: string }
+/**
+ * AI IPS generation, streamed: the backend runs the sections concurrently, sends one NDJSON line per section as it finishes
+ * (`onSection`), then ONE line with the single autosaved Draft version. Resolves with that final line, or null when the stream
+ * ended without it (connection died mid-way: whatever arrived through `onSection` is what finished). Throws ClientProfilingError
+ * when the backend is unreachable / rejects the request, and an AbortError DOMException when `signal` aborts.
+ */
+export async function streamIpsGeneration(
+  clientId: string,
+  handlers: { onStart?: (sections: IpsGenSectionId[]) => void; onSection: (r: IpsGenSectionResult) => void },
+  signal?: AbortSignal,
+): Promise<IpsGenStreamDone | null> {
+  let res: Response;
+  try {
+    res = await fetch(`${CP_URL}/ips-generate/stream`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ client_id: clientId }), signal,
+    });
+  } catch (err) {
+    if (signal?.aborted) throw new DOMException("Cancelled", "AbortError");
+    throw new ClientProfilingError("UNREACHABLE", `Cannot reach the Client Profiling Agent at ${API_BASE}.`, ["Start the backend: cd backend, then run the main app."]);
+  }
+  if (!res.ok || !res.body) {
+    const json: unknown = await res.json().catch(() => null);
+    const detail = (json as { detail?: unknown } | null)?.detail;
+    const msg = typeof detail === "string" ? detail : `HTTP ${res.status}`;
+    if (res.status === 403) throw new ClientProfilingError("REJECTED", msg);
+    if (res.status === 503) throw new ClientProfilingError("SERVER", "The client database is unavailable.");
+    if (res.status === 404 || res.status === 405) throw new ClientProfilingError("NOT_FOUND", "The running backend does not have streamed AI IPS generation yet. Restart it so it runs the latest code.");
+    throw new ClientProfilingError("SERVER", `Geneva returned an error (${msg}).`);
+  }
+  let done: IpsGenStreamDone | null = null;
+  const handle = (line: string) => {
+    if (!line.trim()) return;
+    let o: Record<string, unknown>;
+    try { o = JSON.parse(line) as Record<string, unknown>; } catch { return; }
+    if (o.type === "start") handlers.onStart?.((o.sections as IpsGenSectionId[]) ?? []);
+    else if (o.type === "section" && typeof o.section === "string") {
+      const { type: _t, ...r } = o;
+      handlers.onSection({ fields: {}, bullets: [], sources: [], message: "", status: "error", ...r } as unknown as IpsGenSectionResult);
+    } else if (o.type === "done") done = o as unknown as IpsGenStreamDone;
+  };
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  let buf = "";
+  try {
+    for (;;) {
+      const { value, done: end } = await reader.read();
+      if (end) break;
+      buf += dec.decode(value, { stream: true });
+      let i: number;
+      while ((i = buf.indexOf("\n")) >= 0) { handle(buf.slice(0, i)); buf = buf.slice(i + 1); }
+    }
+    handle(buf);
+  } catch (err) {
+    if (signal?.aborted) throw new DOMException("Cancelled", "AbortError");
+    return done; // stream died mid-way: the caller reports what finished
+  }
+  return done;
+}
+
 /** Pure: merge the section results into what the IPS editor prefills. Empty values are dropped. */
 export function mergeIpsGenerated(results: IpsGenSectionResult[]): IpsGenerated {
   const keep = (o: Record<string, string> | undefined, keys: string[]) => {
@@ -789,7 +892,7 @@ export function mergeIpsGenerated(results: IpsGenSectionResult[]): IpsGenerated 
   const by = (id: IpsGenSectionId) => results.find((r) => r.section === id);
   const join = (b?: string[]) => (b ?? []).map((x) => x.trim()).filter(Boolean).join("\n");
   const philosophy: IpsGenerated["philosophy"] = {};
-  for (const k of ["approach", "believes", "avoids"] as const) { const v = (by("philosophy")?.philosophy?.[k] ?? "").trim(); if (v) philosophy[k] = v; }
+  for (const k of ["approach", "believes", "avoids", "investmentPeriod"] as const) { const v = (by("philosophy")?.philosophy?.[k] ?? "").trim(); if (v) philosophy[k] = v; }
   const statement = philosophySentence(philosophy); if (statement) philosophy.statement = statement;
   const text: IpsGenerated["text"] = {};
   const goals = join(by("goals")?.bullets); if (goals) text[1] = goals;
@@ -800,7 +903,10 @@ export function mergeIpsGenerated(results: IpsGenSectionResult[]): IpsGenerated 
   for (const r of results) for (const e of r.evidence ?? []) { const key = `${e.noteId}|${e.item}`; if (!ev.has(key)) { ev.add(key); evidence.push(e); } }
   const alloc = by("allocation")?.allocation;
   const model = results.find((r) => r.model)?.model;
+  const allocRes = by("allocation");
   return {
+    ...(allocRes?.proportion ? { proportion: allocRes.proportion } : {}),
+    ...(allocRes?.proportionMissing?.length ? { proportionMissing: allocRes.proportionMissing } : {}),
     ...(alloc && alloc.buckets?.length ? { allocation: alloc } : {}),
     ...(model ? { model } : {}),
     demo: keep(by("demographics")?.fields, ["Date of birth / age", "Occupation", "Employment / income source", "Annual income", "AUM"]),
@@ -828,6 +934,16 @@ async function cpJson<T>(path: string, init?: RequestInit): Promise<T> {
     throw new ClientProfilingError("SERVER", `Geneva returned an error (${msg}).`);
   }
   return json as T;
+}
+
+/** IS-75: validate a (possibly hand-edited) proportion; falls back to a local sum when the backend is unreachable. */
+export async function validateThreeLProportion(v: { liquidity: number; longevity: number; legacy: number }): Promise<ThreeLValidation> {
+  const total = v.liquidity + v.longevity + v.legacy;
+  try {
+    const r = await cpJson<Partial<ThreeLValidation>>("/ips-proportion/validate", { method: "POST", body: JSON.stringify(v) });
+    if (typeof r.ok === "boolean") return { ok: r.ok, total: r.total ?? total, message: r.message ?? (r.ok ? "Total is 100%." : `Total is ${total}%, not 100%.`) };
+  } catch { /* use local check */ }
+  return { ok: total === 100, total, message: total === 100 ? "Total is 100%." : `Total is ${total}%, not 100%.` };
 }
 
 /** Strategy table A-F (asset-class mix, return, volatility, drawdown). */

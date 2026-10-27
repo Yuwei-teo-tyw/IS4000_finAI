@@ -94,3 +94,13 @@ def test_db_unreachable_signals_history_unavailable(api, monkeypatch):
     for r in (api.get(f"{U}/ips-chat/jft"), api.post(f"{U}/ips-chat/jft", json={"role": "user", "text": "x"}),
               api.delete(f"{U}/ips-chat/jft")):
         assert r.status_code == 503 and r.json()["historyAvailable"] is False
+
+
+def test_endpoint_persist_then_clear_keeps_other_rm(api):
+    for rm in ("isabel", "bob"):
+        api.post(f"{U}/ips-chat/jft", json={"role": "user", "text": "q"}, headers=H(rm))
+        api.post(f"{U}/ips-chat/jft", json={"role": "assistant", "text": "a", "kind": "discuss"}, headers=H(rm))
+    assert [m["text"] for m in api.get(f"{U}/ips-chat/jft", headers=H("isabel")).json()["messages"]] == ["q", "a"]  # reload keeps it
+    assert api.delete(f"{U}/ips-chat/jft", headers=H("isabel")).json() == {"cleared": True}
+    assert api.get(f"{U}/ips-chat/jft", headers=H("isabel")).json()["messages"] == []
+    assert len(api.get(f"{U}/ips-chat/jft", headers=H("bob")).json()["messages"]) == 2

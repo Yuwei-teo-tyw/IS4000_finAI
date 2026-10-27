@@ -3,7 +3,7 @@ import { arcApi, PortfolioAgentError } from "../../../services/arcApi";
 import { classColor, weightsOf } from "../../portfolio/allocation";
 import { Button, sgd } from "../../ui";
 import { BulletEditor } from "./edit";
-import { EDIT_BOX } from "./parts";
+import { Bullets, CELL, EDIT_BOX, IPS_FRAME, LABEL, SMALL, SubHead } from "./parts";
 import type { Bucket3L } from "../../../types/arc";
 import type { PaBucketInputs } from "../../../types/portfolio";
 
@@ -68,7 +68,7 @@ export function SaaPortfolios({ clientId, buckets, value, onChange, editable, no
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {ORDER.map((id) => {
         const b = buckets.find((x) => x.id === id);
         const p = value[id];
@@ -77,10 +77,11 @@ export function SaaPortfolios({ clientId, buckets, value, onChange, editable, no
         const lines = note.split("\n").map((l) => l.trim()).filter(Boolean);
         const rows = Object.entries(p?.weights ?? {}).filter(([, v]) => v > 0).sort((a, z) => z[1] - a[1]);
         return (
-          <section key={id} className="avoid-break grid min-w-0 grid-cols-1 gap-6 border border-hairline p-5 lg:grid-cols-2">
+          <section key={id} className={`@container ${CELL} ${IPS_FRAME}`}>
+            <div className="grid min-w-0 grid-cols-1 gap-6 @xl:grid-cols-2">
             <div className="min-w-0">
-              <h4 className="font-normal text-ink">{TITLES[id]}</h4>
-              <p className="mt-1 text-[13px] text-ink-muted">
+              <SubHead>{TITLES[id]}</SubHead>
+              <p className={`mt-1 ${SMALL} text-ink-muted`}>
                 {b ? `${sgd(b.amountSgd)} · ${b.horizon} · ${b.pct}%` : "Not in the 3L allocation"}
               </p>
               <div className="mt-4 flex flex-col items-center gap-4 sm:flex-row sm:items-center">
@@ -88,39 +89,38 @@ export function SaaPortfolios({ clientId, buckets, value, onChange, editable, no
                 <div className="min-w-0 flex-1 self-stretch">
                   {p ? (
                     <>
-                      <p className="text-[13px] text-ink-muted">Chosen option: <span className="text-ink">{p.optionName ?? p.optionId}</span></p>
-                      <ul className="mt-2 space-y-1 text-[13px]">
+                      <p className={`${SMALL} text-ink-muted`}>Chosen option: <span className="text-ink">{p.optionName ?? p.optionId}</span></p>
+                      <ul className={`mt-2 space-y-1 ${SMALL}`}>
                         {rows.map(([k, v]) => (
                           <li key={k} className="flex items-center gap-2"><i className="inline-block h-3 w-3" style={{ background: classColor(k) }} />{k}<span className="ml-auto">{v}%</span></li>
                         ))}
                       </ul>
                     </>
-                  ) : <p className="text-[13px] text-ink-muted">No recommendation yet</p>}
+                  ) : <p className={`${SMALL} text-ink-muted`}>No recommendation yet</p>}
                 </div>
               </div>
               {editable && (
                 <div className="mt-4 space-y-2">
                   {st?.phase === "running"
-                    ? <p className="text-[13px] text-ink-muted" role="status">Geneva is building portfolios…</p>
+                    ? <p className={`${SMALL} text-ink-muted`} role="status">Geneva is building portfolios…</p>
                     : <Button variant={p ? "secondary" : "primary"} size="sm" onClick={() => run(id)}>{st?.phase === "error" ? "Retry" : "Run Geneva 3L recommendation"}</Button>}
-                  {st?.phase === "error" && <p className="text-[13px] text-ink-700" role="alert">{st.message}</p>}
+                  {st?.phase === "error" && <p className={`${SMALL} text-ink-700`} role="alert">{st.message}</p>}
                 </div>
               )}
             </div>
             {(editable || lines.length > 0) && (
               <div className="min-w-0">
-                <p className="text-[13px] text-ink-muted">RM explanation</p>
+                <p className={LABEL}>RM explanation</p>
                 {editable ? (
                   <div className={`mt-2 ${EDIT_BOX}`}>
                     <BulletEditor value={note} onChange={(v) => onNote?.(id, v)} label={`RM explanation, ${TITLES[id]}`} placeholder="Why this allocation suits the client" />
                   </div>
                 ) : (
-                  <ul className="mt-2 list-disc space-y-1 pl-5 text-[14px] text-ink">
-                    {lines.map((l, i) => <li key={i}>{l}</li>)}
-                  </ul>
+                  <div className="mt-1"><Bullets items={lines} /></div>
                 )}
               </div>
             )}
+            </div>
           </section>
         );
       })}

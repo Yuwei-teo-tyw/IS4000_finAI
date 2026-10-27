@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 DEFAULT_DATA_DIR = Path(__file__).parent / "data"
 UPLOADS_FILE = "uploaded_meeting_notes.json"
 UPLOAD_ID_PREFIX = "note_up_"
+SENT_STATUS = "Sent to PM"
 
 
 class Client(BaseModel):
@@ -221,6 +222,31 @@ class BaseStore:
 
     def list_strategy_overrides(self, client_id: str) -> list[dict]:
         return [dict(r) for r in getattr(self, "_overrides", []) if r["clientId"] == client_id]
+
+    # ---- send-to-PM (IS-101): one immutable snapshot + sent state per client; JSON store keeps it in memory ----
+    def _send_rows(self) -> dict:
+        if not hasattr(self, "_ips_sends"):
+            self._ips_sends = {}
+        return self._ips_sends
+
+    def send_ips_to_pm(self, client_id: str, version: int, rm_id: str, sent_at: str, snapshot: dict,
+                       before_commit=None) -> dict:
+        """Atomically store the snapshot and flip the client's IPS to "Sent to PM", replacing any earlier send.
+        `before_commit(record)` runs inside the transaction; if it raises, nothing is stored (state stays Draft)."""
+        rec = {"clientId": client_id, "version": version, "status": SENT_STATUS, "sentAt": sent_at, "rmId": rm_id or DEFAULT_RM,
+               "snapshot": json.loads(json.dumps(snapshot))}
+        if before_commit is not None:
+            before_commit(json.loads(json.dumps(rec)))
+        self._send_rows()[client_id] = rec
+        return json.loads(json.dumps(rec))
+
+    def get_ips_send(self, client_id: str) -> Optional[dict]:
+        rec = self._send_rows().get(client_id)
+        return json.loads(json.dumps(rec)) if rec else None
+
+    def withdraw_ips_send(self, client_id: str) -> bool:
+        """Remove the sent state (IPS content untouched). True if there was a send."""
+        return self._send_rows().pop(client_id, None) is not None
 
     # ---- IPS writes ----
     def save_ips(self, client_id: str, parts: list[IpsPartDoc], version: Optional[int] = None, summary: Optional[str] = None,

@@ -52,7 +52,7 @@ export interface CorrelationMatrix { labels: string[]; matrix: number[][] }
 export interface AllocationGroup { label: string; value: number; color: "chart-equities" | "chart-bonds" | "chart-alternatives" | "chart-liquidity" }
 export interface CaseStep { who: string; what: string; by: string; state: "done" | "waiting" | "not_started" }
 
-export interface IpsVersion { clientName?: string; version: number; issuedOn: string; status: "Active" | "Superseded" | "Draft"; author: string; summary: string; parts: IpsPart[]; /** Structured IPS JSON from the backend (see backend schemas.py); absent on mock versions. */ data?: IpsData }
+export interface IpsVersion { clientName?: string; version: number; issuedOn: string; status: "Active" | "Superseded" | "Draft"; author: string; summary: string; parts: IpsPart[]; /** ISO time the RM sent this version to the PM (sent snapshot only). */ sentAt?: string; /** Structured IPS JSON from the backend (see backend schemas.py); absent on mock versions. */ data?: IpsData }
 
 /** Backend structured IPS JSON (`data` of an IPS version). Read tolerantly; every field is optional. */
 export interface IpsNoteRef { id?: string; date?: string; title?: string }
@@ -60,20 +60,27 @@ export interface IpsThreeLItem {
   portfolio: string; strategy: string; strategyName?: string; reason?: string;
   source?: { noteId?: string; date?: string; title?: string; passage?: string } | null;
   default?: boolean;
+  /** Backend sentence on the expected portfolio rate of return for the chosen strategy. */
+  rateOfReturn?: string;
   conflict?: { note?: string; message?: string; dates?: string[]; latest?: unknown; earlier?: unknown } | null;
+  /** Risk exactly on a boundary: both strategies are eligible, the more conservative is recommended. */
+  eligible?: string[]; boundary?: string;
 }
 export interface IpsData {
   goals?: { key: string; title: string; bullets: string[]; empty?: boolean; placeholder?: string }[];
   targets?: { amount?: number | string | null; currency?: string | null; horizonYears?: number | null; text?: string; source_note?: IpsNoteRef | string | null }[];
-  lifeEvents?: { id?: string; date?: string | null; year?: number | null; label: string; detail?: string; source_note?: IpsNoteRef | string | null; manual?: boolean }[];
   reviewRules?: { title: string; text: string }[];
   threeL?: IpsThreeLItem[];
-  threeLStatus?: "ok" | "no_notes" | "unavailable"; threeLMessage?: string;
+  threeLStatus?: "ok" | "no_notes" | "missing" | "unavailable"; threeLMessage?: string;
+  /** Set by the backend on read: the risk profile or meeting notes changed after the 3L recommendation was generated. */
+  threeLOutOfDate?: boolean; threeLOutOfDateMessage?: string;
+  /** IS-75: base 3L percentage proportion produced during generation (null when information was missing, see the message). */
+  threeLProportion?: ThreeLProportion | null; threeLProportionMessage?: string;
   riskScore?: number | null;
   model?: string | null; modelMessage?: string;
   notIncluded?: string[];
   rmSignatureImage?: string; rmSignedDate?: string;
-  demographics?: { fields?: Record<string, string> }; philosophy?: { approach?: string; believes?: string; avoids?: string };
+  demographics?: { fields?: Record<string, string> }; philosophy?: { approach?: string; believes?: string; avoids?: string; statement?: string; investmentPeriod?: string };
   risk?: { fields?: Record<string, string>; bullets?: string[] };
   [k: string]: unknown;
 }
@@ -127,7 +134,7 @@ export interface GenevaArticle {
 }
 
 /** Investment philosophy: clause blanks plus an optional free-text statement that, when set, overrides the composed sentence. */
-export interface Philosophy { approach?: string; believes?: string; avoids?: string; statement?: string }
+export interface Philosophy { approach?: string; believes?: string; avoids?: string; statement?: string; investmentPeriod?: string }
 
 /** AI IPS generation (Client Profiling Agent reads the client's meeting notes and fills the IPS). Sections run in this order. */
 export type IpsGenSectionId = "demographics" | "philosophy" | "goals" | "risk" | "allocation";
@@ -143,6 +150,8 @@ export const IPS_GEN_SECTIONS: { id: IpsGenSectionId; label: string }[] = [
 export interface Strategy {
   code: string; name: string; riskLabel?: string;
   allocation: Record<string, number>;
+  /** Backend sentence for this strategy letter (portfolio rate of return). */
+  rateOfReturnText?: string;
   expectedReturnPct?: number; volatilityPct?: number; maxDrawdownPct?: number; longestDrawdownYears?: number;
 }
 export interface IpsAllocationBucket {
@@ -163,8 +172,10 @@ export interface IpsDiscussResult {
 /** One generated section. Only facts found in the notes are filled; everything else stays empty. */
 export interface IpsGenSectionResult {
   section: IpsGenSectionId;
-  status: "ok" | "no_notes" | "unavailable";
+  status: "ok" | "no_notes" | "missing" | "unavailable" | "error";
   message: string;
+  /** status "missing": information needed before a proposal can be made (e.g. the risk profile). */
+  missing?: string[];
   /** demographics: KV label -> value ("Date of birth / age", "Occupation", "Employment / income source", "Annual income", "AUM"); risk: "Risk category" | "Risk tolerance (willingness)" | "Risk capacity (ability)" | "Time horizon" | "Liquidity needs". */
   fields: Record<string, string>;
   philosophy?: Philosophy;
@@ -177,6 +188,10 @@ export interface IpsGenSectionResult {
   model?: string | null;
   modelMessage?: string;
   allocation?: IpsAllocation;
+  /** 2-6 short lines on how this section was derived (shown live in the Geneva sidebar). */
+  reasoning?: string[];
+  /** allocation section only (IS-75): the base 3L percentage proportion, or what is missing to produce it. */
+  proportion?: ThreeLProportion | null; proportionMissing?: string[]; proportionTotal?: number;
   /** Auto-save result: the backend stores a Draft version as soon as something is generated. */
   saved?: boolean; version?: number | null;
   ips?: IpsVersion | null; saved_ips?: IpsVersion | null;
@@ -198,5 +213,33 @@ export interface IpsGenerated {
   /** Per-item provenance merged across sections (unique). */
   evidence?: IpsGenEvidence[];
   allocation?: IpsAllocation;
+  proportion?: ThreeLProportion | null; proportionMissing?: string[];
   model?: string;
+}
+
+/** IS-75: base 3L proportion proposed by Geneva (Liquidity / Longevity / Legacy, whole percentages). */
+export type ThreeLBucketKey = "liquidity" | "longevity" | "legacy";
+export interface ThreeLProportionItem { pct: number; reason: string }
+export type ThreeLProportion = Record<ThreeLBucketKey, ThreeLProportionItem>;
+export interface ThreeLValidation { ok: boolean; total: number; message: string }
+
+/** IS-97: GET /agents/client-portfolio/{client_id}. */
+export interface PortfolioHolding {
+  ticker: string; name: string; instrument_type: string; sector: string | null; asset_class: string; portfolio: string;
+  date_bought: string; quantity: number; cost_per_unit: number; cost_basis: number;
+  price: number | null; price_as_at: string | null; price_source: string | null; price_available: boolean; price_label: string | null;
+  market_value?: number | null; pnl?: number | null; pnl_pct?: number | null; weight_pct?: number | null; note: string | null;
+}
+export interface PortfolioGroupRow { asset_class?: string; portfolio?: string; value: number; weight_pct: number; holdings_count: number }
+export interface PortfolioThreeLRow {
+  portfolio: string; target_pct: number | null; strategy: string | null; strategy_name: string | null;
+  actual_value: number | null; actual_pct: number | null; difference_pct: number | null;
+  /** Strategy SAA weights by asset class (e.g. Bonds, Equities) in %, from the saved IPS strategy; null when none. */
+  saa?: Record<string, number> | null;
+}
+export interface ClientPortfolio {
+  available: true; client_id: string; currency: string; status: "ok" | "no_holdings" | "no_priced_holdings";
+  aum: { value: number | null; label: string };
+  holdings: PortfolioHolding[]; by_asset_class: PortfolioGroupRow[]; by_3l_portfolio: PortfolioGroupRow[]; notes: string[];
+  three_l?: { available: boolean; message?: string; portfolios?: PortfolioThreeLRow[] };
 }

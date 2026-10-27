@@ -28,6 +28,8 @@ services:
       - .env
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/fin_ai_agents
+      # client profiling agent uses LM Studio on the host (not reachable as localhost from inside the container)
+      CLIENT_PROFILING_LLM_URL: http://host.docker.internal:1234/v1
     ports:
       - "8000:8000"
     volumes:

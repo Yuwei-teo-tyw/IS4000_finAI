@@ -1,6 +1,46 @@
-import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type HTMLAttributes, type ReactNode } from "react";
 import { toBulletItems } from "../../../utils/bullets";
 
+/**
+ * IPS type scale (single source of truth): title 34 > HEADING (section h2) 24 > BODY 15 > SMALL 13 > LABEL 12 uppercase.
+ * Body text must never exceed the section headings.
+ */
+export const HEADING = "text-[24px] font-light leading-8 text-ink";
+export const BODY = "text-[15px] leading-6";
+export const SMALL = "text-[13px] leading-5";
+export const LABEL = "text-[12px] leading-4 uppercase tracking-[0.06em] font-normal text-ink-muted";
+/** Shared frame + cell pattern: every IPS block (fields, goals, tables, bucket cards) uses these. */
+export const IPS_FRAME = "border border-hairline";
+export const CELL = "avoid-break min-w-0 px-5 py-4";
+/** Sub-heading inside a section (group titles, bucket titles, table captions): same style as LABEL. */
+export const SUBHEAD = LABEL;
+export function SubHead({ children, className = "" }: { children: ReactNode; className?: string }) {
+  return <h3 className={`${LABEL} ${className}`}>{children}</h3>;
+}
+
+/** Framed two-column grid (one column in narrow containers). Cells draw their own top/left hairlines; the frame clips the outer ones. */
+export function IpsGrid({ children, as: Tag = "div", className = "", ...rest }: { children: ReactNode; as?: "div" | "dl"; className?: string } & HTMLAttributes<HTMLElement>) {
+  return (
+    <div className={`@container min-w-0 ${className}`} {...rest}>
+      <div className={`overflow-hidden ${IPS_FRAME}`}>
+        <Tag className="-ml-px -mt-px grid min-w-0 grid-cols-1 @xl:grid-cols-2">{children}</Tag>
+      </div>
+    </div>
+  );
+}
+/** One grid cell. `wide` spans both columns. */
+export function Cell({ children, wide = false, as: Tag = "div", className = "", ...rest }: { children: ReactNode; wide?: boolean; as?: "div" | "section"; className?: string } & HTMLAttributes<HTMLElement>) {
+  return <Tag className={`${CELL} border-l border-t border-hairline ${wide ? "@xl:col-span-2" : ""} ${className}`} {...rest}>{children}</Tag>;
+}
+/** Label above value cell (dt/dd). Pass `hint` for a small note under the value. */
+export function Field({ label, children, hint, wide = false }: { label: string; children: ReactNode; hint?: string; wide?: boolean }) {
+  return (
+    <Cell wide={wide}>
+      <dt className={LABEL}>{label}</dt>
+      <dd className={`mt-1 ${WRAP}`}>{children}{hint && <p className={`${SMALL} mt-1 text-ink-muted`}>{hint}</p>}</dd>
+    </Cell>
+  );
+}
 export const WRAP = "break-words [overflow-wrap:anywhere] min-w-0";
 
 /** Split a body into bullet items (alias of the shared normaliser, document style). */
@@ -25,7 +65,7 @@ export function EditField({ children, className = "", inline = false }: { childr
   return (
     <span className={`group/edit relative ${inline ? "inline-block align-baseline" : "block"} ${className}`}>
       {children}
-      <span className="pointer-events-none absolute -top-2 right-1 flex items-center gap-1 border border-hairline bg-surface-100 px-1 text-[10px] uppercase leading-4 tracking-[0.06em] text-ink-muted opacity-0 transition-opacity group-hover/edit:opacity-100 group-focus-within/edit:opacity-100 print:hidden">
+      <span className="pointer-events-none absolute -top-2 right-1 flex items-center gap-1 border border-hairline bg-surface-100 px-1 text-[12px] uppercase leading-4 tracking-[0.06em] text-ink-muted opacity-0 transition-opacity group-hover/edit:opacity-100 group-focus-within/edit:opacity-100 print:hidden">
         <PencilIcon />Editable
       </span>
     </span>
@@ -35,7 +75,7 @@ export function EditField({ children, className = "", inline = false }: { childr
 /** Locked (IC-filled) marker: muted, no border, lock icon. */
 export function LockedTag({ children = "Locked" }: { children?: ReactNode }) {
   return (
-    <span className="inline-flex items-center gap-1 text-[11px] uppercase tracking-[0.06em] text-ink-muted print:hidden">
+    <span className="inline-flex items-center gap-1 text-[12px] uppercase tracking-[0.06em] text-ink-muted print:hidden">
       <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="1.25" aria-hidden="true">
         <rect x="3" y="7" width="10" height="7" /><path d="M5 7V5a3 3 0 016 0v2" />
       </svg>{children}
@@ -45,9 +85,9 @@ export function LockedTag({ children = "Locked" }: { children?: ReactNode }) {
 
 export function DocSection({ n, title, children }: { n: number; title: string; children: ReactNode }) {
   return (
-    <section className="avoid-break mt-10 min-w-0">
-      <h2 className="border-b border-hairline pb-2 text-[16px] font-semibold text-ink">{n}. {title}</h2>
-      <div className={`mt-4 text-[14px] leading-[22px] ${WRAP}`}>{children}</div>
+    <section className="avoid-break mt-12 min-w-0">
+      <h2 className={`border-b border-hairline pb-2 print:break-after-avoid ${HEADING}`}>{n}. {title}</h2>
+      <div className={`mt-6 space-y-6 ${BODY} ${WRAP}`}>{children}</div>
     </section>
   );
 }
@@ -55,11 +95,12 @@ export function DocSection({ n, title, children }: { n: number; title: string; c
 const LABELLED = /^([A-Z][A-Za-z &/()'-]{1,48}):\s+(\S[\s\S]*)$/;
 /** Bullets; a leading "Label: text" renders the label semibold, plain bullets are untouched. */
 export function Bullets({ items }: { items: string[] }) {
+  if (items.length === 1) return <p className={`${BODY} ${WRAP}`}>{items[0]}</p>;
   return (
-    <ul className="list-disc space-y-1 pl-5">
+    <ul className={`list-disc space-y-1 pl-5 ${BODY}`}>
       {items.map((t, i) => {
         const m = LABELLED.exec(t);
-        return <li key={i} className={WRAP}>{m ? <><span className="font-semibold">{m[1]}:</span> {m[2]}</> : t}</li>;
+        return <li key={i} className={WRAP}>{m ? <><span className="font-normal">{m[1]}:</span> {m[2]}</> : t}</li>;
       })}
     </ul>
   );
@@ -80,8 +121,8 @@ export function GroupedBullets({ items }: { items: string[] }) {
     <div className="space-y-4">
       {groups.map((g, gi) => (
         <div key={gi} className="avoid-break min-w-0">
-          {g.label && <p className="text-[12px] uppercase tracking-[0.06em] text-ink-muted">{g.label}</p>}
-          <ul className="mt-1 list-disc space-y-1 pl-5">{g.items.map((t, i) => <li key={i} className={WRAP}>{t}</li>)}</ul>
+          {g.label && <SubHead>{g.label}</SubHead>}
+          <ul className={`mt-1 list-disc space-y-1 pl-5 ${BODY}`}>{g.items.map((t, i) => <li key={i} className={WRAP}>{t}</li>)}</ul>
         </div>
       ))}
     </div>
@@ -95,7 +136,7 @@ export function FreeText({ value, onChange, label, placeholder }: { value: strin
   return (
     <EditField>
       <textarea ref={ref} rows={3} aria-label={label} placeholder={placeholder} value={value} onChange={(e) => onChange(e.target.value)}
-        className={`block w-full resize-none overflow-hidden px-2 py-1 text-[14px] leading-[22px] placeholder:text-ink-muted ${EDIT_BOX} print:p-0`} />
+        className={`block w-full resize-none overflow-hidden px-2 py-1 text-[15px] leading-6 placeholder:text-ink-muted ${EDIT_BOX} print:p-0`} />
     </EditField>
   );
 }
@@ -125,26 +166,23 @@ export function InlineText({ value, onChange, label, placeholder = "Add a valueâ
   );
 }
 
-/** Rows are [label, value]. When `onEdit` is given, labels not in `locked` are editable in place. */
-export function KV({ rows, onEdit, locked = [], hints = {} }: {
+/** Rows are [label, value]. When `onEdit` is given, labels not in `locked` are editable in place. Extra `children` are more cells in the same grid. */
+export function KV({ rows, onEdit, locked = [], hints = {}, children }: {
   rows: readonly (readonly [string, string])[]; onEdit?: (label: string, v: string) => void; locked?: readonly string[];
-  /** Optional small caption under a label. */
-  hints?: Record<string, string>;
+  /** Optional small note under a value. */
+  hints?: Record<string, string>; children?: ReactNode;
 }) {
   return (
-    <dl className="grid grid-cols-1 gap-x-10 gap-y-4 sm:grid-cols-2">
-      {rows.map(([k, v]) => (
-        <div key={k} className="avoid-break min-w-0 border-b border-hairline pb-2">
-          <dt className="text-[12px] uppercase tracking-[0.06em] text-ink-muted">{k}</dt>
-          {hints[k] && <p className="text-[12px] leading-4 text-ink-muted">{hints[k]}</p>}
-          <dd className={`mt-0.5 ${WRAP}`}>
-            {onEdit && !locked.includes(k)
-              ? <InlineText value={v} label={k} onChange={(t) => onEdit(k, t)} />
-              : onEdit ? <span className="inline-flex items-center gap-2 text-ink-muted">{v}<LockedTag /></span> : v}
-          </dd>
-        </div>
+    <IpsGrid as="dl">
+      {rows.map(([k, v], i) => (
+        <Field key={k} label={k} hint={hints[k]} wide={!children && rows.length % 2 === 1 && i === rows.length - 1}>
+          {onEdit && !locked.includes(k)
+            ? <InlineText value={v} label={k} onChange={(t) => onEdit(k, t)} />
+            : onEdit ? <span className="inline-flex items-center gap-2 text-ink-muted">{v}<LockedTag /></span> : v}
+        </Field>
       ))}
-    </dl>
+      {children}
+    </IpsGrid>
   );
 }
 
@@ -178,8 +216,8 @@ export function SignatureBlock({ label, image, editable = false, onChange, date 
   const btn = `px-3 py-1 text-[13px] text-ink ${EDIT_BOX} !cursor-pointer`;
   return (
     <div className="avoid-break min-w-0">
-      <p className="text-[12px] uppercase tracking-[0.06em] text-ink-muted">{label}</p>
-      <div className={`flex h-16 items-end border-b border-ink ${editable ? "bg-surface-200/50 print:bg-transparent" : ""}`}>
+      <p className={LABEL}>{label}</p>
+      <div className={`mt-1 flex h-16 items-end border-b border-ink ${editable ? "bg-surface-200/50 print:bg-transparent" : ""}`}>
         {editable && !image && <span className="pb-1 pl-2 text-[12px] text-ink-muted print:hidden">No signature uploaded</span>}
         {image && <img src={image} alt={`${label} signature`} className="max-h-14 max-w-full object-contain" />}
       </div>

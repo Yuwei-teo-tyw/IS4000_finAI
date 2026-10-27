@@ -1,0 +1,33 @@
+ticker,name,instrument_type,sector,asset_class,price,price_as_at,price_source
+AAPL,Apple Inc.,stock,"Information Technology - Technology Hardware, Storage & Peripherals",Equities,343.91,2026-10-26,Yahoo Finance chart API (v8) daily close
+MSFT,Microsoft Corporation,stock,Information Technology - Systems Software,Equities,532.60,2026-10-26,Yahoo Finance chart API (v8) daily close
+JPM,JPMorgan Chase & Co.,stock,Financials - Diversified Banks,Equities,334.04,2026-10-26,Yahoo Finance chart API (v8) daily close
+GS,"The Goldman Sachs Group, Inc.",stock,"Financials - Investment Banking & Brokerage",Equities,893.28,2026-10-26,Yahoo Finance chart API (v8) daily close
+MS,Morgan Stanley,stock,"Financials - Investment Banking & Brokerage",Equities,183.49,2026-10-26,Yahoo Finance chart API (v8) daily close
+BAC,Bank of America Corporation,stock,"Financials - Diversified Banks",Equities,50.52,2026-10-26,Yahoo Finance chart API (v8) daily close
+C,Citigroup Inc.,stock,"Financials - Diversified Banks",Equities,121.04,2026-10-26,Yahoo Finance chart API (v8) daily close
+UBS,UBS Group AG,stock,"Financials - Diversified Banks",Equities,46.46,2026-10-26,Yahoo Finance chart API (v8) daily close
+NVDA,NVIDIA Corporation,stock,"Information Technology - Semiconductors",Equities,216.00,2026-10-26,Yahoo Finance chart API (v8) daily close
+GOOGL,Alphabet Inc.,stock,"Communication Services - Interactive Media & Services",Equities,316.80,2026-10-26,Yahoo Finance chart API (v8) daily close
+AMZN,"Amazon.com, Inc.",stock,"Consumer Discretionary - Broadline Retail",Equities,249.09,2026-10-26,Yahoo Finance chart API (v8) daily close
+META,"Meta Platforms, Inc.",stock,"Communication Services - Interactive Media & Services",Equities,630.56,2026-10-26,Yahoo Finance chart API (v8) daily close
+JNJ,Johnson & Johnson,stock,Health Care - Pharmaceuticals,Equities,266.30,2026-10-26,Yahoo Finance chart API (v8) daily close
+XOM,ExxonMobil Holdings Corporation,stock,Energy - Integrated Oil & Gas,Equities,184.54,2026-10-26,Yahoo Finance chart API (v8) daily close
+PG,The Procter & Gamble Company,stock,Consumer Staples - Household Products,Equities,159.92,2026-10-26,Yahoo Finance chart API (v8) daily close
+VOO,Vanguard S&P 500 ETF,etf,Diversified - US Large Cap Blend,Equities,703.41,2026-10-26,Yahoo Finance chart API (v8) daily close
+VWO,Vanguard FTSE Emerging Markets Index Fund ETF Shares,etf,Diversified - Emerging Markets Equity,Equities,56.50,2026-10-26,Yahoo Finance chart API (v8) daily close
+AGG,iShares Core U.S. Aggregate Bond ETF,etf,Fixed Income - US Aggregate Bond,Fixed Income,96.05,2026-10-26,Yahoo Finance chart API (v8) daily close
+BND,Vanguard Total Bond Market Index Fund ETF Shares,etf,Fixed Income - US Aggregate Bond,Fixed Income,71.27,2026-10-26,Yahoo Finance chart API (v8) daily close
+PIMIX,PIMCO Income Fund Institutional,mutual_fund,Fixed Income - Multisector Bond,Fixed Income,10.46,2026-10-26,Yahoo Finance chart API (v8) daily close
+LQD,iShares iBoxx $ Investment Grade Corporate Bond ETF,etf,Fixed Income - US Investment Grade Corporate Bond,Fixed Income,104.02,2026-10-26,Yahoo Finance chart API (v8) daily close
+SHY,iShares 1-3 Year Treasury Bond ETF,etf,Fixed Income - Short-Term US Treasury,Fixed Income,81.48,2026-10-26,Yahoo Finance chart API (v8) daily close
+TLT,iShares 20+ Year Treasury Bond ETF,etf,Fixed Income - Long-Term US Treasury,Fixed Income,81.68,2026-10-26,Yahoo Finance chart API (v8) daily close
+SGOV,iShares 0-3 Month Treasury Bond ETF,etf,Cash & Equivalents - Ultra-Short Treasury,Cash,100.67,2026-10-26,Yahoo Finance chart API (v8) daily close
+BIL,State Street SPDR Bloomberg 1-3 Month T-Bill ETF,etf,Cash & Equivalents - T-Bills,Cash,91.64,2026-10-26,Yahoo Finance chart API (v8) daily close
+JPST,JPMorgan Ultra-Short Income ETF,etf,Cash & Equivalents - Ultra-Short Bond,Cash,50.36,2026-10-26,Yahoo Finance chart API (v8) daily close
+VMFXX,Vanguard Federal Money Market Fund,mutual_fund,Cash & Equivalents - Money Market,Cash,,,
+QAI,NYLI Hedge Multi-Strategy Tracker ETF,etf,Alternatives - Hedge Fund Multi-Strategy,Alternatives,35.55,2026-10-26,Yahoo Finance chart API (v8) daily close
+MNA,NYLI Merger Arbitrage ETF,etf,Alternatives - Merger Arbitrage,Alternatives,36.91,2026-10-26,Yahoo Finance chart API (v8) daily close
+DBMF,iMGP DBi Managed Futures Strategy ETF,etf,Alternatives - Managed Futures,Alternatives,32.68,2026-10-26,Yahoo Finance chart API (v8) daily close
+FTLS,First Trust Long/Short Equity ETF,etf,Alternatives - Long/Short Equity,Alternatives,77.18,2026-10-26,Yahoo Finance chart API (v8) daily close
+GLD,SPDR Gold Shares,etf,Alternatives - Commodities: Gold,Alternatives,367.82,2026-10-26,Yahoo Finance chart API (v8) daily close

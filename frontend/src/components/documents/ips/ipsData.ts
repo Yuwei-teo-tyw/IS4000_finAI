@@ -1,7 +1,7 @@
-import type { IpsData, IpsNoteRef, IpsThreeLItem } from "../../../types/arc";
+import type { IpsData, IpsNoteRef, IpsThreeLItem, ThreeLProportion } from "../../../types/arc";
 import type { AllocBucketId, ThreeLMeta } from "./Allocation";
 import { groupsFromBackend, groupsToBackend, parseGoals, serializeGoals } from "./goals";
-import { normaliseLifeEvents, type IpsLifeEvent, type IpsTarget } from "./ipsTypes";
+import { type IpsTarget } from "./ipsTypes";
 import { toBullets } from "./parts";
 
 /** Pure mapping between the backend structured IPS JSON (`data`, see backend schemas.py) and what the editor holds. */
@@ -21,13 +21,14 @@ const clean = (o?: Record<string, string> | null) => Object.fromEntries(Object.e
 
 export interface IpsSeed {
   text: { 1?: string; 3?: string; 5?: string };
-  targets: IpsTarget[]; lifeEvents: IpsLifeEvent[]; reviewRules: { title: string; text: string }[];
+  targets: IpsTarget[]; reviewRules: { title: string; text: string }[];
   demo: Record<string, string>; risk: Record<string, string>;
-  philosophy: { approach?: string; believes?: string; avoids?: string; statement?: string };
+  philosophy: { approach?: string; believes?: string; avoids?: string; statement?: string; investmentPeriod?: string };
   allocation: Partial<Record<AllocBucketId, string>>; allocationNotes: Record<string, string>;
   allocationMeta: Partial<Record<AllocBucketId, ThreeLMeta>>; proposed: Partial<Record<AllocBucketId, string>>;
-  notIncluded: string[]; rmSignedDate?: string; rmSignatureImage?: string;
+  notIncluded: string[]; rmSignedDate?: string; rmSignatureImage?: string; outOfDate?: string;
   model?: string | null; modelMessage?: string;
+  proportion: ThreeLProportion | null; proportionMessage?: string;
 }
 
 /** Backend `data` -> editor seed. Goals go through groupsFromBackend; threeL becomes strategy + reason + meta (source, default, conflict). */
@@ -40,7 +41,8 @@ export function seedFromData(d: IpsData): IpsSeed {
     allocation[id] = b.strategy; proposed[id] = b.strategy;
     if (b.reason) allocationNotes[id] = b.reason;
     allocationMeta[id] = { strategy: b.strategy, reason: b.reason, default: !!b.default,
-      source: b.source ? { id: b.source.noteId, date: b.source.date, title: b.source.title } : undefined, conflict: b.conflict ?? undefined };
+      source: b.source ? { id: b.source.noteId, date: b.source.date, title: b.source.title } : undefined, conflict: b.conflict ?? undefined,
+      eligible: b.eligible, boundary: b.boundary, rateOfReturn: b.rateOfReturn };
   }
   const rules = (d.reviewRules ?? []).filter((r) => r && (r.title || r.text));
   return {
@@ -50,42 +52,46 @@ export function seedFromData(d: IpsData): IpsSeed {
       ...(rules.length ? { 5: rulesToBullets(rules).join("\n") } : {}),
     },
     targets: (d.targets ?? []).map((t, i) => ({ id: `t-${i}`, amount: t.amount ?? undefined, currency: t.currency ?? undefined, horizonYears: t.horizonYears ?? undefined, text: t.text ?? "", source_note: t.source_note ?? undefined })),
-    lifeEvents: normaliseLifeEvents((d.lifeEvents ?? []).map((e) => ({ ...e, date: e.date ?? undefined, year: e.year ?? undefined, source_note: e.source_note ?? undefined }))),
     reviewRules: rules,
     demo: clean(d.demographics?.fields), risk: clean(d.risk?.fields), philosophy: { ...(d.philosophy ?? {}) },
     allocation, allocationNotes, allocationMeta, proposed,
     notIncluded: (d.notIncluded ?? []).filter((x) => typeof x === "string" && x.trim()),
-    rmSignedDate: d.rmSignedDate, rmSignatureImage: d.rmSignatureImage, model: d.model, modelMessage: d.modelMessage,
+    rmSignedDate: d.rmSignedDate, rmSignatureImage: d.rmSignatureImage, outOfDate: d.threeLOutOfDate ? (d.threeLOutOfDateMessage || "Out of date") : undefined, model: d.model, modelMessage: d.modelMessage,
+    proportion: d.threeLProportion ?? null, proportionMessage: d.threeLProportionMessage,
   };
 }
 
 /** The editor state to persist. `base` is the loaded `data` (untouched fields such as evidence, riskScore, model are kept). */
 export interface IpsEditState {
-  text: Record<number, string>; targets?: IpsTarget[]; lifeEvents?: IpsLifeEvent[];
+  text: Record<number, string>; targets?: IpsTarget[];
   demo: Record<string, string>; risk: Record<string, string>; philosophy: Record<string, string | undefined>;
   allocation: Partial<Record<AllocBucketId, string>>; allocationNotes: Record<string, string>;
   allocationMeta: Partial<Record<AllocBucketId, ThreeLMeta>>; notIncluded: string[];
   rmSignedDate?: string; rmSignature?: string;
+  /** Portfolio rate-of-return sentence for the currently selected strategy per bucket (from the strategies table). */
+  rateOfReturn?: Partial<Record<AllocBucketId, string>>;
+  /** undefined keeps whatever `base` holds. */
+  proportion?: ThreeLProportion | null;
 }
 
-const num = (v: unknown): number | null => { const n = Number(v); return Number.isFinite(n) && n > 0 ? n : null; };
 const noteRef = (n: IpsNoteRef | string | null | undefined): IpsNoteRef | null => (n && typeof n === "object" ? n : null);
 
 export function buildIpsData(base: IpsData | undefined, e: IpsEditState): IpsData {
   const prev = new Map<string, IpsThreeLItem>((base?.threeL ?? []).map((b) => [String(b.portfolio).toLowerCase(), b]));
   const threeL: IpsThreeLItem[] = BUCKETS.filter((b) => e.allocation[b]).map((b) => {
     const code = e.allocation[b]!, old = prev.get(b);
-    return { ...old, portfolio: cap(b), strategy: code, strategyName: STRAT[code] ?? old?.strategyName ?? "", reason: e.allocationNotes[b] ?? old?.reason ?? "",
+    const ror = e.rateOfReturn?.[b] ?? (old && old.strategy === code ? old.rateOfReturn : undefined);
+    return { ...old, ...(ror ? { rateOfReturn: ror } : { rateOfReturn: undefined }), portfolio: cap(b), strategy: code, strategyName: STRAT[code] ?? old?.strategyName ?? "", reason: e.allocationNotes[b] ?? old?.reason ?? "",
       default: old && old.strategy === code ? !!old.default : false, source: old?.source ?? null, conflict: old?.conflict ?? null };
   });
   const goals = groupsToBackend(parseGoals(e.text[1] ?? ""));
   const targets = (e.targets ?? []).filter((t) => (t.text ?? "").trim() || t.amount).map((t) => ({
     amount: t.amount == null || t.amount === "" ? null : t.amount, currency: t.currency ?? null, horizonYears: t.horizonYears ?? null, text: t.text ?? "", source_note: noteRef(t.source_note) }));
-  const lifeEvents = (e.lifeEvents ?? []).map((x) => ({ id: x.id, date: x.date ?? null, year: num(x.year), label: x.label, detail: x.detail ?? "", source_note: noteRef(x.source_note), manual: !!x.manual }));
   const reviewRules = e.text[5] !== undefined ? bulletsToRules(e.text[5]) : base?.reviewRules;
   return {
     ...base,
-    goals, targets, lifeEvents, ...(reviewRules ? { reviewRules } : {}), threeL,
+    ...(e.proportion !== undefined ? { threeLProportion: e.proportion } : {}),
+    goals, targets, ...(reviewRules ? { reviewRules } : {}), threeL,
     notIncluded: e.notIncluded,
     demographics: { fields: { ...(base?.demographics?.fields ?? {}), ...clean(e.demo) } },
     philosophy: { ...(base?.philosophy ?? {}), ...Object.fromEntries(Object.entries(e.philosophy).filter(([, v]) => v !== undefined)) },

@@ -104,3 +104,46 @@ def strategy_codes_in(text: str) -> tuple[list[str], list[str]]:
     good = [c.upper() for c in found if c.upper() in CODES]
     bad = [c.upper() for c in found if c.upper() not in CODES]
     return list(dict.fromkeys(good)), list(dict.fromkeys(bad))
+
+
+# --- portfolio rate of return (nominal range from the strategy table, real = nominal - inflation) ----------------
+INFLATION_ASSUMPTION_PCT = 2.0  # long-run inflation assumption (% p.a.) used to turn the nominal range into a real one. Change here only.
+RETURN_RANGE_HALF_WIDTH_PP = 0.5  # nominal range = expected return +/- this many percentage points
+
+
+def _r1(x: float) -> float:
+    return round(x + 1e-9, 1) + 0.0  # one decimal, no -0.0
+
+
+def _f(x: float) -> str:
+    return f"{_r1(x):.1f}"
+
+
+def rate_of_return(code: str) -> dict | None:
+    """{"nominalLowPct","nominalHighPct","realLowPct","realHighPct","inflationPct","text"} for strategy `code`, or None when the
+    strategy or its expected return is unknown. Nominal = expected_return_pct +/- 0.5pp; real = nominal - INFLATION_ASSUMPTION_PCT."""
+    s = get_strategy(code)
+    er = s.get("expected_return_pct") if s else None
+    if isinstance(er, bool) or not isinstance(er, (int, float)):
+        return None
+    nl, nh = _r1(er - RETURN_RANGE_HALF_WIDTH_PP), _r1(er + RETURN_RANGE_HALF_WIDTH_PP)
+    rl, rh = _r1(nl - INFLATION_ASSUMPTION_PCT), _r1(nh - INFLATION_ASSUMPTION_PCT)
+    nominal = f"Based on current projections, this equates to a current nominal return of {_f(nl)}%\u2013{_f(nh)}%."
+    if rl > 0:
+        head = (f"This portfolio recommendation is designed to generate an average, expected rate of return of "
+                f"{_f(rl)}%\u2013{_f(rh)}% above inflation, net of fees and costs.")
+    elif rh <= 0:
+        head = ("This portfolio recommendation is designed to generate an average, expected rate of return below inflation "
+                f"({_f(rl)}%\u2013{_f(rh)}% in real terms), net of fees and costs." if rh < 0 else
+                "This portfolio recommendation is designed to generate an average, expected rate of return in line with inflation, "
+                "net of fees and costs.")
+    else:  # range straddles 0
+        head = ("This portfolio recommendation is designed to generate an average, expected rate of return broadly in line with "
+                f"inflation ({_f(rl)}%\u2013{_f(rh)}% in real terms), net of fees and costs.")
+    return {"nominalLowPct": nl, "nominalHighPct": nh, "realLowPct": rl, "realHighPct": rh,
+            "inflationPct": INFLATION_ASSUMPTION_PCT, "text": f"{head} {nominal}"}
+
+
+def rate_of_return_text(code: str) -> str:
+    r = rate_of_return(code)
+    return r["text"] if r else ""

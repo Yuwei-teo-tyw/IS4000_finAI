@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { generateIpsSection, mergeIpsGenerated, appendIpsChat } from "./arcApi";
+import { streamIpsGeneration, mergeIpsGenerated, appendIpsChat } from "./arcApi";
 import { emitIpsGen } from "./ipsGenBus";
 import { IPS_GEN_SECTIONS, type IpsGenerated, type IpsGenSectionResult } from "../types/arc";
 import type { IpsGenStep } from "../components/documents/IpsGenerationTimeline";
@@ -64,45 +64,82 @@ export function startIpsGeneration(clientId: string, clientName: string): boolea
   return true;
 }
 
+const controllers = new Map<string, AbortController>();
+/** User cancel: aborts the stream; sections that already finished stay in the run, the backend does not save a draft. */
+export function cancelIpsGeneration(clientId: string) {
+  controllers.get(clientId)?.abort();
+}
+
 async function run(clientId: string, clientName: string) {
-  const results: IpsGenSectionResult[] = [];
-  const steps: IpsGenStep[] = IPS_GEN_SECTIONS.map((x) => ({ id: x.id, state: "pending" }));
+  const ctrl = new AbortController();
+  controllers.set(clientId, ctrl);
+  const byId = new Map<string, IpsGenSectionResult>();
+  const steps: IpsGenStep[] = IPS_GEN_SECTIONS.map((x) => ({ id: x.id, state: "active" })); // sections run concurrently
   let model: string | undefined; let modelMessage = "";
   let saved = false; let savedVersion: number | undefined;
+  const label = (id: string) => IPS_GEN_SECTIONS.find((s) => s.id === id)?.label ?? id;
+  const waiting = () => { const l = steps.filter((x) => x.state === "active").map((x) => label(x.id)); return l.length ? `Reading meeting notes · Filling ${l.join(", ")}` : "Finishing up"; };
   const snap = (message: string) => set(clientId, { steps: steps.map((x) => ({ ...x })), message, model, modelMessage, saved, savedVersion });
   const fail = (message: string, unavailable?: boolean) => {
     set(clientId, { steps: steps.map((x) => ({ ...x })), status: "error", error: message, message: "", model, modelMessage, unavailable, finishedAt: Date.now() });
   };
+  const ordered = () => IPS_GEN_SECTIONS.map((x) => byId.get(x.id)).filter((r): r is IpsGenSectionResult => !!r && r.status === "ok");
   emitIpsGen({ type: "start", clientId, clientName });
-  for (let i = 0; i < IPS_GEN_SECTIONS.length; i++) {
-    const sec = IPS_GEN_SECTIONS[i];
-    steps[i].state = "active";
-    snap(`Reading meeting notes · Filling ${sec.label}`);
-    let r: IpsGenSectionResult;
-    // Pass the draft version back so every section lands in ONE saved draft (a call without it creates a new version).
-    try { r = await generateIpsSection(clientId, sec.id, savedVersion); }
-    catch (e) {
-      const msg = e instanceof Error ? e.message : "AI IPS generation failed.";
-      steps[i].state = "pending"; fail(msg); emitIpsGen({ type: "error", clientId, message: msg }); return;
-    }
+  snap(waiting());
+  const onSection = (r: IpsGenSectionResult) => {
+    byId.set(r.section, r);
     if (r.model && !model) { model = r.model; emitIpsGen({ type: "model", clientId, model }); }
     if (!r.model && r.modelMessage && !modelMessage) modelMessage = r.modelMessage;
-    // The backend auto-saves a Draft version once something is generated: `saved`, `version`, `ips`.
-    if (r.saved) { saved = true; savedVersion = r.version ?? r.ips?.version ?? r.saved_ips?.version ?? savedVersion; }
     emitIpsGen({ type: "section", clientId, result: r });
+    const step = steps.find((x) => x.id === r.section);
+    if (step) {
+      if (r.status !== "ok") { step.state = "pending"; step.note = r.status === "error" ? "Failed" : r.status === "no_notes" ? "No meeting notes" : "Not generated"; }
+      else {
+        step.state = "done";
+        const empty = !Object.values(r.fields ?? {}).some((v) => v?.trim()) && !(r.bullets ?? []).some((b) => b?.trim()) && !Object.values(r.philosophy ?? {}).some((v) => v?.trim()) && !(r.allocation?.buckets ?? []).length;
+        if (empty) step.note = "Nothing stated in the notes";
+      }
+    }
     set(clientId, { sections: [...(runs.get(clientId)?.sections ?? []).filter((x) => x.section !== r.section), r], model });
-    if (sec.id === "allocation" && r.status !== "ok" && results.length) { steps[i].state = "pending"; steps[i].note = "Not generated"; continue; }
-    if (r.status === "no_notes") { steps[i].state = "pending"; fail("No meeting notes found for this client; add notes first or create the IPS manually."); emitIpsGen({ type: "done", clientId }); return; }
-    if (r.status !== "ok") { steps[i].state = "pending"; fail((!model && r.modelMessage) || r.message || "Geneva is unavailable, so the IPS was not generated.", !model); emitIpsGen({ type: "done", clientId, unavailable: !model }); return; }
-    const empty = !Object.values(r.fields ?? {}).some((v) => v?.trim()) && !(r.bullets ?? []).some((b) => b?.trim()) && !Object.values(r.philosophy ?? {}).some((v) => v?.trim()) && !(r.allocation?.buckets ?? []).length;
-    steps[i].state = "done";
-    if (empty) steps[i].note = "Nothing stated in the notes";
-    results.push(r);
+    snap(waiting());
+  };
+  let final: Awaited<ReturnType<typeof streamIpsGeneration>> = null;
+  try { final = await streamIpsGeneration(clientId, { onSection }, ctrl.signal); }
+  catch (e) {
+    controllers.delete(clientId);
+    const cancelled = e instanceof DOMException && e.name === "AbortError";
+    const msg = cancelled ? "Generation cancelled." : e instanceof Error ? e.message : "AI IPS generation failed.";
+    steps.forEach((x) => { if (x.state === "active") x.state = "pending"; });
+    fail(msg); emitIpsGen({ type: "error", clientId, message: msg }); return;
   }
+  controllers.delete(clientId);
+  const missing = IPS_GEN_SECTIONS.filter((x) => !byId.has(x.id)).map((x) => x.label);
+  steps.forEach((x) => { if (x.state === "active") { x.state = "pending"; x.note = "Not finished"; } });
+  const okResults = ordered();
+  if (!final) { // the stream died before the final line: show what finished and what did not
+    const msg = `The connection to Geneva dropped. ${okResults.length} of ${IPS_GEN_SECTIONS.length} sections finished${missing.length ? `; not finished: ${missing.join(", ")}` : ""}. Nothing was saved.`;
+    set(clientId, { draft: okResults.length ? mergeIpsGenerated(okResults) : undefined });
+    fail(msg); emitIpsGen({ type: "error", clientId, message: msg }); return;
+  }
+  if (final.model && !model) model = final.model;
+  if (!modelMessage && final.modelMessage) modelMessage = final.modelMessage;
+  if (final.saved) { saved = true; savedVersion = final.version ?? undefined; }
+  if (!okResults.length) {
+    const first = [...byId.values()][0];
+    if (first && [...byId.values()].every((r) => r.status === "no_notes")) { fail("No meeting notes found for this client; add notes first or create the IPS manually."); emitIpsGen({ type: "done", clientId }); return; }
+    fail((!model && modelMessage) || first?.message || "Geneva is unavailable, so the IPS was not generated.", !model); emitIpsGen({ type: "done", clientId, unavailable: !model }); return;
+  }
+  const results = okResults;
+  const failed = IPS_GEN_SECTIONS.filter((x) => byId.get(x.id)?.status === "error").map((x) => x.label);
+  if (final.error) set(clientId, { error: final.error });
+  if (failed.length) set(clientId, { error: `${failed.join(", ")} could not be generated; the other sections were kept.` });
   const merged = mergeIpsGenerated(results);
   emitIpsGen({ type: "done", clientId, model, allocation: merged.allocation, saved, savedVersion });
-  // Log in the saved IPS conversation here so it is recorded even when the sidebar is closed.
-  const text = `Generated the IPS draft from the meeting notes${model ? ` with ${model}` : ""}${saved ? " and saved it" : ""}.${merged.allocation ? ` 3L allocation: ${merged.allocation.buckets.map((b) => `${BUCKET[b.id] ?? b.id} - ${b.strategy}${b.strategyName ? ` ${b.strategyName}` : ""}`).join("; ")}.` : ""}`;
-  appendIpsChat(clientId, { role: "assistant", text, kind: "generation", meta: { model: model ?? null, allocation: merged.allocation ?? null } }).catch(() => {});
+  // Log in the saved IPS conversation here so it is recorded even when the sidebar is closed. Reasoning is part of the text so it survives reload.
+  const head = `Generated the IPS draft from the meeting notes${model ? ` with ${model}` : ""}${saved ? " and saved it" : ""}.${merged.allocation ? ` 3L allocation: ${merged.allocation.buckets.map((b) => `${BUCKET[b.id] ?? b.id} - ${b.strategy}${b.strategyName ? ` ${b.strategyName}` : ""}`).join("; ")}.` : ""}`;
+  const prop = merged.proportion ? ` 3L proportion: ${(["liquidity", "longevity", "legacy"] as const).map((k) => `${BUCKET[k].replace(" portfolio", "")} ${merged.proportion![k].pct}%`).join(", ")}.` : "";
+  const why = results.filter((r) => r.reasoning?.length).map((r) => `${IPS_GEN_SECTIONS.find((s) => s.id === r.section)?.label ?? r.section} reasoning:\n${r.reasoning!.map((l) => `- ${l}`).join("\n")}`).join("\n\n");
+  const text = `${head}${prop}${why ? `\n\n${why}` : ""}`;
+  appendIpsChat(clientId, { role: "assistant", text, kind: "generation", meta: { model: model ?? null, allocation: merged.allocation ?? null, proportion: merged.proportion ?? null, reasoning: Object.fromEntries(results.filter((r) => r.reasoning?.length).map((r) => [r.section, r.reasoning])) } }).catch(() => {});
   set(clientId, { steps: steps.map((x) => ({ ...x })), status: "done", saved, savedVersion, model, modelMessage, message: saved ? "Saved" : "Draft ready", draft: saved ? undefined : merged, finishedAt: Date.now() });
 }
