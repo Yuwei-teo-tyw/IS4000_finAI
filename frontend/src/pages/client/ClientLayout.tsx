@@ -1,21 +1,32 @@
+import { useState } from "react";
 import { NavLink, Navigate, Outlet, Link, useLocation } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { useRole } from "../../layouts/AppShell";
-import { Badge, Loading, RiskScale, sgd } from "../../components/ui";
+import { Badge, Loading, RiskScale, sgd, useAsyncResult } from "../../components/ui";
 import { fmtDate } from "../rm/rmShared";
+import { arcApi } from "../../services/arcApi";
+import type { ClientPortfolio as Portfolio } from "../../types/arc";
 import { useClient } from "../../components/client/useClient";
 
 const TABS = [
-  { to: "", label: "Overview", end: true, rmOnly: false },
+  { to: "", label: "Overview (To Remove)", end: true, rmOnly: false },
   { to: "upload-notes", label: "Meeting Notes", end: false, rmOnly: true },
   { to: "documents", label: "IPS", end: false, rmOnly: false },
   { to: "review-pack", label: "Review Pack", end: false, rmOnly: true },
+  { to: "portfolio", label: "Portfolio", end: false, rmOnly: false },
 ];
+export type PortfolioCtx = { portfolio: { data: Portfolio | null; error?: Error; loading: boolean; retry: () => void } };
 const BACK = { rm: ["clients", "Back to Client Book"], pm: ["inbox", "Back to Inbox"], ps: ["inbox", "Back to Inbox"] } as const;
 export default function ClientLayout() {
   const role = useRole();
   const { state, pathname } = useLocation() as { state: { from?: string; fromLabel?: string } | null; pathname: string };
   const { clientId, client, notFound } = useClient();
+  // The Portfolio tab follows the data: always shown for a client in the book (a not-in-book client never reaches this page).
+  // Fetched once here and shared with the Portfolio page through the outlet context.
+  const [attempt, setAttempt] = useState(0);
+  const { data: pRes, error: pError } = useAsyncResult(async () => ({ p: await arcApi.getClientPortfolio(clientId) }), [clientId, attempt]);
+  const portfolio = pRes?.p ?? null;
+  const ctx: PortfolioCtx = { portfolio: { data: portfolio, error: pError, loading: !pRes && !pError, retry: () => setAttempt((a) => a + 1) } };
   if (notFound) {
     return (
       <div>
@@ -50,7 +61,7 @@ export default function ClientLayout() {
         </div>
       </header>
       <nav className="mb-10 flex flex-wrap gap-2 border-b border-ink-200">
-        {TABS.filter((t) => !t.rmOnly || role === "rm").map((t) => t.to === "review-pack" && onboarding ? (
+        {TABS.filter((t) => (!t.rmOnly || role === "rm") && true).map((t) => t.to === "review-pack" && onboarding ? (
           <span key={t.label} aria-disabled="true" title="Onboarding and IPS not completed"
             className="-mb-px cursor-not-allowed border-b-2 border-transparent px-5 py-3 text-sm font-semibold text-ink-muted opacity-50">{t.label}</span>
         ) : (
@@ -60,7 +71,7 @@ export default function ClientLayout() {
           </NavLink>
         ))}
       </nav>
-      <Outlet />
+      <Outlet context={ctx} />
     </div>
   );
 }

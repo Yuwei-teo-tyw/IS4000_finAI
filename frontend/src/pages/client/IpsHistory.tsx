@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Eye, Pencil, Sparkles, Trash2 } from "lucide-react";
-import { Badge, Button, Card, Loading, Section, useAsync } from "../../components/ui";
+import { Badge, Button, Card, Loading, Section, useAsync, useAsyncResult } from "../../components/ui";
 import { useRole } from "../../layouts/AppShell";
 import { DocumentPreviewModal } from "../../components/documents/DocumentPreviewModal";
 import { IpsDocument } from "../../components/documents/IpsDocument";
@@ -10,6 +10,8 @@ import { dismissIpsRun, startIpsGeneration, useIpsRun } from "../../services/ips
 import { arcApi } from "../../services/arcApi";
 import { activateIps, setActiveIps, useActiveIps, useIpsReturned } from "../../services/workflowStore";
 import IpsDraft from "../rm/IpsDraft";
+import { IpsStatusBadge } from "../rm/IpsSendUi";
+import { formatSentAt, useIpsSendStatus, type IpsStatusLabel } from "../rm/ipsSendUtil";
 import type { IpsGenerated, IpsVersion } from "../../types/arc";
 
 const statusTone = { Active: "green", Superseded: "grey", Draft: "gold" } as const;
@@ -70,13 +72,14 @@ export function IpsHistory({ clientId, clientName = "" }: { clientId: string; cl
     window.addEventListener("ips-versions-changed", h);
     return () => window.removeEventListener("ips-versions-changed", h);
   }, [clientId]);
-  const versions = useAsync(() => arcApi.getIpsHistory(clientId), [clientId, editing, reload]);
+  const { data: versions, error: loadError } = useAsyncResult(() => arcApi.getIpsHistory(clientId), [clientId, editing, reload]);
   const client = useAsync(() => arcApi.getClient(clientId), [clientId]);
   const [order, setOrder] = useState<SortOrder>("latest");
   const sorted = useMemo(
     () => [...(versions ?? [])].sort((a, b) => (order === "latest" ? b.issuedOn.localeCompare(a.issuedOn) : a.issuedOn.localeCompare(b.issuedOn))),
     [versions, order],
   );
+  const { status: sendStatus } = useIpsSendStatus(clientId);
   const explicit = useActiveIps(clientId);
   const returned = useIpsReturned(clientId);
   const activeVersion = explicit ?? [...(versions ?? [])].filter((v) => v.status !== "Draft").sort((a, b) => b.version - a.version)[0]?.version ?? null;
@@ -118,13 +121,24 @@ export function IpsHistory({ clientId, clientName = "" }: { clientId: string; cl
       </div>
     );
   }
+  if (loadError) {
+    return (
+      <Section title="IPS versions">
+        <div className="border border-hairline bg-surface-100 p-8" role="alert">
+          <p className="text-base text-ink">The IPS versions could not be loaded.</p>
+          <p className="mt-2 text-sm text-ink-muted">Check your connection and try again.</p>
+          <div className="mt-5"><Button variant="ghost" onClick={() => setReload((n) => n + 1)}>Retry</Button></div>
+        </div>
+      </Section>
+    );
+  }
   if (!versions) return <Loading />;
   return (
     <Section title="IPS versions">
       {versions.length === 0 ? (
         <Card className="!p-8">
           <div className="flex flex-wrap items-start justify-between gap-4">
-            <p className="text-base text-ink-muted">No IPS issued yet.{role === "rm" && " Use the pencil to create one, or let Geneva draft it from the meeting notes."}</p>
+            <p className="text-base text-ink-muted">No IPS yet. {role === "rm" ? "Use the pencil to create one, or let Geneva draft it from the meeting notes." : "It will appear here once the RM generates one."}</p>
             {role === "rm" && !gen && (
               <div className="flex items-center gap-3">
                 <Button variant="ghost" onClick={startGeneration}><Sparkles size={16} /> AI IPS generation</Button>
@@ -151,7 +165,7 @@ export function IpsHistory({ clientId, clientName = "" }: { clientId: string; cl
       ) : (
         <div>
           <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-            <span />
+            {sendStatus && sendStatus.status !== "No IPS" ? <IpsStatusBadge status={sendStatus.status as IpsStatusLabel} detail={sendStatus.status !== "Draft" ? formatSentAt(sendStatus.sentAt) || undefined : undefined} /> : <span />}
             <SortByDate value={order} onChange={setOrder} />
           </div>
           {deleteError && <p role="alert" className="mb-4 text-sm text-negative">{deleteError}</p>}

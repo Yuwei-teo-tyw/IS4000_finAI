@@ -61,7 +61,8 @@ def _income(s):
 
 def _monthly_need(s):
     if re.search(r"expenses|spending|spends|cash need|living costs", s, re.I) and re.search(r"a month|per month|monthly|each month", s, re.I):
-        return _first_amt(s, "")
+        # the amount that follows the spending word, so "reserve of S$400,000 and spends S$20,000 a month" reads 20,000
+        return _first_amt(s, r"(?:expenses|spending|spends|cash need|living costs)") or _first_amt(s, "")
     return None
 
 

@@ -41,7 +41,7 @@ export default function SettingsDialog({ role }: { role: Role }) {
   return (
     <>
       <button type="button" onClick={() => setOpen(true)} aria-label="System prompt" title="System prompt"
-        className="flex min-h-10 w-full items-center gap-3 rounded-sm border border-hairline px-3 text-[13.5px] text-ink hover:bg-surface-300 max-md:justify-center max-md:px-0">
+        className="flex min-h-10 w-full items-center gap-3 rounded-sm border border-hairline px-3 text-[13.5px] font-normal text-ink hover:bg-surface-300 max-md:justify-center max-md:px-0">
         <Terminal size={16} strokeWidth={1.5} aria-hidden />
         <span className="max-md:sr-only">System prompt</span>
       </button>

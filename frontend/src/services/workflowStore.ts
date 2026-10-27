@@ -143,7 +143,7 @@ export interface IpsDraftExtras {
   buckets?: Bucket3L[]; saaNotes?: Partial<Record<BucketId, string>>;
   demo?: Record<string, string>; risk?: Record<string, string>;
   /** Investment philosophy statement blanks (RM-filled). */
-  philosophy?: { approach?: string; believes?: string; avoids?: string; statement?: string };
+  philosophy?: { approach?: string; believes?: string; avoids?: string; statement?: string; investmentPeriod?: string };
   signatures?: { client?: string; rm?: string };
   /** Strategy code (A-F) chosen per 3L bucket, and the justification text per bucket. */
   allocation?: { liquidity?: string; longevity?: string; legacy?: string };
@@ -151,7 +151,6 @@ export interface IpsDraftExtras {
   saaPortfolios?: Partial<Record<BucketId, SaaPortfolio>>;
   /** Structured IPS fields (backend JSON shape, read tolerantly). */
   targets?: import("../components/documents/ips/ipsTypes").IpsTarget[];
-  lifeEvents?: import("../components/documents/ips/ipsTypes").IpsLifeEvent[];
   reviewRules?: { title: string; text: string }[];
   rmSignedDate?: string;
 }

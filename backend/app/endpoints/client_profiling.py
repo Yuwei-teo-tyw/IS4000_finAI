@@ -6,10 +6,14 @@ HTTP interface for the Client Profiling Agent.
 Read-only: never updates IPS documents, client records or allocations. Validation errors do not echo
 submitted values (client data).
 """
+import json
+import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timezone
 from typing import Annotated, Literal, Optional
 
 from fastapi import APIRouter, File, Form, Header, HTTPException, Query, Request, UploadFile
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.routing import APIRoute
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
 
@@ -17,11 +21,12 @@ from app.agents.client_profiling.ips_assist import ips_assist
 from app.agents.client_profiling.ips_generate import SECTIONS as IPS_GEN_SECTIONS, generate_ips_section
 from app.agents.client_profiling.strategies import allowed_strategies, load_strategies
 from app.agents.client_profiling.threel import discuss_allocation
+from app.agents.client_profiling.proportion import validate_proportion
 from app.agents.client_profiling.schemas import SourceRef, ToolResult
 from app.agents.client_profiling.ingest import IngestError, ingest_note
 from app.agents.client_profiling.service import handle_chat
-from app.agents.client_profiling.ips_model import merge_section, new_ips_data, normalize_data, render_parts
-from app.agents.client_profiling.store import DEFAULT_RM, IPS_CHAT_CAP, StoreUnavailableError, get_default_store
+from app.agents.client_profiling.ips_model import empty_sections, merge_section, new_ips_data, normalize_data, render_parts
+from app.agents.client_profiling.store import DEFAULT_RM, IPS_CHAT_CAP, SENT_STATUS, StoreUnavailableError, get_default_store
 
 PREFIX = "/agents/client-profiling"
 
@@ -110,7 +115,7 @@ def _stored_history(store, client_id: Optional[str], rm: str) -> Optional[list]:
 
 
 @router.post("/chat", response_model=ToolResult)
-async def chat(body: ProfilingChatRequest, x_rm_id: Optional[str] = Header(default=None), rm_id: Optional[str] = Query(default=None)) -> ToolResult:
+def chat(body: ProfilingChatRequest, x_rm_id: Optional[str] = Header(default=None), rm_id: Optional[str] = Query(default=None)) -> ToolResult:
     store = get_default_store()
     book = store.book_ids()  # StoreUnavailableError -> guard; client-supplied `book` is ignored
     allocation = body.allocation or _allocation_from_ips(store, body.client_id)
@@ -140,7 +145,7 @@ class IpsAssistResponse(BaseModel):
 
 
 @router.post("/ips-assist", response_model=IpsAssistResponse)
-async def ips_assist_endpoint(body: IpsAssistRequest) -> IpsAssistResponse:
+def ips_assist_endpoint(body: IpsAssistRequest) -> IpsAssistResponse:
     """Draft or professionalise one IPS section for the edit page. Read-only suggestion; nothing is saved."""
     store = get_default_store()
     if store.get_client(body.client_id) is None:
@@ -187,7 +192,7 @@ def _autosave(store, client_id: str, results: list[dict], version: Optional[int]
 
 
 @router.post("/ips-generate")
-async def ips_generate(body: IpsGenerateRequest) -> dict:
+def ips_generate(body: IpsGenerateRequest) -> dict:
     """Draft one IPS section from the client's meeting notes (local model) and save it: no manual save needed.
     Response = the section result (+ `model`) and, when something was generated, `saved: true`, `version` and `ips`."""
     store = get_default_store()
@@ -199,17 +204,78 @@ async def ips_generate(body: IpsGenerateRequest) -> dict:
 
 
 @router.post("/ips-generate/all")
-async def ips_generate_all(body: IpsGenerateAllRequest) -> dict:
+def ips_generate_all(body: IpsGenerateAllRequest) -> dict:
     """Generate every section in order, save ONE new draft IPS version and return it with per-section progress events."""
     store = get_default_store()
     _require_in_book(store, body.client_id)
     results = [generate_ips_section(store, body.client_id, sid) for sid, _l in IPS_GEN_SECTIONS]
     ips = _autosave(store, body.client_id, results, None)
-    events = [{"section": r["section"], "status": r["status"], "message": r["message"], "model": r.get("model")} for r in results]
+    events = [{"section": r["section"], "status": r["status"], "message": r["message"], "model": r.get("model"),
+               "reasoning": r.get("reasoning") or []} for r in results]
     model = next((r["model"] for r in results if r.get("model")), None)
     return {"sections": results, "events": events, "model": model,
             "modelMessage": "" if model else next((r.get("modelMessage", "") for r in results if r.get("modelMessage")), ""),
             "saved": ips is not None, "version": ips["version"] if ips else None, "ips": ips, "saved_ips": ips}
+
+
+def _stream_workers() -> int:
+    """Concurrent section generations. LM Studio (4 parallel slots) measured ~1.5x faster with 2-4 concurrent requests."""
+    try:
+        return max(1, min(3, int(os.getenv("IPS_GENERATE_WORKERS", "3"))))
+    except ValueError:
+        return 3
+
+
+def _ndjson(obj: dict) -> bytes:
+    return (json.dumps(obj, default=str) + "\n").encode("utf-8")
+
+
+def _safe_generate(store, client_id: str, section: str) -> dict:
+    try:
+        return generate_ips_section(store, client_id, section)
+    except Exception:  # one failing section must not kill the others; never echo client data in the message
+        return {"section": section, "status": "error", "message": "This section could not be generated.",
+                "fields": {}, "bullets": [], "sources": [], "reasoning": [], "model": None}
+
+
+@router.post("/ips-generate/stream")
+def ips_generate_stream(body: IpsGenerateAllRequest) -> StreamingResponse:
+    """Generate all sections concurrently (bounded pool) and stream one NDJSON line per section as it finishes:
+    `{"type":"start","sections":[...]}`, then `{"type":"section", ...section result}` lines (any order), then ONE autosave of a
+    single new Draft version and a final `{"type":"done","saved","version","ips","model","modelMessage"}` line."""
+    store = get_default_store()
+    _require_in_book(store, body.client_id)
+    ids = [sid for sid, _l in IPS_GEN_SECTIONS]
+    order = sorted(ids, key=lambda s: s != "allocation")  # the slowest section first so it overlaps the narrative ones
+
+    def gen():
+        yield _ndjson({"type": "start", "sections": ids, "workers": _stream_workers()})
+        ex = ThreadPoolExecutor(max_workers=_stream_workers(), thread_name_prefix="ips-gen")
+        results: dict[str, dict] = {}
+        finished = False
+        try:
+            futs = {ex.submit(_safe_generate, store, body.client_id, sid): sid for sid in order}
+            for f in as_completed(futs):
+                r = f.result()
+                results[r.get("section", futs[f])] = r
+                yield _ndjson({"type": "section", **r})
+            finished = True
+        finally:
+            ex.shutdown(wait=False, cancel_futures=True)  # client went away: stop queued work, skip the save
+        if not finished:
+            return
+        ordered = [results[s] for s in ids if s in results]
+        model = next((r["model"] for r in ordered if r.get("model")), None)
+        out: dict = {"type": "done", "model": model,
+                     "modelMessage": "" if model else next((r.get("modelMessage", "") for r in ordered if r.get("modelMessage")), "")}
+        try:
+            ips = _autosave(store, body.client_id, ordered, None)
+            out.update({"saved": ips is not None, "version": ips["version"] if ips else None, "ips": ips})
+        except Exception:
+            out.update({"saved": False, "version": None, "ips": None, "error": "The generated draft could not be saved."})
+        yield _ndjson(out)
+
+    return StreamingResponse(gen(), media_type="application/x-ndjson", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
 def _strategy_json(s: dict) -> dict:
@@ -217,7 +283,17 @@ def _strategy_json(s: dict) -> dict:
     return {"code": g("code"), "name": g("name"), "riskLabel": g("riskLabel", "risk_label"), "allocation": g("allocation"),
             "expectedReturnPct": g("expectedReturnPct", "expected_return_pct"), "volatilityPct": g("volatilityPct", "volatility_pct"),
             "maxDrawdownPct": g("maxDrawdownPct", "max_drawdown_pct"),
-            "longestDrawdownYears": g("longestDrawdownYears", "longest_drawdown_years")}
+            "longestDrawdownYears": g("longestDrawdownYears", "longest_drawdown_years"), **_ror_json(g("code"))}
+
+
+def _ror_json(code) -> dict:
+    """Portfolio rate of return for a strategy code (camelCase): numeric fields + rateOfReturnText."""
+    from app.agents.client_profiling.strategies import rate_of_return
+    r = rate_of_return(code or "")
+    if not r:
+        return {"nominalLowPct": None, "nominalHighPct": None, "realLowPct": None, "realHighPct": None, "inflationPct": None,
+                "rateOfReturnText": ""}
+    return {**{k: v for k, v in r.items() if k != "text"}, "rateOfReturnText": r["text"]}
 
 
 @router.get("/strategies")
@@ -264,12 +340,24 @@ class AllocationDiscussRequest(BaseModel):
 
 
 @router.post("/ips-allocation/discuss")
-async def ips_allocation_discuss(body: AllocationDiscussRequest) -> dict:
+def ips_allocation_discuss(body: AllocationDiscussRequest) -> dict:
     """Discuss the 3L allocation with the agent: it follows, partly follows or disagrees (with reasons). Read-only."""
     store = get_default_store()
     _require_in_book(store, body.client_id)
     return discuss_allocation(store, body.client_id, body.message.strip(), [t.model_dump() for t in body.history],
                               body.allocation.model_dump() if body.allocation else None)
+
+
+class ProportionValidateRequest(BaseModel):
+    liquidity: float
+    longevity: float
+    legacy: float
+
+
+@router.post("/ips-proportion/validate")
+async def ips_proportion_validate(body: ProportionValidateRequest) -> dict:
+    """Sum-to-100 check for a manually edited proportion: {ok, total, message}."""
+    return validate_proportion(body.model_dump())
 
 
 # --- IPS chat history: persisted per client AND per RM (Postgres cp_ips_chat or JSON); cap IPS_CHAT_CAP messages ---
@@ -379,7 +467,8 @@ async def ips_allocation_override(body: OverrideIn, x_rm_id: Optional[str] = Hea
         raise HTTPException(status_code=422, detail="Liquidity may only use Strategy A or B" if pf == "liquidity" else "unknown strategy")
     row = store.log_strategy_override(body.client_id, pf.capitalize(), (body.from_strategy or "").strip().upper(), to,
                                       body.reason.strip(), rm_id=_rm(x_rm_id, rm_id))
-    return {"ok": True, "ts": row["ts"], "override": row}
+    from app.agents.client_profiling.strategies import rate_of_return_text
+    return {"ok": True, "ts": row["ts"], "override": row, "rateOfReturn": rate_of_return_text(to)}
 
 
 @router.get("/ips-allocation/overrides/{client_id}")
@@ -463,6 +552,22 @@ def _ips_json(v) -> dict:
                       for p in sorted(v.parts, key=lambda p: p.part)]}
 
 
+def _flag_out_of_date(store, client_id: str, versions: list[dict]) -> None:
+    """Mark a stored 3L recommendation `threeLOutOfDate` when the risk profile or meeting notes changed since it was generated."""
+    from app.agents.client_profiling.threel import OUT_OF_DATE_MSG, profile_fingerprint
+    if not any((v["data"].get("threeLBasis") and v["data"].get("threeL")) for v in versions):
+        return
+    try:
+        now = profile_fingerprint(store.get_client(client_id), store.get_notes(client_id))
+    except Exception:
+        return
+    for v in versions:
+        d = v["data"]
+        if d.get("threeLBasis") and d.get("threeL"):
+            d["threeLOutOfDate"] = d["threeLBasis"] != now
+            d["threeLOutOfDateMessage"] = OUT_OF_DATE_MSG if d["threeLOutOfDate"] else ""
+
+
 @router.get("/ips/{client_id}")
 async def get_client_ips(client_id: str) -> dict:
     """The client's IPS versions (newest first) in the frontend IpsVersion shape; 404 for an unknown client."""
@@ -471,8 +576,10 @@ async def get_client_ips(client_id: str) -> dict:
         raise HTTPException(status_code=404, detail="Unknown client")
     versions = store.get_ips_versions(client_id)
     current = next((v.version for v in versions if v.status == "Active"), None)
+    out = [_ips_json(v) for v in versions]
+    _flag_out_of_date(store, client_id, out)
     return {"client_id": client_id, "client_name": _client_name(store, client_id),
-            "clientName": _client_name(store, client_id), "current_version": current, "versions": [_ips_json(v) for v in versions]}
+            "clientName": _client_name(store, client_id), "current_version": current, "versions": out}
 
 
 # --- IPS write API: save, then index the current version so it is searchable immediately (US-17) ---
@@ -487,7 +594,7 @@ class IpsPartIn(BaseModel):
 class IpsSaveRequest(BaseModel):
     version: Optional[int] = Field(default=None, ge=1)  # None = create the next version; set = edit that version in place
     parts: list[IpsPartIn] = Field(default_factory=list, max_length=20)  # may be empty when `data` is sent (parts are rendered)
-    data: Optional[dict] = None  # structured IPS JSON (schemas.py); lifeEvents with manual:true are kept
+    data: Optional[dict] = None  # structured IPS JSON (schemas.py)
     summary: Optional[str] = Field(default=None, max_length=1000)
     author: Optional[str] = Field(default=None, max_length=80)
     status: Literal["Active", "Draft"] = "Active"  # only used when creating a new version
@@ -520,3 +627,89 @@ async def save_client_ips(client_id: str, body: IpsSaveRequest) -> dict:
     if saved is None:
         raise HTTPException(status_code=404, detail="IPS version not found for this client")
     return {"client_id": client_id, "clientName": _client_name(store, client_id), "ips": _ips_json(saved), "indexing": _index_after_save(store, client_id, saved.version)}
+
+
+# --- IS-101: send the draft IPS to the PM (immutable snapshot + sent state, one transaction) ---
+NOT_SENT = {"sent": False, "message": "Not sent. Try again."}
+
+
+def default_notify_pm(client_id: str, record: dict) -> None:
+    """Notification seam, called inside the send transaction; raising aborts the send. Tests monkeypatch
+    `notify_pm`; setting env IPS_SEND_FAIL=1 simulates a failing notification."""
+    if os.getenv("IPS_SEND_FAIL", "").strip().lower() in ("1", "true", "yes"):
+        raise RuntimeError("simulated PM notification failure")
+
+
+notify_pm = default_notify_pm
+
+
+class IpsSendRequest(BaseModel):
+    version: Optional[int] = Field(default=None, ge=1)  # None = latest saved version
+
+
+def _content(j: dict) -> dict:
+    return {"data": j["data"], "parts": j["parts"]}
+
+
+@router.post("/ips-send/{client_id}")
+async def send_ips_to_pm(client_id: str, body: Optional[IpsSendRequest] = None, x_rm_id: Optional[str] = Header(default=None),
+                         rm_id: Optional[str] = Query(default=None)):
+    store = get_default_store()
+    _require_in_book(store, client_id)
+    versions = store.get_ips_versions(client_id)
+    if not versions:
+        raise HTTPException(status_code=409, detail="Generate an IPS first")
+    want = body.version if body else None
+    target = max(versions, key=lambda v: v.version) if want is None else next((v for v in versions if v.version == want), None)
+    if target is None:
+        raise HTTPException(status_code=404, detail=f"IPS v{want} not found")
+    snap = {**_ips_json(target), "status": SENT_STATUS, "clientId": client_id}
+    sent_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+    snap["sentAt"] = sent_at
+    try:
+        rec = store.send_ips_to_pm(client_id, target.version, _rm(x_rm_id, rm_id), sent_at, snap,
+                                   before_commit=lambda r: notify_pm(client_id, r))
+    except Exception:  # StoreUnavailableError included: nothing was committed, so the status stays Draft
+        return JSONResponse(NOT_SENT, status_code=503)
+    return {"status": SENT_STATUS, "version": rec["version"], "sentAt": rec["sentAt"], "emptySections": empty_sections(target.data)}
+
+
+@router.get("/ips-send/{client_id}")
+async def get_ips_send_status(client_id: str) -> dict:
+    store = get_default_store()
+    _require_in_book(store, client_id)
+    versions = store.get_ips_versions(client_id)
+    if not versions:
+        return {"sent": False, "status": "No IPS", "sentVersion": None, "sentAt": None, "latestVersion": None,
+                "outdated": False, "message": "Generate an IPS first"}
+    latest = max(versions, key=lambda v: v.version)
+    rec = store.get_ips_send(client_id)
+    if rec is None:
+        return {"sent": False, "status": "Draft", "sentVersion": None, "sentAt": None, "latestVersion": latest.version,
+                "outdated": False, "message": "Draft. Not yet sent to the PM."}
+    snap = rec["snapshot"]
+    outdated = latest.version > rec["version"] or _content(_ips_json(latest)) != _content(snap)
+    msg = (f"The PM has an older version (v{rec['version']}). Send the updated version?" if outdated
+           else f"Sent to the PM (v{rec['version']}).")
+    return {"sent": True, "status": rec["status"], "sentVersion": rec["version"], "sentAt": rec["sentAt"],
+            "latestVersion": latest.version, "outdated": outdated, "message": msg}
+
+
+@router.get("/ips-send/{client_id}/snapshot")
+async def get_ips_send_snapshot(client_id: str) -> dict:
+    """The exact IPS the PM must open: frozen at send time, unaffected by later RM edits."""
+    store = get_default_store()
+    _require_in_book(store, client_id)
+    rec = store.get_ips_send(client_id)
+    if rec is None:
+        raise HTTPException(status_code=404, detail="No IPS has been sent to the PM")
+    return {**rec["snapshot"], "sentAt": rec["sentAt"], "rmId": rec["rmId"]}
+
+
+@router.delete("/ips-send/{client_id}")
+async def withdraw_ips_send(client_id: str) -> dict:
+    """Withdraw: allowed any time after sending. Removes the sent state; the IPS content is kept."""
+    store = get_default_store()
+    _require_in_book(store, client_id)
+    store.withdraw_ips_send(client_id)
+    return {"status": "Draft"}

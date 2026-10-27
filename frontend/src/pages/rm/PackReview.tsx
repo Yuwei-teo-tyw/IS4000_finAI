@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Check } from "lucide-react";
 import { arcApi, type PackCheckInput } from "../../services/arcApi";
-import { Badge, Button, GateChip, Loading, NextAction, PageHeader, useAsync } from "../../components/ui";
+import { Badge, Button, GateChip, Loading, NextAction, PageHeader, useAsync, useAsyncResult } from "../../components/ui";
 import { packToSections, fmtDate, SignoffBoxes, SourcesBoard, isSources, usePackStatus, isHiddenFor, PendingBox } from "./rmShared";
 import { PackSectionPanel } from "./PackSectionPanel";
 import { GenevaMark } from "../../components/documents/GenevaMark";
@@ -21,7 +21,8 @@ export default function PackReview({ embedded = false, clientId: clientIdProp }:
   const clientId = clientIdProp ?? params.clientId ?? "";
   const role = useRole();
   const isPm = role === "pm";
-  const pack = useAsync(() => arcApi.getPack(clientId), [clientId]);
+  const [packTry, setPackTry] = useState(0);
+  const { data: pack, error: packError } = useAsyncResult(() => arcApi.getPack(clientId), [clientId, packTry]);
   const client = useAsync(() => arcApi.getClient(clientId), [clientId]);
   const alloc = useAsync(() => arcApi.getAllocation(clientId), [clientId]);
   const [drafts, setDrafts] = useState<PackDrafts>(() => loadPackDrafts(clientId));
@@ -70,7 +71,24 @@ export default function PackReview({ embedded = false, clientId: clientIdProp }:
       .catch((e: unknown) => { if (!cancelled) setCheck({ running: false, error: e instanceof Error ? e.message : "The check could not run." }); });
     return () => { cancelled = true; };
   }, [checkKey, checkRun]);
+  if (packError) {
+    return (
+      <div className="border border-hairline bg-surface-100 p-8" role="alert">
+        <p className="text-base text-ink">The review pack could not be loaded.</p>
+        <p className="mt-2 text-sm text-ink-muted">Check your connection and try again.</p>
+        <div className="mt-5"><Button variant="ghost" onClick={() => setPackTry((n) => n + 1)}>Retry</Button></div>
+      </div>
+    );
+  }
   if (!pack) return <Loading />;
+  if (pack.length === 0) {
+    return (
+      <div>
+        {embedded ? <h2 className="text-3xl">Review pack</h2> : <PageHeader title="Review the pack" />}
+        <p className="mt-6 text-base text-ink-muted">No review pack yet. It will appear here once a quarterly review starts.</p>
+      </div>
+    );
+  }
   const pos = (n: number) => pack.findIndex((x) => x.n === n) + 1;
   const allSigned = ["ps", "pm", "rm"].every((r) => sigs[r]);
   const signoffN = pack.find((x) => x.kind === "signoff")?.n;

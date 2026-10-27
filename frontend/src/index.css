@@ -52,7 +52,7 @@
     --ink: #1c1c1c; --ink-muted: #5c5a55; --ink-inverse: #ffffff;
     --brand: #e60000; --brand-hover: #b80000; --on-brand: #ffffff; --link: #c20000;
     --positive: #00638a; --negative: #b3001b; --focus: #1c1c1c;
-    --chart-equities: #a06a50; --chart-bonds: #d5c4b0; --chart-alternatives: #e3cd85; --chart-liquidity: #5a5249;
+    --chart-equities: #a06a50; --chart-bonds: #7a8794; --chart-alternatives: #e3cd85; --chart-liquidity: #5a5249;
     --scale-fill: #7d7a74; --scale-track: #d0cec5;
     --shadow-card: none; --shadow-overlay: none;
   }

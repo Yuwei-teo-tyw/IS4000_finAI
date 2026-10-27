@@ -32,6 +32,7 @@ import ClientLayout from "../pages/client/ClientLayout";
 import ClientOverview from "../pages/client/ClientOverview";
 import ClientDocuments from "../pages/client/ClientDocuments";
 import ClientUploadNotes from "../pages/client/ClientUploadNotes";
+import ClientPortfolio from "../pages/client/ClientPortfolio";
 
 /** Shared Client 360 (all roles, permissions differ per role inside pages). */
 const client360 = {
@@ -41,6 +42,7 @@ const client360 = {
     { index: true, element: <ClientOverview /> },
     { path: "documents", element: <ClientDocuments /> },
     { path: "upload-notes", element: <ClientUploadNotes /> },
+    { path: "portfolio", element: <ClientPortfolio /> },
     { path: "review-pack", element: <PackReview embedded /> },
     ...["dashboard", "ips", "3l", "allocation", "notes", "history"].map((path) => ({
       path,
