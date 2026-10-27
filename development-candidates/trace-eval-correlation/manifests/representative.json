@@ -1,0 +1,156 @@
+{
+  "manifest_version": "trace-eval-manifest/1.0",
+  "roots": {
+    "main_dev_candidates": "../../../../IS4000_finAI/development-candidates",
+    "codex_audit": "../../../../../../../../../.codex-clean2/worktrees/profile-a-synthetic-isolation/IS4000_finAI/development-candidates/guardrails-traces-evals-coverage"
+  },
+  "references": [
+    {
+      "ref_id": "codex-guardrails-traces-evals-coverage",
+      "root": "codex_audit",
+      "path": "GUARDRAILS_TRACES_EVALS_COVERAGE.md",
+      "sha256": "bc59065042b271e0c8e58f22cea54734cb0bca74040e92a63e328719177e2ea9"
+    }
+  ],
+  "sources": [
+    {
+      "source_id": "v93-paired-1",
+      "kind": "native_paired_campaign",
+      "root": "main_dev_candidates",
+      "path": "v9.3-readiness",
+      "declared_evidence_class": "NATIVE",
+      "evaluation_id": "v9.3-paired-1/measured-final",
+      "files": {
+        "observations": "reports/observations.json",
+        "scores": "reports/scores.json",
+        "traces": "reports/local-traces.jsonl",
+        "requests_dir": "reports/requests",
+        "prose_assessments": "reports/independent-prose-assessments.json",
+        "not_run": "reports/not-run.json",
+        "summary": "reports/MEASURED_FINAL_SUMMARY.json",
+        "scope": "campaign/scope.json",
+        "dataset_freeze": "evaluation/heldout/freeze-manifest.json",
+        "rubric": "evaluation/heldout/rubric.json"
+      },
+      "evidence_manifest": "reports/MEASURED_FINAL_EVIDENCE_MANIFEST.json",
+      "prompt_candidates": [
+        "prompts/clarifier-v91.txt",
+        "prompts/clarifier-v92.txt",
+        "prompts/clarifier-v93.txt",
+        "prompts/orchestrator-v91.txt",
+        "prompts/orchestrator-v93.txt"
+      ],
+      "summary_fields": {
+        "status": "status",
+        "campaign": "campaign",
+        "source_fingerprint": "source_fingerprint",
+        "native_attempts": "attempts",
+        "reported_cost_usd": "actual_reported_cost_usd_exact"
+      },
+      "completeness_map": {
+        "CAMPAIGN_COMPLETE": "COMPLETE"
+      },
+      "action_kinds": {
+        "clarifier": "OBJECTIVE_STATE_PROPOSAL",
+        "orchestrator": "PLAN_PROPOSAL"
+      },
+      "pins": {
+        "campaign/scope.json": "46d1d7f3ab8531b26730c8b549394907c354eab0b29bbbeefbc42bfca0c66572",
+        "evaluation/heldout/freeze-manifest.json": "f044c23c60c27dec3ecf75ee717866c5306b65c2ad80339a84c0372fc341b959",
+        "evaluation/heldout/rubric.json": "f53d076c0fc13f844842092cf78ed64e919a144de498db684d8bf0eef66278ab",
+        "prompts/clarifier-v91.txt": "aa112ac794051a810278ea33557c1e75c3629e1863cc8f15f2ebad770633b602",
+        "prompts/clarifier-v92.txt": "4b9f8a01c1ae80c36642ec1131e93a5a0c72a38a651ab4a654ccad741fcc66e1",
+        "prompts/clarifier-v93.txt": "84ca67658c3b90699aa1d67ff1eef4803180546d00f8642ca77313dc4a49f0f5",
+        "prompts/orchestrator-v91.txt": "41c2cf3499de68ce29e1347089c4ec2bc9978a818e7d2f422bd148d7d6280a54",
+        "prompts/orchestrator-v93.txt": "baae1584a47fb7563e217bd9c647e1933a1ad55fc77601b8d94ce0c19f7cdc83",
+        "reports/MEASURED_FINAL_EVIDENCE_MANIFEST.json": "fb01f1ecaf7c41f2b7ba1ef7a9ccc4e02a84d28abecd1cdd12049da7dc7685b7",
+        "reports/MEASURED_FINAL_SUMMARY.json": "a021497af24ac375d544af3576534c9f6e8d8612588fce07be4f70af3656867b",
+        "reports/independent-prose-assessments.json": "7817f8e8a67a3853f66e5bd92d5478d69d123f93d549391506708bb834d8b439",
+        "reports/local-traces.jsonl": "011681275a88168e0eb0965ebade8a9e39acc6817e8a60987b497c8958997fbd",
+        "reports/not-run.json": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "reports/observations.json": "69b6dd460d46f2655ed74c0faeb43f50387c81639dbae7b287befa04797d1fc7",
+        "reports/scores.json": "d32df6290762aec6797f599d64f34d94bde6c37047125f83326d8997b41ba293"
+      }
+    },
+    {
+      "source_id": "pair-v942-v93b-1",
+      "kind": "native_paired_campaign",
+      "root": "main_dev_candidates",
+      "path": "v9.4.2-v9.3b-paired-readiness",
+      "declared_evidence_class": "NATIVE",
+      "evaluation_id": "v942-v93b-paired-1/native-measured",
+      "files": {
+        "observations": "reports/observations.json",
+        "scores": "reports/scores.json",
+        "traces": "reports/local-traces.jsonl",
+        "requests_dir": "reports/requests",
+        "prose_assessments": "reports/independent-prose-assessments.json",
+        "not_run": "reports/not-run.json",
+        "summary": "reports/NATIVE_MEASURED_SUMMARY.json",
+        "scope": "campaign/scope.json",
+        "dataset_freeze": "evaluation/fresh/freeze-manifest.json",
+        "scoring_spec": "evaluation/shared-scoring-spec.json"
+      },
+      "evidence_manifest": "reports/NATIVE_FINAL_EVIDENCE_MANIFEST.json",
+      "prompt_candidates": [
+        "prompts/clarifier-v91.txt",
+        "prompts/clarifier-v92.txt",
+        "prompts/clarifier-v93.txt",
+        "prompts/clarifier-v941.txt",
+        "prompts/clarifier-v942.txt",
+        "prompts/orchestrator-v91.txt",
+        "prompts/orchestrator-v93.txt"
+      ],
+      "summary_fields": {
+        "status": "disposition",
+        "campaign": "campaign",
+        "source_fingerprint": "source_fingerprint",
+        "native_attempts": "actual_native_attempts",
+        "reported_cost_usd": "provider_reported_cost_usd_exact"
+      },
+      "completeness_map": {
+        "STOPPED_PARTIAL_EVALUATION": "PARTIAL_STOPPED"
+      },
+      "action_kinds": {
+        "clarifier": "OBJECTIVE_STATE_PROPOSAL"
+      },
+      "pins": {
+        "campaign/scope.json": "1c3325f96e9a8ea8d44156f7049c43e878a05836bb27859a43a8f035d35baa0a",
+        "evaluation/fresh/freeze-manifest.json": "c42b3853ecd7dba3c0187da9a36523944e7b0b07a00a6abbfbef3d6201b971d0",
+        "evaluation/shared-scoring-spec.json": "6dd9fab3609d8fa83e898faf8cb8f8b6d1c429a120cda33985a8706d9c2cd81f",
+        "prompts/clarifier-v91.txt": "aa112ac794051a810278ea33557c1e75c3629e1863cc8f15f2ebad770633b602",
+        "prompts/clarifier-v92.txt": "4b9f8a01c1ae80c36642ec1131e93a5a0c72a38a651ab4a654ccad741fcc66e1",
+        "prompts/clarifier-v93.txt": "84ca67658c3b90699aa1d67ff1eef4803180546d00f8642ca77313dc4a49f0f5",
+        "prompts/clarifier-v941.txt": "e34e782527743be0b08a7f86b5443377abcc125ff3a6e6a94da7095491c3979b",
+        "prompts/clarifier-v942.txt": "220e322b583fbdd66a99e7ac937dd4f32f50978f39cc5afeb3411f03232ce8b4",
+        "prompts/orchestrator-v91.txt": "41c2cf3499de68ce29e1347089c4ec2bc9978a818e7d2f422bd148d7d6280a54",
+        "prompts/orchestrator-v93.txt": "baae1584a47fb7563e217bd9c647e1933a1ad55fc77601b8d94ce0c19f7cdc83",
+        "reports/NATIVE_FINAL_EVIDENCE_MANIFEST.json": "0160bcd0d0729e188d5ee49486319c90ce35f48cbb52fbd261be7401bd23b2a5",
+        "reports/NATIVE_MEASURED_SUMMARY.json": "8dde256ebbfe2234ace497f0bbee03a457b80d698298ba43f05dc692fcab0147",
+        "reports/independent-prose-assessments.json": "61e91bdb68aa831d9da1ba41ff43104d01cd86c07f17ffda3f275e01114c1989",
+        "reports/local-traces.jsonl": "5cb0345e191efe76abc5263fcfbe4235c7d575ae1a5c48f716a24f324de613c0",
+        "reports/not-run.json": "28a3f6f8ee313c4156c8aa99b7360fdf84efb594d9b6b1077498ef9d32ae03f7",
+        "reports/observations.json": "e191f4aa8fddeb5b9d0763431399d3152ce87b8ff724f5d133dc6af80bb1461e",
+        "reports/scores.json": "144051f5329ed1f98d3fb7cc9f914e1eb9fba970e37c394641ae55b96d933c24"
+      }
+    },
+    {
+      "source_id": "v943-offline-tests",
+      "kind": "offline_junit",
+      "root": "main_dev_candidates",
+      "path": "v9.4.3-offline",
+      "declared_evidence_class": "OFFLINE_TEST",
+      "evaluation_id": "v9.4.3-offline/tests-final",
+      "campaign_id": "v9.4.3-offline",
+      "files": {
+        "junit": "reports/tests-final.xml"
+      },
+      "evidence_manifest": "reports/FINAL_EVIDENCE_MANIFEST.json",
+      "evidence_manifest_prefix": "A/",
+      "pins": {
+        "reports/FINAL_EVIDENCE_MANIFEST.json": "14f45ba61b5fa6f130e8fc1924d0f9a9341921bd0fca44d265ec4561e53f7d2a",
+        "reports/tests-final.xml": "19f987f037200eba14ee85f0fbcbb4a7c2b6e27bbbd72200300eed3c5a34ca85"
+      }
+    }
+  ]
+}

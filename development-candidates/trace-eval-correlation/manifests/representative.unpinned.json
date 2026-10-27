@@ -1,0 +1,116 @@
+{
+  "manifest_version": "trace-eval-manifest/1.0",
+  "roots": {
+    "main_dev_candidates": "../../../../IS4000_finAI/development-candidates",
+    "codex_audit": "../../../../../../../../../.codex-clean2/worktrees/profile-a-synthetic-isolation/IS4000_finAI/development-candidates/guardrails-traces-evals-coverage"
+  },
+  "references": [
+    {
+      "ref_id": "codex-guardrails-traces-evals-coverage",
+      "root": "codex_audit",
+      "path": "GUARDRAILS_TRACES_EVALS_COVERAGE.md",
+      "sha256": "bc59065042b271e0c8e58f22cea54734cb0bca74040e92a63e328719177e2ea9"
+    }
+  ],
+  "sources": [
+    {
+      "source_id": "v93-paired-1",
+      "kind": "native_paired_campaign",
+      "root": "main_dev_candidates",
+      "path": "v9.3-readiness",
+      "declared_evidence_class": "NATIVE",
+      "evaluation_id": "v9.3-paired-1/measured-final",
+      "files": {
+        "observations": "reports/observations.json",
+        "scores": "reports/scores.json",
+        "traces": "reports/local-traces.jsonl",
+        "requests_dir": "reports/requests",
+        "prose_assessments": "reports/independent-prose-assessments.json",
+        "not_run": "reports/not-run.json",
+        "summary": "reports/MEASURED_FINAL_SUMMARY.json",
+        "scope": "campaign/scope.json",
+        "dataset_freeze": "evaluation/heldout/freeze-manifest.json",
+        "rubric": "evaluation/heldout/rubric.json"
+      },
+      "evidence_manifest": "reports/MEASURED_FINAL_EVIDENCE_MANIFEST.json",
+      "prompt_candidates": [
+        "prompts/clarifier-v91.txt",
+        "prompts/clarifier-v92.txt",
+        "prompts/clarifier-v93.txt",
+        "prompts/orchestrator-v91.txt",
+        "prompts/orchestrator-v93.txt"
+      ],
+      "summary_fields": {
+        "status": "status",
+        "campaign": "campaign",
+        "source_fingerprint": "source_fingerprint",
+        "native_attempts": "attempts",
+        "reported_cost_usd": "actual_reported_cost_usd_exact"
+      },
+      "completeness_map": {
+        "CAMPAIGN_COMPLETE": "COMPLETE"
+      },
+      "action_kinds": {
+        "clarifier": "OBJECTIVE_STATE_PROPOSAL",
+        "orchestrator": "PLAN_PROPOSAL"
+      }
+    },
+    {
+      "source_id": "pair-v942-v93b-1",
+      "kind": "native_paired_campaign",
+      "root": "main_dev_candidates",
+      "path": "v9.4.2-v9.3b-paired-readiness",
+      "declared_evidence_class": "NATIVE",
+      "evaluation_id": "v942-v93b-paired-1/native-measured",
+      "files": {
+        "observations": "reports/observations.json",
+        "scores": "reports/scores.json",
+        "traces": "reports/local-traces.jsonl",
+        "requests_dir": "reports/requests",
+        "prose_assessments": "reports/independent-prose-assessments.json",
+        "not_run": "reports/not-run.json",
+        "summary": "reports/NATIVE_MEASURED_SUMMARY.json",
+        "scope": "campaign/scope.json",
+        "dataset_freeze": "evaluation/fresh/freeze-manifest.json",
+        "scoring_spec": "evaluation/shared-scoring-spec.json"
+      },
+      "evidence_manifest": "reports/NATIVE_FINAL_EVIDENCE_MANIFEST.json",
+      "prompt_candidates": [
+        "prompts/clarifier-v91.txt",
+        "prompts/clarifier-v92.txt",
+        "prompts/clarifier-v93.txt",
+        "prompts/clarifier-v941.txt",
+        "prompts/clarifier-v942.txt",
+        "prompts/orchestrator-v91.txt",
+        "prompts/orchestrator-v93.txt"
+      ],
+      "summary_fields": {
+        "status": "disposition",
+        "campaign": "campaign",
+        "source_fingerprint": "source_fingerprint",
+        "native_attempts": "actual_native_attempts",
+        "reported_cost_usd": "provider_reported_cost_usd_exact"
+      },
+      "completeness_map": {
+        "STOPPED_PARTIAL_EVALUATION": "PARTIAL_STOPPED"
+      },
+      "action_kinds": {
+        "clarifier": "OBJECTIVE_STATE_PROPOSAL"
+      }
+    },
+    {
+      "source_id": "v943-offline-tests",
+      "kind": "offline_junit",
+      "root": "main_dev_candidates",
+      "path": "v9.4.3-offline",
+      "declared_evidence_class": "OFFLINE_TEST",
+      "evaluation_id": "v9.4.3-offline/tests-final",
+      "campaign_id": "v9.4.3-offline",
+      "files": {
+        "junit": "reports/tests-final.xml"
+      },
+      "evidence_manifest": "reports/FINAL_EVIDENCE_MANIFEST.json",
+      "evidence_manifest_prefix": "A/"
+    }
+  ]
+}
