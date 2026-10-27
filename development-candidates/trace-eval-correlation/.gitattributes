@@ -1,0 +1,3 @@
+# Byte-exact reproducibility: the index embeds the manifest sha256 and is verified
+# byte-for-byte, so checkouts must not convert line endings (e.g. core.autocrlf=true).
+* text eol=lf

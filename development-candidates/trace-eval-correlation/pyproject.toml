@@ -1,0 +1,28 @@
+[project]
+name = "trace-eval-correlation"
+version = "1.0.0"
+description = "Offline metadata-only Trace-Eval correlation index for IS4000 evidence"
+requires-python = ">=3.12"
+dependencies = ["pydantic>=2.7"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-p no:cacheprovider"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "BLE", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]
+
+[tool.mypy]
+strict = true
+python_version = "3.12"
+mypy_path = "src"
+plugins = ["pydantic.mypy"]

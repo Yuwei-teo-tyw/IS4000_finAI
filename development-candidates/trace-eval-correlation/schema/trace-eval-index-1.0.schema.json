@@ -1,0 +1,1605 @@
+{
+  "$defs": {
+    "ArtifactRef": {
+      "additionalProperties": false,
+      "description": "A root-relative reference (\"<root>:<relative path>\") plus integrity status.",
+      "properties": {
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "pin": {
+          "anyOf": [
+            {
+              "enum": [
+                "VERIFIED",
+                "MISMATCH",
+                "STALE",
+                "MISSING_FILE",
+                "NOT_LISTED",
+                "NOT_PINNED"
+              ],
+              "type": "string"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Pin"
+        },
+        "ref": {
+          "title": "Ref",
+          "type": "string"
+        },
+        "sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Sha256"
+        },
+        "source_manifest": {
+          "anyOf": [
+            {
+              "enum": [
+                "VERIFIED",
+                "MISMATCH",
+                "STALE",
+                "MISSING_FILE",
+                "NOT_LISTED",
+                "NOT_PINNED"
+              ],
+              "type": "string"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Source Manifest"
+        }
+      },
+      "required": [
+        "kind",
+        "ref",
+        "sha256",
+        "source_manifest",
+        "pin"
+      ],
+      "title": "ArtifactRef",
+      "type": "object"
+    },
+    "Crosscheck": {
+      "additionalProperties": false,
+      "properties": {
+        "indexed": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Indexed"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "reported": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Reported"
+        },
+        "status": {
+          "enum": [
+            "MATCH",
+            "MISMATCH",
+            "UNAVAILABLE"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "indexed",
+        "reported",
+        "status"
+      ],
+      "title": "Crosscheck",
+      "type": "object"
+    },
+    "Effect": {
+      "additionalProperties": false,
+      "properties": {
+        "action_kind": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Action Kind"
+        },
+        "effect_classification": {
+          "anyOf": [
+            {
+              "enum": [
+                "NO_EXTERNAL_EFFECT",
+                "SPECIALIST_DISPATCH_RECORDED"
+              ],
+              "type": "string"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Effect Classification"
+        },
+        "specialist_dispatch": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Specialist Dispatch"
+        }
+      },
+      "required": [
+        "action_kind",
+        "specialist_dispatch",
+        "effect_classification"
+      ],
+      "title": "Effect",
+      "type": "object"
+    },
+    "Finding": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "detail": {
+          "default": "",
+          "title": "Detail",
+          "type": "string"
+        },
+        "record_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Record Id"
+        },
+        "severity": {
+          "enum": [
+            "ERROR",
+            "WARNING",
+            "INFO"
+          ],
+          "title": "Severity",
+          "type": "string"
+        },
+        "source_id": {
+          "title": "Source Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "severity",
+        "code",
+        "source_id"
+      ],
+      "title": "Finding",
+      "type": "object"
+    },
+    "IndexRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "agent": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Agent"
+        },
+        "arm": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Arm"
+        },
+        "artifacts": {
+          "items": {
+            "$ref": "#/$defs/ArtifactRef"
+          },
+          "title": "Artifacts",
+          "type": "array"
+        },
+        "campaign_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Campaign Id"
+        },
+        "case_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Case Id"
+        },
+        "conversation_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Conversation Id"
+        },
+        "dataset_case_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Dataset Case Id"
+        },
+        "effect": {
+          "$ref": "#/$defs/Effect"
+        },
+        "evaluation_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Evaluation Id"
+        },
+        "evidence_class": {
+          "enum": [
+            "NATIVE",
+            "NON_NATIVE_PREFLIGHT",
+            "NOT_RUN",
+            "OFFLINE_TEST",
+            "SYNTHETIC_FIXTURE"
+          ],
+          "title": "Evidence Class",
+          "type": "string"
+        },
+        "issues": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Issues",
+          "type": "array"
+        },
+        "join_status": {
+          "enum": [
+            "JOINED",
+            "PARTIAL",
+            "UNJOINABLE",
+            "NOT_APPLICABLE"
+          ],
+          "title": "Join Status",
+          "type": "string"
+        },
+        "model_call": {
+          "$ref": "#/$defs/ModelCall"
+        },
+        "model_performance_evidence": {
+          "title": "Model Performance Evidence",
+          "type": "boolean"
+        },
+        "record_id": {
+          "title": "Record Id",
+          "type": "string"
+        },
+        "score": {
+          "$ref": "#/$defs/Score"
+        },
+        "source_id": {
+          "title": "Source Id",
+          "type": "string"
+        },
+        "stage": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Stage"
+        },
+        "test_node_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Test Node Id"
+        },
+        "test_outcome": {
+          "anyOf": [
+            {
+              "enum": [
+                "PASSED",
+                "FAILED",
+                "ERROR",
+                "SKIPPED"
+              ],
+              "type": "string"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Test Outcome"
+        },
+        "trace": {
+          "$ref": "#/$defs/TraceLink"
+        },
+        "turn_index": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Turn Index"
+        },
+        "usage": {
+          "$ref": "#/$defs/Usage"
+        },
+        "validation": {
+          "$ref": "#/$defs/Validation"
+        },
+        "versions": {
+          "$ref": "#/$defs/Versions"
+        }
+      },
+      "required": [
+        "record_id",
+        "source_id",
+        "campaign_id",
+        "evaluation_id",
+        "evidence_class",
+        "model_performance_evidence",
+        "agent",
+        "arm",
+        "case_id",
+        "dataset_case_id",
+        "conversation_id",
+        "turn_index",
+        "stage",
+        "test_node_id",
+        "test_outcome",
+        "trace",
+        "versions",
+        "model_call",
+        "validation",
+        "score",
+        "effect",
+        "usage",
+        "artifacts",
+        "join_status",
+        "issues"
+      ],
+      "title": "IndexRecord",
+      "type": "object"
+    },
+    "ModelCall": {
+      "additionalProperties": false,
+      "properties": {
+        "fallback": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Fallback"
+        },
+        "finish_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Finish Reason"
+        },
+        "http_status": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Http Status"
+        },
+        "model_requested": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Model Requested"
+        },
+        "model_returned": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Model Returned"
+        },
+        "provider_requested": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Provider Requested"
+        },
+        "provider_returned": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Provider Returned"
+        },
+        "retries": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Retries"
+        },
+        "send_claimed": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Send Claimed"
+        }
+      },
+      "required": [
+        "model_requested",
+        "model_returned",
+        "provider_requested",
+        "provider_returned",
+        "http_status",
+        "finish_reason",
+        "retries",
+        "fallback",
+        "send_claimed"
+      ],
+      "title": "ModelCall",
+      "type": "object"
+    },
+    "ReferenceSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "ref_id": {
+          "title": "Ref Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ref_id",
+        "artifact"
+      ],
+      "title": "ReferenceSummary",
+      "type": "object"
+    },
+    "Score": {
+      "additionalProperties": false,
+      "description": "Copied scorer outputs; this adapter never computes a score.",
+      "properties": {
+        "agent_success": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Agent Success"
+        },
+        "assessment_observation_binding": {
+          "anyOf": [
+            {
+              "enum": [
+                "VERIFIED",
+                "MISMATCH"
+              ],
+              "type": "string"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Assessment Observation Binding"
+        },
+        "assessment_rubric_sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Assessment Rubric Sha256"
+        },
+        "assessment_source_fingerprint_match": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Assessment Source Fingerprint Match"
+        },
+        "canonical_state_success": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Canonical State Success"
+        },
+        "deterministic_display_is_model_credit": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Deterministic Display Is Model Credit"
+        },
+        "evaluator_identity": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Evaluator Identity"
+        },
+        "evaluator_independent": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Evaluator Independent"
+        },
+        "independent_assessment_status": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Independent Assessment Status"
+        },
+        "raw_prose_status": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Raw Prose Status"
+        },
+        "schema_status": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Schema Status"
+        }
+      },
+      "required": [
+        "agent_success",
+        "canonical_state_success",
+        "schema_status",
+        "raw_prose_status",
+        "independent_assessment_status",
+        "evaluator_identity",
+        "evaluator_independent",
+        "assessment_rubric_sha256",
+        "assessment_observation_binding",
+        "assessment_source_fingerprint_match",
+        "deterministic_display_is_model_credit"
+      ],
+      "title": "Score",
+      "type": "object"
+    },
+    "SourceSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "campaign_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Campaign Id"
+        },
+        "campaign_status": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Campaign Status"
+        },
+        "completeness": {
+          "enum": [
+            "COMPLETE",
+            "PARTIAL_STOPPED",
+            "UNAVAILABLE",
+            "NOT_APPLICABLE"
+          ],
+          "title": "Completeness",
+          "type": "string"
+        },
+        "crosschecks": {
+          "items": {
+            "$ref": "#/$defs/Crosscheck"
+          },
+          "title": "Crosschecks",
+          "type": "array"
+        },
+        "declared_evidence_class": {
+          "enum": [
+            "NATIVE",
+            "SYNTHETIC_FIXTURE",
+            "OFFLINE_TEST"
+          ],
+          "title": "Declared Evidence Class",
+          "type": "string"
+        },
+        "files": {
+          "items": {
+            "$ref": "#/$defs/ArtifactRef"
+          },
+          "title": "Files",
+          "type": "array"
+        },
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "record_counts": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Record Counts",
+          "type": "object"
+        },
+        "source_id": {
+          "title": "Source Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_id",
+        "kind",
+        "declared_evidence_class",
+        "campaign_id",
+        "campaign_status",
+        "completeness",
+        "record_counts",
+        "crosschecks",
+        "files"
+      ],
+      "title": "SourceSummary",
+      "type": "object"
+    },
+    "TraceLink": {
+      "additionalProperties": false,
+      "properties": {
+        "agent_span_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Agent Span Id"
+        },
+        "agent_span_status": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Agent Span Status"
+        },
+        "llm_span_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Llm Span Id"
+        },
+        "llm_span_status": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Llm Span Status"
+        },
+        "request_hash_match": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Request Hash Match"
+        },
+        "request_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Request Id"
+        },
+        "span_relationship": {
+          "anyOf": [
+            {
+              "enum": [
+                "VERIFIED",
+                "PARENT_MISMATCH",
+                "SPAN_NOT_FOUND"
+              ],
+              "type": "string"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Span Relationship"
+        },
+        "trace_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Trace Id"
+        }
+      },
+      "required": [
+        "trace_id",
+        "agent_span_id",
+        "llm_span_id",
+        "request_id",
+        "span_relationship",
+        "agent_span_status",
+        "llm_span_status",
+        "request_hash_match"
+      ],
+      "title": "TraceLink",
+      "type": "object"
+    },
+    "Usage": {
+      "additionalProperties": false,
+      "description": "Provider-reported usage. Cost is the response-reported charge only.",
+      "properties": {
+        "attempt_wall_latency_ms": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Attempt Wall Latency Ms"
+        },
+        "billing_status": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Billing Status"
+        },
+        "billing_verified": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Billing Verified"
+        },
+        "cost_scope": {
+          "anyOf": [
+            {
+              "const": "PROVIDER_RESPONSE_REPORTED",
+              "type": "string"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Cost Scope"
+        },
+        "input_tokens": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Input Tokens"
+        },
+        "native_latency_ms": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Native Latency Ms"
+        },
+        "output_tokens": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Output Tokens"
+        },
+        "reasoning_tokens": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Reasoning Tokens"
+        },
+        "reported_cost_usd": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Reported Cost Usd"
+        },
+        "token_usage_verified": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Token Usage Verified"
+        }
+      },
+      "required": [
+        "input_tokens",
+        "output_tokens",
+        "reasoning_tokens",
+        "token_usage_verified",
+        "native_latency_ms",
+        "attempt_wall_latency_ms",
+        "reported_cost_usd",
+        "billing_status",
+        "billing_verified",
+        "cost_scope"
+      ],
+      "title": "Usage",
+      "type": "object"
+    },
+    "Validation": {
+      "additionalProperties": false,
+      "properties": {
+        "canonical_accepted": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Canonical Accepted"
+        },
+        "canonical_readiness": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Canonical Readiness"
+        },
+        "native_schema_status": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Native Schema Status"
+        },
+        "observation_status": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Observation Status"
+        },
+        "rejection_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Rejection Reason"
+        }
+      },
+      "required": [
+        "native_schema_status",
+        "observation_status",
+        "rejection_reason",
+        "canonical_accepted",
+        "canonical_readiness"
+      ],
+      "title": "Validation",
+      "type": "object"
+    },
+    "Versions": {
+      "additionalProperties": false,
+      "properties": {
+        "dataset_freeze_sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Dataset Freeze Sha256"
+        },
+        "prompt_binding": {
+          "anyOf": [
+            {
+              "enum": [
+                "EMBEDDED_IN_REQUEST",
+                "AMBIGUOUS",
+                "NOT_FOUND"
+              ],
+              "type": "string"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Prompt Binding"
+        },
+        "prompt_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Prompt Ref"
+        },
+        "prompt_sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Prompt Sha256"
+        },
+        "response_format_sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Response Format Sha256"
+        },
+        "response_schema_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Response Schema Name"
+        },
+        "rubric_sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Rubric Sha256"
+        },
+        "scoring_spec_sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Scoring Spec Sha256"
+        },
+        "source_fingerprint": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "enum": [
+                "NOT_APPLICABLE",
+                "UNAVAILABLE"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Source Fingerprint"
+        }
+      },
+      "required": [
+        "source_fingerprint",
+        "prompt_ref",
+        "prompt_sha256",
+        "prompt_binding",
+        "response_schema_name",
+        "response_format_sha256",
+        "dataset_freeze_sha256",
+        "rubric_sha256",
+        "scoring_spec_sha256"
+      ],
+      "title": "Versions",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "adapter_version": {
+      "default": "1.0.0",
+      "title": "Adapter Version",
+      "type": "string"
+    },
+    "findings": {
+      "items": {
+        "$ref": "#/$defs/Finding"
+      },
+      "title": "Findings",
+      "type": "array"
+    },
+    "index_status": {
+      "enum": [
+        "COMPLETE",
+        "INCOMPLETE"
+      ],
+      "title": "Index Status",
+      "type": "string"
+    },
+    "manifest_sha256": {
+      "title": "Manifest Sha256",
+      "type": "string"
+    },
+    "records": {
+      "items": {
+        "$ref": "#/$defs/IndexRecord"
+      },
+      "title": "Records",
+      "type": "array"
+    },
+    "references": {
+      "items": {
+        "$ref": "#/$defs/ReferenceSummary"
+      },
+      "title": "References",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "trace-eval-index/1.0",
+      "default": "trace-eval-index/1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "sources": {
+      "items": {
+        "$ref": "#/$defs/SourceSummary"
+      },
+      "title": "Sources",
+      "type": "array"
+    }
+  },
+  "required": [
+    "manifest_sha256",
+    "index_status",
+    "references",
+    "sources",
+    "records",
+    "findings"
+  ],
+  "title": "TraceEvalIndex",
+  "type": "object"
+}
