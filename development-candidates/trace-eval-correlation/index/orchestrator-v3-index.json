@@ -1,0 +1,4626 @@
+{
+  "adapter_version": "1.0.0",
+  "findings": [
+    {
+      "code": "V3_PROMPT_BINDING_UNAVAILABLE",
+      "detail": "",
+      "record_id": "orchestrator-v3-archive:http:http-v3-01:qwen3.5:4b",
+      "severity": "WARNING",
+      "source_id": "orchestrator-v3-archive"
+    },
+    {
+      "code": "V3_SPANS_UNAVAILABLE",
+      "detail": "",
+      "record_id": "orchestrator-v3-archive:http:http-v3-01:qwen3.5:4b",
+      "severity": "WARNING",
+      "source_id": "orchestrator-v3-archive"
+    },
+    {
+      "code": "V3_PROMPT_BINDING_UNAVAILABLE",
+      "detail": "",
+      "record_id": "orchestrator-v3-archive:http:http-v3-01:qwen3.5:9b",
+      "severity": "WARNING",
+      "source_id": "orchestrator-v3-archive"
+    },
+    {
+      "code": "V3_SPANS_UNAVAILABLE",
+      "detail": "",
+      "record_id": "orchestrator-v3-archive:http:http-v3-01:qwen3.5:9b",
+      "severity": "WARNING",
+      "source_id": "orchestrator-v3-archive"
+    },
+    {
+      "code": "V3_PROMPT_BINDING_UNAVAILABLE",
+      "detail": "",
+      "record_id": "orchestrator-v3-archive:primary:dev-v3-01:qwen3.5:4b",
+      "severity": "WARNING",
+      "source_id": "orchestrator-v3-archive"
+    },
+    {
+      "code": "V3_SPANS_UNAVAILABLE",
+      "detail": "",
+      "record_id": "orchestrator-v3-archive:primary:dev-v3-01:qwen3.5:4b",
+      "severity": "WARNING",
+      "source_id": "orchestrator-v3-archive"
+    },
+    {
+      "code": "V3_PROMPT_BINDING_UNAVAILABLE",
+      "detail": "",
+      "record_id": "orchestrator-v3-archive:primary:dev-v3-01:qwen3.5:9b",
+      "severity": "WARNING",
+      "source_id": "orchestrator-v3-archive"
+    },
+    {
+      "code": "V3_SPANS_UNAVAILABLE",
+      "detail": "",
+      "record_id": "orchestrator-v3-archive:primary:dev-v3-01:qwen3.5:9b",
+      "severity": "WARNING",
+      "source_id": "orchestrator-v3-archive"
+    },
+    {
+      "code": "V3_PROMPT_BINDING_UNAVAILABLE",
+      "detail": "",
+      "record_id": "orchestrator-v3-archive:primary:dev-v3-02:qwen3.5:4b",
+      "severity": "WARNING",
+      "source_id": "orchestrator-v3-archive"
+    },
+    {
+      "code": "V3_SPANS_UNAVAILABLE",
+      "detail": "",
+      "record_id": "orchestrator-v3-archive:primary:dev-v3-02:qwen3.5:4b",
+      "severity": "WARNING",
+      "source_id": "orchestrator-v3-archive"
+    },
+    {
+      "code": "V3_PROMPT_BINDING_UNAVAILABLE",
+      "detail": "",
+      "record_id": "orchestrator-v3-archive:primary:dev-v3-02:qwen3.5:9b",
+      "severity": "WARNING",
+      "source_id": "orchestrator-v3-archive"
+    },
+    {
+      "code": "V3_SPANS_UNAVAILABLE",
+      "detail": "",
+      "record_id": "orchestrator-v3-archive:primary:dev-v3-02:qwen3.5:9b",
+      "severity": "WARNING",
+      "source_id": "orchestrator-v3-archive"
+    },
+    {
+      "code": "V3_PROMPT_BINDING_UNAVAILABLE",
+      "detail": "",
+      "record_id": "orchestrator-v3-archive:primary:dev-v3-03:qwen3.5:4b",
+      "severity": "WARNING",
+      "source_id": "orchestrator-v3-archive"
+    },
+    {
+      "code": "V3_SPANS_UNAVAILABLE",
+      "detail": "",
+      "record_id": "orchestrator-v3-archive:primary:dev-v3-03:qwen3.5:4b",
+      "severity": "WARNING",
+      "source_id": "orchestrator-v3-archive"
+    },
+    {
+      "code": "V3_PROMPT_BINDING_UNAVAILABLE",
+      "detail": "",
+      "record_id": "orchestrator-v3-archive:primary:dev-v3-03:qwen3.5:9b",
+      "severity": "WARNING",
+      "source_id": "orchestrator-v3-archive"
+    },
+    {
+      "code": "V3_SPANS_UNAVAILABLE",
+      "detail": "",
+      "record_id": "orchestrator-v3-archive:primary:dev-v3-03:qwen3.5:9b",
+      "severity": "WARNING",
+      "source_id": "orchestrator-v3-archive"
+    },
+    {
+      "code": "V3_PROMPT_BINDING_UNAVAILABLE",
+      "detail": "",
+      "record_id": "orchestrator-v3-archive:primary:dev-v3-04:qwen3.5:4b",
+      "severity": "WARNING",
+      "source_id": "orchestrator-v3-archive"
+    },
+    {
+      "code": "V3_SPANS_UNAVAILABLE",
+      "detail": "",
+      "record_id": "orchestrator-v3-archive:primary:dev-v3-04:qwen3.5:4b",
+      "severity": "WARNING",
+      "source_id": "orchestrator-v3-archive"
+    },
+    {
+      "code": "V3_PROMPT_BINDING_UNAVAILABLE",
+      "detail": "",
+      "record_id": "orchestrator-v3-archive:primary:dev-v3-04:qwen3.5:9b",
+      "severity": "WARNING",
+      "source_id": "orchestrator-v3-archive"
+    },
+    {
+      "code": "V3_SPANS_UNAVAILABLE",
+      "detail": "",
+      "record_id": "orchestrator-v3-archive:primary:dev-v3-04:qwen3.5:9b",
+      "severity": "WARNING",
+      "source_id": "orchestrator-v3-archive"
+    },
+    {
+      "code": "V3_PROMPT_BINDING_UNAVAILABLE",
+      "detail": "",
+      "record_id": "orchestrator-v3-archive:primary:dev-v3-05:qwen3.5:4b",
+      "severity": "WARNING",
+      "source_id": "orchestrator-v3-archive"
+    },
+    {
+      "code": "V3_SPANS_UNAVAILABLE",
+      "detail": "",
+      "record_id": "orchestrator-v3-archive:primary:dev-v3-05:qwen3.5:4b",
+      "severity": "WARNING",
+      "source_id": "orchestrator-v3-archive"
+    },
+    {
+      "code": "V3_PROMPT_BINDING_UNAVAILABLE",
+      "detail": "",
+      "record_id": "orchestrator-v3-archive:primary:dev-v3-05:qwen3.5:9b",
+      "severity": "WARNING",
+      "source_id": "orchestrator-v3-archive"
+    },
+    {
+      "code": "V3_SPANS_UNAVAILABLE",
+      "detail": "",
+      "record_id": "orchestrator-v3-archive:primary:dev-v3-05:qwen3.5:9b",
+      "severity": "WARNING",
+      "source_id": "orchestrator-v3-archive"
+    },
+    {
+      "code": "V3_PROMPT_BINDING_UNAVAILABLE",
+      "detail": "",
+      "record_id": "orchestrator-v3-archive:primary:dev-v3-06:qwen3.5:4b",
+      "severity": "WARNING",
+      "source_id": "orchestrator-v3-archive"
+    },
+    {
+      "code": "V3_SPANS_UNAVAILABLE",
+      "detail": "",
+      "record_id": "orchestrator-v3-archive:primary:dev-v3-06:qwen3.5:4b",
+      "severity": "WARNING",
+      "source_id": "orchestrator-v3-archive"
+    },
+    {
+      "code": "V3_PROMPT_BINDING_UNAVAILABLE",
+      "detail": "",
+      "record_id": "orchestrator-v3-archive:primary:dev-v3-06:qwen3.5:9b",
+      "severity": "WARNING",
+      "source_id": "orchestrator-v3-archive"
+    },
+    {
+      "code": "V3_SPANS_UNAVAILABLE",
+      "detail": "",
+      "record_id": "orchestrator-v3-archive:primary:dev-v3-06:qwen3.5:9b",
+      "severity": "WARNING",
+      "source_id": "orchestrator-v3-archive"
+    },
+    {
+      "code": "V3_PROMPT_BINDING_UNAVAILABLE",
+      "detail": "",
+      "record_id": "orchestrator-v3-archive:primary:held-v3-01:qwen3.5:4b",
+      "severity": "WARNING",
+      "source_id": "orchestrator-v3-archive"
+    },
+    {
+      "code": "V3_SPANS_UNAVAILABLE",
+      "detail": "",
+      "record_id": "orchestrator-v3-archive:primary:held-v3-01:qwen3.5:4b",
+      "severity": "WARNING",
+      "source_id": "orchestrator-v3-archive"
+    },
+    {
+      "code": "V3_PROMPT_BINDING_UNAVAILABLE",
+      "detail": "",
+      "record_id": "orchestrator-v3-archive:primary:held-v3-01:qwen3.5:9b",
+      "severity": "WARNING",
+      "source_id": "orchestrator-v3-archive"
+    },
+    {
+      "code": "V3_SPANS_UNAVAILABLE",
+      "detail": "",
+      "record_id": "orchestrator-v3-archive:primary:held-v3-01:qwen3.5:9b",
+      "severity": "WARNING",
+      "source_id": "orchestrator-v3-archive"
+    },
+    {
+      "code": "V3_PROMPT_BINDING_UNAVAILABLE",
+      "detail": "",
+      "record_id": "orchestrator-v3-archive:primary:held-v3-02:qwen3.5:4b",
+      "severity": "WARNING",
+      "source_id": "orchestrator-v3-archive"
+    },
+    {
+      "code": "V3_SPANS_UNAVAILABLE",
+      "detail": "",
+      "record_id": "orchestrator-v3-archive:primary:held-v3-02:qwen3.5:4b",
+      "severity": "WARNING",
+      "source_id": "orchestrator-v3-archive"
+    },
+    {
+      "code": "V3_PROMPT_BINDING_UNAVAILABLE",
+      "detail": "",
+      "record_id": "orchestrator-v3-archive:primary:held-v3-02:qwen3.5:9b",
+      "severity": "WARNING",
+      "source_id": "orchestrator-v3-archive"
+    },
+    {
+      "code": "V3_SPANS_UNAVAILABLE",
+      "detail": "",
+      "record_id": "orchestrator-v3-archive:primary:held-v3-02:qwen3.5:9b",
+      "severity": "WARNING",
+      "source_id": "orchestrator-v3-archive"
+    },
+    {
+      "code": "V3_PROMPT_BINDING_UNAVAILABLE",
+      "detail": "",
+      "record_id": "orchestrator-v3-archive:primary:held-v3-03:qwen3.5:4b",
+      "severity": "WARNING",
+      "source_id": "orchestrator-v3-archive"
+    },
+    {
+      "code": "V3_SPANS_UNAVAILABLE",
+      "detail": "",
+      "record_id": "orchestrator-v3-archive:primary:held-v3-03:qwen3.5:4b",
+      "severity": "WARNING",
+      "source_id": "orchestrator-v3-archive"
+    },
+    {
+      "code": "V3_PROMPT_BINDING_UNAVAILABLE",
+      "detail": "",
+      "record_id": "orchestrator-v3-archive:primary:held-v3-03:qwen3.5:9b",
+      "severity": "WARNING",
+      "source_id": "orchestrator-v3-archive"
+    },
+    {
+      "code": "V3_SPANS_UNAVAILABLE",
+      "detail": "",
+      "record_id": "orchestrator-v3-archive:primary:held-v3-03:qwen3.5:9b",
+      "severity": "WARNING",
+      "source_id": "orchestrator-v3-archive"
+    },
+    {
+      "code": "V3_PROMPT_BINDING_UNAVAILABLE",
+      "detail": "",
+      "record_id": "orchestrator-v3-archive:primary:held-v3-04:qwen3.5:4b",
+      "severity": "WARNING",
+      "source_id": "orchestrator-v3-archive"
+    },
+    {
+      "code": "V3_SPANS_UNAVAILABLE",
+      "detail": "",
+      "record_id": "orchestrator-v3-archive:primary:held-v3-04:qwen3.5:4b",
+      "severity": "WARNING",
+      "source_id": "orchestrator-v3-archive"
+    },
+    {
+      "code": "V3_PROMPT_BINDING_UNAVAILABLE",
+      "detail": "",
+      "record_id": "orchestrator-v3-archive:primary:held-v3-04:qwen3.5:9b",
+      "severity": "WARNING",
+      "source_id": "orchestrator-v3-archive"
+    },
+    {
+      "code": "V3_SPANS_UNAVAILABLE",
+      "detail": "",
+      "record_id": "orchestrator-v3-archive:primary:held-v3-04:qwen3.5:9b",
+      "severity": "WARNING",
+      "source_id": "orchestrator-v3-archive"
+    },
+    {
+      "code": "V3_PROMPT_BINDING_UNAVAILABLE",
+      "detail": "",
+      "record_id": "orchestrator-v3-archive:primary:held-v3-05:qwen3.5:4b",
+      "severity": "WARNING",
+      "source_id": "orchestrator-v3-archive"
+    },
+    {
+      "code": "V3_SPANS_UNAVAILABLE",
+      "detail": "",
+      "record_id": "orchestrator-v3-archive:primary:held-v3-05:qwen3.5:4b",
+      "severity": "WARNING",
+      "source_id": "orchestrator-v3-archive"
+    },
+    {
+      "code": "V3_PROMPT_BINDING_UNAVAILABLE",
+      "detail": "",
+      "record_id": "orchestrator-v3-archive:primary:held-v3-05:qwen3.5:9b",
+      "severity": "WARNING",
+      "source_id": "orchestrator-v3-archive"
+    },
+    {
+      "code": "V3_SPANS_UNAVAILABLE",
+      "detail": "",
+      "record_id": "orchestrator-v3-archive:primary:held-v3-05:qwen3.5:9b",
+      "severity": "WARNING",
+      "source_id": "orchestrator-v3-archive"
+    },
+    {
+      "code": "V3_PROMPT_BINDING_UNAVAILABLE",
+      "detail": "",
+      "record_id": "orchestrator-v3-archive:primary:held-v3-06:qwen3.5:4b",
+      "severity": "WARNING",
+      "source_id": "orchestrator-v3-archive"
+    },
+    {
+      "code": "V3_SPANS_UNAVAILABLE",
+      "detail": "",
+      "record_id": "orchestrator-v3-archive:primary:held-v3-06:qwen3.5:4b",
+      "severity": "WARNING",
+      "source_id": "orchestrator-v3-archive"
+    },
+    {
+      "code": "V3_PROMPT_BINDING_UNAVAILABLE",
+      "detail": "",
+      "record_id": "orchestrator-v3-archive:primary:held-v3-06:qwen3.5:9b",
+      "severity": "WARNING",
+      "source_id": "orchestrator-v3-archive"
+    },
+    {
+      "code": "V3_SPANS_UNAVAILABLE",
+      "detail": "",
+      "record_id": "orchestrator-v3-archive:primary:held-v3-06:qwen3.5:9b",
+      "severity": "WARNING",
+      "source_id": "orchestrator-v3-archive"
+    },
+    {
+      "code": "V3_PROMPT_BINDING_UNAVAILABLE",
+      "detail": "",
+      "record_id": "orchestrator-v3-archive:smoke:dev-v3-01:qwen3.5:4b",
+      "severity": "WARNING",
+      "source_id": "orchestrator-v3-archive"
+    },
+    {
+      "code": "V3_SPANS_UNAVAILABLE",
+      "detail": "",
+      "record_id": "orchestrator-v3-archive:smoke:dev-v3-01:qwen3.5:4b",
+      "severity": "WARNING",
+      "source_id": "orchestrator-v3-archive"
+    },
+    {
+      "code": "V3_PROMPT_BINDING_UNAVAILABLE",
+      "detail": "",
+      "record_id": "orchestrator-v3-archive:smoke:dev-v3-01:qwen3.5:9b",
+      "severity": "WARNING",
+      "source_id": "orchestrator-v3-archive"
+    },
+    {
+      "code": "V3_SPANS_UNAVAILABLE",
+      "detail": "",
+      "record_id": "orchestrator-v3-archive:smoke:dev-v3-01:qwen3.5:9b",
+      "severity": "WARNING",
+      "source_id": "orchestrator-v3-archive"
+    }
+  ],
+  "index_status": "COMPLETE",
+  "manifest_sha256": "9418db86cbbe96612d4786f5dba469dd0c5a474de56ca5aaa24d77789417794f",
+  "records": [
+    {
+      "agent": "orchestrator",
+      "arm": "UNAVAILABLE",
+      "artifacts": [
+        {
+          "kind": "archive_manifest",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/manifest.json",
+          "sha256": "f093f7cae70f252128786ec42484dc35925be8591e14c3702753697fb2013310",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "inputs",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs.json",
+          "sha256": "9dbfc75b711999a0ced6c4f5295f8fa375caac1b88077ada1d580b7beee7fdc6",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "dataset_freeze",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/manifest.json",
+          "sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "scores",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/cases.json",
+          "sha256": "600f053077ec7b65d0962cb9769975d92ac518698a918f117bb326e1e40fbe57",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "evidence",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/http/http-v3-01-4b/evidence.json",
+          "sha256": "e55614e1b0e352c47351f9555dbe0ce9883ab203067f2269d7c22c2736b970a4",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "prepared_input",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs/http-http-v3-01-4b.json",
+          "sha256": "68f71259aefdce59da47dd7ccdad58cc99d780b093f62ee2d12ee7bf4b69ddd0",
+          "source_manifest": "VERIFIED"
+        }
+      ],
+      "campaign_id": "orchestrator-eval-v3",
+      "case_id": "http-v3-01",
+      "conversation_id": "UNAVAILABLE",
+      "dataset_case_id": "http-v3-01",
+      "effect": {
+        "action_kind": "PLAN_PROPOSAL",
+        "effect_classification": "UNAVAILABLE",
+        "specialist_dispatch": "UNAVAILABLE"
+      },
+      "evaluation_id": "orchestrator-eval-v3/archived",
+      "evidence_class": "NATIVE",
+      "issues": [
+        "V3_PROMPT_BINDING_UNAVAILABLE",
+        "V3_SPANS_UNAVAILABLE"
+      ],
+      "join_status": "PARTIAL",
+      "model_call": {
+        "fallback": false,
+        "finish_reason": "stop",
+        "http_status": "UNAVAILABLE",
+        "model_requested": "qwen3.5:4b",
+        "model_returned": "qwen3.5:4b",
+        "provider_requested": "ollama",
+        "provider_returned": "UNAVAILABLE",
+        "retries": 0,
+        "send_claimed": true
+      },
+      "model_performance_evidence": false,
+      "record_id": "orchestrator-v3-archive:http:http-v3-01:qwen3.5:4b",
+      "score": {
+        "agent_success": "UNAVAILABLE",
+        "assessment_observation_binding": "UNAVAILABLE",
+        "assessment_rubric_sha256": "UNAVAILABLE",
+        "assessment_source_fingerprint_match": "UNAVAILABLE",
+        "canonical_state_success": "UNAVAILABLE",
+        "deterministic_display_is_model_credit": "UNAVAILABLE",
+        "evaluator_identity": "UNAVAILABLE",
+        "evaluator_independent": "UNAVAILABLE",
+        "independent_assessment_status": "UNAVAILABLE",
+        "raw_prose_status": "UNAVAILABLE",
+        "schema_status": "VALID"
+      },
+      "source_id": "orchestrator-v3-archive",
+      "stage": "http",
+      "test_node_id": "UNAVAILABLE",
+      "test_outcome": "UNAVAILABLE",
+      "trace": {
+        "agent_span_id": "UNAVAILABLE",
+        "agent_span_status": "UNAVAILABLE",
+        "llm_span_id": "UNAVAILABLE",
+        "llm_span_status": "UNAVAILABLE",
+        "request_hash_match": true,
+        "request_id": "33f6b5a3-4af4-467d-9916-e3c9631c935a",
+        "span_relationship": "UNAVAILABLE",
+        "trace_id": "v3-http-http-v3-01-4b"
+      },
+      "turn_index": "UNAVAILABLE",
+      "usage": {
+        "attempt_wall_latency_ms": "UNAVAILABLE",
+        "billing_status": "UNAVAILABLE",
+        "billing_verified": "UNAVAILABLE",
+        "cost_scope": "UNAVAILABLE",
+        "input_tokens": 1430,
+        "native_latency_ms": 6621.166,
+        "output_tokens": 512,
+        "reasoning_tokens": "UNAVAILABLE",
+        "reported_cost_usd": "UNAVAILABLE",
+        "token_usage_verified": "UNAVAILABLE"
+      },
+      "validation": {
+        "canonical_accepted": false,
+        "canonical_readiness": "UNAVAILABLE",
+        "native_schema_status": "VALID",
+        "observation_status": "HTTP_PLAN_REJECTED_OR_UNAVAILABLE",
+        "rejection_reason": "UNAVAILABLE"
+      },
+      "versions": {
+        "dataset_freeze_sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+        "prompt_binding": "UNAVAILABLE",
+        "prompt_ref": "UNAVAILABLE",
+        "prompt_sha256": "UNAVAILABLE",
+        "response_format_sha256": "UNAVAILABLE",
+        "response_schema_name": "UNAVAILABLE",
+        "rubric_sha256": "UNAVAILABLE",
+        "scoring_spec_sha256": "UNAVAILABLE",
+        "source_fingerprint": "652883726ee76af65008a0fcd0441e56b1293de0ed11d6e1b413877205a991bd"
+      }
+    },
+    {
+      "agent": "orchestrator",
+      "arm": "UNAVAILABLE",
+      "artifacts": [
+        {
+          "kind": "archive_manifest",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/manifest.json",
+          "sha256": "f093f7cae70f252128786ec42484dc35925be8591e14c3702753697fb2013310",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "inputs",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs.json",
+          "sha256": "9dbfc75b711999a0ced6c4f5295f8fa375caac1b88077ada1d580b7beee7fdc6",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "dataset_freeze",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/manifest.json",
+          "sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "scores",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/cases.json",
+          "sha256": "600f053077ec7b65d0962cb9769975d92ac518698a918f117bb326e1e40fbe57",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "evidence",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/http/http-v3-01-9b/evidence.json",
+          "sha256": "6986f5afbfa1a49f87850d710da2089cd822c4ea896226ddf90ead82dce422ac",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "prepared_input",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs/http-http-v3-01-9b.json",
+          "sha256": "4a6dd15f030bd42aeed5c6f983728114669183758ecf33ed2d8d2542fe19a702",
+          "source_manifest": "VERIFIED"
+        }
+      ],
+      "campaign_id": "orchestrator-eval-v3",
+      "case_id": "http-v3-01",
+      "conversation_id": "UNAVAILABLE",
+      "dataset_case_id": "http-v3-01",
+      "effect": {
+        "action_kind": "PLAN_PROPOSAL",
+        "effect_classification": "UNAVAILABLE",
+        "specialist_dispatch": "UNAVAILABLE"
+      },
+      "evaluation_id": "orchestrator-eval-v3/archived",
+      "evidence_class": "NATIVE",
+      "issues": [
+        "V3_PROMPT_BINDING_UNAVAILABLE",
+        "V3_SPANS_UNAVAILABLE"
+      ],
+      "join_status": "PARTIAL",
+      "model_call": {
+        "fallback": false,
+        "finish_reason": "stop",
+        "http_status": "UNAVAILABLE",
+        "model_requested": "qwen3.5:9b",
+        "model_returned": "qwen3.5:9b",
+        "provider_requested": "ollama",
+        "provider_returned": "UNAVAILABLE",
+        "retries": 0,
+        "send_claimed": true
+      },
+      "model_performance_evidence": false,
+      "record_id": "orchestrator-v3-archive:http:http-v3-01:qwen3.5:9b",
+      "score": {
+        "agent_success": "UNAVAILABLE",
+        "assessment_observation_binding": "UNAVAILABLE",
+        "assessment_rubric_sha256": "UNAVAILABLE",
+        "assessment_source_fingerprint_match": "UNAVAILABLE",
+        "canonical_state_success": "UNAVAILABLE",
+        "deterministic_display_is_model_credit": "UNAVAILABLE",
+        "evaluator_identity": "UNAVAILABLE",
+        "evaluator_independent": "UNAVAILABLE",
+        "independent_assessment_status": "UNAVAILABLE",
+        "raw_prose_status": "UNAVAILABLE",
+        "schema_status": "VALID"
+      },
+      "source_id": "orchestrator-v3-archive",
+      "stage": "http",
+      "test_node_id": "UNAVAILABLE",
+      "test_outcome": "UNAVAILABLE",
+      "trace": {
+        "agent_span_id": "UNAVAILABLE",
+        "agent_span_status": "UNAVAILABLE",
+        "llm_span_id": "UNAVAILABLE",
+        "llm_span_status": "UNAVAILABLE",
+        "request_hash_match": true,
+        "request_id": "5cd00032-9173-4b3a-b1a9-d90207f4040a",
+        "span_relationship": "UNAVAILABLE",
+        "trace_id": "v3-http-http-v3-01-9b"
+      },
+      "turn_index": "UNAVAILABLE",
+      "usage": {
+        "attempt_wall_latency_ms": "UNAVAILABLE",
+        "billing_status": "UNAVAILABLE",
+        "billing_verified": "UNAVAILABLE",
+        "cost_scope": "UNAVAILABLE",
+        "input_tokens": 1430,
+        "native_latency_ms": 8339.327,
+        "output_tokens": 330,
+        "reasoning_tokens": "UNAVAILABLE",
+        "reported_cost_usd": "UNAVAILABLE",
+        "token_usage_verified": "UNAVAILABLE"
+      },
+      "validation": {
+        "canonical_accepted": false,
+        "canonical_readiness": "UNAVAILABLE",
+        "native_schema_status": "VALID",
+        "observation_status": "HTTP_PLAN_REJECTED_OR_UNAVAILABLE",
+        "rejection_reason": "UNAVAILABLE"
+      },
+      "versions": {
+        "dataset_freeze_sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+        "prompt_binding": "UNAVAILABLE",
+        "prompt_ref": "UNAVAILABLE",
+        "prompt_sha256": "UNAVAILABLE",
+        "response_format_sha256": "UNAVAILABLE",
+        "response_schema_name": "UNAVAILABLE",
+        "rubric_sha256": "UNAVAILABLE",
+        "scoring_spec_sha256": "UNAVAILABLE",
+        "source_fingerprint": "652883726ee76af65008a0fcd0441e56b1293de0ed11d6e1b413877205a991bd"
+      }
+    },
+    {
+      "agent": "orchestrator",
+      "arm": "UNAVAILABLE",
+      "artifacts": [
+        {
+          "kind": "archive_manifest",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/manifest.json",
+          "sha256": "f093f7cae70f252128786ec42484dc35925be8591e14c3702753697fb2013310",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "inputs",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs.json",
+          "sha256": "9dbfc75b711999a0ced6c4f5295f8fa375caac1b88077ada1d580b7beee7fdc6",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "dataset_freeze",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/manifest.json",
+          "sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "scores",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/cases.json",
+          "sha256": "600f053077ec7b65d0962cb9769975d92ac518698a918f117bb326e1e40fbe57",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "evidence",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/primary/dev-v3-01-4b/evidence.json",
+          "sha256": "60b6dd22688883a176dbda39a55782bb9dd01c3252370ec46dbb9b23aad41623",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "prepared_input",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs/primary-dev-v3-01-4b.json",
+          "sha256": "4091b5a54c05fd1b897b1123eb11a749d4b9a3d4a52a6509580d0ed12db2ce6b",
+          "source_manifest": "VERIFIED"
+        }
+      ],
+      "campaign_id": "orchestrator-eval-v3",
+      "case_id": "dev-v3-01",
+      "conversation_id": "UNAVAILABLE",
+      "dataset_case_id": "dev-v3-01",
+      "effect": {
+        "action_kind": "PLAN_PROPOSAL",
+        "effect_classification": "UNAVAILABLE",
+        "specialist_dispatch": "UNAVAILABLE"
+      },
+      "evaluation_id": "orchestrator-eval-v3/archived",
+      "evidence_class": "NATIVE",
+      "issues": [
+        "V3_PROMPT_BINDING_UNAVAILABLE",
+        "V3_SPANS_UNAVAILABLE"
+      ],
+      "join_status": "PARTIAL",
+      "model_call": {
+        "fallback": false,
+        "finish_reason": "stop",
+        "http_status": "UNAVAILABLE",
+        "model_requested": "qwen3.5:4b",
+        "model_returned": "qwen3.5:4b",
+        "provider_requested": "ollama",
+        "provider_returned": "UNAVAILABLE",
+        "retries": 0,
+        "send_claimed": true
+      },
+      "model_performance_evidence": false,
+      "record_id": "orchestrator-v3-archive:primary:dev-v3-01:qwen3.5:4b",
+      "score": {
+        "agent_success": "UNAVAILABLE",
+        "assessment_observation_binding": "UNAVAILABLE",
+        "assessment_rubric_sha256": "UNAVAILABLE",
+        "assessment_source_fingerprint_match": "UNAVAILABLE",
+        "canonical_state_success": "UNAVAILABLE",
+        "deterministic_display_is_model_credit": "UNAVAILABLE",
+        "evaluator_identity": "UNAVAILABLE",
+        "evaluator_independent": "UNAVAILABLE",
+        "independent_assessment_status": "UNAVAILABLE",
+        "raw_prose_status": "UNAVAILABLE",
+        "schema_status": "VALID"
+      },
+      "source_id": "orchestrator-v3-archive",
+      "stage": "primary",
+      "test_node_id": "UNAVAILABLE",
+      "test_outcome": "UNAVAILABLE",
+      "trace": {
+        "agent_span_id": "UNAVAILABLE",
+        "agent_span_status": "UNAVAILABLE",
+        "llm_span_id": "UNAVAILABLE",
+        "llm_span_status": "UNAVAILABLE",
+        "request_hash_match": true,
+        "request_id": "d361d139-e1e0-42f0-9cbc-2a29547344e6",
+        "span_relationship": "UNAVAILABLE",
+        "trace_id": "v3-primary-dev-v3-01-4b"
+      },
+      "turn_index": "UNAVAILABLE",
+      "usage": {
+        "attempt_wall_latency_ms": 4512.157899996964,
+        "billing_status": "UNAVAILABLE",
+        "billing_verified": "UNAVAILABLE",
+        "cost_scope": "UNAVAILABLE",
+        "input_tokens": 1185,
+        "native_latency_ms": 4480.527,
+        "output_tokens": 350,
+        "reasoning_tokens": "UNAVAILABLE",
+        "reported_cost_usd": "UNAVAILABLE",
+        "token_usage_verified": "UNAVAILABLE"
+      },
+      "validation": {
+        "canonical_accepted": false,
+        "canonical_readiness": "UNAVAILABLE",
+        "native_schema_status": "VALID",
+        "observation_status": "ADMISSION_REJECTED",
+        "rejection_reason": "FORBIDDEN_CAPABILITY"
+      },
+      "versions": {
+        "dataset_freeze_sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+        "prompt_binding": "UNAVAILABLE",
+        "prompt_ref": "UNAVAILABLE",
+        "prompt_sha256": "UNAVAILABLE",
+        "response_format_sha256": "UNAVAILABLE",
+        "response_schema_name": "UNAVAILABLE",
+        "rubric_sha256": "UNAVAILABLE",
+        "scoring_spec_sha256": "UNAVAILABLE",
+        "source_fingerprint": "652883726ee76af65008a0fcd0441e56b1293de0ed11d6e1b413877205a991bd"
+      }
+    },
+    {
+      "agent": "orchestrator",
+      "arm": "UNAVAILABLE",
+      "artifacts": [
+        {
+          "kind": "archive_manifest",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/manifest.json",
+          "sha256": "f093f7cae70f252128786ec42484dc35925be8591e14c3702753697fb2013310",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "inputs",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs.json",
+          "sha256": "9dbfc75b711999a0ced6c4f5295f8fa375caac1b88077ada1d580b7beee7fdc6",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "dataset_freeze",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/manifest.json",
+          "sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "scores",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/cases.json",
+          "sha256": "600f053077ec7b65d0962cb9769975d92ac518698a918f117bb326e1e40fbe57",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "evidence",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/primary/dev-v3-01-9b/evidence.json",
+          "sha256": "f384818c8a68950145879ff7fb34ffb199e1d0628b359b8d75732418bac06c3b",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "prepared_input",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs/primary-dev-v3-01-9b.json",
+          "sha256": "bee108d9a32b95df1c6e858b4420eac4f3a0e3f31851d778bf3c7c053df856da",
+          "source_manifest": "VERIFIED"
+        }
+      ],
+      "campaign_id": "orchestrator-eval-v3",
+      "case_id": "dev-v3-01",
+      "conversation_id": "UNAVAILABLE",
+      "dataset_case_id": "dev-v3-01",
+      "effect": {
+        "action_kind": "PLAN_PROPOSAL",
+        "effect_classification": "UNAVAILABLE",
+        "specialist_dispatch": "UNAVAILABLE"
+      },
+      "evaluation_id": "orchestrator-eval-v3/archived",
+      "evidence_class": "NATIVE",
+      "issues": [
+        "V3_PROMPT_BINDING_UNAVAILABLE",
+        "V3_SPANS_UNAVAILABLE"
+      ],
+      "join_status": "PARTIAL",
+      "model_call": {
+        "fallback": false,
+        "finish_reason": "stop",
+        "http_status": "UNAVAILABLE",
+        "model_requested": "qwen3.5:9b",
+        "model_returned": "qwen3.5:9b",
+        "provider_requested": "ollama",
+        "provider_returned": "UNAVAILABLE",
+        "retries": 0,
+        "send_claimed": true
+      },
+      "model_performance_evidence": false,
+      "record_id": "orchestrator-v3-archive:primary:dev-v3-01:qwen3.5:9b",
+      "score": {
+        "agent_success": "UNAVAILABLE",
+        "assessment_observation_binding": "UNAVAILABLE",
+        "assessment_rubric_sha256": "UNAVAILABLE",
+        "assessment_source_fingerprint_match": "UNAVAILABLE",
+        "canonical_state_success": "UNAVAILABLE",
+        "deterministic_display_is_model_credit": "UNAVAILABLE",
+        "evaluator_identity": "UNAVAILABLE",
+        "evaluator_independent": "UNAVAILABLE",
+        "independent_assessment_status": "UNAVAILABLE",
+        "raw_prose_status": "UNAVAILABLE",
+        "schema_status": "VALID"
+      },
+      "source_id": "orchestrator-v3-archive",
+      "stage": "primary",
+      "test_node_id": "UNAVAILABLE",
+      "test_outcome": "UNAVAILABLE",
+      "trace": {
+        "agent_span_id": "UNAVAILABLE",
+        "agent_span_status": "UNAVAILABLE",
+        "llm_span_id": "UNAVAILABLE",
+        "llm_span_status": "UNAVAILABLE",
+        "request_hash_match": true,
+        "request_id": "9a9097dc-6bdb-4c9c-9a76-09acc7c4e089",
+        "span_relationship": "UNAVAILABLE",
+        "trace_id": "v3-primary-dev-v3-01-9b"
+      },
+      "turn_index": "UNAVAILABLE",
+      "usage": {
+        "attempt_wall_latency_ms": 13020.179500002996,
+        "billing_status": "UNAVAILABLE",
+        "billing_verified": "UNAVAILABLE",
+        "cost_scope": "UNAVAILABLE",
+        "input_tokens": 1185,
+        "native_latency_ms": 12989.547,
+        "output_tokens": 353,
+        "reasoning_tokens": "UNAVAILABLE",
+        "reported_cost_usd": "UNAVAILABLE",
+        "token_usage_verified": "UNAVAILABLE"
+      },
+      "validation": {
+        "canonical_accepted": false,
+        "canonical_readiness": "UNAVAILABLE",
+        "native_schema_status": "VALID",
+        "observation_status": "ADMISSION_REJECTED",
+        "rejection_reason": "MISSING_COVERAGE"
+      },
+      "versions": {
+        "dataset_freeze_sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+        "prompt_binding": "UNAVAILABLE",
+        "prompt_ref": "UNAVAILABLE",
+        "prompt_sha256": "UNAVAILABLE",
+        "response_format_sha256": "UNAVAILABLE",
+        "response_schema_name": "UNAVAILABLE",
+        "rubric_sha256": "UNAVAILABLE",
+        "scoring_spec_sha256": "UNAVAILABLE",
+        "source_fingerprint": "652883726ee76af65008a0fcd0441e56b1293de0ed11d6e1b413877205a991bd"
+      }
+    },
+    {
+      "agent": "orchestrator",
+      "arm": "UNAVAILABLE",
+      "artifacts": [
+        {
+          "kind": "archive_manifest",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/manifest.json",
+          "sha256": "f093f7cae70f252128786ec42484dc35925be8591e14c3702753697fb2013310",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "inputs",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs.json",
+          "sha256": "9dbfc75b711999a0ced6c4f5295f8fa375caac1b88077ada1d580b7beee7fdc6",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "dataset_freeze",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/manifest.json",
+          "sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "scores",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/cases.json",
+          "sha256": "600f053077ec7b65d0962cb9769975d92ac518698a918f117bb326e1e40fbe57",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "evidence",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/primary/dev-v3-02-4b/evidence.json",
+          "sha256": "23fc4ca9c369782dc8f4483781d90ea9fd88b67a0a9d2d1d0734476d1a6a2340",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "prepared_input",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs/primary-dev-v3-02-4b.json",
+          "sha256": "987e1251a779071d30d4cc9774df123a950013e7417a0dee57320659e8154d9a",
+          "source_manifest": "VERIFIED"
+        }
+      ],
+      "campaign_id": "orchestrator-eval-v3",
+      "case_id": "dev-v3-02",
+      "conversation_id": "UNAVAILABLE",
+      "dataset_case_id": "dev-v3-02",
+      "effect": {
+        "action_kind": "PLAN_PROPOSAL",
+        "effect_classification": "UNAVAILABLE",
+        "specialist_dispatch": "UNAVAILABLE"
+      },
+      "evaluation_id": "orchestrator-eval-v3/archived",
+      "evidence_class": "NATIVE",
+      "issues": [
+        "V3_PROMPT_BINDING_UNAVAILABLE",
+        "V3_SPANS_UNAVAILABLE"
+      ],
+      "join_status": "PARTIAL",
+      "model_call": {
+        "fallback": false,
+        "finish_reason": "stop",
+        "http_status": "UNAVAILABLE",
+        "model_requested": "qwen3.5:4b",
+        "model_returned": "qwen3.5:4b",
+        "provider_requested": "ollama",
+        "provider_returned": "UNAVAILABLE",
+        "retries": 0,
+        "send_claimed": true
+      },
+      "model_performance_evidence": false,
+      "record_id": "orchestrator-v3-archive:primary:dev-v3-02:qwen3.5:4b",
+      "score": {
+        "agent_success": "UNAVAILABLE",
+        "assessment_observation_binding": "UNAVAILABLE",
+        "assessment_rubric_sha256": "UNAVAILABLE",
+        "assessment_source_fingerprint_match": "UNAVAILABLE",
+        "canonical_state_success": "UNAVAILABLE",
+        "deterministic_display_is_model_credit": "UNAVAILABLE",
+        "evaluator_identity": "UNAVAILABLE",
+        "evaluator_independent": "UNAVAILABLE",
+        "independent_assessment_status": "UNAVAILABLE",
+        "raw_prose_status": "UNAVAILABLE",
+        "schema_status": "VALID"
+      },
+      "source_id": "orchestrator-v3-archive",
+      "stage": "primary",
+      "test_node_id": "UNAVAILABLE",
+      "test_outcome": "UNAVAILABLE",
+      "trace": {
+        "agent_span_id": "UNAVAILABLE",
+        "agent_span_status": "UNAVAILABLE",
+        "llm_span_id": "UNAVAILABLE",
+        "llm_span_status": "UNAVAILABLE",
+        "request_hash_match": true,
+        "request_id": "46c7354d-b9a7-449a-8f66-302a5afca4fa",
+        "span_relationship": "UNAVAILABLE",
+        "trace_id": "v3-primary-dev-v3-02-4b"
+      },
+      "turn_index": "UNAVAILABLE",
+      "usage": {
+        "attempt_wall_latency_ms": 3327.268599998206,
+        "billing_status": "UNAVAILABLE",
+        "billing_verified": "UNAVAILABLE",
+        "cost_scope": "UNAVAILABLE",
+        "input_tokens": 1117,
+        "native_latency_ms": 3295.601,
+        "output_tokens": 130,
+        "reasoning_tokens": "UNAVAILABLE",
+        "reported_cost_usd": "UNAVAILABLE",
+        "token_usage_verified": "UNAVAILABLE"
+      },
+      "validation": {
+        "canonical_accepted": true,
+        "canonical_readiness": "UNAVAILABLE",
+        "native_schema_status": "VALID",
+        "observation_status": "ADMITTED",
+        "rejection_reason": "UNAVAILABLE"
+      },
+      "versions": {
+        "dataset_freeze_sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+        "prompt_binding": "UNAVAILABLE",
+        "prompt_ref": "UNAVAILABLE",
+        "prompt_sha256": "UNAVAILABLE",
+        "response_format_sha256": "UNAVAILABLE",
+        "response_schema_name": "UNAVAILABLE",
+        "rubric_sha256": "UNAVAILABLE",
+        "scoring_spec_sha256": "UNAVAILABLE",
+        "source_fingerprint": "652883726ee76af65008a0fcd0441e56b1293de0ed11d6e1b413877205a991bd"
+      }
+    },
+    {
+      "agent": "orchestrator",
+      "arm": "UNAVAILABLE",
+      "artifacts": [
+        {
+          "kind": "archive_manifest",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/manifest.json",
+          "sha256": "f093f7cae70f252128786ec42484dc35925be8591e14c3702753697fb2013310",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "inputs",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs.json",
+          "sha256": "9dbfc75b711999a0ced6c4f5295f8fa375caac1b88077ada1d580b7beee7fdc6",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "dataset_freeze",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/manifest.json",
+          "sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "scores",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/cases.json",
+          "sha256": "600f053077ec7b65d0962cb9769975d92ac518698a918f117bb326e1e40fbe57",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "evidence",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/primary/dev-v3-02-9b/evidence.json",
+          "sha256": "e8927720d4ef0a854191e5c367c4b84d963b2f78d1e51674f394ccb12f8fc64e",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "prepared_input",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs/primary-dev-v3-02-9b.json",
+          "sha256": "9d2600a5a422eccec060256ef2d21b968daec2513dfecc1af9725c165c5411a9",
+          "source_manifest": "VERIFIED"
+        }
+      ],
+      "campaign_id": "orchestrator-eval-v3",
+      "case_id": "dev-v3-02",
+      "conversation_id": "UNAVAILABLE",
+      "dataset_case_id": "dev-v3-02",
+      "effect": {
+        "action_kind": "PLAN_PROPOSAL",
+        "effect_classification": "UNAVAILABLE",
+        "specialist_dispatch": "UNAVAILABLE"
+      },
+      "evaluation_id": "orchestrator-eval-v3/archived",
+      "evidence_class": "NATIVE",
+      "issues": [
+        "V3_PROMPT_BINDING_UNAVAILABLE",
+        "V3_SPANS_UNAVAILABLE"
+      ],
+      "join_status": "PARTIAL",
+      "model_call": {
+        "fallback": false,
+        "finish_reason": "stop",
+        "http_status": "UNAVAILABLE",
+        "model_requested": "qwen3.5:9b",
+        "model_returned": "qwen3.5:9b",
+        "provider_requested": "ollama",
+        "provider_returned": "UNAVAILABLE",
+        "retries": 0,
+        "send_claimed": true
+      },
+      "model_performance_evidence": false,
+      "record_id": "orchestrator-v3-archive:primary:dev-v3-02:qwen3.5:9b",
+      "score": {
+        "agent_success": "UNAVAILABLE",
+        "assessment_observation_binding": "UNAVAILABLE",
+        "assessment_rubric_sha256": "UNAVAILABLE",
+        "assessment_source_fingerprint_match": "UNAVAILABLE",
+        "canonical_state_success": "UNAVAILABLE",
+        "deterministic_display_is_model_credit": "UNAVAILABLE",
+        "evaluator_identity": "UNAVAILABLE",
+        "evaluator_independent": "UNAVAILABLE",
+        "independent_assessment_status": "UNAVAILABLE",
+        "raw_prose_status": "UNAVAILABLE",
+        "schema_status": "VALID"
+      },
+      "source_id": "orchestrator-v3-archive",
+      "stage": "primary",
+      "test_node_id": "UNAVAILABLE",
+      "test_outcome": "UNAVAILABLE",
+      "trace": {
+        "agent_span_id": "UNAVAILABLE",
+        "agent_span_status": "UNAVAILABLE",
+        "llm_span_id": "UNAVAILABLE",
+        "llm_span_status": "UNAVAILABLE",
+        "request_hash_match": true,
+        "request_id": "f59c40e6-8d50-4bdc-a8d5-e9be85948573",
+        "span_relationship": "UNAVAILABLE",
+        "trace_id": "v3-primary-dev-v3-02-9b"
+      },
+      "turn_index": "UNAVAILABLE",
+      "usage": {
+        "attempt_wall_latency_ms": 4588.739099999657,
+        "billing_status": "UNAVAILABLE",
+        "billing_verified": "UNAVAILABLE",
+        "cost_scope": "UNAVAILABLE",
+        "input_tokens": 1117,
+        "native_latency_ms": 4555.054,
+        "output_tokens": 96,
+        "reasoning_tokens": "UNAVAILABLE",
+        "reported_cost_usd": "UNAVAILABLE",
+        "token_usage_verified": "UNAVAILABLE"
+      },
+      "validation": {
+        "canonical_accepted": true,
+        "canonical_readiness": "UNAVAILABLE",
+        "native_schema_status": "VALID",
+        "observation_status": "ADMITTED",
+        "rejection_reason": "UNAVAILABLE"
+      },
+      "versions": {
+        "dataset_freeze_sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+        "prompt_binding": "UNAVAILABLE",
+        "prompt_ref": "UNAVAILABLE",
+        "prompt_sha256": "UNAVAILABLE",
+        "response_format_sha256": "UNAVAILABLE",
+        "response_schema_name": "UNAVAILABLE",
+        "rubric_sha256": "UNAVAILABLE",
+        "scoring_spec_sha256": "UNAVAILABLE",
+        "source_fingerprint": "652883726ee76af65008a0fcd0441e56b1293de0ed11d6e1b413877205a991bd"
+      }
+    },
+    {
+      "agent": "orchestrator",
+      "arm": "UNAVAILABLE",
+      "artifacts": [
+        {
+          "kind": "archive_manifest",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/manifest.json",
+          "sha256": "f093f7cae70f252128786ec42484dc35925be8591e14c3702753697fb2013310",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "inputs",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs.json",
+          "sha256": "9dbfc75b711999a0ced6c4f5295f8fa375caac1b88077ada1d580b7beee7fdc6",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "dataset_freeze",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/manifest.json",
+          "sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "scores",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/cases.json",
+          "sha256": "600f053077ec7b65d0962cb9769975d92ac518698a918f117bb326e1e40fbe57",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "evidence",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/primary/dev-v3-03-4b/evidence.json",
+          "sha256": "842524091ad0d5cecf9308512953462a6ac05e349678b2d0cb48422df1b68fcb",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "prepared_input",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs/primary-dev-v3-03-4b.json",
+          "sha256": "90b47530953265eb9e13fc1b307a945b4a317f5ddf22bd096bc0b25d98e8013d",
+          "source_manifest": "VERIFIED"
+        }
+      ],
+      "campaign_id": "orchestrator-eval-v3",
+      "case_id": "dev-v3-03",
+      "conversation_id": "UNAVAILABLE",
+      "dataset_case_id": "dev-v3-03",
+      "effect": {
+        "action_kind": "PLAN_PROPOSAL",
+        "effect_classification": "UNAVAILABLE",
+        "specialist_dispatch": "UNAVAILABLE"
+      },
+      "evaluation_id": "orchestrator-eval-v3/archived",
+      "evidence_class": "NATIVE",
+      "issues": [
+        "V3_PROMPT_BINDING_UNAVAILABLE",
+        "V3_SPANS_UNAVAILABLE"
+      ],
+      "join_status": "PARTIAL",
+      "model_call": {
+        "fallback": false,
+        "finish_reason": "stop",
+        "http_status": "UNAVAILABLE",
+        "model_requested": "qwen3.5:4b",
+        "model_returned": "qwen3.5:4b",
+        "provider_requested": "ollama",
+        "provider_returned": "UNAVAILABLE",
+        "retries": 0,
+        "send_claimed": true
+      },
+      "model_performance_evidence": false,
+      "record_id": "orchestrator-v3-archive:primary:dev-v3-03:qwen3.5:4b",
+      "score": {
+        "agent_success": "UNAVAILABLE",
+        "assessment_observation_binding": "UNAVAILABLE",
+        "assessment_rubric_sha256": "UNAVAILABLE",
+        "assessment_source_fingerprint_match": "UNAVAILABLE",
+        "canonical_state_success": "UNAVAILABLE",
+        "deterministic_display_is_model_credit": "UNAVAILABLE",
+        "evaluator_identity": "UNAVAILABLE",
+        "evaluator_independent": "UNAVAILABLE",
+        "independent_assessment_status": "UNAVAILABLE",
+        "raw_prose_status": "UNAVAILABLE",
+        "schema_status": "VALID"
+      },
+      "source_id": "orchestrator-v3-archive",
+      "stage": "primary",
+      "test_node_id": "UNAVAILABLE",
+      "test_outcome": "UNAVAILABLE",
+      "trace": {
+        "agent_span_id": "UNAVAILABLE",
+        "agent_span_status": "UNAVAILABLE",
+        "llm_span_id": "UNAVAILABLE",
+        "llm_span_status": "UNAVAILABLE",
+        "request_hash_match": true,
+        "request_id": "c475de1e-d371-4982-bf9a-2ebe7200d8d0",
+        "span_relationship": "UNAVAILABLE",
+        "trace_id": "v3-primary-dev-v3-03-4b"
+      },
+      "turn_index": "UNAVAILABLE",
+      "usage": {
+        "attempt_wall_latency_ms": 2676.5679999953136,
+        "billing_status": "UNAVAILABLE",
+        "billing_verified": "UNAVAILABLE",
+        "cost_scope": "UNAVAILABLE",
+        "input_tokens": 1151,
+        "native_latency_ms": 2644.396,
+        "output_tokens": 186,
+        "reasoning_tokens": "UNAVAILABLE",
+        "reported_cost_usd": "UNAVAILABLE",
+        "token_usage_verified": "UNAVAILABLE"
+      },
+      "validation": {
+        "canonical_accepted": false,
+        "canonical_readiness": "UNAVAILABLE",
+        "native_schema_status": "VALID",
+        "observation_status": "ADMISSION_REJECTED",
+        "rejection_reason": "MISSING_COVERAGE"
+      },
+      "versions": {
+        "dataset_freeze_sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+        "prompt_binding": "UNAVAILABLE",
+        "prompt_ref": "UNAVAILABLE",
+        "prompt_sha256": "UNAVAILABLE",
+        "response_format_sha256": "UNAVAILABLE",
+        "response_schema_name": "UNAVAILABLE",
+        "rubric_sha256": "UNAVAILABLE",
+        "scoring_spec_sha256": "UNAVAILABLE",
+        "source_fingerprint": "652883726ee76af65008a0fcd0441e56b1293de0ed11d6e1b413877205a991bd"
+      }
+    },
+    {
+      "agent": "orchestrator",
+      "arm": "UNAVAILABLE",
+      "artifacts": [
+        {
+          "kind": "archive_manifest",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/manifest.json",
+          "sha256": "f093f7cae70f252128786ec42484dc35925be8591e14c3702753697fb2013310",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "inputs",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs.json",
+          "sha256": "9dbfc75b711999a0ced6c4f5295f8fa375caac1b88077ada1d580b7beee7fdc6",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "dataset_freeze",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/manifest.json",
+          "sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "scores",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/cases.json",
+          "sha256": "600f053077ec7b65d0962cb9769975d92ac518698a918f117bb326e1e40fbe57",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "evidence",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/primary/dev-v3-03-9b/evidence.json",
+          "sha256": "d0dc98d6571eff3c068ee90b18a71ad71e431972c591f710f147e565fd8d4417",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "prepared_input",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs/primary-dev-v3-03-9b.json",
+          "sha256": "0ea597256fd1cbb2e41d88242d04669306e0d9cd9d8414e5c9541b882e04f5f1",
+          "source_manifest": "VERIFIED"
+        }
+      ],
+      "campaign_id": "orchestrator-eval-v3",
+      "case_id": "dev-v3-03",
+      "conversation_id": "UNAVAILABLE",
+      "dataset_case_id": "dev-v3-03",
+      "effect": {
+        "action_kind": "PLAN_PROPOSAL",
+        "effect_classification": "UNAVAILABLE",
+        "specialist_dispatch": "UNAVAILABLE"
+      },
+      "evaluation_id": "orchestrator-eval-v3/archived",
+      "evidence_class": "NATIVE",
+      "issues": [
+        "V3_PROMPT_BINDING_UNAVAILABLE",
+        "V3_SPANS_UNAVAILABLE"
+      ],
+      "join_status": "PARTIAL",
+      "model_call": {
+        "fallback": false,
+        "finish_reason": "stop",
+        "http_status": "UNAVAILABLE",
+        "model_requested": "qwen3.5:9b",
+        "model_returned": "qwen3.5:9b",
+        "provider_requested": "ollama",
+        "provider_returned": "UNAVAILABLE",
+        "retries": 0,
+        "send_claimed": true
+      },
+      "model_performance_evidence": false,
+      "record_id": "orchestrator-v3-archive:primary:dev-v3-03:qwen3.5:9b",
+      "score": {
+        "agent_success": "UNAVAILABLE",
+        "assessment_observation_binding": "UNAVAILABLE",
+        "assessment_rubric_sha256": "UNAVAILABLE",
+        "assessment_source_fingerprint_match": "UNAVAILABLE",
+        "canonical_state_success": "UNAVAILABLE",
+        "deterministic_display_is_model_credit": "UNAVAILABLE",
+        "evaluator_identity": "UNAVAILABLE",
+        "evaluator_independent": "UNAVAILABLE",
+        "independent_assessment_status": "UNAVAILABLE",
+        "raw_prose_status": "UNAVAILABLE",
+        "schema_status": "VALID"
+      },
+      "source_id": "orchestrator-v3-archive",
+      "stage": "primary",
+      "test_node_id": "UNAVAILABLE",
+      "test_outcome": "UNAVAILABLE",
+      "trace": {
+        "agent_span_id": "UNAVAILABLE",
+        "agent_span_status": "UNAVAILABLE",
+        "llm_span_id": "UNAVAILABLE",
+        "llm_span_status": "UNAVAILABLE",
+        "request_hash_match": true,
+        "request_id": "cfc9ea9f-8498-46bd-a49e-19cb663b2083",
+        "span_relationship": "UNAVAILABLE",
+        "trace_id": "v3-primary-dev-v3-03-9b"
+      },
+      "turn_index": "UNAVAILABLE",
+      "usage": {
+        "attempt_wall_latency_ms": 9248.699499992654,
+        "billing_status": "UNAVAILABLE",
+        "billing_verified": "UNAVAILABLE",
+        "cost_scope": "UNAVAILABLE",
+        "input_tokens": 1151,
+        "native_latency_ms": 9220.111,
+        "output_tokens": 249,
+        "reasoning_tokens": "UNAVAILABLE",
+        "reported_cost_usd": "UNAVAILABLE",
+        "token_usage_verified": "UNAVAILABLE"
+      },
+      "validation": {
+        "canonical_accepted": false,
+        "canonical_readiness": "UNAVAILABLE",
+        "native_schema_status": "VALID",
+        "observation_status": "ADMISSION_REJECTED",
+        "rejection_reason": "MISSING_COVERAGE"
+      },
+      "versions": {
+        "dataset_freeze_sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+        "prompt_binding": "UNAVAILABLE",
+        "prompt_ref": "UNAVAILABLE",
+        "prompt_sha256": "UNAVAILABLE",
+        "response_format_sha256": "UNAVAILABLE",
+        "response_schema_name": "UNAVAILABLE",
+        "rubric_sha256": "UNAVAILABLE",
+        "scoring_spec_sha256": "UNAVAILABLE",
+        "source_fingerprint": "652883726ee76af65008a0fcd0441e56b1293de0ed11d6e1b413877205a991bd"
+      }
+    },
+    {
+      "agent": "orchestrator",
+      "arm": "UNAVAILABLE",
+      "artifacts": [
+        {
+          "kind": "archive_manifest",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/manifest.json",
+          "sha256": "f093f7cae70f252128786ec42484dc35925be8591e14c3702753697fb2013310",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "inputs",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs.json",
+          "sha256": "9dbfc75b711999a0ced6c4f5295f8fa375caac1b88077ada1d580b7beee7fdc6",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "dataset_freeze",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/manifest.json",
+          "sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "scores",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/cases.json",
+          "sha256": "600f053077ec7b65d0962cb9769975d92ac518698a918f117bb326e1e40fbe57",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "evidence",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/primary/dev-v3-04-4b/evidence.json",
+          "sha256": "4384c429f3c534ea0a72e5f13386f32262ed8129be9e01c1a083cb36e5d8ca99",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "prepared_input",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs/primary-dev-v3-04-4b.json",
+          "sha256": "174ae9b2d7b39b820b888881a1236a5503ad49265653d83b8e16102b606ea31b",
+          "source_manifest": "VERIFIED"
+        }
+      ],
+      "campaign_id": "orchestrator-eval-v3",
+      "case_id": "dev-v3-04",
+      "conversation_id": "UNAVAILABLE",
+      "dataset_case_id": "dev-v3-04",
+      "effect": {
+        "action_kind": "PLAN_PROPOSAL",
+        "effect_classification": "UNAVAILABLE",
+        "specialist_dispatch": "UNAVAILABLE"
+      },
+      "evaluation_id": "orchestrator-eval-v3/archived",
+      "evidence_class": "NATIVE",
+      "issues": [
+        "V3_PROMPT_BINDING_UNAVAILABLE",
+        "V3_SPANS_UNAVAILABLE"
+      ],
+      "join_status": "PARTIAL",
+      "model_call": {
+        "fallback": false,
+        "finish_reason": "stop",
+        "http_status": "UNAVAILABLE",
+        "model_requested": "qwen3.5:4b",
+        "model_returned": "qwen3.5:4b",
+        "provider_requested": "ollama",
+        "provider_returned": "UNAVAILABLE",
+        "retries": 0,
+        "send_claimed": true
+      },
+      "model_performance_evidence": false,
+      "record_id": "orchestrator-v3-archive:primary:dev-v3-04:qwen3.5:4b",
+      "score": {
+        "agent_success": "UNAVAILABLE",
+        "assessment_observation_binding": "UNAVAILABLE",
+        "assessment_rubric_sha256": "UNAVAILABLE",
+        "assessment_source_fingerprint_match": "UNAVAILABLE",
+        "canonical_state_success": "UNAVAILABLE",
+        "deterministic_display_is_model_credit": "UNAVAILABLE",
+        "evaluator_identity": "UNAVAILABLE",
+        "evaluator_independent": "UNAVAILABLE",
+        "independent_assessment_status": "UNAVAILABLE",
+        "raw_prose_status": "UNAVAILABLE",
+        "schema_status": "VALID"
+      },
+      "source_id": "orchestrator-v3-archive",
+      "stage": "primary",
+      "test_node_id": "UNAVAILABLE",
+      "test_outcome": "UNAVAILABLE",
+      "trace": {
+        "agent_span_id": "UNAVAILABLE",
+        "agent_span_status": "UNAVAILABLE",
+        "llm_span_id": "UNAVAILABLE",
+        "llm_span_status": "UNAVAILABLE",
+        "request_hash_match": true,
+        "request_id": "c6f12bc8-95ef-4e2a-9bd8-5713f766d9f5",
+        "span_relationship": "UNAVAILABLE",
+        "trace_id": "v3-primary-dev-v3-04-4b"
+      },
+      "turn_index": "UNAVAILABLE",
+      "usage": {
+        "attempt_wall_latency_ms": 1917.4356000003172,
+        "billing_status": "UNAVAILABLE",
+        "billing_verified": "UNAVAILABLE",
+        "cost_scope": "UNAVAILABLE",
+        "input_tokens": 1104,
+        "native_latency_ms": 1888.067,
+        "output_tokens": 130,
+        "reasoning_tokens": "UNAVAILABLE",
+        "reported_cost_usd": "UNAVAILABLE",
+        "token_usage_verified": "UNAVAILABLE"
+      },
+      "validation": {
+        "canonical_accepted": false,
+        "canonical_readiness": "UNAVAILABLE",
+        "native_schema_status": "VALID",
+        "observation_status": "ADMISSION_REJECTED",
+        "rejection_reason": "MISSING_PREREQUISITE"
+      },
+      "versions": {
+        "dataset_freeze_sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+        "prompt_binding": "UNAVAILABLE",
+        "prompt_ref": "UNAVAILABLE",
+        "prompt_sha256": "UNAVAILABLE",
+        "response_format_sha256": "UNAVAILABLE",
+        "response_schema_name": "UNAVAILABLE",
+        "rubric_sha256": "UNAVAILABLE",
+        "scoring_spec_sha256": "UNAVAILABLE",
+        "source_fingerprint": "652883726ee76af65008a0fcd0441e56b1293de0ed11d6e1b413877205a991bd"
+      }
+    },
+    {
+      "agent": "orchestrator",
+      "arm": "UNAVAILABLE",
+      "artifacts": [
+        {
+          "kind": "archive_manifest",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/manifest.json",
+          "sha256": "f093f7cae70f252128786ec42484dc35925be8591e14c3702753697fb2013310",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "inputs",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs.json",
+          "sha256": "9dbfc75b711999a0ced6c4f5295f8fa375caac1b88077ada1d580b7beee7fdc6",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "dataset_freeze",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/manifest.json",
+          "sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "scores",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/cases.json",
+          "sha256": "600f053077ec7b65d0962cb9769975d92ac518698a918f117bb326e1e40fbe57",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "evidence",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/primary/dev-v3-04-9b/evidence.json",
+          "sha256": "61271db39acbf2b9b57d08383597758ee3f24f859205cf677772322a52d2181d",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "prepared_input",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs/primary-dev-v3-04-9b.json",
+          "sha256": "6e74e35e33aa7d4f800a7d435f8fd68a7477f7d2d25c4ab348c625787c936e95",
+          "source_manifest": "VERIFIED"
+        }
+      ],
+      "campaign_id": "orchestrator-eval-v3",
+      "case_id": "dev-v3-04",
+      "conversation_id": "UNAVAILABLE",
+      "dataset_case_id": "dev-v3-04",
+      "effect": {
+        "action_kind": "PLAN_PROPOSAL",
+        "effect_classification": "UNAVAILABLE",
+        "specialist_dispatch": "UNAVAILABLE"
+      },
+      "evaluation_id": "orchestrator-eval-v3/archived",
+      "evidence_class": "NATIVE",
+      "issues": [
+        "V3_PROMPT_BINDING_UNAVAILABLE",
+        "V3_SPANS_UNAVAILABLE"
+      ],
+      "join_status": "PARTIAL",
+      "model_call": {
+        "fallback": false,
+        "finish_reason": "stop",
+        "http_status": "UNAVAILABLE",
+        "model_requested": "qwen3.5:9b",
+        "model_returned": "qwen3.5:9b",
+        "provider_requested": "ollama",
+        "provider_returned": "UNAVAILABLE",
+        "retries": 0,
+        "send_claimed": true
+      },
+      "model_performance_evidence": false,
+      "record_id": "orchestrator-v3-archive:primary:dev-v3-04:qwen3.5:9b",
+      "score": {
+        "agent_success": "UNAVAILABLE",
+        "assessment_observation_binding": "UNAVAILABLE",
+        "assessment_rubric_sha256": "UNAVAILABLE",
+        "assessment_source_fingerprint_match": "UNAVAILABLE",
+        "canonical_state_success": "UNAVAILABLE",
+        "deterministic_display_is_model_credit": "UNAVAILABLE",
+        "evaluator_identity": "UNAVAILABLE",
+        "evaluator_independent": "UNAVAILABLE",
+        "independent_assessment_status": "UNAVAILABLE",
+        "raw_prose_status": "UNAVAILABLE",
+        "schema_status": "VALID"
+      },
+      "source_id": "orchestrator-v3-archive",
+      "stage": "primary",
+      "test_node_id": "UNAVAILABLE",
+      "test_outcome": "UNAVAILABLE",
+      "trace": {
+        "agent_span_id": "UNAVAILABLE",
+        "agent_span_status": "UNAVAILABLE",
+        "llm_span_id": "UNAVAILABLE",
+        "llm_span_status": "UNAVAILABLE",
+        "request_hash_match": true,
+        "request_id": "a0180a9e-891f-48fb-a77f-899ec08dbf6a",
+        "span_relationship": "UNAVAILABLE",
+        "trace_id": "v3-primary-dev-v3-04-9b"
+      },
+      "turn_index": "UNAVAILABLE",
+      "usage": {
+        "attempt_wall_latency_ms": 6437.546299988753,
+        "billing_status": "UNAVAILABLE",
+        "billing_verified": "UNAVAILABLE",
+        "cost_scope": "UNAVAILABLE",
+        "input_tokens": 1104,
+        "native_latency_ms": 6406.035,
+        "output_tokens": 146,
+        "reasoning_tokens": "UNAVAILABLE",
+        "reported_cost_usd": "UNAVAILABLE",
+        "token_usage_verified": "UNAVAILABLE"
+      },
+      "validation": {
+        "canonical_accepted": false,
+        "canonical_readiness": "UNAVAILABLE",
+        "native_schema_status": "VALID",
+        "observation_status": "ADMISSION_REJECTED",
+        "rejection_reason": "MISSING_COVERAGE"
+      },
+      "versions": {
+        "dataset_freeze_sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+        "prompt_binding": "UNAVAILABLE",
+        "prompt_ref": "UNAVAILABLE",
+        "prompt_sha256": "UNAVAILABLE",
+        "response_format_sha256": "UNAVAILABLE",
+        "response_schema_name": "UNAVAILABLE",
+        "rubric_sha256": "UNAVAILABLE",
+        "scoring_spec_sha256": "UNAVAILABLE",
+        "source_fingerprint": "652883726ee76af65008a0fcd0441e56b1293de0ed11d6e1b413877205a991bd"
+      }
+    },
+    {
+      "agent": "orchestrator",
+      "arm": "UNAVAILABLE",
+      "artifacts": [
+        {
+          "kind": "archive_manifest",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/manifest.json",
+          "sha256": "f093f7cae70f252128786ec42484dc35925be8591e14c3702753697fb2013310",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "inputs",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs.json",
+          "sha256": "9dbfc75b711999a0ced6c4f5295f8fa375caac1b88077ada1d580b7beee7fdc6",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "dataset_freeze",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/manifest.json",
+          "sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "scores",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/cases.json",
+          "sha256": "600f053077ec7b65d0962cb9769975d92ac518698a918f117bb326e1e40fbe57",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "evidence",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/primary/dev-v3-05-4b/evidence.json",
+          "sha256": "92e78ef6be0cfd7f8ff6901e01bfda3d362a9f02679aa0034af4d21a71470cbc",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "prepared_input",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs/primary-dev-v3-05-4b.json",
+          "sha256": "884852d5a09dd51b19a94bc4c9963839988455e3ea393b429deed83a64d1d014",
+          "source_manifest": "VERIFIED"
+        }
+      ],
+      "campaign_id": "orchestrator-eval-v3",
+      "case_id": "dev-v3-05",
+      "conversation_id": "UNAVAILABLE",
+      "dataset_case_id": "dev-v3-05",
+      "effect": {
+        "action_kind": "PLAN_PROPOSAL",
+        "effect_classification": "UNAVAILABLE",
+        "specialist_dispatch": "UNAVAILABLE"
+      },
+      "evaluation_id": "orchestrator-eval-v3/archived",
+      "evidence_class": "NATIVE",
+      "issues": [
+        "V3_PROMPT_BINDING_UNAVAILABLE",
+        "V3_SPANS_UNAVAILABLE"
+      ],
+      "join_status": "PARTIAL",
+      "model_call": {
+        "fallback": false,
+        "finish_reason": "stop",
+        "http_status": "UNAVAILABLE",
+        "model_requested": "qwen3.5:4b",
+        "model_returned": "qwen3.5:4b",
+        "provider_requested": "ollama",
+        "provider_returned": "UNAVAILABLE",
+        "retries": 0,
+        "send_claimed": true
+      },
+      "model_performance_evidence": false,
+      "record_id": "orchestrator-v3-archive:primary:dev-v3-05:qwen3.5:4b",
+      "score": {
+        "agent_success": "UNAVAILABLE",
+        "assessment_observation_binding": "UNAVAILABLE",
+        "assessment_rubric_sha256": "UNAVAILABLE",
+        "assessment_source_fingerprint_match": "UNAVAILABLE",
+        "canonical_state_success": "UNAVAILABLE",
+        "deterministic_display_is_model_credit": "UNAVAILABLE",
+        "evaluator_identity": "UNAVAILABLE",
+        "evaluator_independent": "UNAVAILABLE",
+        "independent_assessment_status": "UNAVAILABLE",
+        "raw_prose_status": "UNAVAILABLE",
+        "schema_status": "VALID"
+      },
+      "source_id": "orchestrator-v3-archive",
+      "stage": "primary",
+      "test_node_id": "UNAVAILABLE",
+      "test_outcome": "UNAVAILABLE",
+      "trace": {
+        "agent_span_id": "UNAVAILABLE",
+        "agent_span_status": "UNAVAILABLE",
+        "llm_span_id": "UNAVAILABLE",
+        "llm_span_status": "UNAVAILABLE",
+        "request_hash_match": true,
+        "request_id": "d4ee3301-798a-42d9-9b79-48dc48e86d47",
+        "span_relationship": "UNAVAILABLE",
+        "trace_id": "v3-primary-dev-v3-05-4b"
+      },
+      "turn_index": "UNAVAILABLE",
+      "usage": {
+        "attempt_wall_latency_ms": 3092.4937999952817,
+        "billing_status": "UNAVAILABLE",
+        "billing_verified": "UNAVAILABLE",
+        "cost_scope": "UNAVAILABLE",
+        "input_tokens": 1185,
+        "native_latency_ms": 3052.853,
+        "output_tokens": 231,
+        "reasoning_tokens": "UNAVAILABLE",
+        "reported_cost_usd": "UNAVAILABLE",
+        "token_usage_verified": "UNAVAILABLE"
+      },
+      "validation": {
+        "canonical_accepted": false,
+        "canonical_readiness": "UNAVAILABLE",
+        "native_schema_status": "VALID",
+        "observation_status": "ADMISSION_REJECTED",
+        "rejection_reason": "MISSING_COVERAGE"
+      },
+      "versions": {
+        "dataset_freeze_sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+        "prompt_binding": "UNAVAILABLE",
+        "prompt_ref": "UNAVAILABLE",
+        "prompt_sha256": "UNAVAILABLE",
+        "response_format_sha256": "UNAVAILABLE",
+        "response_schema_name": "UNAVAILABLE",
+        "rubric_sha256": "UNAVAILABLE",
+        "scoring_spec_sha256": "UNAVAILABLE",
+        "source_fingerprint": "652883726ee76af65008a0fcd0441e56b1293de0ed11d6e1b413877205a991bd"
+      }
+    },
+    {
+      "agent": "orchestrator",
+      "arm": "UNAVAILABLE",
+      "artifacts": [
+        {
+          "kind": "archive_manifest",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/manifest.json",
+          "sha256": "f093f7cae70f252128786ec42484dc35925be8591e14c3702753697fb2013310",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "inputs",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs.json",
+          "sha256": "9dbfc75b711999a0ced6c4f5295f8fa375caac1b88077ada1d580b7beee7fdc6",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "dataset_freeze",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/manifest.json",
+          "sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "scores",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/cases.json",
+          "sha256": "600f053077ec7b65d0962cb9769975d92ac518698a918f117bb326e1e40fbe57",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "evidence",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/primary/dev-v3-05-9b/evidence.json",
+          "sha256": "fc6cd2e3aced8334ac2decca0c63c53daed5b263975c1da8148dff45b931e0b0",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "prepared_input",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs/primary-dev-v3-05-9b.json",
+          "sha256": "ecb3c89aa2e0c4953214a0c4d37d2d7241e51e9be4660978b297a00a7b9acc09",
+          "source_manifest": "VERIFIED"
+        }
+      ],
+      "campaign_id": "orchestrator-eval-v3",
+      "case_id": "dev-v3-05",
+      "conversation_id": "UNAVAILABLE",
+      "dataset_case_id": "dev-v3-05",
+      "effect": {
+        "action_kind": "PLAN_PROPOSAL",
+        "effect_classification": "UNAVAILABLE",
+        "specialist_dispatch": "UNAVAILABLE"
+      },
+      "evaluation_id": "orchestrator-eval-v3/archived",
+      "evidence_class": "NATIVE",
+      "issues": [
+        "V3_PROMPT_BINDING_UNAVAILABLE",
+        "V3_SPANS_UNAVAILABLE"
+      ],
+      "join_status": "PARTIAL",
+      "model_call": {
+        "fallback": false,
+        "finish_reason": "stop",
+        "http_status": "UNAVAILABLE",
+        "model_requested": "qwen3.5:9b",
+        "model_returned": "qwen3.5:9b",
+        "provider_requested": "ollama",
+        "provider_returned": "UNAVAILABLE",
+        "retries": 0,
+        "send_claimed": true
+      },
+      "model_performance_evidence": false,
+      "record_id": "orchestrator-v3-archive:primary:dev-v3-05:qwen3.5:9b",
+      "score": {
+        "agent_success": "UNAVAILABLE",
+        "assessment_observation_binding": "UNAVAILABLE",
+        "assessment_rubric_sha256": "UNAVAILABLE",
+        "assessment_source_fingerprint_match": "UNAVAILABLE",
+        "canonical_state_success": "UNAVAILABLE",
+        "deterministic_display_is_model_credit": "UNAVAILABLE",
+        "evaluator_identity": "UNAVAILABLE",
+        "evaluator_independent": "UNAVAILABLE",
+        "independent_assessment_status": "UNAVAILABLE",
+        "raw_prose_status": "UNAVAILABLE",
+        "schema_status": "VALID"
+      },
+      "source_id": "orchestrator-v3-archive",
+      "stage": "primary",
+      "test_node_id": "UNAVAILABLE",
+      "test_outcome": "UNAVAILABLE",
+      "trace": {
+        "agent_span_id": "UNAVAILABLE",
+        "agent_span_status": "UNAVAILABLE",
+        "llm_span_id": "UNAVAILABLE",
+        "llm_span_status": "UNAVAILABLE",
+        "request_hash_match": true,
+        "request_id": "ded1f37b-a7a5-4c88-8bff-2a036e014896",
+        "span_relationship": "UNAVAILABLE",
+        "trace_id": "v3-primary-dev-v3-05-9b"
+      },
+      "turn_index": "UNAVAILABLE",
+      "usage": {
+        "attempt_wall_latency_ms": 9743.321600006311,
+        "billing_status": "UNAVAILABLE",
+        "billing_verified": "UNAVAILABLE",
+        "cost_scope": "UNAVAILABLE",
+        "input_tokens": 1185,
+        "native_latency_ms": 9709.153,
+        "output_tokens": 360,
+        "reasoning_tokens": "UNAVAILABLE",
+        "reported_cost_usd": "UNAVAILABLE",
+        "token_usage_verified": "UNAVAILABLE"
+      },
+      "validation": {
+        "canonical_accepted": false,
+        "canonical_readiness": "UNAVAILABLE",
+        "native_schema_status": "VALID",
+        "observation_status": "ADMISSION_REJECTED",
+        "rejection_reason": "MISSING_COVERAGE"
+      },
+      "versions": {
+        "dataset_freeze_sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+        "prompt_binding": "UNAVAILABLE",
+        "prompt_ref": "UNAVAILABLE",
+        "prompt_sha256": "UNAVAILABLE",
+        "response_format_sha256": "UNAVAILABLE",
+        "response_schema_name": "UNAVAILABLE",
+        "rubric_sha256": "UNAVAILABLE",
+        "scoring_spec_sha256": "UNAVAILABLE",
+        "source_fingerprint": "652883726ee76af65008a0fcd0441e56b1293de0ed11d6e1b413877205a991bd"
+      }
+    },
+    {
+      "agent": "orchestrator",
+      "arm": "UNAVAILABLE",
+      "artifacts": [
+        {
+          "kind": "archive_manifest",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/manifest.json",
+          "sha256": "f093f7cae70f252128786ec42484dc35925be8591e14c3702753697fb2013310",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "inputs",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs.json",
+          "sha256": "9dbfc75b711999a0ced6c4f5295f8fa375caac1b88077ada1d580b7beee7fdc6",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "dataset_freeze",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/manifest.json",
+          "sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "scores",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/cases.json",
+          "sha256": "600f053077ec7b65d0962cb9769975d92ac518698a918f117bb326e1e40fbe57",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "evidence",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/primary/dev-v3-06-4b/evidence.json",
+          "sha256": "cc72093013dec2b6d93c601143da67d7069209e8eec547a0b91e7139e81b841e",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "prepared_input",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs/primary-dev-v3-06-4b.json",
+          "sha256": "be8031eac711966d1b97baf4e3dcb724f21be2c02c5aa745af1f5808a888320f",
+          "source_manifest": "VERIFIED"
+        }
+      ],
+      "campaign_id": "orchestrator-eval-v3",
+      "case_id": "dev-v3-06",
+      "conversation_id": "UNAVAILABLE",
+      "dataset_case_id": "dev-v3-06",
+      "effect": {
+        "action_kind": "PLAN_PROPOSAL",
+        "effect_classification": "UNAVAILABLE",
+        "specialist_dispatch": "UNAVAILABLE"
+      },
+      "evaluation_id": "orchestrator-eval-v3/archived",
+      "evidence_class": "NATIVE",
+      "issues": [
+        "V3_PROMPT_BINDING_UNAVAILABLE",
+        "V3_SPANS_UNAVAILABLE"
+      ],
+      "join_status": "PARTIAL",
+      "model_call": {
+        "fallback": false,
+        "finish_reason": "stop",
+        "http_status": "UNAVAILABLE",
+        "model_requested": "qwen3.5:4b",
+        "model_returned": "qwen3.5:4b",
+        "provider_requested": "ollama",
+        "provider_returned": "UNAVAILABLE",
+        "retries": 0,
+        "send_claimed": true
+      },
+      "model_performance_evidence": false,
+      "record_id": "orchestrator-v3-archive:primary:dev-v3-06:qwen3.5:4b",
+      "score": {
+        "agent_success": "UNAVAILABLE",
+        "assessment_observation_binding": "UNAVAILABLE",
+        "assessment_rubric_sha256": "UNAVAILABLE",
+        "assessment_source_fingerprint_match": "UNAVAILABLE",
+        "canonical_state_success": "UNAVAILABLE",
+        "deterministic_display_is_model_credit": "UNAVAILABLE",
+        "evaluator_identity": "UNAVAILABLE",
+        "evaluator_independent": "UNAVAILABLE",
+        "independent_assessment_status": "UNAVAILABLE",
+        "raw_prose_status": "UNAVAILABLE",
+        "schema_status": "VALID"
+      },
+      "source_id": "orchestrator-v3-archive",
+      "stage": "primary",
+      "test_node_id": "UNAVAILABLE",
+      "test_outcome": "UNAVAILABLE",
+      "trace": {
+        "agent_span_id": "UNAVAILABLE",
+        "agent_span_status": "UNAVAILABLE",
+        "llm_span_id": "UNAVAILABLE",
+        "llm_span_status": "UNAVAILABLE",
+        "request_hash_match": true,
+        "request_id": "8701e67b-3a95-4539-8652-bb0d3eaf0ed9",
+        "span_relationship": "UNAVAILABLE",
+        "trace_id": "v3-primary-dev-v3-06-4b"
+      },
+      "turn_index": "UNAVAILABLE",
+      "usage": {
+        "attempt_wall_latency_ms": 3307.6064999913797,
+        "billing_status": "UNAVAILABLE",
+        "billing_verified": "UNAVAILABLE",
+        "cost_scope": "UNAVAILABLE",
+        "input_tokens": 1142,
+        "native_latency_ms": 3278.405,
+        "output_tokens": 241,
+        "reasoning_tokens": "UNAVAILABLE",
+        "reported_cost_usd": "UNAVAILABLE",
+        "token_usage_verified": "UNAVAILABLE"
+      },
+      "validation": {
+        "canonical_accepted": false,
+        "canonical_readiness": "UNAVAILABLE",
+        "native_schema_status": "VALID",
+        "observation_status": "ADMISSION_REJECTED",
+        "rejection_reason": "MISSING_COVERAGE"
+      },
+      "versions": {
+        "dataset_freeze_sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+        "prompt_binding": "UNAVAILABLE",
+        "prompt_ref": "UNAVAILABLE",
+        "prompt_sha256": "UNAVAILABLE",
+        "response_format_sha256": "UNAVAILABLE",
+        "response_schema_name": "UNAVAILABLE",
+        "rubric_sha256": "UNAVAILABLE",
+        "scoring_spec_sha256": "UNAVAILABLE",
+        "source_fingerprint": "652883726ee76af65008a0fcd0441e56b1293de0ed11d6e1b413877205a991bd"
+      }
+    },
+    {
+      "agent": "orchestrator",
+      "arm": "UNAVAILABLE",
+      "artifacts": [
+        {
+          "kind": "archive_manifest",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/manifest.json",
+          "sha256": "f093f7cae70f252128786ec42484dc35925be8591e14c3702753697fb2013310",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "inputs",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs.json",
+          "sha256": "9dbfc75b711999a0ced6c4f5295f8fa375caac1b88077ada1d580b7beee7fdc6",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "dataset_freeze",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/manifest.json",
+          "sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "scores",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/cases.json",
+          "sha256": "600f053077ec7b65d0962cb9769975d92ac518698a918f117bb326e1e40fbe57",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "evidence",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/primary/dev-v3-06-9b/evidence.json",
+          "sha256": "4633743c2e95f2c461db3274453a9de2f2f52fe001da6ad655260a51c432b49f",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "prepared_input",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs/primary-dev-v3-06-9b.json",
+          "sha256": "a0522bc87b20c92e1a817ee9707d23dcb9681965b96d2f6fad6618a6078e0989",
+          "source_manifest": "VERIFIED"
+        }
+      ],
+      "campaign_id": "orchestrator-eval-v3",
+      "case_id": "dev-v3-06",
+      "conversation_id": "UNAVAILABLE",
+      "dataset_case_id": "dev-v3-06",
+      "effect": {
+        "action_kind": "PLAN_PROPOSAL",
+        "effect_classification": "UNAVAILABLE",
+        "specialist_dispatch": "UNAVAILABLE"
+      },
+      "evaluation_id": "orchestrator-eval-v3/archived",
+      "evidence_class": "NATIVE",
+      "issues": [
+        "V3_PROMPT_BINDING_UNAVAILABLE",
+        "V3_SPANS_UNAVAILABLE"
+      ],
+      "join_status": "PARTIAL",
+      "model_call": {
+        "fallback": false,
+        "finish_reason": "stop",
+        "http_status": "UNAVAILABLE",
+        "model_requested": "qwen3.5:9b",
+        "model_returned": "qwen3.5:9b",
+        "provider_requested": "ollama",
+        "provider_returned": "UNAVAILABLE",
+        "retries": 0,
+        "send_claimed": true
+      },
+      "model_performance_evidence": false,
+      "record_id": "orchestrator-v3-archive:primary:dev-v3-06:qwen3.5:9b",
+      "score": {
+        "agent_success": "UNAVAILABLE",
+        "assessment_observation_binding": "UNAVAILABLE",
+        "assessment_rubric_sha256": "UNAVAILABLE",
+        "assessment_source_fingerprint_match": "UNAVAILABLE",
+        "canonical_state_success": "UNAVAILABLE",
+        "deterministic_display_is_model_credit": "UNAVAILABLE",
+        "evaluator_identity": "UNAVAILABLE",
+        "evaluator_independent": "UNAVAILABLE",
+        "independent_assessment_status": "UNAVAILABLE",
+        "raw_prose_status": "UNAVAILABLE",
+        "schema_status": "VALID"
+      },
+      "source_id": "orchestrator-v3-archive",
+      "stage": "primary",
+      "test_node_id": "UNAVAILABLE",
+      "test_outcome": "UNAVAILABLE",
+      "trace": {
+        "agent_span_id": "UNAVAILABLE",
+        "agent_span_status": "UNAVAILABLE",
+        "llm_span_id": "UNAVAILABLE",
+        "llm_span_status": "UNAVAILABLE",
+        "request_hash_match": true,
+        "request_id": "ca97a8ed-5dc2-4150-9035-d756efe3ff53",
+        "span_relationship": "UNAVAILABLE",
+        "trace_id": "v3-primary-dev-v3-06-9b"
+      },
+      "turn_index": "UNAVAILABLE",
+      "usage": {
+        "attempt_wall_latency_ms": 9619.430999999167,
+        "billing_status": "UNAVAILABLE",
+        "billing_verified": "UNAVAILABLE",
+        "cost_scope": "UNAVAILABLE",
+        "input_tokens": 1142,
+        "native_latency_ms": 9587.996,
+        "output_tokens": 394,
+        "reasoning_tokens": "UNAVAILABLE",
+        "reported_cost_usd": "UNAVAILABLE",
+        "token_usage_verified": "UNAVAILABLE"
+      },
+      "validation": {
+        "canonical_accepted": false,
+        "canonical_readiness": "UNAVAILABLE",
+        "native_schema_status": "VALID",
+        "observation_status": "ADMISSION_REJECTED",
+        "rejection_reason": "MISSING_COVERAGE"
+      },
+      "versions": {
+        "dataset_freeze_sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+        "prompt_binding": "UNAVAILABLE",
+        "prompt_ref": "UNAVAILABLE",
+        "prompt_sha256": "UNAVAILABLE",
+        "response_format_sha256": "UNAVAILABLE",
+        "response_schema_name": "UNAVAILABLE",
+        "rubric_sha256": "UNAVAILABLE",
+        "scoring_spec_sha256": "UNAVAILABLE",
+        "source_fingerprint": "652883726ee76af65008a0fcd0441e56b1293de0ed11d6e1b413877205a991bd"
+      }
+    },
+    {
+      "agent": "orchestrator",
+      "arm": "UNAVAILABLE",
+      "artifacts": [
+        {
+          "kind": "archive_manifest",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/manifest.json",
+          "sha256": "f093f7cae70f252128786ec42484dc35925be8591e14c3702753697fb2013310",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "inputs",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs.json",
+          "sha256": "9dbfc75b711999a0ced6c4f5295f8fa375caac1b88077ada1d580b7beee7fdc6",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "dataset_freeze",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/manifest.json",
+          "sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "scores",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/cases.json",
+          "sha256": "600f053077ec7b65d0962cb9769975d92ac518698a918f117bb326e1e40fbe57",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "evidence",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/primary/held-v3-01-4b/evidence.json",
+          "sha256": "bc50670e446487515aec69772f094c8f14b3e298cf208437fa5cfcf1c1314ebc",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "prepared_input",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs/primary-held-v3-01-4b.json",
+          "sha256": "c196099384c8020c32a30e2161994f60f9a346a947a96354fdd15a9fb165890c",
+          "source_manifest": "VERIFIED"
+        }
+      ],
+      "campaign_id": "orchestrator-eval-v3",
+      "case_id": "held-v3-01",
+      "conversation_id": "UNAVAILABLE",
+      "dataset_case_id": "held-v3-01",
+      "effect": {
+        "action_kind": "PLAN_PROPOSAL",
+        "effect_classification": "UNAVAILABLE",
+        "specialist_dispatch": "UNAVAILABLE"
+      },
+      "evaluation_id": "orchestrator-eval-v3/archived",
+      "evidence_class": "NATIVE",
+      "issues": [
+        "V3_PROMPT_BINDING_UNAVAILABLE",
+        "V3_SPANS_UNAVAILABLE"
+      ],
+      "join_status": "PARTIAL",
+      "model_call": {
+        "fallback": false,
+        "finish_reason": "stop",
+        "http_status": "UNAVAILABLE",
+        "model_requested": "qwen3.5:4b",
+        "model_returned": "qwen3.5:4b",
+        "provider_requested": "ollama",
+        "provider_returned": "UNAVAILABLE",
+        "retries": 0,
+        "send_claimed": true
+      },
+      "model_performance_evidence": false,
+      "record_id": "orchestrator-v3-archive:primary:held-v3-01:qwen3.5:4b",
+      "score": {
+        "agent_success": "UNAVAILABLE",
+        "assessment_observation_binding": "UNAVAILABLE",
+        "assessment_rubric_sha256": "UNAVAILABLE",
+        "assessment_source_fingerprint_match": "UNAVAILABLE",
+        "canonical_state_success": "UNAVAILABLE",
+        "deterministic_display_is_model_credit": "UNAVAILABLE",
+        "evaluator_identity": "UNAVAILABLE",
+        "evaluator_independent": "UNAVAILABLE",
+        "independent_assessment_status": "UNAVAILABLE",
+        "raw_prose_status": "UNAVAILABLE",
+        "schema_status": "VALID"
+      },
+      "source_id": "orchestrator-v3-archive",
+      "stage": "primary",
+      "test_node_id": "UNAVAILABLE",
+      "test_outcome": "UNAVAILABLE",
+      "trace": {
+        "agent_span_id": "UNAVAILABLE",
+        "agent_span_status": "UNAVAILABLE",
+        "llm_span_id": "UNAVAILABLE",
+        "llm_span_status": "UNAVAILABLE",
+        "request_hash_match": true,
+        "request_id": "a5d2b4d0-3cea-43be-9082-eb145a0d6d2a",
+        "span_relationship": "UNAVAILABLE",
+        "trace_id": "v3-primary-held-v3-01-4b"
+      },
+      "turn_index": "UNAVAILABLE",
+      "usage": {
+        "attempt_wall_latency_ms": 3241.5945999964606,
+        "billing_status": "UNAVAILABLE",
+        "billing_verified": "UNAVAILABLE",
+        "cost_scope": "UNAVAILABLE",
+        "input_tokens": 1180,
+        "native_latency_ms": 3211.358,
+        "output_tokens": 236,
+        "reasoning_tokens": "UNAVAILABLE",
+        "reported_cost_usd": "UNAVAILABLE",
+        "token_usage_verified": "UNAVAILABLE"
+      },
+      "validation": {
+        "canonical_accepted": false,
+        "canonical_readiness": "UNAVAILABLE",
+        "native_schema_status": "VALID",
+        "observation_status": "ADMISSION_REJECTED",
+        "rejection_reason": "MISSING_COVERAGE"
+      },
+      "versions": {
+        "dataset_freeze_sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+        "prompt_binding": "UNAVAILABLE",
+        "prompt_ref": "UNAVAILABLE",
+        "prompt_sha256": "UNAVAILABLE",
+        "response_format_sha256": "UNAVAILABLE",
+        "response_schema_name": "UNAVAILABLE",
+        "rubric_sha256": "UNAVAILABLE",
+        "scoring_spec_sha256": "UNAVAILABLE",
+        "source_fingerprint": "652883726ee76af65008a0fcd0441e56b1293de0ed11d6e1b413877205a991bd"
+      }
+    },
+    {
+      "agent": "orchestrator",
+      "arm": "UNAVAILABLE",
+      "artifacts": [
+        {
+          "kind": "archive_manifest",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/manifest.json",
+          "sha256": "f093f7cae70f252128786ec42484dc35925be8591e14c3702753697fb2013310",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "inputs",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs.json",
+          "sha256": "9dbfc75b711999a0ced6c4f5295f8fa375caac1b88077ada1d580b7beee7fdc6",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "dataset_freeze",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/manifest.json",
+          "sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "scores",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/cases.json",
+          "sha256": "600f053077ec7b65d0962cb9769975d92ac518698a918f117bb326e1e40fbe57",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "evidence",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/primary/held-v3-01-9b/evidence.json",
+          "sha256": "8106fa241979c11f16920324d8ebb9fd2c0d23fa264dbe5cc7583b0265bcf1f4",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "prepared_input",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs/primary-held-v3-01-9b.json",
+          "sha256": "19c8d240fb61d65bb979de81b165f56dac110362a0b2f8d29375f343473d217c",
+          "source_manifest": "VERIFIED"
+        }
+      ],
+      "campaign_id": "orchestrator-eval-v3",
+      "case_id": "held-v3-01",
+      "conversation_id": "UNAVAILABLE",
+      "dataset_case_id": "held-v3-01",
+      "effect": {
+        "action_kind": "PLAN_PROPOSAL",
+        "effect_classification": "UNAVAILABLE",
+        "specialist_dispatch": "UNAVAILABLE"
+      },
+      "evaluation_id": "orchestrator-eval-v3/archived",
+      "evidence_class": "NATIVE",
+      "issues": [
+        "V3_PROMPT_BINDING_UNAVAILABLE",
+        "V3_SPANS_UNAVAILABLE"
+      ],
+      "join_status": "PARTIAL",
+      "model_call": {
+        "fallback": false,
+        "finish_reason": "stop",
+        "http_status": "UNAVAILABLE",
+        "model_requested": "qwen3.5:9b",
+        "model_returned": "qwen3.5:9b",
+        "provider_requested": "ollama",
+        "provider_returned": "UNAVAILABLE",
+        "retries": 0,
+        "send_claimed": true
+      },
+      "model_performance_evidence": false,
+      "record_id": "orchestrator-v3-archive:primary:held-v3-01:qwen3.5:9b",
+      "score": {
+        "agent_success": "UNAVAILABLE",
+        "assessment_observation_binding": "UNAVAILABLE",
+        "assessment_rubric_sha256": "UNAVAILABLE",
+        "assessment_source_fingerprint_match": "UNAVAILABLE",
+        "canonical_state_success": "UNAVAILABLE",
+        "deterministic_display_is_model_credit": "UNAVAILABLE",
+        "evaluator_identity": "UNAVAILABLE",
+        "evaluator_independent": "UNAVAILABLE",
+        "independent_assessment_status": "UNAVAILABLE",
+        "raw_prose_status": "UNAVAILABLE",
+        "schema_status": "VALID"
+      },
+      "source_id": "orchestrator-v3-archive",
+      "stage": "primary",
+      "test_node_id": "UNAVAILABLE",
+      "test_outcome": "UNAVAILABLE",
+      "trace": {
+        "agent_span_id": "UNAVAILABLE",
+        "agent_span_status": "UNAVAILABLE",
+        "llm_span_id": "UNAVAILABLE",
+        "llm_span_status": "UNAVAILABLE",
+        "request_hash_match": true,
+        "request_id": "cf5f8f81-659a-46ce-a6b2-a90ae96948cf",
+        "span_relationship": "UNAVAILABLE",
+        "trace_id": "v3-primary-held-v3-01-9b"
+      },
+      "turn_index": "UNAVAILABLE",
+      "usage": {
+        "attempt_wall_latency_ms": 9473.161300003994,
+        "billing_status": "UNAVAILABLE",
+        "billing_verified": "UNAVAILABLE",
+        "cost_scope": "UNAVAILABLE",
+        "input_tokens": 1180,
+        "native_latency_ms": 9444.227,
+        "output_tokens": 356,
+        "reasoning_tokens": "UNAVAILABLE",
+        "reported_cost_usd": "UNAVAILABLE",
+        "token_usage_verified": "UNAVAILABLE"
+      },
+      "validation": {
+        "canonical_accepted": false,
+        "canonical_readiness": "UNAVAILABLE",
+        "native_schema_status": "VALID",
+        "observation_status": "ADMISSION_REJECTED",
+        "rejection_reason": "MISSING_COVERAGE"
+      },
+      "versions": {
+        "dataset_freeze_sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+        "prompt_binding": "UNAVAILABLE",
+        "prompt_ref": "UNAVAILABLE",
+        "prompt_sha256": "UNAVAILABLE",
+        "response_format_sha256": "UNAVAILABLE",
+        "response_schema_name": "UNAVAILABLE",
+        "rubric_sha256": "UNAVAILABLE",
+        "scoring_spec_sha256": "UNAVAILABLE",
+        "source_fingerprint": "652883726ee76af65008a0fcd0441e56b1293de0ed11d6e1b413877205a991bd"
+      }
+    },
+    {
+      "agent": "orchestrator",
+      "arm": "UNAVAILABLE",
+      "artifacts": [
+        {
+          "kind": "archive_manifest",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/manifest.json",
+          "sha256": "f093f7cae70f252128786ec42484dc35925be8591e14c3702753697fb2013310",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "inputs",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs.json",
+          "sha256": "9dbfc75b711999a0ced6c4f5295f8fa375caac1b88077ada1d580b7beee7fdc6",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "dataset_freeze",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/manifest.json",
+          "sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "scores",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/cases.json",
+          "sha256": "600f053077ec7b65d0962cb9769975d92ac518698a918f117bb326e1e40fbe57",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "evidence",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/primary/held-v3-02-4b/evidence.json",
+          "sha256": "00b6427d0c07f29cf99b627bf1851901f3e28b2834f9ebd802b95f6c9119676a",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "prepared_input",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs/primary-held-v3-02-4b.json",
+          "sha256": "37a1863b6a0fac1d7825f00b43ee5327eb9d7ba7c6e44a4930e6c394d05598a5",
+          "source_manifest": "VERIFIED"
+        }
+      ],
+      "campaign_id": "orchestrator-eval-v3",
+      "case_id": "held-v3-02",
+      "conversation_id": "UNAVAILABLE",
+      "dataset_case_id": "held-v3-02",
+      "effect": {
+        "action_kind": "PLAN_PROPOSAL",
+        "effect_classification": "UNAVAILABLE",
+        "specialist_dispatch": "UNAVAILABLE"
+      },
+      "evaluation_id": "orchestrator-eval-v3/archived",
+      "evidence_class": "NATIVE",
+      "issues": [
+        "V3_PROMPT_BINDING_UNAVAILABLE",
+        "V3_SPANS_UNAVAILABLE"
+      ],
+      "join_status": "PARTIAL",
+      "model_call": {
+        "fallback": false,
+        "finish_reason": "stop",
+        "http_status": "UNAVAILABLE",
+        "model_requested": "qwen3.5:4b",
+        "model_returned": "qwen3.5:4b",
+        "provider_requested": "ollama",
+        "provider_returned": "UNAVAILABLE",
+        "retries": 0,
+        "send_claimed": true
+      },
+      "model_performance_evidence": false,
+      "record_id": "orchestrator-v3-archive:primary:held-v3-02:qwen3.5:4b",
+      "score": {
+        "agent_success": "UNAVAILABLE",
+        "assessment_observation_binding": "UNAVAILABLE",
+        "assessment_rubric_sha256": "UNAVAILABLE",
+        "assessment_source_fingerprint_match": "UNAVAILABLE",
+        "canonical_state_success": "UNAVAILABLE",
+        "deterministic_display_is_model_credit": "UNAVAILABLE",
+        "evaluator_identity": "UNAVAILABLE",
+        "evaluator_independent": "UNAVAILABLE",
+        "independent_assessment_status": "UNAVAILABLE",
+        "raw_prose_status": "UNAVAILABLE",
+        "schema_status": "VALID"
+      },
+      "source_id": "orchestrator-v3-archive",
+      "stage": "primary",
+      "test_node_id": "UNAVAILABLE",
+      "test_outcome": "UNAVAILABLE",
+      "trace": {
+        "agent_span_id": "UNAVAILABLE",
+        "agent_span_status": "UNAVAILABLE",
+        "llm_span_id": "UNAVAILABLE",
+        "llm_span_status": "UNAVAILABLE",
+        "request_hash_match": true,
+        "request_id": "aabbf3d7-6fde-499d-9350-23e39c94ff68",
+        "span_relationship": "UNAVAILABLE",
+        "trace_id": "v3-primary-held-v3-02-4b"
+      },
+      "turn_index": "UNAVAILABLE",
+      "usage": {
+        "attempt_wall_latency_ms": 2932.3417999985395,
+        "billing_status": "UNAVAILABLE",
+        "billing_verified": "UNAVAILABLE",
+        "cost_scope": "UNAVAILABLE",
+        "input_tokens": 1113,
+        "native_latency_ms": 2901.921,
+        "output_tokens": 209,
+        "reasoning_tokens": "UNAVAILABLE",
+        "reported_cost_usd": "UNAVAILABLE",
+        "token_usage_verified": "UNAVAILABLE"
+      },
+      "validation": {
+        "canonical_accepted": false,
+        "canonical_readiness": "UNAVAILABLE",
+        "native_schema_status": "VALID",
+        "observation_status": "ADMISSION_REJECTED",
+        "rejection_reason": "FORBIDDEN_CAPABILITY"
+      },
+      "versions": {
+        "dataset_freeze_sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+        "prompt_binding": "UNAVAILABLE",
+        "prompt_ref": "UNAVAILABLE",
+        "prompt_sha256": "UNAVAILABLE",
+        "response_format_sha256": "UNAVAILABLE",
+        "response_schema_name": "UNAVAILABLE",
+        "rubric_sha256": "UNAVAILABLE",
+        "scoring_spec_sha256": "UNAVAILABLE",
+        "source_fingerprint": "652883726ee76af65008a0fcd0441e56b1293de0ed11d6e1b413877205a991bd"
+      }
+    },
+    {
+      "agent": "orchestrator",
+      "arm": "UNAVAILABLE",
+      "artifacts": [
+        {
+          "kind": "archive_manifest",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/manifest.json",
+          "sha256": "f093f7cae70f252128786ec42484dc35925be8591e14c3702753697fb2013310",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "inputs",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs.json",
+          "sha256": "9dbfc75b711999a0ced6c4f5295f8fa375caac1b88077ada1d580b7beee7fdc6",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "dataset_freeze",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/manifest.json",
+          "sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "scores",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/cases.json",
+          "sha256": "600f053077ec7b65d0962cb9769975d92ac518698a918f117bb326e1e40fbe57",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "evidence",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/primary/held-v3-02-9b/evidence.json",
+          "sha256": "e44787a9caea7b27b4bf602d87dfc2f68eb696d3b2f1159032a2cdcebfcac0a3",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "prepared_input",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs/primary-held-v3-02-9b.json",
+          "sha256": "55c1ba003498b075486b1233e1acd5b2ab8bd9e3925e28cb4b8512a45584138b",
+          "source_manifest": "VERIFIED"
+        }
+      ],
+      "campaign_id": "orchestrator-eval-v3",
+      "case_id": "held-v3-02",
+      "conversation_id": "UNAVAILABLE",
+      "dataset_case_id": "held-v3-02",
+      "effect": {
+        "action_kind": "PLAN_PROPOSAL",
+        "effect_classification": "UNAVAILABLE",
+        "specialist_dispatch": "UNAVAILABLE"
+      },
+      "evaluation_id": "orchestrator-eval-v3/archived",
+      "evidence_class": "NATIVE",
+      "issues": [
+        "V3_PROMPT_BINDING_UNAVAILABLE",
+        "V3_SPANS_UNAVAILABLE"
+      ],
+      "join_status": "PARTIAL",
+      "model_call": {
+        "fallback": false,
+        "finish_reason": "stop",
+        "http_status": "UNAVAILABLE",
+        "model_requested": "qwen3.5:9b",
+        "model_returned": "qwen3.5:9b",
+        "provider_requested": "ollama",
+        "provider_returned": "UNAVAILABLE",
+        "retries": 0,
+        "send_claimed": true
+      },
+      "model_performance_evidence": false,
+      "record_id": "orchestrator-v3-archive:primary:held-v3-02:qwen3.5:9b",
+      "score": {
+        "agent_success": "UNAVAILABLE",
+        "assessment_observation_binding": "UNAVAILABLE",
+        "assessment_rubric_sha256": "UNAVAILABLE",
+        "assessment_source_fingerprint_match": "UNAVAILABLE",
+        "canonical_state_success": "UNAVAILABLE",
+        "deterministic_display_is_model_credit": "UNAVAILABLE",
+        "evaluator_identity": "UNAVAILABLE",
+        "evaluator_independent": "UNAVAILABLE",
+        "independent_assessment_status": "UNAVAILABLE",
+        "raw_prose_status": "UNAVAILABLE",
+        "schema_status": "VALID"
+      },
+      "source_id": "orchestrator-v3-archive",
+      "stage": "primary",
+      "test_node_id": "UNAVAILABLE",
+      "test_outcome": "UNAVAILABLE",
+      "trace": {
+        "agent_span_id": "UNAVAILABLE",
+        "agent_span_status": "UNAVAILABLE",
+        "llm_span_id": "UNAVAILABLE",
+        "llm_span_status": "UNAVAILABLE",
+        "request_hash_match": true,
+        "request_id": "26215ab4-7863-4391-b1fe-3c1b558fd6ea",
+        "span_relationship": "UNAVAILABLE",
+        "trace_id": "v3-primary-held-v3-02-9b"
+      },
+      "turn_index": "UNAVAILABLE",
+      "usage": {
+        "attempt_wall_latency_ms": 3179.5017999975244,
+        "billing_status": "UNAVAILABLE",
+        "billing_verified": "UNAVAILABLE",
+        "cost_scope": "UNAVAILABLE",
+        "input_tokens": 1113,
+        "native_latency_ms": 3145.532,
+        "output_tokens": 106,
+        "reasoning_tokens": "UNAVAILABLE",
+        "reported_cost_usd": "UNAVAILABLE",
+        "token_usage_verified": "UNAVAILABLE"
+      },
+      "validation": {
+        "canonical_accepted": true,
+        "canonical_readiness": "UNAVAILABLE",
+        "native_schema_status": "VALID",
+        "observation_status": "ADMITTED",
+        "rejection_reason": "UNAVAILABLE"
+      },
+      "versions": {
+        "dataset_freeze_sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+        "prompt_binding": "UNAVAILABLE",
+        "prompt_ref": "UNAVAILABLE",
+        "prompt_sha256": "UNAVAILABLE",
+        "response_format_sha256": "UNAVAILABLE",
+        "response_schema_name": "UNAVAILABLE",
+        "rubric_sha256": "UNAVAILABLE",
+        "scoring_spec_sha256": "UNAVAILABLE",
+        "source_fingerprint": "652883726ee76af65008a0fcd0441e56b1293de0ed11d6e1b413877205a991bd"
+      }
+    },
+    {
+      "agent": "orchestrator",
+      "arm": "UNAVAILABLE",
+      "artifacts": [
+        {
+          "kind": "archive_manifest",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/manifest.json",
+          "sha256": "f093f7cae70f252128786ec42484dc35925be8591e14c3702753697fb2013310",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "inputs",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs.json",
+          "sha256": "9dbfc75b711999a0ced6c4f5295f8fa375caac1b88077ada1d580b7beee7fdc6",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "dataset_freeze",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/manifest.json",
+          "sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "scores",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/cases.json",
+          "sha256": "600f053077ec7b65d0962cb9769975d92ac518698a918f117bb326e1e40fbe57",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "evidence",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/primary/held-v3-03-4b/evidence.json",
+          "sha256": "1f1c551341a43a3d002b633e416143bcda1bf9b1624000982e8444d9d4ffff65",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "prepared_input",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs/primary-held-v3-03-4b.json",
+          "sha256": "ff7d1e6df6408ca639fd93b1b1cd60d4e63028aaacb5475e6d4be5093b53bdfd",
+          "source_manifest": "VERIFIED"
+        }
+      ],
+      "campaign_id": "orchestrator-eval-v3",
+      "case_id": "held-v3-03",
+      "conversation_id": "UNAVAILABLE",
+      "dataset_case_id": "held-v3-03",
+      "effect": {
+        "action_kind": "PLAN_PROPOSAL",
+        "effect_classification": "UNAVAILABLE",
+        "specialist_dispatch": "UNAVAILABLE"
+      },
+      "evaluation_id": "orchestrator-eval-v3/archived",
+      "evidence_class": "NATIVE",
+      "issues": [
+        "V3_PROMPT_BINDING_UNAVAILABLE",
+        "V3_SPANS_UNAVAILABLE"
+      ],
+      "join_status": "PARTIAL",
+      "model_call": {
+        "fallback": false,
+        "finish_reason": "stop",
+        "http_status": "UNAVAILABLE",
+        "model_requested": "qwen3.5:4b",
+        "model_returned": "qwen3.5:4b",
+        "provider_requested": "ollama",
+        "provider_returned": "UNAVAILABLE",
+        "retries": 0,
+        "send_claimed": true
+      },
+      "model_performance_evidence": false,
+      "record_id": "orchestrator-v3-archive:primary:held-v3-03:qwen3.5:4b",
+      "score": {
+        "agent_success": "UNAVAILABLE",
+        "assessment_observation_binding": "UNAVAILABLE",
+        "assessment_rubric_sha256": "UNAVAILABLE",
+        "assessment_source_fingerprint_match": "UNAVAILABLE",
+        "canonical_state_success": "UNAVAILABLE",
+        "deterministic_display_is_model_credit": "UNAVAILABLE",
+        "evaluator_identity": "UNAVAILABLE",
+        "evaluator_independent": "UNAVAILABLE",
+        "independent_assessment_status": "UNAVAILABLE",
+        "raw_prose_status": "UNAVAILABLE",
+        "schema_status": "VALID"
+      },
+      "source_id": "orchestrator-v3-archive",
+      "stage": "primary",
+      "test_node_id": "UNAVAILABLE",
+      "test_outcome": "UNAVAILABLE",
+      "trace": {
+        "agent_span_id": "UNAVAILABLE",
+        "agent_span_status": "UNAVAILABLE",
+        "llm_span_id": "UNAVAILABLE",
+        "llm_span_status": "UNAVAILABLE",
+        "request_hash_match": true,
+        "request_id": "fb120cb7-ce49-4ca1-87b1-935fcc780853",
+        "span_relationship": "UNAVAILABLE",
+        "trace_id": "v3-primary-held-v3-03-4b"
+      },
+      "turn_index": "UNAVAILABLE",
+      "usage": {
+        "attempt_wall_latency_ms": 2652.850099999341,
+        "billing_status": "UNAVAILABLE",
+        "billing_verified": "UNAVAILABLE",
+        "cost_scope": "UNAVAILABLE",
+        "input_tokens": 1142,
+        "native_latency_ms": 2623.598,
+        "output_tokens": 186,
+        "reasoning_tokens": "UNAVAILABLE",
+        "reported_cost_usd": "UNAVAILABLE",
+        "token_usage_verified": "UNAVAILABLE"
+      },
+      "validation": {
+        "canonical_accepted": false,
+        "canonical_readiness": "UNAVAILABLE",
+        "native_schema_status": "VALID",
+        "observation_status": "ADMISSION_REJECTED",
+        "rejection_reason": "MISSING_COVERAGE"
+      },
+      "versions": {
+        "dataset_freeze_sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+        "prompt_binding": "UNAVAILABLE",
+        "prompt_ref": "UNAVAILABLE",
+        "prompt_sha256": "UNAVAILABLE",
+        "response_format_sha256": "UNAVAILABLE",
+        "response_schema_name": "UNAVAILABLE",
+        "rubric_sha256": "UNAVAILABLE",
+        "scoring_spec_sha256": "UNAVAILABLE",
+        "source_fingerprint": "652883726ee76af65008a0fcd0441e56b1293de0ed11d6e1b413877205a991bd"
+      }
+    },
+    {
+      "agent": "orchestrator",
+      "arm": "UNAVAILABLE",
+      "artifacts": [
+        {
+          "kind": "archive_manifest",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/manifest.json",
+          "sha256": "f093f7cae70f252128786ec42484dc35925be8591e14c3702753697fb2013310",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "inputs",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs.json",
+          "sha256": "9dbfc75b711999a0ced6c4f5295f8fa375caac1b88077ada1d580b7beee7fdc6",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "dataset_freeze",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/manifest.json",
+          "sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "scores",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/cases.json",
+          "sha256": "600f053077ec7b65d0962cb9769975d92ac518698a918f117bb326e1e40fbe57",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "evidence",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/primary/held-v3-03-9b/evidence.json",
+          "sha256": "c5332045a776abc07328526725c05aa76ebbd8b256ce7f85117b82074bb10907",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "prepared_input",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs/primary-held-v3-03-9b.json",
+          "sha256": "5599da885954dcd8a63cf1ae69ce9872ea41998d2cde71dbb6fd05fca1d88351",
+          "source_manifest": "VERIFIED"
+        }
+      ],
+      "campaign_id": "orchestrator-eval-v3",
+      "case_id": "held-v3-03",
+      "conversation_id": "UNAVAILABLE",
+      "dataset_case_id": "held-v3-03",
+      "effect": {
+        "action_kind": "PLAN_PROPOSAL",
+        "effect_classification": "UNAVAILABLE",
+        "specialist_dispatch": "UNAVAILABLE"
+      },
+      "evaluation_id": "orchestrator-eval-v3/archived",
+      "evidence_class": "NATIVE",
+      "issues": [
+        "V3_PROMPT_BINDING_UNAVAILABLE",
+        "V3_SPANS_UNAVAILABLE"
+      ],
+      "join_status": "PARTIAL",
+      "model_call": {
+        "fallback": false,
+        "finish_reason": "stop",
+        "http_status": "UNAVAILABLE",
+        "model_requested": "qwen3.5:9b",
+        "model_returned": "qwen3.5:9b",
+        "provider_requested": "ollama",
+        "provider_returned": "UNAVAILABLE",
+        "retries": 0,
+        "send_claimed": true
+      },
+      "model_performance_evidence": false,
+      "record_id": "orchestrator-v3-archive:primary:held-v3-03:qwen3.5:9b",
+      "score": {
+        "agent_success": "UNAVAILABLE",
+        "assessment_observation_binding": "UNAVAILABLE",
+        "assessment_rubric_sha256": "UNAVAILABLE",
+        "assessment_source_fingerprint_match": "UNAVAILABLE",
+        "canonical_state_success": "UNAVAILABLE",
+        "deterministic_display_is_model_credit": "UNAVAILABLE",
+        "evaluator_identity": "UNAVAILABLE",
+        "evaluator_independent": "UNAVAILABLE",
+        "independent_assessment_status": "UNAVAILABLE",
+        "raw_prose_status": "UNAVAILABLE",
+        "schema_status": "VALID"
+      },
+      "source_id": "orchestrator-v3-archive",
+      "stage": "primary",
+      "test_node_id": "UNAVAILABLE",
+      "test_outcome": "UNAVAILABLE",
+      "trace": {
+        "agent_span_id": "UNAVAILABLE",
+        "agent_span_status": "UNAVAILABLE",
+        "llm_span_id": "UNAVAILABLE",
+        "llm_span_status": "UNAVAILABLE",
+        "request_hash_match": true,
+        "request_id": "f6259867-74f7-4fc2-899d-20d54fd43fec",
+        "span_relationship": "UNAVAILABLE",
+        "trace_id": "v3-primary-held-v3-03-9b"
+      },
+      "turn_index": "UNAVAILABLE",
+      "usage": {
+        "attempt_wall_latency_ms": 9419.095200006268,
+        "billing_status": "UNAVAILABLE",
+        "billing_verified": "UNAVAILABLE",
+        "cost_scope": "UNAVAILABLE",
+        "input_tokens": 1142,
+        "native_latency_ms": 9387.455,
+        "output_tokens": 358,
+        "reasoning_tokens": "UNAVAILABLE",
+        "reported_cost_usd": "UNAVAILABLE",
+        "token_usage_verified": "UNAVAILABLE"
+      },
+      "validation": {
+        "canonical_accepted": false,
+        "canonical_readiness": "UNAVAILABLE",
+        "native_schema_status": "VALID",
+        "observation_status": "ADMISSION_REJECTED",
+        "rejection_reason": "FORBIDDEN_CAPABILITY"
+      },
+      "versions": {
+        "dataset_freeze_sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+        "prompt_binding": "UNAVAILABLE",
+        "prompt_ref": "UNAVAILABLE",
+        "prompt_sha256": "UNAVAILABLE",
+        "response_format_sha256": "UNAVAILABLE",
+        "response_schema_name": "UNAVAILABLE",
+        "rubric_sha256": "UNAVAILABLE",
+        "scoring_spec_sha256": "UNAVAILABLE",
+        "source_fingerprint": "652883726ee76af65008a0fcd0441e56b1293de0ed11d6e1b413877205a991bd"
+      }
+    },
+    {
+      "agent": "orchestrator",
+      "arm": "UNAVAILABLE",
+      "artifacts": [
+        {
+          "kind": "archive_manifest",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/manifest.json",
+          "sha256": "f093f7cae70f252128786ec42484dc35925be8591e14c3702753697fb2013310",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "inputs",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs.json",
+          "sha256": "9dbfc75b711999a0ced6c4f5295f8fa375caac1b88077ada1d580b7beee7fdc6",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "dataset_freeze",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/manifest.json",
+          "sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "scores",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/cases.json",
+          "sha256": "600f053077ec7b65d0962cb9769975d92ac518698a918f117bb326e1e40fbe57",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "evidence",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/primary/held-v3-04-4b/evidence.json",
+          "sha256": "b3a60733db323b4a53766dfff30168404eda5f8154412d4aa349a8eed51297e2",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "prepared_input",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs/primary-held-v3-04-4b.json",
+          "sha256": "c28d37b0453022572e5234791de7e8accc2bd3f4e659b707405339eda77c53e2",
+          "source_manifest": "VERIFIED"
+        }
+      ],
+      "campaign_id": "orchestrator-eval-v3",
+      "case_id": "held-v3-04",
+      "conversation_id": "UNAVAILABLE",
+      "dataset_case_id": "held-v3-04",
+      "effect": {
+        "action_kind": "PLAN_PROPOSAL",
+        "effect_classification": "UNAVAILABLE",
+        "specialist_dispatch": "UNAVAILABLE"
+      },
+      "evaluation_id": "orchestrator-eval-v3/archived",
+      "evidence_class": "NATIVE",
+      "issues": [
+        "V3_PROMPT_BINDING_UNAVAILABLE",
+        "V3_SPANS_UNAVAILABLE"
+      ],
+      "join_status": "PARTIAL",
+      "model_call": {
+        "fallback": false,
+        "finish_reason": "stop",
+        "http_status": "UNAVAILABLE",
+        "model_requested": "qwen3.5:4b",
+        "model_returned": "qwen3.5:4b",
+        "provider_requested": "ollama",
+        "provider_returned": "UNAVAILABLE",
+        "retries": 0,
+        "send_claimed": true
+      },
+      "model_performance_evidence": false,
+      "record_id": "orchestrator-v3-archive:primary:held-v3-04:qwen3.5:4b",
+      "score": {
+        "agent_success": "UNAVAILABLE",
+        "assessment_observation_binding": "UNAVAILABLE",
+        "assessment_rubric_sha256": "UNAVAILABLE",
+        "assessment_source_fingerprint_match": "UNAVAILABLE",
+        "canonical_state_success": "UNAVAILABLE",
+        "deterministic_display_is_model_credit": "UNAVAILABLE",
+        "evaluator_identity": "UNAVAILABLE",
+        "evaluator_independent": "UNAVAILABLE",
+        "independent_assessment_status": "UNAVAILABLE",
+        "raw_prose_status": "UNAVAILABLE",
+        "schema_status": "VALID"
+      },
+      "source_id": "orchestrator-v3-archive",
+      "stage": "primary",
+      "test_node_id": "UNAVAILABLE",
+      "test_outcome": "UNAVAILABLE",
+      "trace": {
+        "agent_span_id": "UNAVAILABLE",
+        "agent_span_status": "UNAVAILABLE",
+        "llm_span_id": "UNAVAILABLE",
+        "llm_span_status": "UNAVAILABLE",
+        "request_hash_match": true,
+        "request_id": "3ab8b8f7-85c1-4e67-aafc-634ca1152f6f",
+        "span_relationship": "UNAVAILABLE",
+        "trace_id": "v3-primary-held-v3-04-4b"
+      },
+      "turn_index": "UNAVAILABLE",
+      "usage": {
+        "attempt_wall_latency_ms": 2596.4070000045467,
+        "billing_status": "UNAVAILABLE",
+        "billing_verified": "UNAVAILABLE",
+        "cost_scope": "UNAVAILABLE",
+        "input_tokens": 1099,
+        "native_latency_ms": 2567.039,
+        "output_tokens": 159,
+        "reasoning_tokens": "UNAVAILABLE",
+        "reported_cost_usd": "UNAVAILABLE",
+        "token_usage_verified": "UNAVAILABLE"
+      },
+      "validation": {
+        "canonical_accepted": false,
+        "canonical_readiness": "UNAVAILABLE",
+        "native_schema_status": "VALID",
+        "observation_status": "ADMISSION_REJECTED",
+        "rejection_reason": "MISSING_COVERAGE"
+      },
+      "versions": {
+        "dataset_freeze_sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+        "prompt_binding": "UNAVAILABLE",
+        "prompt_ref": "UNAVAILABLE",
+        "prompt_sha256": "UNAVAILABLE",
+        "response_format_sha256": "UNAVAILABLE",
+        "response_schema_name": "UNAVAILABLE",
+        "rubric_sha256": "UNAVAILABLE",
+        "scoring_spec_sha256": "UNAVAILABLE",
+        "source_fingerprint": "652883726ee76af65008a0fcd0441e56b1293de0ed11d6e1b413877205a991bd"
+      }
+    },
+    {
+      "agent": "orchestrator",
+      "arm": "UNAVAILABLE",
+      "artifacts": [
+        {
+          "kind": "archive_manifest",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/manifest.json",
+          "sha256": "f093f7cae70f252128786ec42484dc35925be8591e14c3702753697fb2013310",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "inputs",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs.json",
+          "sha256": "9dbfc75b711999a0ced6c4f5295f8fa375caac1b88077ada1d580b7beee7fdc6",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "dataset_freeze",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/manifest.json",
+          "sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "scores",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/cases.json",
+          "sha256": "600f053077ec7b65d0962cb9769975d92ac518698a918f117bb326e1e40fbe57",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "evidence",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/primary/held-v3-04-9b/evidence.json",
+          "sha256": "b1e0c1170f8c75d0cbe765da3fafc8abeea9a6153693d43844005133a14048d4",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "prepared_input",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs/primary-held-v3-04-9b.json",
+          "sha256": "b2caa325396c782d7d922711e743f3a95fa6c2516d658c2fb1f2c78a16c0bf85",
+          "source_manifest": "VERIFIED"
+        }
+      ],
+      "campaign_id": "orchestrator-eval-v3",
+      "case_id": "held-v3-04",
+      "conversation_id": "UNAVAILABLE",
+      "dataset_case_id": "held-v3-04",
+      "effect": {
+        "action_kind": "PLAN_PROPOSAL",
+        "effect_classification": "UNAVAILABLE",
+        "specialist_dispatch": "UNAVAILABLE"
+      },
+      "evaluation_id": "orchestrator-eval-v3/archived",
+      "evidence_class": "NATIVE",
+      "issues": [
+        "V3_PROMPT_BINDING_UNAVAILABLE",
+        "V3_SPANS_UNAVAILABLE"
+      ],
+      "join_status": "PARTIAL",
+      "model_call": {
+        "fallback": false,
+        "finish_reason": "stop",
+        "http_status": "UNAVAILABLE",
+        "model_requested": "qwen3.5:9b",
+        "model_returned": "qwen3.5:9b",
+        "provider_requested": "ollama",
+        "provider_returned": "UNAVAILABLE",
+        "retries": 0,
+        "send_claimed": true
+      },
+      "model_performance_evidence": false,
+      "record_id": "orchestrator-v3-archive:primary:held-v3-04:qwen3.5:9b",
+      "score": {
+        "agent_success": "UNAVAILABLE",
+        "assessment_observation_binding": "UNAVAILABLE",
+        "assessment_rubric_sha256": "UNAVAILABLE",
+        "assessment_source_fingerprint_match": "UNAVAILABLE",
+        "canonical_state_success": "UNAVAILABLE",
+        "deterministic_display_is_model_credit": "UNAVAILABLE",
+        "evaluator_identity": "UNAVAILABLE",
+        "evaluator_independent": "UNAVAILABLE",
+        "independent_assessment_status": "UNAVAILABLE",
+        "raw_prose_status": "UNAVAILABLE",
+        "schema_status": "VALID"
+      },
+      "source_id": "orchestrator-v3-archive",
+      "stage": "primary",
+      "test_node_id": "UNAVAILABLE",
+      "test_outcome": "UNAVAILABLE",
+      "trace": {
+        "agent_span_id": "UNAVAILABLE",
+        "agent_span_status": "UNAVAILABLE",
+        "llm_span_id": "UNAVAILABLE",
+        "llm_span_status": "UNAVAILABLE",
+        "request_hash_match": true,
+        "request_id": "280f5839-27e6-4d7b-bb79-e18fdf6cf302",
+        "span_relationship": "UNAVAILABLE",
+        "trace_id": "v3-primary-held-v3-04-9b"
+      },
+      "turn_index": "UNAVAILABLE",
+      "usage": {
+        "attempt_wall_latency_ms": 4228.284099997836,
+        "billing_status": "UNAVAILABLE",
+        "billing_verified": "UNAVAILABLE",
+        "cost_scope": "UNAVAILABLE",
+        "input_tokens": 1099,
+        "native_latency_ms": 4197.653,
+        "output_tokens": 132,
+        "reasoning_tokens": "UNAVAILABLE",
+        "reported_cost_usd": "UNAVAILABLE",
+        "token_usage_verified": "UNAVAILABLE"
+      },
+      "validation": {
+        "canonical_accepted": false,
+        "canonical_readiness": "UNAVAILABLE",
+        "native_schema_status": "VALID",
+        "observation_status": "ADMISSION_REJECTED",
+        "rejection_reason": "MISSING_COVERAGE"
+      },
+      "versions": {
+        "dataset_freeze_sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+        "prompt_binding": "UNAVAILABLE",
+        "prompt_ref": "UNAVAILABLE",
+        "prompt_sha256": "UNAVAILABLE",
+        "response_format_sha256": "UNAVAILABLE",
+        "response_schema_name": "UNAVAILABLE",
+        "rubric_sha256": "UNAVAILABLE",
+        "scoring_spec_sha256": "UNAVAILABLE",
+        "source_fingerprint": "652883726ee76af65008a0fcd0441e56b1293de0ed11d6e1b413877205a991bd"
+      }
+    },
+    {
+      "agent": "orchestrator",
+      "arm": "UNAVAILABLE",
+      "artifacts": [
+        {
+          "kind": "archive_manifest",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/manifest.json",
+          "sha256": "f093f7cae70f252128786ec42484dc35925be8591e14c3702753697fb2013310",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "inputs",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs.json",
+          "sha256": "9dbfc75b711999a0ced6c4f5295f8fa375caac1b88077ada1d580b7beee7fdc6",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "dataset_freeze",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/manifest.json",
+          "sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "scores",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/cases.json",
+          "sha256": "600f053077ec7b65d0962cb9769975d92ac518698a918f117bb326e1e40fbe57",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "evidence",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/primary/held-v3-05-4b/evidence.json",
+          "sha256": "3675c609134336ebd3631727c6f72412a9cdbf723616f2024007f94035ac8581",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "prepared_input",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs/primary-held-v3-05-4b.json",
+          "sha256": "e47cb204ad5e2f3ae0798f0254a19079bb78e397f216e1346abe519811381631",
+          "source_manifest": "VERIFIED"
+        }
+      ],
+      "campaign_id": "orchestrator-eval-v3",
+      "case_id": "held-v3-05",
+      "conversation_id": "UNAVAILABLE",
+      "dataset_case_id": "held-v3-05",
+      "effect": {
+        "action_kind": "PLAN_PROPOSAL",
+        "effect_classification": "UNAVAILABLE",
+        "specialist_dispatch": "UNAVAILABLE"
+      },
+      "evaluation_id": "orchestrator-eval-v3/archived",
+      "evidence_class": "NATIVE",
+      "issues": [
+        "V3_PROMPT_BINDING_UNAVAILABLE",
+        "V3_SPANS_UNAVAILABLE"
+      ],
+      "join_status": "PARTIAL",
+      "model_call": {
+        "fallback": false,
+        "finish_reason": "stop",
+        "http_status": "UNAVAILABLE",
+        "model_requested": "qwen3.5:4b",
+        "model_returned": "qwen3.5:4b",
+        "provider_requested": "ollama",
+        "provider_returned": "UNAVAILABLE",
+        "retries": 0,
+        "send_claimed": true
+      },
+      "model_performance_evidence": false,
+      "record_id": "orchestrator-v3-archive:primary:held-v3-05:qwen3.5:4b",
+      "score": {
+        "agent_success": "UNAVAILABLE",
+        "assessment_observation_binding": "UNAVAILABLE",
+        "assessment_rubric_sha256": "UNAVAILABLE",
+        "assessment_source_fingerprint_match": "UNAVAILABLE",
+        "canonical_state_success": "UNAVAILABLE",
+        "deterministic_display_is_model_credit": "UNAVAILABLE",
+        "evaluator_identity": "UNAVAILABLE",
+        "evaluator_independent": "UNAVAILABLE",
+        "independent_assessment_status": "UNAVAILABLE",
+        "raw_prose_status": "UNAVAILABLE",
+        "schema_status": "VALID"
+      },
+      "source_id": "orchestrator-v3-archive",
+      "stage": "primary",
+      "test_node_id": "UNAVAILABLE",
+      "test_outcome": "UNAVAILABLE",
+      "trace": {
+        "agent_span_id": "UNAVAILABLE",
+        "agent_span_status": "UNAVAILABLE",
+        "llm_span_id": "UNAVAILABLE",
+        "llm_span_status": "UNAVAILABLE",
+        "request_hash_match": true,
+        "request_id": "d47607eb-e868-4f72-a3af-6d380207bcdc",
+        "span_relationship": "UNAVAILABLE",
+        "trace_id": "v3-primary-held-v3-05-4b"
+      },
+      "turn_index": "UNAVAILABLE",
+      "usage": {
+        "attempt_wall_latency_ms": 3197.9036000120686,
+        "billing_status": "UNAVAILABLE",
+        "billing_verified": "UNAVAILABLE",
+        "cost_scope": "UNAVAILABLE",
+        "input_tokens": 1142,
+        "native_latency_ms": 3167.749,
+        "output_tokens": 231,
+        "reasoning_tokens": "UNAVAILABLE",
+        "reported_cost_usd": "UNAVAILABLE",
+        "token_usage_verified": "UNAVAILABLE"
+      },
+      "validation": {
+        "canonical_accepted": false,
+        "canonical_readiness": "UNAVAILABLE",
+        "native_schema_status": "VALID",
+        "observation_status": "ADMISSION_REJECTED",
+        "rejection_reason": "FORBIDDEN_CAPABILITY"
+      },
+      "versions": {
+        "dataset_freeze_sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+        "prompt_binding": "UNAVAILABLE",
+        "prompt_ref": "UNAVAILABLE",
+        "prompt_sha256": "UNAVAILABLE",
+        "response_format_sha256": "UNAVAILABLE",
+        "response_schema_name": "UNAVAILABLE",
+        "rubric_sha256": "UNAVAILABLE",
+        "scoring_spec_sha256": "UNAVAILABLE",
+        "source_fingerprint": "652883726ee76af65008a0fcd0441e56b1293de0ed11d6e1b413877205a991bd"
+      }
+    },
+    {
+      "agent": "orchestrator",
+      "arm": "UNAVAILABLE",
+      "artifacts": [
+        {
+          "kind": "archive_manifest",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/manifest.json",
+          "sha256": "f093f7cae70f252128786ec42484dc35925be8591e14c3702753697fb2013310",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "inputs",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs.json",
+          "sha256": "9dbfc75b711999a0ced6c4f5295f8fa375caac1b88077ada1d580b7beee7fdc6",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "dataset_freeze",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/manifest.json",
+          "sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "scores",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/cases.json",
+          "sha256": "600f053077ec7b65d0962cb9769975d92ac518698a918f117bb326e1e40fbe57",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "evidence",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/primary/held-v3-05-9b/evidence.json",
+          "sha256": "538464de5721e84cacc7b1d83b14717ff9308b9953b3bb13d0a405daedb7e28f",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "prepared_input",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs/primary-held-v3-05-9b.json",
+          "sha256": "acbb85c6f599f09888f91479c4253a403aaabfc782ae6e87e358cf2b3528d864",
+          "source_manifest": "VERIFIED"
+        }
+      ],
+      "campaign_id": "orchestrator-eval-v3",
+      "case_id": "held-v3-05",
+      "conversation_id": "UNAVAILABLE",
+      "dataset_case_id": "held-v3-05",
+      "effect": {
+        "action_kind": "PLAN_PROPOSAL",
+        "effect_classification": "UNAVAILABLE",
+        "specialist_dispatch": "UNAVAILABLE"
+      },
+      "evaluation_id": "orchestrator-eval-v3/archived",
+      "evidence_class": "NATIVE",
+      "issues": [
+        "V3_PROMPT_BINDING_UNAVAILABLE",
+        "V3_SPANS_UNAVAILABLE"
+      ],
+      "join_status": "PARTIAL",
+      "model_call": {
+        "fallback": false,
+        "finish_reason": "stop",
+        "http_status": "UNAVAILABLE",
+        "model_requested": "qwen3.5:9b",
+        "model_returned": "qwen3.5:9b",
+        "provider_requested": "ollama",
+        "provider_returned": "UNAVAILABLE",
+        "retries": 0,
+        "send_claimed": true
+      },
+      "model_performance_evidence": false,
+      "record_id": "orchestrator-v3-archive:primary:held-v3-05:qwen3.5:9b",
+      "score": {
+        "agent_success": "UNAVAILABLE",
+        "assessment_observation_binding": "UNAVAILABLE",
+        "assessment_rubric_sha256": "UNAVAILABLE",
+        "assessment_source_fingerprint_match": "UNAVAILABLE",
+        "canonical_state_success": "UNAVAILABLE",
+        "deterministic_display_is_model_credit": "UNAVAILABLE",
+        "evaluator_identity": "UNAVAILABLE",
+        "evaluator_independent": "UNAVAILABLE",
+        "independent_assessment_status": "UNAVAILABLE",
+        "raw_prose_status": "UNAVAILABLE",
+        "schema_status": "VALID"
+      },
+      "source_id": "orchestrator-v3-archive",
+      "stage": "primary",
+      "test_node_id": "UNAVAILABLE",
+      "test_outcome": "UNAVAILABLE",
+      "trace": {
+        "agent_span_id": "UNAVAILABLE",
+        "agent_span_status": "UNAVAILABLE",
+        "llm_span_id": "UNAVAILABLE",
+        "llm_span_status": "UNAVAILABLE",
+        "request_hash_match": true,
+        "request_id": "1b5fc5d1-d9e6-40d8-8be4-de2944c3d6a2",
+        "span_relationship": "UNAVAILABLE",
+        "trace_id": "v3-primary-held-v3-05-9b"
+      },
+      "turn_index": "UNAVAILABLE",
+      "usage": {
+        "attempt_wall_latency_ms": 8105.159900005674,
+        "billing_status": "UNAVAILABLE",
+        "billing_verified": "UNAVAILABLE",
+        "cost_scope": "UNAVAILABLE",
+        "input_tokens": 1142,
+        "native_latency_ms": 8074.245,
+        "output_tokens": 292,
+        "reasoning_tokens": "UNAVAILABLE",
+        "reported_cost_usd": "UNAVAILABLE",
+        "token_usage_verified": "UNAVAILABLE"
+      },
+      "validation": {
+        "canonical_accepted": false,
+        "canonical_readiness": "UNAVAILABLE",
+        "native_schema_status": "VALID",
+        "observation_status": "ADMISSION_REJECTED",
+        "rejection_reason": "FORBIDDEN_CAPABILITY"
+      },
+      "versions": {
+        "dataset_freeze_sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+        "prompt_binding": "UNAVAILABLE",
+        "prompt_ref": "UNAVAILABLE",
+        "prompt_sha256": "UNAVAILABLE",
+        "response_format_sha256": "UNAVAILABLE",
+        "response_schema_name": "UNAVAILABLE",
+        "rubric_sha256": "UNAVAILABLE",
+        "scoring_spec_sha256": "UNAVAILABLE",
+        "source_fingerprint": "652883726ee76af65008a0fcd0441e56b1293de0ed11d6e1b413877205a991bd"
+      }
+    },
+    {
+      "agent": "orchestrator",
+      "arm": "UNAVAILABLE",
+      "artifacts": [
+        {
+          "kind": "archive_manifest",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/manifest.json",
+          "sha256": "f093f7cae70f252128786ec42484dc35925be8591e14c3702753697fb2013310",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "inputs",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs.json",
+          "sha256": "9dbfc75b711999a0ced6c4f5295f8fa375caac1b88077ada1d580b7beee7fdc6",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "dataset_freeze",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/manifest.json",
+          "sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "scores",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/cases.json",
+          "sha256": "600f053077ec7b65d0962cb9769975d92ac518698a918f117bb326e1e40fbe57",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "evidence",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/primary/held-v3-06-4b/evidence.json",
+          "sha256": "3d071cfde1482f68d05b9eb2e8dce1a1614d400e17376d8a8cf5bf165fbbab63",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "prepared_input",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs/primary-held-v3-06-4b.json",
+          "sha256": "4528d3fa1efd7ae10249ce9c3ff6914aa19127b7f2556cf0b77995a1df47a5a5",
+          "source_manifest": "VERIFIED"
+        }
+      ],
+      "campaign_id": "orchestrator-eval-v3",
+      "case_id": "held-v3-06",
+      "conversation_id": "UNAVAILABLE",
+      "dataset_case_id": "held-v3-06",
+      "effect": {
+        "action_kind": "PLAN_PROPOSAL",
+        "effect_classification": "UNAVAILABLE",
+        "specialist_dispatch": "UNAVAILABLE"
+      },
+      "evaluation_id": "orchestrator-eval-v3/archived",
+      "evidence_class": "NATIVE",
+      "issues": [
+        "V3_PROMPT_BINDING_UNAVAILABLE",
+        "V3_SPANS_UNAVAILABLE"
+      ],
+      "join_status": "PARTIAL",
+      "model_call": {
+        "fallback": false,
+        "finish_reason": "stop",
+        "http_status": "UNAVAILABLE",
+        "model_requested": "qwen3.5:4b",
+        "model_returned": "qwen3.5:4b",
+        "provider_requested": "ollama",
+        "provider_returned": "UNAVAILABLE",
+        "retries": 0,
+        "send_claimed": true
+      },
+      "model_performance_evidence": false,
+      "record_id": "orchestrator-v3-archive:primary:held-v3-06:qwen3.5:4b",
+      "score": {
+        "agent_success": "UNAVAILABLE",
+        "assessment_observation_binding": "UNAVAILABLE",
+        "assessment_rubric_sha256": "UNAVAILABLE",
+        "assessment_source_fingerprint_match": "UNAVAILABLE",
+        "canonical_state_success": "UNAVAILABLE",
+        "deterministic_display_is_model_credit": "UNAVAILABLE",
+        "evaluator_identity": "UNAVAILABLE",
+        "evaluator_independent": "UNAVAILABLE",
+        "independent_assessment_status": "UNAVAILABLE",
+        "raw_prose_status": "UNAVAILABLE",
+        "schema_status": "VALID"
+      },
+      "source_id": "orchestrator-v3-archive",
+      "stage": "primary",
+      "test_node_id": "UNAVAILABLE",
+      "test_outcome": "UNAVAILABLE",
+      "trace": {
+        "agent_span_id": "UNAVAILABLE",
+        "agent_span_status": "UNAVAILABLE",
+        "llm_span_id": "UNAVAILABLE",
+        "llm_span_status": "UNAVAILABLE",
+        "request_hash_match": true,
+        "request_id": "405b4dd6-3512-4c51-b927-539fdf821bba",
+        "span_relationship": "UNAVAILABLE",
+        "trace_id": "v3-primary-held-v3-06-4b"
+      },
+      "turn_index": "UNAVAILABLE",
+      "usage": {
+        "attempt_wall_latency_ms": 1920.178800006397,
+        "billing_status": "UNAVAILABLE",
+        "billing_verified": "UNAVAILABLE",
+        "cost_scope": "UNAVAILABLE",
+        "input_tokens": 1097,
+        "native_latency_ms": 1890.118,
+        "output_tokens": 118,
+        "reasoning_tokens": "UNAVAILABLE",
+        "reported_cost_usd": "UNAVAILABLE",
+        "token_usage_verified": "UNAVAILABLE"
+      },
+      "validation": {
+        "canonical_accepted": false,
+        "canonical_readiness": "UNAVAILABLE",
+        "native_schema_status": "VALID",
+        "observation_status": "ADMISSION_REJECTED",
+        "rejection_reason": "MISSING_COVERAGE"
+      },
+      "versions": {
+        "dataset_freeze_sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+        "prompt_binding": "UNAVAILABLE",
+        "prompt_ref": "UNAVAILABLE",
+        "prompt_sha256": "UNAVAILABLE",
+        "response_format_sha256": "UNAVAILABLE",
+        "response_schema_name": "UNAVAILABLE",
+        "rubric_sha256": "UNAVAILABLE",
+        "scoring_spec_sha256": "UNAVAILABLE",
+        "source_fingerprint": "652883726ee76af65008a0fcd0441e56b1293de0ed11d6e1b413877205a991bd"
+      }
+    },
+    {
+      "agent": "orchestrator",
+      "arm": "UNAVAILABLE",
+      "artifacts": [
+        {
+          "kind": "archive_manifest",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/manifest.json",
+          "sha256": "f093f7cae70f252128786ec42484dc35925be8591e14c3702753697fb2013310",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "inputs",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs.json",
+          "sha256": "9dbfc75b711999a0ced6c4f5295f8fa375caac1b88077ada1d580b7beee7fdc6",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "dataset_freeze",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/manifest.json",
+          "sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "scores",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/cases.json",
+          "sha256": "600f053077ec7b65d0962cb9769975d92ac518698a918f117bb326e1e40fbe57",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "evidence",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/primary/held-v3-06-9b/evidence.json",
+          "sha256": "18abb35068f4f062064a1129ba4c64166a50988040688295e795256040855d50",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "prepared_input",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs/primary-held-v3-06-9b.json",
+          "sha256": "96507b1d8815e5c6bd1cbd0dba9bc8290ce364e82b107117b449a7d15574d410",
+          "source_manifest": "VERIFIED"
+        }
+      ],
+      "campaign_id": "orchestrator-eval-v3",
+      "case_id": "held-v3-06",
+      "conversation_id": "UNAVAILABLE",
+      "dataset_case_id": "held-v3-06",
+      "effect": {
+        "action_kind": "PLAN_PROPOSAL",
+        "effect_classification": "UNAVAILABLE",
+        "specialist_dispatch": "UNAVAILABLE"
+      },
+      "evaluation_id": "orchestrator-eval-v3/archived",
+      "evidence_class": "NATIVE",
+      "issues": [
+        "V3_PROMPT_BINDING_UNAVAILABLE",
+        "V3_SPANS_UNAVAILABLE"
+      ],
+      "join_status": "PARTIAL",
+      "model_call": {
+        "fallback": false,
+        "finish_reason": "stop",
+        "http_status": "UNAVAILABLE",
+        "model_requested": "qwen3.5:9b",
+        "model_returned": "qwen3.5:9b",
+        "provider_requested": "ollama",
+        "provider_returned": "UNAVAILABLE",
+        "retries": 0,
+        "send_claimed": true
+      },
+      "model_performance_evidence": false,
+      "record_id": "orchestrator-v3-archive:primary:held-v3-06:qwen3.5:9b",
+      "score": {
+        "agent_success": "UNAVAILABLE",
+        "assessment_observation_binding": "UNAVAILABLE",
+        "assessment_rubric_sha256": "UNAVAILABLE",
+        "assessment_source_fingerprint_match": "UNAVAILABLE",
+        "canonical_state_success": "UNAVAILABLE",
+        "deterministic_display_is_model_credit": "UNAVAILABLE",
+        "evaluator_identity": "UNAVAILABLE",
+        "evaluator_independent": "UNAVAILABLE",
+        "independent_assessment_status": "UNAVAILABLE",
+        "raw_prose_status": "UNAVAILABLE",
+        "schema_status": "VALID"
+      },
+      "source_id": "orchestrator-v3-archive",
+      "stage": "primary",
+      "test_node_id": "UNAVAILABLE",
+      "test_outcome": "UNAVAILABLE",
+      "trace": {
+        "agent_span_id": "UNAVAILABLE",
+        "agent_span_status": "UNAVAILABLE",
+        "llm_span_id": "UNAVAILABLE",
+        "llm_span_status": "UNAVAILABLE",
+        "request_hash_match": true,
+        "request_id": "6cbe48e2-81c3-427b-a64e-37d9e2915dd6",
+        "span_relationship": "UNAVAILABLE",
+        "trace_id": "v3-primary-held-v3-06-9b"
+      },
+      "turn_index": "UNAVAILABLE",
+      "usage": {
+        "attempt_wall_latency_ms": 3710.0662000011653,
+        "billing_status": "UNAVAILABLE",
+        "billing_verified": "UNAVAILABLE",
+        "cost_scope": "UNAVAILABLE",
+        "input_tokens": 1097,
+        "native_latency_ms": 3677.179,
+        "output_tokens": 130,
+        "reasoning_tokens": "UNAVAILABLE",
+        "reported_cost_usd": "UNAVAILABLE",
+        "token_usage_verified": "UNAVAILABLE"
+      },
+      "validation": {
+        "canonical_accepted": false,
+        "canonical_readiness": "UNAVAILABLE",
+        "native_schema_status": "VALID",
+        "observation_status": "ADMISSION_REJECTED",
+        "rejection_reason": "MISSING_COVERAGE"
+      },
+      "versions": {
+        "dataset_freeze_sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+        "prompt_binding": "UNAVAILABLE",
+        "prompt_ref": "UNAVAILABLE",
+        "prompt_sha256": "UNAVAILABLE",
+        "response_format_sha256": "UNAVAILABLE",
+        "response_schema_name": "UNAVAILABLE",
+        "rubric_sha256": "UNAVAILABLE",
+        "scoring_spec_sha256": "UNAVAILABLE",
+        "source_fingerprint": "652883726ee76af65008a0fcd0441e56b1293de0ed11d6e1b413877205a991bd"
+      }
+    },
+    {
+      "agent": "orchestrator",
+      "arm": "UNAVAILABLE",
+      "artifacts": [
+        {
+          "kind": "archive_manifest",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/manifest.json",
+          "sha256": "f093f7cae70f252128786ec42484dc35925be8591e14c3702753697fb2013310",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "inputs",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs.json",
+          "sha256": "9dbfc75b711999a0ced6c4f5295f8fa375caac1b88077ada1d580b7beee7fdc6",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "dataset_freeze",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/manifest.json",
+          "sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "scores",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/cases.json",
+          "sha256": "600f053077ec7b65d0962cb9769975d92ac518698a918f117bb326e1e40fbe57",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "evidence",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/smoke/dev-v3-01-4b/evidence.json",
+          "sha256": "244d961f8976e86c32f29900b281823a5beccc2cdbab7809825c301d1f9012de",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "prepared_input",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs/smoke-dev-v3-01-4b.json",
+          "sha256": "4091b5a54c05fd1b897b1123eb11a749d4b9a3d4a52a6509580d0ed12db2ce6b",
+          "source_manifest": "VERIFIED"
+        }
+      ],
+      "campaign_id": "orchestrator-eval-v3",
+      "case_id": "dev-v3-01",
+      "conversation_id": "UNAVAILABLE",
+      "dataset_case_id": "dev-v3-01",
+      "effect": {
+        "action_kind": "PLAN_PROPOSAL",
+        "effect_classification": "UNAVAILABLE",
+        "specialist_dispatch": "UNAVAILABLE"
+      },
+      "evaluation_id": "orchestrator-eval-v3/archived",
+      "evidence_class": "NATIVE",
+      "issues": [
+        "V3_PROMPT_BINDING_UNAVAILABLE",
+        "V3_SPANS_UNAVAILABLE"
+      ],
+      "join_status": "PARTIAL",
+      "model_call": {
+        "fallback": false,
+        "finish_reason": "stop",
+        "http_status": "UNAVAILABLE",
+        "model_requested": "qwen3.5:4b",
+        "model_returned": "qwen3.5:4b",
+        "provider_requested": "ollama",
+        "provider_returned": "UNAVAILABLE",
+        "retries": 0,
+        "send_claimed": true
+      },
+      "model_performance_evidence": false,
+      "record_id": "orchestrator-v3-archive:smoke:dev-v3-01:qwen3.5:4b",
+      "score": {
+        "agent_success": "UNAVAILABLE",
+        "assessment_observation_binding": "UNAVAILABLE",
+        "assessment_rubric_sha256": "UNAVAILABLE",
+        "assessment_source_fingerprint_match": "UNAVAILABLE",
+        "canonical_state_success": "UNAVAILABLE",
+        "deterministic_display_is_model_credit": "UNAVAILABLE",
+        "evaluator_identity": "UNAVAILABLE",
+        "evaluator_independent": "UNAVAILABLE",
+        "independent_assessment_status": "UNAVAILABLE",
+        "raw_prose_status": "UNAVAILABLE",
+        "schema_status": "VALID"
+      },
+      "source_id": "orchestrator-v3-archive",
+      "stage": "smoke",
+      "test_node_id": "UNAVAILABLE",
+      "test_outcome": "UNAVAILABLE",
+      "trace": {
+        "agent_span_id": "UNAVAILABLE",
+        "agent_span_status": "UNAVAILABLE",
+        "llm_span_id": "UNAVAILABLE",
+        "llm_span_status": "UNAVAILABLE",
+        "request_hash_match": true,
+        "request_id": "b7192ec7-5ced-44b6-86ff-f07044f5aed3",
+        "span_relationship": "UNAVAILABLE",
+        "trace_id": "v3-smoke-dev-v3-01-4b"
+      },
+      "turn_index": "UNAVAILABLE",
+      "usage": {
+        "attempt_wall_latency_ms": 8176.724299992202,
+        "billing_status": "UNAVAILABLE",
+        "billing_verified": "UNAVAILABLE",
+        "cost_scope": "UNAVAILABLE",
+        "input_tokens": 1185,
+        "native_latency_ms": 8144.921,
+        "output_tokens": 350,
+        "reasoning_tokens": "UNAVAILABLE",
+        "reported_cost_usd": "UNAVAILABLE",
+        "token_usage_verified": "UNAVAILABLE"
+      },
+      "validation": {
+        "canonical_accepted": false,
+        "canonical_readiness": "UNAVAILABLE",
+        "native_schema_status": "VALID",
+        "observation_status": "ADMISSION_REJECTED",
+        "rejection_reason": "FORBIDDEN_CAPABILITY"
+      },
+      "versions": {
+        "dataset_freeze_sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+        "prompt_binding": "UNAVAILABLE",
+        "prompt_ref": "UNAVAILABLE",
+        "prompt_sha256": "UNAVAILABLE",
+        "response_format_sha256": "UNAVAILABLE",
+        "response_schema_name": "UNAVAILABLE",
+        "rubric_sha256": "UNAVAILABLE",
+        "scoring_spec_sha256": "UNAVAILABLE",
+        "source_fingerprint": "652883726ee76af65008a0fcd0441e56b1293de0ed11d6e1b413877205a991bd"
+      }
+    },
+    {
+      "agent": "orchestrator",
+      "arm": "UNAVAILABLE",
+      "artifacts": [
+        {
+          "kind": "archive_manifest",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/manifest.json",
+          "sha256": "f093f7cae70f252128786ec42484dc35925be8591e14c3702753697fb2013310",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "inputs",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs.json",
+          "sha256": "9dbfc75b711999a0ced6c4f5295f8fa375caac1b88077ada1d580b7beee7fdc6",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "dataset_freeze",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/manifest.json",
+          "sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "scores",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/cases.json",
+          "sha256": "600f053077ec7b65d0962cb9769975d92ac518698a918f117bb326e1e40fbe57",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "evidence",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/smoke/dev-v3-01-9b/evidence.json",
+          "sha256": "028a6dc813b2abc22bfec0785985ad367ec6b8282725484c68045976b88615f1",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "prepared_input",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs/smoke-dev-v3-01-9b.json",
+          "sha256": "bee108d9a32b95df1c6e858b4420eac4f3a0e3f31851d778bf3c7c053df856da",
+          "source_manifest": "VERIFIED"
+        }
+      ],
+      "campaign_id": "orchestrator-eval-v3",
+      "case_id": "dev-v3-01",
+      "conversation_id": "UNAVAILABLE",
+      "dataset_case_id": "dev-v3-01",
+      "effect": {
+        "action_kind": "PLAN_PROPOSAL",
+        "effect_classification": "UNAVAILABLE",
+        "specialist_dispatch": "UNAVAILABLE"
+      },
+      "evaluation_id": "orchestrator-eval-v3/archived",
+      "evidence_class": "NATIVE",
+      "issues": [
+        "V3_PROMPT_BINDING_UNAVAILABLE",
+        "V3_SPANS_UNAVAILABLE"
+      ],
+      "join_status": "PARTIAL",
+      "model_call": {
+        "fallback": false,
+        "finish_reason": "stop",
+        "http_status": "UNAVAILABLE",
+        "model_requested": "qwen3.5:9b",
+        "model_returned": "qwen3.5:9b",
+        "provider_requested": "ollama",
+        "provider_returned": "UNAVAILABLE",
+        "retries": 0,
+        "send_claimed": true
+      },
+      "model_performance_evidence": false,
+      "record_id": "orchestrator-v3-archive:smoke:dev-v3-01:qwen3.5:9b",
+      "score": {
+        "agent_success": "UNAVAILABLE",
+        "assessment_observation_binding": "UNAVAILABLE",
+        "assessment_rubric_sha256": "UNAVAILABLE",
+        "assessment_source_fingerprint_match": "UNAVAILABLE",
+        "canonical_state_success": "UNAVAILABLE",
+        "deterministic_display_is_model_credit": "UNAVAILABLE",
+        "evaluator_identity": "UNAVAILABLE",
+        "evaluator_independent": "UNAVAILABLE",
+        "independent_assessment_status": "UNAVAILABLE",
+        "raw_prose_status": "UNAVAILABLE",
+        "schema_status": "VALID"
+      },
+      "source_id": "orchestrator-v3-archive",
+      "stage": "smoke",
+      "test_node_id": "UNAVAILABLE",
+      "test_outcome": "UNAVAILABLE",
+      "trace": {
+        "agent_span_id": "UNAVAILABLE",
+        "agent_span_status": "UNAVAILABLE",
+        "llm_span_id": "UNAVAILABLE",
+        "llm_span_status": "UNAVAILABLE",
+        "request_hash_match": true,
+        "request_id": "57df9f4a-5f83-494f-ab1c-0e14f41fcdd8",
+        "span_relationship": "UNAVAILABLE",
+        "trace_id": "v3-smoke-dev-v3-01-9b"
+      },
+      "turn_index": "UNAVAILABLE",
+      "usage": {
+        "attempt_wall_latency_ms": 16852.191900004982,
+        "billing_status": "UNAVAILABLE",
+        "billing_verified": "UNAVAILABLE",
+        "cost_scope": "UNAVAILABLE",
+        "input_tokens": 1185,
+        "native_latency_ms": 16821.163,
+        "output_tokens": 353,
+        "reasoning_tokens": "UNAVAILABLE",
+        "reported_cost_usd": "UNAVAILABLE",
+        "token_usage_verified": "UNAVAILABLE"
+      },
+      "validation": {
+        "canonical_accepted": false,
+        "canonical_readiness": "UNAVAILABLE",
+        "native_schema_status": "VALID",
+        "observation_status": "ADMISSION_REJECTED",
+        "rejection_reason": "MISSING_COVERAGE"
+      },
+      "versions": {
+        "dataset_freeze_sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+        "prompt_binding": "UNAVAILABLE",
+        "prompt_ref": "UNAVAILABLE",
+        "prompt_sha256": "UNAVAILABLE",
+        "response_format_sha256": "UNAVAILABLE",
+        "response_schema_name": "UNAVAILABLE",
+        "rubric_sha256": "UNAVAILABLE",
+        "scoring_spec_sha256": "UNAVAILABLE",
+        "source_fingerprint": "652883726ee76af65008a0fcd0441e56b1293de0ed11d6e1b413877205a991bd"
+      }
+    }
+  ],
+  "references": [],
+  "schema_version": "trace-eval-index/1.0",
+  "sources": [
+    {
+      "campaign_id": "orchestrator-eval-v3",
+      "campaign_status": "MEASURED_NOT_MODEL_ACCEPTANCE",
+      "completeness": "COMPLETE",
+      "crosschecks": [
+        {
+          "indexed": "28",
+          "name": "archived_records",
+          "reported": "28",
+          "status": "MATCH"
+        }
+      ],
+      "declared_evidence_class": "NATIVE",
+      "files": [
+        {
+          "kind": "inputs",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs.json",
+          "sha256": "9dbfc75b711999a0ced6c4f5295f8fa375caac1b88077ada1d580b7beee7fdc6",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "prepared_input",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs/http-http-v3-01-4b.json",
+          "sha256": "68f71259aefdce59da47dd7ccdad58cc99d780b093f62ee2d12ee7bf4b69ddd0",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "prepared_input",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs/http-http-v3-01-9b.json",
+          "sha256": "4a6dd15f030bd42aeed5c6f983728114669183758ecf33ed2d8d2542fe19a702",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "prepared_input",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs/primary-dev-v3-01-4b.json",
+          "sha256": "4091b5a54c05fd1b897b1123eb11a749d4b9a3d4a52a6509580d0ed12db2ce6b",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "prepared_input",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs/primary-dev-v3-01-9b.json",
+          "sha256": "bee108d9a32b95df1c6e858b4420eac4f3a0e3f31851d778bf3c7c053df856da",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "prepared_input",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs/primary-dev-v3-02-4b.json",
+          "sha256": "987e1251a779071d30d4cc9774df123a950013e7417a0dee57320659e8154d9a",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "prepared_input",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs/primary-dev-v3-02-9b.json",
+          "sha256": "9d2600a5a422eccec060256ef2d21b968daec2513dfecc1af9725c165c5411a9",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "prepared_input",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs/primary-dev-v3-03-4b.json",
+          "sha256": "90b47530953265eb9e13fc1b307a945b4a317f5ddf22bd096bc0b25d98e8013d",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "prepared_input",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs/primary-dev-v3-03-9b.json",
+          "sha256": "0ea597256fd1cbb2e41d88242d04669306e0d9cd9d8414e5c9541b882e04f5f1",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "prepared_input",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs/primary-dev-v3-04-4b.json",
+          "sha256": "174ae9b2d7b39b820b888881a1236a5503ad49265653d83b8e16102b606ea31b",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "prepared_input",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs/primary-dev-v3-04-9b.json",
+          "sha256": "6e74e35e33aa7d4f800a7d435f8fd68a7477f7d2d25c4ab348c625787c936e95",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "prepared_input",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs/primary-dev-v3-05-4b.json",
+          "sha256": "884852d5a09dd51b19a94bc4c9963839988455e3ea393b429deed83a64d1d014",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "prepared_input",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs/primary-dev-v3-05-9b.json",
+          "sha256": "ecb3c89aa2e0c4953214a0c4d37d2d7241e51e9be4660978b297a00a7b9acc09",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "prepared_input",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs/primary-dev-v3-06-4b.json",
+          "sha256": "be8031eac711966d1b97baf4e3dcb724f21be2c02c5aa745af1f5808a888320f",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "prepared_input",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs/primary-dev-v3-06-9b.json",
+          "sha256": "a0522bc87b20c92e1a817ee9707d23dcb9681965b96d2f6fad6618a6078e0989",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "prepared_input",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs/primary-held-v3-01-4b.json",
+          "sha256": "c196099384c8020c32a30e2161994f60f9a346a947a96354fdd15a9fb165890c",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "prepared_input",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs/primary-held-v3-01-9b.json",
+          "sha256": "19c8d240fb61d65bb979de81b165f56dac110362a0b2f8d29375f343473d217c",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "prepared_input",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs/primary-held-v3-02-4b.json",
+          "sha256": "37a1863b6a0fac1d7825f00b43ee5327eb9d7ba7c6e44a4930e6c394d05598a5",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "prepared_input",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs/primary-held-v3-02-9b.json",
+          "sha256": "55c1ba003498b075486b1233e1acd5b2ab8bd9e3925e28cb4b8512a45584138b",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "prepared_input",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs/primary-held-v3-03-4b.json",
+          "sha256": "ff7d1e6df6408ca639fd93b1b1cd60d4e63028aaacb5475e6d4be5093b53bdfd",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "prepared_input",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs/primary-held-v3-03-9b.json",
+          "sha256": "5599da885954dcd8a63cf1ae69ce9872ea41998d2cde71dbb6fd05fca1d88351",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "prepared_input",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs/primary-held-v3-04-4b.json",
+          "sha256": "c28d37b0453022572e5234791de7e8accc2bd3f4e659b707405339eda77c53e2",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "prepared_input",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs/primary-held-v3-04-9b.json",
+          "sha256": "b2caa325396c782d7d922711e743f3a95fa6c2516d658c2fb1f2c78a16c0bf85",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "prepared_input",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs/primary-held-v3-05-4b.json",
+          "sha256": "e47cb204ad5e2f3ae0798f0254a19079bb78e397f216e1346abe519811381631",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "prepared_input",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs/primary-held-v3-05-9b.json",
+          "sha256": "acbb85c6f599f09888f91479c4253a403aaabfc782ae6e87e358cf2b3528d864",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "prepared_input",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs/primary-held-v3-06-4b.json",
+          "sha256": "4528d3fa1efd7ae10249ce9c3ff6914aa19127b7f2556cf0b77995a1df47a5a5",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "prepared_input",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs/primary-held-v3-06-9b.json",
+          "sha256": "96507b1d8815e5c6bd1cbd0dba9bc8290ce364e82b107117b449a7d15574d410",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "prepared_input",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs/smoke-dev-v3-01-4b.json",
+          "sha256": "4091b5a54c05fd1b897b1123eb11a749d4b9a3d4a52a6509580d0ed12db2ce6b",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "prepared_input",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/inputs/smoke-dev-v3-01-9b.json",
+          "sha256": "bee108d9a32b95df1c6e858b4420eac4f3a0e3f31851d778bf3c7c053df856da",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "dataset_freeze",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/datasets/synthetic-v3/manifest.json",
+          "sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "scores",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/cases.json",
+          "sha256": "600f053077ec7b65d0962cb9769975d92ac518698a918f117bb326e1e40fbe57",
+          "source_manifest": "NOT_APPLICABLE"
+        },
+        {
+          "kind": "evidence",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/http/http-v3-01-4b/evidence.json",
+          "sha256": "e55614e1b0e352c47351f9555dbe0ce9883ab203067f2269d7c22c2736b970a4",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "evidence",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/http/http-v3-01-9b/evidence.json",
+          "sha256": "6986f5afbfa1a49f87850d710da2089cd822c4ea896226ddf90ead82dce422ac",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "evidence",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/primary/dev-v3-01-4b/evidence.json",
+          "sha256": "60b6dd22688883a176dbda39a55782bb9dd01c3252370ec46dbb9b23aad41623",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "evidence",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/primary/dev-v3-01-9b/evidence.json",
+          "sha256": "f384818c8a68950145879ff7fb34ffb199e1d0628b359b8d75732418bac06c3b",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "evidence",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/primary/dev-v3-02-4b/evidence.json",
+          "sha256": "23fc4ca9c369782dc8f4483781d90ea9fd88b67a0a9d2d1d0734476d1a6a2340",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "evidence",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/primary/dev-v3-02-9b/evidence.json",
+          "sha256": "e8927720d4ef0a854191e5c367c4b84d963b2f78d1e51674f394ccb12f8fc64e",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "evidence",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/primary/dev-v3-03-4b/evidence.json",
+          "sha256": "842524091ad0d5cecf9308512953462a6ac05e349678b2d0cb48422df1b68fcb",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "evidence",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/primary/dev-v3-03-9b/evidence.json",
+          "sha256": "d0dc98d6571eff3c068ee90b18a71ad71e431972c591f710f147e565fd8d4417",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "evidence",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/primary/dev-v3-04-4b/evidence.json",
+          "sha256": "4384c429f3c534ea0a72e5f13386f32262ed8129be9e01c1a083cb36e5d8ca99",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "evidence",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/primary/dev-v3-04-9b/evidence.json",
+          "sha256": "61271db39acbf2b9b57d08383597758ee3f24f859205cf677772322a52d2181d",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "evidence",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/primary/dev-v3-05-4b/evidence.json",
+          "sha256": "92e78ef6be0cfd7f8ff6901e01bfda3d362a9f02679aa0034af4d21a71470cbc",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "evidence",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/primary/dev-v3-05-9b/evidence.json",
+          "sha256": "fc6cd2e3aced8334ac2decca0c63c53daed5b263975c1da8148dff45b931e0b0",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "evidence",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/primary/dev-v3-06-4b/evidence.json",
+          "sha256": "cc72093013dec2b6d93c601143da67d7069209e8eec547a0b91e7139e81b841e",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "evidence",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/primary/dev-v3-06-9b/evidence.json",
+          "sha256": "4633743c2e95f2c461db3274453a9de2f2f52fe001da6ad655260a51c432b49f",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "evidence",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/primary/held-v3-01-4b/evidence.json",
+          "sha256": "bc50670e446487515aec69772f094c8f14b3e298cf208437fa5cfcf1c1314ebc",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "evidence",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/primary/held-v3-01-9b/evidence.json",
+          "sha256": "8106fa241979c11f16920324d8ebb9fd2c0d23fa264dbe5cc7583b0265bcf1f4",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "evidence",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/primary/held-v3-02-4b/evidence.json",
+          "sha256": "00b6427d0c07f29cf99b627bf1851901f3e28b2834f9ebd802b95f6c9119676a",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "evidence",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/primary/held-v3-02-9b/evidence.json",
+          "sha256": "e44787a9caea7b27b4bf602d87dfc2f68eb696d3b2f1159032a2cdcebfcac0a3",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "evidence",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/primary/held-v3-03-4b/evidence.json",
+          "sha256": "1f1c551341a43a3d002b633e416143bcda1bf9b1624000982e8444d9d4ffff65",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "evidence",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/primary/held-v3-03-9b/evidence.json",
+          "sha256": "c5332045a776abc07328526725c05aa76ebbd8b256ce7f85117b82074bb10907",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "evidence",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/primary/held-v3-04-4b/evidence.json",
+          "sha256": "b3a60733db323b4a53766dfff30168404eda5f8154412d4aa349a8eed51297e2",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "evidence",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/primary/held-v3-04-9b/evidence.json",
+          "sha256": "b1e0c1170f8c75d0cbe765da3fafc8abeea9a6153693d43844005133a14048d4",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "evidence",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/primary/held-v3-05-4b/evidence.json",
+          "sha256": "3675c609134336ebd3631727c6f72412a9cdbf723616f2024007f94035ac8581",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "evidence",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/primary/held-v3-05-9b/evidence.json",
+          "sha256": "538464de5721e84cacc7b1d83b14717ff9308b9953b3bb13d0a405daedb7e28f",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "evidence",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/primary/held-v3-06-4b/evidence.json",
+          "sha256": "3d071cfde1482f68d05b9eb2e8dce1a1614d400e17376d8a8cf5bf165fbbab63",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "evidence",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/primary/held-v3-06-9b/evidence.json",
+          "sha256": "18abb35068f4f062064a1129ba4c64166a50988040688295e795256040855d50",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "evidence",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/smoke/dev-v3-01-4b/evidence.json",
+          "sha256": "244d961f8976e86c32f29900b281823a5beccc2cdbab7809825c301d1f9012de",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "evidence",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/smoke/dev-v3-01-9b/evidence.json",
+          "sha256": "028a6dc813b2abc22bfec0785985ad367ec6b8282725484c68045976b88615f1",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "archive_manifest",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/manifest.json",
+          "sha256": "f093f7cae70f252128786ec42484dc35925be8591e14c3702753697fb2013310",
+          "source_manifest": "NOT_APPLICABLE"
+        }
+      ],
+      "kind": "orchestrator_eval_v3",
+      "record_counts": {
+        "NATIVE": 28
+      },
+      "source_id": "orchestrator-v3-archive"
+    }
+  ]
+}

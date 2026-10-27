@@ -85,6 +85,8 @@ ERROR_CODES = frozenset(
         "ASSESSMENT_OBSERVATION_MISMATCH",
         "RECEIPT_KEY_MISMATCH",
         "TRACE_REQUEST_HASH_MISMATCH",
+        "V3_REQUEST_EVIDENCE_INCOMPLETE",
+        "V3_EVALUATION_TREE_MISMATCH",
     }
 )
 
@@ -1360,7 +1362,11 @@ def build_source(
     _load_evidence_manifest(ctx)
     if spec.evidence_manifest is None and not spec.pins:
         ctx.add("WARNING", "SOURCE_UNPINNED", detail="no campaign manifest and no pins")
-    if spec.kind == "offline_junit":
+    if spec.kind == "orchestrator_eval_v3":
+        from trace_eval_correlation.orchestrator_v3 import build_v3
+
+        records, summary = build_v3(ctx)
+    elif spec.kind == "offline_junit":
         records, summary = _junit(ctx)
     else:
         data = _load_native(ctx)

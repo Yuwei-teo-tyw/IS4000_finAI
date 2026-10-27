@@ -212,7 +212,7 @@ class ReferenceSpec(Frozen):
 
 class SourceSpec(Frozen):
     source_id: str = Field(pattern=r"^[A-Za-z0-9._-]{1,64}$")
-    kind: Literal["native_paired_campaign", "offline_junit"]
+    kind: Literal["native_paired_campaign", "offline_junit", "orchestrator_eval_v3"]
     root: str
     path: str
     declared_evidence_class: DeclaredClass
