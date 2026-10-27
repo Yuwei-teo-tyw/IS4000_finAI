@@ -395,7 +395,7 @@
     }
   ],
   "index_status": "COMPLETE",
-  "manifest_sha256": "9418db86cbbe96612d4786f5dba469dd0c5a474de56ca5aaa24d77789417794f",
+  "manifest_sha256": "d919c084a70cf06751549e36dcc3819089f7d1a9ed6d0aab6a84cf4ecb620ea3",
   "records": [
     {
       "agent": "orchestrator",
@@ -1058,7 +1058,7 @@
         "canonical_readiness": "UNAVAILABLE",
         "native_schema_status": "VALID",
         "observation_status": "ADMITTED",
-        "rejection_reason": "UNAVAILABLE"
+        "rejection_reason": "NOT_APPLICABLE"
       },
       "versions": {
         "dataset_freeze_sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
@@ -1193,7 +1193,7 @@
         "canonical_readiness": "UNAVAILABLE",
         "native_schema_status": "VALID",
         "observation_status": "ADMITTED",
-        "rejection_reason": "UNAVAILABLE"
+        "rejection_reason": "NOT_APPLICABLE"
       },
       "versions": {
         "dataset_freeze_sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
@@ -2813,7 +2813,7 @@
         "canonical_readiness": "UNAVAILABLE",
         "native_schema_status": "VALID",
         "observation_status": "ADMITTED",
-        "rejection_reason": "UNAVAILABLE"
+        "rejection_reason": "NOT_APPLICABLE"
       },
       "versions": {
         "dataset_freeze_sha256": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
@@ -4420,10 +4420,24 @@
           "source_manifest": "VERIFIED"
         },
         {
+          "kind": "archive_file",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/http/http-v3-01-4b/http-receipt.json",
+          "sha256": "3653a7f2974f2d5402902eb811c34d9005709b072d8a8089fd95641aac672d0d",
+          "source_manifest": "VERIFIED"
+        },
+        {
           "kind": "evidence",
           "pin": "VERIFIED",
           "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/http/http-v3-01-9b/evidence.json",
           "sha256": "6986f5afbfa1a49f87850d710da2089cd822c4ea896226ddf90ead82dce422ac",
+          "source_manifest": "VERIFIED"
+        },
+        {
+          "kind": "archive_file",
+          "pin": "VERIFIED",
+          "ref": "evidence:./assurance/evals/reports/orchestrator-eval-v3/evidence/http/http-v3-01-9b/http-receipt.json",
+          "sha256": "83e2b88316f9c26ebdd0ba178dd7a7fdd962a2cfd3ca4726888a8b2db617a4af",
           "source_manifest": "VERIFIED"
         },
         {

@@ -1322,6 +1322,10 @@ def _finalise(ctx: Context, record: IndexRecord) -> IndexRecord:
             join = "JOINED"
     elif any(i in ERROR_CODES for i in record.issues):
         join = "UNJOINABLE"
+    # V3 has no independently supported span/prompt verification contract. Its
+    # eligibility must not depend solely on the presence of warning strings.
+    if ctx.spec.kind == "orchestrator_eval_v3" and join == "JOINED":
+        join = "PARTIAL"
     performance = record.evidence_class == "NATIVE" and join == "JOINED"
     dumped = record.model_copy(
         update={"join_status": join, "model_performance_evidence": performance}

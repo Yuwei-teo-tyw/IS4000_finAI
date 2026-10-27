@@ -95,9 +95,25 @@ Trust anchors: per-request files are anchored only by each campaign's own eviden
 manifest. That manifest is pinned in `manifests/representative.json`. A new manifest that
 lists a campaign manifest but omits its pin gets no warning, so pin it with `pin`.
 
+## Orchestrator V3 archive
+
+`manifests/orchestrator-v3.json` declares the `orchestrator_eval_v3` source kind.
+Bind `--root evidence=<repository-with-archived-V3-evidence>` when building or verifying
+`index/orchestrator-v3-index.json`. See [V3_HANDOFF.md](V3_HANDOFF.md) for commands.
+Every archive-listed path and hash is validated, including the two HTTP receipts;
+non-evidence content is neither parsed nor copied into the index.
+
+For this source kind, `trace.trace_id` contains a **synthetic correlation label**, such as
+`v3-primary-dev-v3-01-4b`, not a verified execution trace ID. Historical native campaign
+records use this field for verified trace identity only when their span joins verify.
+V3 labels establish no real agent/LLM spans and must not be automatically joined to
+LangSmith runs. All intact V3 records remain `PARTIAL` and performance-ineligible,
+including when declared `NATIVE`; complete artifact verification does not prove
+end-to-end agent capability. No schema version change is introduced.
+
 ## Not in scope
 
 No second ledger or scorer, no admission or policy change, no LangSmith/cloud upload, no
 provider calls, no import of another checkout's runtime modules. Base
-`assurance/traces/events.jsonl` telemetry and orchestrator-eval-v3 local runs are not yet
-adapted (see [FINAL_REPORT.md](FINAL_REPORT.md)).
+`assurance/traces/events.jsonl` telemetry remains unadapted. V3 support is limited to the
+offline archive reader described above; it adds no runtime integration.

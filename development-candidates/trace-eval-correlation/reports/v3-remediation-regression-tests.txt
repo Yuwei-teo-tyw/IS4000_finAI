@@ -1,0 +1,6 @@
+...................ss................................................... [ 55%]
+..........................................................               [100%]
+=========================== short test summary info ===========================
+SKIPPED [1] tests\test_historical_evidence.py:45: UNAVAILABLE: historical evidence roots not present
+SKIPPED [1] tests\test_historical_evidence.py:74: UNAVAILABLE: historical evidence roots not present
+128 passed, 2 skipped in 7.35s

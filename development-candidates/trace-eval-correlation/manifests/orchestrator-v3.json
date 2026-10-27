@@ -72,7 +72,9 @@
         "input_24": "assurance/evals/datasets/synthetic-v3/inputs/primary-held-v3-04-9b.json",
         "input_25": "assurance/evals/datasets/synthetic-v3/inputs/primary-held-v3-05-9b.json",
         "input_26": "assurance/evals/datasets/synthetic-v3/inputs/primary-held-v3-06-9b.json",
-        "input_27": "assurance/evals/datasets/synthetic-v3/inputs/http-http-v3-01-9b.json"
+        "input_27": "assurance/evals/datasets/synthetic-v3/inputs/http-http-v3-01-9b.json",
+        "http_receipt_00": "assurance/evals/reports/orchestrator-eval-v3/evidence/http/http-v3-01-4b/http-receipt.json",
+        "http_receipt_01": "assurance/evals/reports/orchestrator-eval-v3/evidence/http/http-v3-01-9b/http-receipt.json"
       },
       "pins": {
         "assurance/evals/datasets/synthetic-v3/inputs.json": "9dbfc75b711999a0ced6c4f5295f8fa375caac1b88077ada1d580b7beee7fdc6",
@@ -107,7 +109,9 @@
         "assurance/evals/datasets/synthetic-v3/manifest.json": "9a986b900036ea010e1e62262a62e2488756ad2d9577bc5029b7570ba23ff4ed",
         "assurance/evals/reports/orchestrator-eval-v3/cases.json": "600f053077ec7b65d0962cb9769975d92ac518698a918f117bb326e1e40fbe57",
         "assurance/evals/reports/orchestrator-eval-v3/evidence/http/http-v3-01-4b/evidence.json": "e55614e1b0e352c47351f9555dbe0ce9883ab203067f2269d7c22c2736b970a4",
+        "assurance/evals/reports/orchestrator-eval-v3/evidence/http/http-v3-01-4b/http-receipt.json": "3653a7f2974f2d5402902eb811c34d9005709b072d8a8089fd95641aac672d0d",
         "assurance/evals/reports/orchestrator-eval-v3/evidence/http/http-v3-01-9b/evidence.json": "6986f5afbfa1a49f87850d710da2089cd822c4ea896226ddf90ead82dce422ac",
+        "assurance/evals/reports/orchestrator-eval-v3/evidence/http/http-v3-01-9b/http-receipt.json": "83e2b88316f9c26ebdd0ba178dd7a7fdd962a2cfd3ca4726888a8b2db617a4af",
         "assurance/evals/reports/orchestrator-eval-v3/evidence/primary/dev-v3-01-4b/evidence.json": "60b6dd22688883a176dbda39a55782bb9dd01c3252370ec46dbb9b23aad41623",
         "assurance/evals/reports/orchestrator-eval-v3/evidence/primary/dev-v3-01-9b/evidence.json": "f384818c8a68950145879ff7fb34ffb199e1d0628b359b8d75732418bac06c3b",
         "assurance/evals/reports/orchestrator-eval-v3/evidence/primary/dev-v3-02-4b/evidence.json": "23fc4ca9c369782dc8f4483781d90ea9fd88b67a0a9d2d1d0734476d1a6a2340",
