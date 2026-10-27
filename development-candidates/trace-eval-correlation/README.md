@@ -7,8 +7,10 @@ not score, admit, replay, upload or own any state.
 
 ## Commands
 
-Run from this directory with the repository's Python 3.12 interpreter
-(`backend/.venv` of the main checkout supplies `pydantic`). Nothing is installed.
+Run from this directory with any Python 3.12 environment that has `pydantic>=2.7`; tests
+also need `pytest`, and the quality checks need `ruff` and `mypy`. On `main`,
+`backend/requirements.txt` and `backend/requirements-dev.txt` provide pydantic, pytest and
+ruff, but not mypy. The adapter is not installed and imports nothing from `backend/`.
 
 ```bash
 PYTHONPATH=src python -m trace_eval_correlation pin    --manifest manifests/representative.unpinned.json --out manifests/representative.json
@@ -76,6 +78,22 @@ index remains a record of what that evidence contained when pinned on 2026-10-27
 tests use synthetic fixtures written to a temporary directory and run without the
 historical evidence. JUnit XML gate outputs are kept locally only (they embed the machine
 hostname); `reports/gate*.txt` carry the results.
+
+## Fresh clone: what reproduces
+
+| Scope | Needs | Result |
+|---|---|---|
+| Portable | This directory only | 83 synthetic tests, `schema` regeneration, ruff and mypy. The two historical tests skip as `UNAVAILABLE`. |
+| Original source machine | The untracked evidence roots at the manifest's relative locations | `verify` reproduces the committed index byte for byte, and all pins verify. |
+| Not reproducible elsewhere | — | Rebuilding the representative index. `build` reports the sources UNAVAILABLE (exit 2) and `verify` reports NOT_REPRODUCED. Neither is a new result. |
+
+The committed index is a historical, source-dependent snapshot. The adapter-local
+`.gitattributes` forces LF line endings. Without it, `core.autocrlf=true` checkouts change
+the manifest bytes, and so the embedded `manifest_sha256`, which breaks byte verification.
+
+Trust anchors: per-request files are anchored only by each campaign's own evidence
+manifest. That manifest is pinned in `manifests/representative.json`. A new manifest that
+lists a campaign manifest but omits its pin gets no warning, so pin it with `pin`.
 
 ## Not in scope
 

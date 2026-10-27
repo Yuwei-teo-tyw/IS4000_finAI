@@ -5,13 +5,16 @@ adapter was committed locally on this branch.**
 
 The adapter, schema, CLI, representative index, tests, guardrail mapping and independent
 gate are complete. No historical evidence was modified, and the main checkout matches its
-preflight state. Nothing was committed or pushed, and no network or provider call was made.
+preflight state. Nothing was pushed, and no network or provider call was made.
+
+> **Integration note:** this report describes the source branch, built on the local agent-lab
+> commit `a2fdd55`. For the integration onto `main`, see [INTEGRATION_REPORT.md](INTEGRATION_REPORT.md).
 
 ## 1. Worktree and branch
 
 | | |
 |---|---|
-| Worktree | `C:\Users\shane\Desktop\SMU\Y4S1\IS4000 - App of AI in Financial Services\Proj\IS4000_finAI-trace-eval` |
+| Worktree | `IS4000_finAI-trace-eval`, a sibling of the main checkout (the local machine path is omitted for publication) |
 | Branch | `feat/trace-eval-correlation-offline` (new; uncommitted, as instructed) |
 | Base commit | `a2fdd558f7c8de3a634375f041f5af9eb84cc675` |
 | Created with | `git worktree add -b feat/trace-eval-correlation-offline <path> a2fdd55` |

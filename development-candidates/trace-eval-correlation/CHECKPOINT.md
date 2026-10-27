@@ -20,8 +20,8 @@ closure review passed (`reports/CLOSURE_REVIEW.md`).
 Run from this directory:
 
 ```bash
-PYTHONPATH=src ../../../IS4000_finAI/backend/.venv/Scripts/python -m pytest -q
-PYTHONPATH=src ../../../IS4000_finAI/backend/.venv/Scripts/python -m trace_eval_correlation verify --manifest manifests/representative.json --index index/representative-index.json
+PYTHONPATH=src python -m pytest -q
+PYTHONPATH=src python -m trace_eval_correlation verify --manifest manifests/representative.json --index index/representative-index.json
 ```
 
 ## Open decisions for the owner

@@ -1,7 +1,12 @@
 # Clarifier / Orchestrator guardrail coverage (course-aligned)
 
 Mapping only; no guardrail was added or changed in this assignment. Source references are
-to the canonical lab at commit `a2fdd55` in this worktree unless marked otherwise.
+to the locally developed agent-lab lineage at commit `a2fdd55` (`backend/src/advisory_agents`)
+unless marked otherwise.
+
+**That lineage is not part of `main`.** When this adapter was integrated, `main` contained no
+`backend/src/advisory_agents`, so the cited files and line numbers cannot be checked from a
+clone of `main`. Read this table as a dated record of that lineage, not of `main`.
 "Audit" = Codex `GUARDRAILS_TRACES_EVALS_COVERAGE.md` (sha256 `bc590650…e2ea9`), read-only.
 
 Status: **IMPLEMENTED** — enforced in code and cited; **IMPLEMENTED (isolated)** — exists
