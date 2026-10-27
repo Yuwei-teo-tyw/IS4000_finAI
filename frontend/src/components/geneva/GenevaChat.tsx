@@ -337,7 +337,8 @@ async function buildRecommendation(clientId: string, ipsVersion: number | null):
 }
 
 /** Reason bullets for display: the trailing full stop after a closing tag would wrap onto its own line. */
-const reasonLines = (text: string) => toBulletItems(text).map((l) => l.replace(/\]\.$/, "]"));
+// Source tags like [MOCK-CORP-001] are dropped: the shortlist reasons read as plain bullets.
+const reasonLines = (text: string) => toBulletItems(text).map((l) => l.replace(/\s*\[[A-Za-z0-9-]+\]/g, "").replace(/\.$/, "").trim()).filter(Boolean);
 
 function RecommendView({ r, picked, onToggle, clientId }: { r: Recommend; picked: string[]; onToggle: (m: MarketRow) => void; clientId: string }) {
   const h = "text-[26px] font-light tracking-tight";
@@ -362,8 +363,8 @@ function RecommendView({ r, picked, onToggle, clientId }: { r: Recommend; picked
                 <span className="mt-2 block text-[14px] text-ink-muted">Risk {s.riskRating} of 5</span>
                 <span className="block text-[14px] text-ink-muted">{s.fee === null ? "Fee not available" : `Fee ${s.fee.toFixed(2)}%`}, information only</span>
               </span>,
-              <ul className="block space-y-1.5 text-ink-700">
-                {reasonLines(s.reason).map((line) => <li key={line}><Tagged text={line} /></li>)}
+              <ul className="block list-disc space-y-1.5 pl-5 text-ink-700 marker:text-ink-muted">
+                {reasonLines(s.reason).map((line) => <li key={line}>{line}</li>)}
                 {s.notes.map((n) => <li key={n} className="text-ink-muted">{n}</li>)}
               </ul>,
             ])}

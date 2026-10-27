@@ -18,7 +18,8 @@ from typing import Iterable, Optional
 from app.agents.portfolio_agent.explain.guardrails import find_claim_violations
 
 _TAG = re.compile(r"\[([A-Za-z0-9-]+)\]")
-_PRODUCT_ID = re.compile(r"\bMOCK-[A-Z]+-\d+\b")
+# Illustrative ids (MOCK-CORP-001) and live ids (FND-<ISIN>, FND-ALT-001 for funds without an ISIN).
+_PRODUCT_ID = re.compile(r"\b(?:MOCK-[A-Z]+-\d+|FND-(?:ALT-\d{3}|[A-Z]{2}[A-Z0-9]{9}\d))\b")
 _NUMBER = re.compile(r"\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?")
 _FEE = re.compile(r"\b(?:fees?|expense ratio|TER|commissions?)\b", re.I)
 # Market prose may talk about financing costs; a product reason may not talk about any cost.

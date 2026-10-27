@@ -13,12 +13,16 @@ async test support and pytest-asyncio isn't a project dependency; wrapping
 each coroutine in `asyncio.run` avoids adding either.
 """
 import asyncio
+import os
 import sys
 from pathlib import Path
 
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+# Tests assert on the illustrative shelf (MOCK-* products), not the live one.
+os.environ["PRODUCT_SHELF"] = "mock"
 
 
 def run_async(coro):

@@ -2,13 +2,16 @@
 The single product shelf, shared by the Product Recommender and the
 Portfolio Agent.
 
-`load_raw()` is the integration point: today it reads the illustrative
-data/shelf.json; later it should read the product database. `validate()`
-checks each product on its own, so one malformed product is dropped and
-reported instead of sinking the whole shelf, and labels provenance.
+`load_raw()` is the integration point. It reads data/shelf_live.json (real
+funds, built from the Advised Portfolios Performance workbook by
+build_live_shelf.py) when present, else the illustrative data/shelf.json.
+PRODUCT_SHELF=mock forces the illustrative shelf; the test suite sets it.
+`validate()` checks each product on its own, so one malformed product is
+dropped and reported instead of sinking the whole shelf, and labels provenance.
 """
 import json
 import logging
+import os
 from pathlib import Path
 from typing import Any
 
@@ -19,11 +22,14 @@ from app.agents.product_recommender.schemas import Shelf, ShelfProduct
 
 logger = logging.getLogger(__name__)
 
-SHELF_PATH = Path(__file__).parent / "data" / "shelf.json"
+MOCK_SHELF_PATH = Path(__file__).parent / "data" / "shelf.json"
+LIVE_SHELF_PATH = Path(__file__).parent / "data" / "shelf_live.json"
 
-# "LIVE" once load_raw() reads a real product database. This label, not the
-# payload's own claims, decides how the data is reported.
-SHELF_SOURCE = "MOCK"
+_use_live = os.getenv("PRODUCT_SHELF", "live").strip().lower() != "mock" and LIVE_SHELF_PATH.exists()
+SHELF_PATH = LIVE_SHELF_PATH if _use_live else MOCK_SHELF_PATH
+
+# This label, not the payload's own claims, decides how the data is reported.
+SHELF_SOURCE = "LIVE" if _use_live else "MOCK"
 
 
 def load_raw() -> dict[str, Any]:
