@@ -17,6 +17,7 @@ from test_product_recommender import CLIENTS, FIXED_NOW, request
 from app.agents.portfolio_agent.explain.llm_client import LLMUnavailable
 from app.agents.portfolio_agent.taxonomy import ASSET_CLASS_ORDER
 from app.agents.product_recommender import guardrails
+from app.agents.product_recommender.asset_views.builder import agent_stances, market_of
 from app.agents.product_recommender.asset_views.narrative import NarrativeOut, SlotText, view_facts
 from app.agents.product_recommender.config import Settings
 from app.agents.product_recommender.explain import ProductReasonOut, ReasonsOut, fee_line, llm_reasons, reasons_facts
@@ -175,8 +176,10 @@ def test_bullet_full_stop_moves_after_the_tag():
     assert out.shortlist[0].reason.text.splitlines()[0] == f"• Daily dealing [{pid}]."
 
 
-def test_recommend_explained_ranks_exactly_like_recommend():
-    resp = rules_only("jfr")
+def test_recommend_explained_ranks_exactly_like_recommend_on_the_agent_view():
+    svc = llm_service(None)
+    stances = agent_stances(market_of(run_async(svc.market_fetcher(None))), svc.house_view_loader())
+    resp = svc.recommend(request("jfr"), stances)
     out = run_async(llm_service(FakeLLM(drafts_as_llm(resp))).recommend_explained(request("jfr")))
     assert _order(out) == _order(resp)
     assert out.explanation_status.source == "LLM"

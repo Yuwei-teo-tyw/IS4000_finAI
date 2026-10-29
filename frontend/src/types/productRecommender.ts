@@ -29,8 +29,11 @@ export interface PrProductSummary {
   risk_rating: number | null; liquidity: string | null; lock_in_period: string | null; currency: string; currency_hedged: boolean | null;
   why_buy: string | null; suitability_note: string | null; rating: number | null;
 }
+/** What a shortlist slot is for; the shortlist is planned by role, not capped per asset class. */
+export type PrRole = "liquidity" | "income" | "stability" | "core_growth" | "diversifier";
+export interface PrRolePlanItem { role: PrRole; slots: number; filled: number; why: string; passed_on: number }
 export interface PrShortlistItem {
-  rank: number; product: PrProductSummary; score: { total: number; components: Record<string, number> }; notes: string[];
+  rank: number; role: PrRole; role_rank: number; product: PrProductSummary; score: { total: number; components: Record<string, number> }; notes: string[];
   reason: { text: string; source: "llm" | "deterministic"; citations: string[] };
   costs: { management_fee_pct: number | null; transaction_fee_pct: number | null; display_only: true };
 }
@@ -48,8 +51,9 @@ export interface PrResponse {
   request_id: string; client_id: string; generated_at: string; is_illustrative: boolean; sources: Record<string, string>;
   client_summary: { risk_level: number | null; risk_category: string | null; objective: string; shortest_horizon_years: number | null; base_currency: string | null };
   house_view: PrHouseView;
+  role_plan: PrRolePlanItem[];
   shortlist: PrShortlistItem[];
-  eligible_not_shortlisted: { product_id: string; product_name: string; asset_class: string; total: number }[];
+  eligible_not_shortlisted: { product_id: string; product_name: string; asset_class: string; role: PrRole; total: number }[];
   excluded: PrExclusion[];
   named_products: PrNamedProduct[];
   missing_information: string[];
@@ -60,6 +64,8 @@ export interface PrResponse {
 /* ---- Asset-class views: the agent's own view beside the CIO's (asset_views/schemas.py) ---- */
 export type PrSegmentView = "Most preferred" | "Neutral" | "Least preferred";
 export type PrAgreement = "aligned" | "differs" | "opposed";
+export type PrAgentBasis = "cio_plus_market" | "cio_only";
+export type PrCioAdjustment = "unchanged" | "softened" | "upgraded" | "downgraded";
 export interface PrRef { text: string; refs: string[] }
 export interface PrSnapshotItem {
   id: string; name: string; value: number; unit: string; change_1m: number | null; change_3m: number | null; percentile_10y: number | null;
@@ -68,6 +74,8 @@ export interface PrSnapshotItem {
 }
 export interface PrAgentView {
   label: string; view: PrView; confidence: PrConfidence; score: number; thesis: string; thesis_points: PrRef[];
+  /** The agent view starts from the CIO view; market data (data_score) can keep it or move it one step. */
+  data_score: number; cio_anchor: number; cio_share: number; basis: PrAgentBasis; cio_adjustment: PrCioAdjustment;
   regime: { phase: string | null; confidence: string | null; tilt: number | null; run_id: string | null };
   coverage: { mapped: number; available: number }; insufficient_evidence: boolean;
 }
@@ -99,4 +107,5 @@ export interface PrAssetView {
 export interface PrAssetClassHeadline {
   asset_class: string; cio_view: PrView; cio_term: string; cio_confidence: PrConfidence;
   agent_view: PrView | null; agent_confidence: PrConfidence | null; agreement: PrAgreement | null;
+  agent_basis: PrAgentBasis | null; cio_adjustment: PrCioAdjustment | null;
 }

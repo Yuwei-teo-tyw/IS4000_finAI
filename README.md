@@ -284,12 +284,38 @@ The mapping from captured data to agent inputs is in `buildPortfolioInputs` in `
 
 **How a recommendation is made**
 
-1. **Shelf:** one product shelf, `data/shelf.json` (23 illustrative products, at least 2 per asset class), shared with the Portfolio Agent.
+1. **Shelf:** `data/shelf_live.json` (80 real funds, built from the Advised Portfolios Performance workbook by `build_live_shelf.py`) when present, else the illustrative `data/shelf.json` (23 products). `PRODUCT_SHELF=mock` forces the illustrative one; the tests set it. Shared with the Portfolio Agent.
 2. **Suitability gate:** every hard check must pass. A product that fails is excluded with a code and a reason: `RISK_ABOVE_LIMIT`, `RISK_UNKNOWN`, `LIQUIDITY`, `LIQUIDITY_NEED`, `CURRENCY`, `RESTRICTED`, `SECTOR_EXCLUDED`, `ESG`, `ELIGIBILITY`, `NOT_PREFERRED`, `DATA_INVALID` (`DRAWDOWN` only with `RECOMMENDER_DRAWDOWN_HARD_LIMIT=true`). Unknown data is never a pass, and no score can rescue an excluded product.
-3. **Ranking:** each eligible product gets named score components: `objective_fit`, `house_view`, `risk_budget_use`, `horizon_match`, `currency_fit`, `data_quality` and `rating`. Ties break by product id, so the order is reproducible. **Fees never rank**: they are returned in a separate `costs` block marked `display_only`.
-4. **Reasons:** 3 to 5 cited bullets per shortlisted product, ending with `[HV-...]` (house view page) or the product id (its factsheet).
+3. **Role plan** (`roles.py`): asset classes do different jobs, so the shortlist is planned by role before anything is ranked. The roles are liquidity reserve, income, stability, core growth and diversifier.
+   - **Liquidity:** a slot is added when a dated withdrawal falls inside the liquidity-need window, or the cash balance is below the minimum cash reserve.
+   - **Other roles:** the remaining slots are split by risk level, with extra weight for the objective's role.
+   - **Diversifier:** none when the shortest horizon is under 3 years.
 
-**Asset-class views.** The agent's view on a class comes from the latest Market Researcher run. Each mapped series is read as a level (where it sits in its 10-year range), a 3-month change, or a 3-month move relative to another series. The reading is clipped to [-1, 1], signed by whether it helps the class, weighted, and tilted by the cycle regime. A score of +0.20 or more is Buy and -0.20 or less is Sell (not calibrated yet). A segment is Most or Least preferred when it sits 0.15 above or below its class's score. The mapping is in `asset_views/config.py`; the scoring is in `asset_views/scoring.py`.
+   `role_plan` in the response says why each role got its slots.
+4. **Ranking within each role** (`ranking.py`): a product is compared only with the products that fill the same role. Nine named components, each in [0, 1] and weighted per role to a total of 10:
+   - `role_fit`: e.g. yield per unit of volatility for income, low drawdown and duration for stability, long-run return for growth;
+   - `risk_adjusted`: Sharpe ratio;
+   - `drawdown_fit`: compared with the client's limit;
+   - `market_view`: the agent view, see below;
+   - `gap_fit`: the client's current allocation compared with the Portfolio Agent's SAA template for their risk level;
+   - `horizon_match`, `currency_fit`, `data_quality` and `rating`.
+
+   Missing data scores 0, never a bonus. **Fees never rank**: they are returned in a separate `costs` block marked `display_only`.
+5. **Picking:** slots are filled one at a time.
+   - **Overlap:** each pick takes points off waiting products that share its sub-asset class, issuer, or currency and asset class. This replaces the old cap of 2 per asset class; `max_per_asset_class` remains as an optional backstop.
+   - **Unfillable slots:** a slot no eligible product can fill passes to the best product in another role, but only if it scores at least 4 of 10.
+   - **Ties** break by product id, so the order is reproducible.
+6. **Reasons:** 3 to 5 cited bullets per shortlisted product, ending with `[HV-...]` (house view page) or the product id (its factsheet). The first bullet names the role the product fills.
+
+**Asset-class views.** The agent view **starts from the CIO house view**, and the latest Market Researcher run can keep it or move it one step.
+- **Data score:** each mapped series is read as a level (where it sits in its 10-year range), a 3-month change, or a 3-month move relative to another series. Each reading is clipped to [-1, 1], signed by whether it helps the class, weighted, and tilted by the cycle regime. The result is the data score.
+- **Agent score:** 0.5 × the CIO anchor (Buy +0.5, Hold 0, Sell -0.5) + 0.5 × the data score. A score of +0.20 or more is Buy and -0.20 or less is Sell (not calibrated yet).
+- **One-step limit:** the stance stays within one step of the CIO's. Data can soften a Buy to Hold, but never flip it to Sell.
+- **Confidence:** starts from the CIO's, one step higher when the data agrees and one step lower when it disagrees.
+- **No usable market data:** the agent view is the CIO view, one step less sure (`basis: "cio_only"`).
+- **Segments:** a segment is Most or Least preferred when it sits 0.15 above or below its class's data score.
+
+The mapping is in `asset_views/config.py`; the scoring is in `asset_views/scoring.py`. The same agent view feeds the product ranking.
 
 **Endpoints.** The main app serves these under `/agents/product-recommender`; the routes live in `app/endpoints/product_recommender.py`.
 
@@ -381,7 +407,7 @@ Data goes through `recommendProducts` and the asset-view calls in `frontend/src/
 │   │   │   │   └── backtest.py          # Regime backtest vs NBER -> backtest_report.md
 │   │   │   ├── product_recommender/     # Product shortlist + asset-class views (see its NOTES.md)
 │   │   │   │   ├── data/                # shelf.json, house_view.json
-│   │   │   │   ├── suitability.py / ranking.py           # Hard gate, fee-free scoring
+│   │   │   │   ├── suitability.py / roles.py / ranking.py # Hard gate, role plan, fee-free scoring within roles
 │   │   │   │   ├── explain.py           # Rule-based reasons + LLM rewrite
 │   │   │   │   ├── llm.py / guardrails.py                # LLM call, retry, fallback; text checks
 │   │   │   │   └── asset_views/         # Agent view per asset class (scoring, builder, narrative)

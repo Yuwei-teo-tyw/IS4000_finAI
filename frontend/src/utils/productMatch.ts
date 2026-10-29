@@ -26,3 +26,6 @@ export function findProducts<T>(text: string, items: T[], name: (x: T) => string
   const exact = items.filter((x) => t.includes(core(name(x))) || t.includes(norm(name(x))) || (id && t.includes(norm(id(x)))));
   return exact.length ? exact : items.filter((x) => matchesProduct(text, name(x), id?.(x)));
 }
+
+/** The shelf's 1-5 product rating as text; rows saved before ratings were carried have none. */
+export const ratingText = (rating?: number | null): string => (rating ? `${rating} of 5` : "No rating");

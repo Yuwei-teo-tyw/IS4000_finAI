@@ -11,17 +11,18 @@ import { reopenFinalised, savePsReasons, sendFinalised, useFinalised, usePsReaso
 import { FinalisedTable } from "../../components/ps/FinalisedTable";
 import { savePackDraft, setSectionDone, useSignatures } from "../../services/packDraftStore";
 import { toBulletItems } from "../../utils/bullets";
+import { ratingText } from "../../utils/productMatch";
 
-const draftReason = (p: { product: string; assetClass: string; industryFocus: string; confidencePct: number }) => [
+const draftReason = (p: { product: string; assetClass: string; industryFocus: string; rating?: number | null }) => [
   `Suitability: ${p.product} fits the client's IPS objectives and stays within the agreed risk limit.`,
   `Asset class: the ${p.assetClass} exposure supports the target allocation and diversification.`,
   `Rationale: ${p.industryFocus || "aligned with the current house view"}.`,
-  `Confidence: the assistant rates this recommendation at ${p.confidencePct}% based on cited sources.`,
+  ...(p.rating ? [`Product rating: ${p.rating} of 5 on the shelf; a minor tie-breaker, not a measure of confidence.`] : []),
   "Cost: the fee was reviewed for transparency only and was not used to rank this product.",
 ].map((l) => `• ${l}`).join("\n");
 
 /** Deterministic, offline synthetic reason (bullet format with citation tags) for the demo. */
-const syntheticReason = (p: { product: string; assetClass: string; industryFocus: string; confidencePct: number }) => {
+const syntheticReason = (p: { product: string; assetClass: string; industryFocus: string; rating?: number | null }) => {
   const h = [...p.product].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 9973, 7);
   const cio = ["CIO-2026Q4-02", "CIO-2026Q4-03", "CIO-2026Q4-05"][h % 3];
   return [
@@ -83,7 +84,7 @@ export default function FinaliseProducts() {
     setBusy((b) => ({ ...b, [name]: false }));
   };
   const hasReason = (r: (typeof all)[number]) => toBulletItems(finalReason(r)).length > 0;
-  const closeProposal = (name: string) => setProposal(({ [name]: _drop, ...rest }) => rest);
+  const closeProposal = (name: string) => setProposal((p) => { const rest = { ...p }; delete rest[name]; return rest; });
   const signed = !!useSignatures(clientId).ps;
   const send = () => {
     const items = list.map((r) => ({ ...r, reason: finalReason(r) }));
@@ -100,7 +101,7 @@ export default function FinaliseProducts() {
     if (!sentList) return;
     const sentNames = sentList.items.map((i) => i.product);
     // Bring back any sent product that was dropped from the chat selection since, so it can still be edited.
-    const merged = [...loadSelection(clientId).filter((r) => !sentNames.includes(r.product)), ...sentList.items.map((i) => ({ assetClass: i.assetClass, product: i.product, industryFocus: i.industryFocus, top5: i.top5, confidencePct: i.confidencePct, ranking: i.ranking }))];
+    const merged = [...loadSelection(clientId).filter((r) => !sentNames.includes(r.product)), ...sentList.items.map((i) => ({ assetClass: i.assetClass, product: i.product, industryFocus: i.industryFocus, top5: i.top5, rating: i.rating ?? null, ranking: i.ranking }))];
     saveSelection(clientId, merged);
     setAll(merged);
     setTicked(sentNames);
@@ -172,7 +173,7 @@ export default function FinaliseProducts() {
                   <div className="min-w-0">
                     <h2 className="text-[28px] font-light tracking-tight">{list.indexOf(current) + 1}. {current.product}</h2>
                     <p className="mt-2 text-xs uppercase tracking-[0.14em] text-brand">You fill in this section</p>
-                    <p className="mt-2 text-sm text-ink-muted">{current.assetClass} · {current.confidencePct}% confidence</p>
+                    <p className="mt-2 text-sm text-ink-muted">{current.assetClass} · {ratingText(current.rating)}</p>
                   </div>
                   <div className="text-[17px] leading-8 text-ink-700">{editingReason === current.product ? (
                     <BulletTextarea className="!border-brand" aria-label={`Reason for ${current.product}`} value={reasons[current.product] ?? ""}
@@ -226,7 +227,7 @@ export default function FinaliseProducts() {
                     <input type="checkbox" className="mt-1 h-5 w-5 cursor-pointer" checked={ticked.includes(p.product)} onChange={() => toggle(p.product)} aria-label={`Include ${p.product}`} />
                     <span className="min-w-0 text-xl">{p.product}</span>
                   </label>
-                  <p className="text-sm text-ink-muted">{p.assetClass} · {p.confidencePct}% confidence</p>
+                  <p className="text-sm text-ink-muted">{p.role ? `${p.role} · ` : ""}{p.assetClass} · {ratingText(p.rating)}</p>
                 </div>
                 <p className="mt-3 text-sm text-ink-700">{p.industryFocus}</p>
                 <label className="mt-6 block text-sm text-ink-muted">Your reason, in plain words

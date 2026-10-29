@@ -132,8 +132,6 @@ def check_view_slot(kind: str, text: str, allowed_numbers: set[float], *, agent_
                 problems.append(f"thesis does not state the agent view {agent_view}")
             if agent_confidence.lower() not in text.lower():
                 problems.append(f"thesis does not state {agent_confidence.lower()} confidence")
-            if re.search(r"\b(?:house|CIO(?:'s)?) view\b", text, re.I):
-                problems.append("thesis mentions the house view (the agent view must stand alone)")
     if kind == "segment" and stance:
         for s in _SEGMENT_STANCES:
             if s.lower() in text.lower() and s != stance:

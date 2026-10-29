@@ -1,8 +1,12 @@
 """
-Product Recommender service: shelf -> suitability gate -> ranking -> reasons.
+Product Recommender service: shelf -> suitability gate -> role plan ->
+ranking within each role -> reasons.
 
 `recommend` is deterministic end to end. Every product considered ends up in
 exactly one of shortlist, eligible_not_shortlisted or excluded.
+`recommend_explained` first reads the latest Market Researcher run, so the
+ranking uses the agent view (the CIO view adjusted by market data); called
+directly, `recommend` uses the CIO view as is.
 `recommend_explained` and `asset_class_view` then let the LLM rewrite the
 text only; what is recommended, and every stance and number, stays as the
 engine computed it.
@@ -23,8 +27,14 @@ from app.agents.portfolio_agent.taxonomy import (
     parse_asset_class,
 )
 from app.agents.portfolio_agent.upstream.market_analysis import fetch_market_analysis
-from app.agents.product_recommender import ranking
-from app.agents.product_recommender.asset_views.builder import build_view, headline_only
+from app.agents.product_recommender import ranking, roles
+from app.agents.product_recommender.asset_views.builder import (
+    AgentStance,
+    agent_stances,
+    build_view,
+    headline_only,
+    market_of,
+)
 from app.agents.product_recommender.asset_views.narrative import llm_narrative
 from app.agents.product_recommender.asset_views.schemas import (
     AssetClassHeadline,
@@ -43,6 +53,7 @@ from app.agents.product_recommender.schemas import (
     ProductSummary,
     RecommendRequest,
     RecommendResponse,
+    RolePlanItem,
     ScoreBreakdown,
     ShelfProduct,
     ShortlistItem,
@@ -134,14 +145,18 @@ class ProductRecommenderService:
         """CIO and agent stance for all seven classes; cheap, no narrative."""
         hv = self.house_view_loader()
         market_res = await self.market_fetcher(None)
-        return [headline_only(ac, market_res, hv) for ac in ASSET_CLASS_ORDER]
+        stances = agent_stances(market_of(market_res), hv)
+        return [headline_only(ac, market_res, hv, stances[ac]) for ac in ASSET_CLASS_ORDER]
 
     async def recommend_explained(self, req: RecommendRequest) -> RecommendResponse:
-        """`recommend`, then LLM-written reasons for the shortlist where they pass the guardrail."""
-        resp, _ = await llm_reasons(self.recommend(req), self.settings, self.llm_factory)
+        """`recommend` ranked on the agent view, then LLM-written reasons where they pass the guardrail."""
+        market_res = await self.market_fetcher(req.client_profile.base_currency)
+        stances = agent_stances(market_of(market_res), self.house_view_loader())
+        resp, _ = await llm_reasons(self.recommend(req, stances), self.settings, self.llm_factory)
         return resp
 
-    def recommend(self, req: RecommendRequest) -> RecommendResponse:
+    def recommend(self, req: RecommendRequest,
+                  stances: Optional[dict[AssetClass, AgentStance]] = None) -> RecommendResponse:
         now = self.clock()
         profile = req.client_profile
         opts = req.options
@@ -164,24 +179,40 @@ class ProductRecommenderService:
         )
         level = a.effective_level
         objective = ranking.derive_objective(profile, a)
-        ranked = ranking.rank(result.eligible, objective, hv, level, a.shortest_horizon_years, profile.base_currency)
-        picked, rest = ranking.shortlist(ranked, opts.top_n, opts.max_per_asset_class)
+        stances = stances if stances is not None else agent_stances(None, hv)
+        plan = roles.plan_roles(profile, a, objective, opts.top_n, self.settings.liquidity_need_months)
+        ctx = ranking.RankContext(level=level, horizon=a.shortest_horizon_years, base_currency=profile.base_currency,
+                                  max_drawdown=profile.maximum_acceptable_drawdown, views=stances,
+                                  current_mix=ranking.current_mix(profile))
+        sel = ranking.select(plan, ranking.score_all(result.eligible, ctx), opts.max_per_asset_class)
+        why = {s.role: s.why for s in plan}
 
         shortlist = [
             ShortlistItem(
                 rank=i + 1,
+                role=r.role,
+                role_rank=r.role_rank,
                 product=summarise(r.sp.product),
                 score=ScoreBreakdown(total=r.total, components=r.components),
-                notes=r.sp.notes,
-                reason=deterministic_reason(r, hv, objective, level, profile.base_currency),
+                notes=[*r.sp.notes, *r.notes],
+                reason=deterministic_reason(r, hv, level, profile.base_currency, why.get(r.role, ""),
+                                            stances.get(r.sp.asset_class)),
                 costs=costs(r.sp.product),
             )
-            for i, r in enumerate(picked)
+            for i, r in enumerate(sel.picked)
+        ]
+        role_plan = [
+            RolePlanItem(role=s.role, slots=s.slots, filled=sel.filled.get(s.role, 0), why=s.why,
+                         passed_on=sel.passed.get(s.role, 0))
+            for s in plan
+        ] + [
+            RolePlanItem(role=role, slots=0, filled=n, why="it took over slots that other roles had no eligible product for")
+            for role, n in sel.filled.items() if role not in why and n
         ]
         eligible_rest = [
             EligibleItem(product_id=r.sp.product_id, product_name=r.sp.product.product_name,
-                         asset_class=r.sp.asset_class.value, total=r.total)
-            for r in rest
+                         asset_class=r.sp.asset_class.value, role=r.role, total=r.total)
+            for r in sel.rest
         ]
         excluded = [
             Exclusion(product_id=x.product.product_id, product_name=x.product.product_name,
@@ -203,6 +234,7 @@ class ProductRecommenderService:
                 base_currency=profile.base_currency,
             ),
             house_view=hv,
+            role_plan=role_plan,
             shortlist=shortlist,
             eligible_not_shortlisted=eligible_rest,
             excluded=excluded,
