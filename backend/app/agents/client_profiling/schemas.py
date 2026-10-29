@@ -15,11 +15,9 @@ data = {
   ],
   "targets": [{"amount": 700000000, "currency": "SGD"|null, "horizonYears": 8|null,
                "text": "hit 700M within 8 years", "source_note": {"id","date","title"}}],
-  "lifeEvents": [{"id": "le_note_1020_1", "date": "2029-09"|null, "year": 2029|null, "label": "Child starts university",
-                  "detail": "third-person sentence", "source_note": {"id","date","title"}|null, "manual": false}],
-                  # manual:true = added by the RM; save/load keeps them; the editor may add/remove items
   "reviewRules": [{"title": "Review frequency", "text": "..."}],   # canned, no LLM
   "threeL": [{"portfolio": "Liquidity"|"Longevity"|"Legacy", "strategy": "A".."F", "strategyName": "Fixed Income",
+              "rateOfReturn": "text derived from the strategy table (recomputed on load)",
               "reason": "editable text (AI or RM)", "source": {"noteId","date","title","passage"}|null,
               "default": false,      # true = rule-based default from the risk score ("Default" badge)
               "conflict": null|{"note": "human text (same as message)", "message": "...",
@@ -31,7 +29,7 @@ data = {
   "modelMessage": "...", "notIncluded": ["sentence that could not be safely converted to third person", ...],
   "evidence": {"<section>": [{"item","noteId","date","title","passage"(verbatim)}]},
   "rmSignatureImage": "/signature-isabel.png", "rmSignedDate": "YYYY-MM-DD",
-  "demographics": {"fields": {label: value}}, "philosophy": {"approach","believes","avoids"}, "risk": {"fields","bullets"}
+  "demographics": {"fields": {label: value}}, "philosophy": {"approach","believes","avoids","investmentPeriod"}, "risk": {"fields","bullets"}
 }
 Generation: POST /agents/client-profiling/ips-generate (one section; auto-saves, returns "version" + "saved") and
 POST /ips-generate/all (all sections). Responses/progress events carry "model". IPS chat history:

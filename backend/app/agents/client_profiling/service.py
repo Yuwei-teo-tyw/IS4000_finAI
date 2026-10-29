@@ -12,7 +12,7 @@ from .alloc_dialogue import allocation_intent, handle_allocation_turn, pending_f
 from .answer import answer_question
 from .guide import answer_guide_question, is_guide_question
 from .extract import extract_key_facts
-from .llm import ChatFn, model_name
+from .llm import ChatFn, fallback_active, last_model, model_name
 from .presentation import build_sections, short_message
 from .retrieval import get_meeting_note, read_meeting_note, resolve_client
 from .schemas import SourceRef, ToolResult
@@ -233,7 +233,8 @@ def _handle_notes(message: str, text: str, store, cid: str, answer_chat: Optiona
                           message="The local model is unavailable, so this question was not routed.",
                           data={"routing": {"method": "unavailable", "model": None, "scope": None,
                                             "note": "local model off, unreachable or invalid answer"}})
-    routing = {"method": "local_llm", "model": model_name(), "scope": "notes"}
+    routing = {"method": "local_llm", "model": (last_model() if fallback_active() else None) or model_name(),
+               "scope": "notes", **({"fallback": True} if fallback_active() else {})}
     if ans["status"] == "out_of_scope":
         return ToolResult(tool="out_of_scope", status="insufficient_information", client_id=cid,
                           message="I can't answer that question.",

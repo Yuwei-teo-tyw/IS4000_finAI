@@ -67,7 +67,7 @@ GOOD = {
 def test_per_section_shape(section):
     r = generate_ips_section(Store(), "x", section, fake(GOOD[section]))
     assert r["status"] == "ok" and r["section"] == section and r["message"]
-    assert set(r) == {"section", "status", "message", "model", "fields", "bullets", "sources", "evidence", "notIncluded"} | ({"philosophy"} if section == "philosophy" else set()) | ({"goals", "targets", "lifeEvents"} if section == "goals" else set())
+    assert set(r) == {"section", "status", "message", "model", "fields", "bullets", "sources", "evidence", "notIncluded", "reasoning"} | ({"philosophy"} if section == "philosophy" else set()) | ({"goals", "targets"} if section == "goals" else set())
     assert r["sources"] == [{"id": "note_a", "date": "2026-10-01", "label": "First meeting"}]
     assert isinstance(r["fields"], dict) and isinstance(r["bullets"], list)
 
@@ -77,7 +77,7 @@ def test_values_kept_verbatim():
     assert d["fields"] == {"Date of birth / age": "45 years old", "Occupation": "surgeon at City Hospital", "Annual income": "400k", "AUM": "20M"}
     assert generate_ips_section(Store(), "x", "goals", fake(GOOD["goals"]))["bullets"] == ["Return requirements: Grow the portfolio to 700M within 8 years"]
     p = generate_ips_section(Store(), "x", "philosophy", fake(GOOD["philosophy"]))["philosophy"]
-    assert p == {"approach": "long-term, diversified", "believes": "healthcare and technology", "avoids": "tobacco"}
+    assert p == {"approach": "long-term, diversified", "believes": "healthcare and technology", "avoids": "tobacco", "investmentPeriod": ""}
     r = generate_ips_section(Store(), "x", "risk", fake(GOOD["risk"]))
     assert r["fields"]["Risk category"] == "balanced" and r["bullets"] == ["Would accept a fall of 10% in a year"]
 
@@ -98,8 +98,8 @@ def test_grounding_drops_invented_facts():
 
 
 def test_nothing_stated_is_ok_but_empty():
-    r = generate_ips_section(Store(), "x", "philosophy", fake({k: {"value": "", "cite": ""} for k in ("approach", "believes", "avoids")}))
-    assert r["status"] == "ok" and r["philosophy"] == {"approach": "", "believes": "", "avoids": ""} and r["sources"] == []
+    r = generate_ips_section(Store(), "x", "philosophy", fake({k: {"value": "", "cite": ""} for k in ("approach", "believes", "avoids", "investmentPeriod")}))
+    assert r["status"] == "ok" and r["philosophy"] == {"approach": "", "believes": "", "avoids": "", "investmentPeriod": ""} and r["sources"] == []
 
 
 def test_no_notes_and_no_model_calls():
@@ -286,3 +286,57 @@ def test_long_notes_are_batched_and_merged(monkeypatch):
     r = generate_ips_section(Store(notes=[long]), "x", "goals", chat)
     assert len(calls) > 1 and all(len(c) < 700 for c in calls)
     assert r["bullets"] == ["Return requirements: Portfolio to hit 700M within 8 years"] and r["evidence"][0]["passage"] in long.text
+
+
+# --- speed: one model call per section for a typical note set, still batched for very long notes, truncation fails fast ---
+def _two_notes(n):
+    body = "He is 45 years old. " * (n // 20)
+    return [MeetingNoteDoc(id=f"n{i}", client_id="x", date=f"2026-10-0{i}", title=f"Meeting {i}", text=NOTE + "\n\n" + body) for i in (1, 2)]
+
+
+def test_typical_notes_are_one_call_per_section():
+    chat = fake({"fields": []})
+    generate_ips_section(Store(_two_notes(2000)), "x", "demographics", chat=chat)  # 2 notes of ~2.1k chars (cap 5500)
+    assert len(chat.calls) == 1
+
+
+def test_very_long_notes_still_batch():
+    chat = fake({"fields": []})
+    generate_ips_section(Store(_two_notes(12000)), "x", "demographics", chat=chat)
+    assert len(chat.calls) > 1
+    assert all(len(u) < 9000 + 600 for _, u in chat.calls)
+
+
+def test_truncated_reply_retries_once_bigger_then_raises(monkeypatch):
+    from app.agents.client_profiling import ips_generate as g
+    seen = []
+
+    def post(body, timeout):
+        seen.append(body["max_tokens"])
+        return {"choices": [{"finish_reason": "length", "message": {"content": '{"fields": [{"lab'}}], "usage": {}}
+
+    monkeypatch.setattr(g, "post_chat", post)
+    monkeypatch.setattr(g, "GEN_MAX_TOKENS_RETRY", 2 * g.GEN_MAX_TOKENS)  # the bigger retry is opt-in (default = same budget)
+    with pytest.raises(g.TruncatedReply):
+        g._gen_chat("t", {"type": "object"}, "m")("s", "u")
+    assert seen == [g.GEN_MAX_TOKENS, g.GEN_MAX_TOKENS_RETRY]
+
+
+def test_truncated_first_then_ok_returns_reply(monkeypatch):
+    from app.agents.client_profiling import ips_generate as g
+    replies = iter([("length", '{"x'), ("stop", '{"fields": []}')])
+    monkeypatch.setattr(g, "GEN_MAX_TOKENS_RETRY", 2 * g.GEN_MAX_TOKENS)
+    monkeypatch.setattr(g, "post_chat", lambda b, t: (lambda r: {"choices": [{"finish_reason": r[0], "message": {"content": r[1]}}]})(next(replies)))
+    assert g._gen_chat("t", {}, "m")("s", "u") == '{"fields": []}'
+
+
+def test_truncation_does_not_sleep_or_repeat(monkeypatch):
+    from app.agents.client_profiling import ips_generate as g
+    n = {"c": 0}
+
+    def chat(system, user):
+        n["c"] += 1
+        raise g.TruncatedReply("cut")
+
+    res = generate_ips_section(Store(), "x", "demographics", chat=chat)
+    assert n["c"] == 1 and res["status"] == "unavailable"

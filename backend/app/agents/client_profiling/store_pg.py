@@ -20,7 +20,7 @@ from psycopg.types.json import Jsonb
 
 from . import embeddings
 from .store import (DEFAULT_DATA_DIR, DEFAULT_RM, IPS_CHAT_CAP, UPLOADS_FILE, BaseStore, Client, DocumentStore, IpsPartDoc, IpsVersion,
-                    MeetingNoteDoc, StoreUnavailableError, _check_chat, _check_progress)
+                    SENT_STATUS, MeetingNoteDoc, StoreUnavailableError, _check_chat, _check_progress)
 
 _SEEDED: set[tuple[str, str, str]] = set()
 _LOCK = threading.Lock()
@@ -100,6 +100,9 @@ _DDL = [
         id BIGSERIAL PRIMARY KEY, client_id TEXT NOT NULL, portfolio TEXT NOT NULL, from_strategy TEXT NOT NULL DEFAULT '',
         to_strategy TEXT NOT NULL, reason TEXT NOT NULL DEFAULT '', rm_id TEXT NOT NULL DEFAULT 'rm_default',
         ts TIMESTAMPTZ NOT NULL DEFAULT now())""",
+    """CREATE TABLE IF NOT EXISTS cp_ips_sends (
+        client_id TEXT PRIMARY KEY, version INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'Sent to PM',
+        sent_at TEXT NOT NULL, rm_id TEXT NOT NULL DEFAULT 'rm_default', snapshot JSONB NOT NULL)""",
     *_VIEW_DDL,
 ]
 
@@ -552,6 +555,33 @@ class PostgresStore(BaseStore):
             return [dict(r) for r in rows] or None
         except Exception:
             return None
+
+    # ---- send-to-PM (cp_ips_sends): snapshot + sent state in ONE row / transaction ----
+    def send_ips_to_pm(self, client_id: str, version: int, rm_id: str, sent_at: str, snapshot: dict,
+                       before_commit=None) -> dict:
+        rec = {"clientId": client_id, "version": version, "status": SENT_STATUS, "sentAt": sent_at, "rmId": rm_id or DEFAULT_RM,
+               "snapshot": json.loads(json.dumps(snapshot))}
+        with self._connect() as conn:  # commits on clean exit, rolls back if before_commit (notification) or the write raises
+            conn.execute("INSERT INTO cp_ips_sends (client_id, version, status, sent_at, rm_id, snapshot) VALUES (%s,%s,%s,%s,%s,%s) "
+                         "ON CONFLICT (client_id) DO UPDATE SET version = EXCLUDED.version, status = EXCLUDED.status, "
+                         "sent_at = EXCLUDED.sent_at, rm_id = EXCLUDED.rm_id, snapshot = EXCLUDED.snapshot",
+                         (client_id, version, SENT_STATUS, sent_at, rec["rmId"], Jsonb(rec["snapshot"])))
+            if before_commit is not None:
+                before_commit(json.loads(json.dumps(rec)))
+        return rec
+
+    def get_ips_send(self, client_id: str) -> Optional[dict]:
+        with self._connect() as conn:
+            r = conn.execute("SELECT client_id, version, status, sent_at, rm_id, snapshot FROM cp_ips_sends WHERE client_id = %s",
+                             (client_id,)).fetchone()
+        if r is None:
+            return None
+        return {"clientId": r["client_id"], "version": r["version"], "status": r["status"], "sentAt": r["sent_at"],
+                "rmId": r["rm_id"], "snapshot": r["snapshot"]}
+
+    def withdraw_ips_send(self, client_id: str) -> bool:
+        with self._connect() as conn:
+            return conn.execute("DELETE FROM cp_ips_sends WHERE client_id = %s", (client_id,)).rowcount > 0
 
     # ---- IPS chat history (cp_ips_chat) ----
     @staticmethod

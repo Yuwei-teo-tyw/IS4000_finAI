@@ -1,6 +1,7 @@
 import { useRef } from "react";
 import { Upload, X } from "lucide-react";
 import { ROLE_PEOPLE } from "../../../layouts/navConfig";
+import { LABEL } from "./parts";
 import { ROLE_LABEL, type Role } from "../../../types/arc";
 import type { PackSignatures as Sigs } from "../../../services/packDraftStore";
 
@@ -27,14 +28,14 @@ export function PackSignatures({ sigs, onUpload, onRemove }: Props) {
         const sig = sigs[r] ?? (r === "rm" ? { name: "signature-isabel.png", dataUrl: RM_SIGNATURE, signedAt: new Date().toISOString() } : undefined);
         return (
           <div key={r} className="avoid-break min-w-0">
-            <p className="text-[12px] uppercase tracking-[0.12em] text-ink-muted">{ROLE_LABEL[r]}</p>
+            <p className={LABEL}>{ROLE_LABEL[r]}</p>
             <div className={`mt-3 flex h-28 items-center justify-center overflow-hidden border ${sig ? "border-hairline bg-surface-100" : "border-dashed border-hairline-strong bg-surface-200"}`}>
               {sig
                 ? <img src={sig.dataUrl} alt={`${ROLE_PEOPLE[r].person} signature`} className="max-h-full max-w-full object-contain p-2" />
                 : <span className="text-[13px] italic text-ink-muted">Digital signature pending</span>}
             </div>
-            <p className="mt-3 text-sm text-ink">{ROLE_PEOPLE[r].person}</p>
-            <p className="text-[12px] text-ink-muted">{sig ? `Signed ${fmtWhen(sig.signedAt)}` : "Signed on: ____________"}</p>
+            <p className="mt-3 text-[15px] leading-6 text-ink">{ROLE_PEOPLE[r].person}</p>
+            <p className="text-[13px] leading-5 text-ink-muted">{sig ? `Signed ${fmtWhen(sig.signedAt)}` : "Signed on: ____________"}</p>
             {onUpload && (
               <div className="no-print mt-3 flex items-center gap-2">
                 <input ref={(el) => { refs.current[r] = el; }} type="file" accept="image/*" className="hidden" onChange={(e) => { pick(r, e.target.files?.[0]); e.target.value = ""; }} />

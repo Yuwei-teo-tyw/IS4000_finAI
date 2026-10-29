@@ -13,11 +13,11 @@ export function BucketBar({ buckets }: { buckets: Bucket3L[] }) {
       <div className="flex h-6 w-full overflow-hidden border border-hairline" role="img" aria-label="3L bucket allocation">
         {buckets.map((b) => <div key={b.id} className={BUCKET_BG[b.id]} style={{ width: `${b.pct}%` }} />)}
       </div>
-      <table className="mt-4 w-full table-fixed border-collapse text-left text-[14px]">
+      <table className="mt-4 w-full table-fixed border-collapse text-left text-[15px]">
         <thead>
-          <tr className="border-b border-hairline text-[12px] uppercase tracking-[0.06em] text-ink-muted">
-            <th className="py-2 pr-2 font-normal">Bucket</th><th className="py-2 pr-2 font-normal">Horizon</th>
-            <th className="py-2 pr-2 text-right font-normal">Amount (SGD)</th><th className="py-2 text-right font-normal">%</th>
+          <tr className="border-b border-hairline text-[12px] leading-4 uppercase tracking-[0.06em] font-normal text-ink-muted">
+            <th className="py-2 pr-2 font-light">Bucket</th><th className="py-2 pr-2 font-light">Horizon</th>
+            <th className="py-2 pr-2 text-right font-light">Amount (SGD)</th><th className="py-2 text-right font-light">%</th>
           </tr>
         </thead>
         <tbody>

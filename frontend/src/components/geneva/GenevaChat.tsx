@@ -23,6 +23,7 @@ import { appendChatContext } from "../../services/chatContextStore";
 import { MeetingNoteModal } from "./MeetingNoteModal";
 import { GenevaMarkdown, Tagged, type SourceRef } from "./GenevaMarkdown";
 import { GenevaArticlePanel } from "./GenevaArticlePanel";
+import { CHAT_HISTORY_UNAVAILABLE, DEFAULT_CHAT_TITLE, chatDate, listSavedChats, loadSavedMessages, saveChatMessage, shortTitle } from "../../services/genevaChats";
 
 /** Plain-text digest of an answer (no markup) for the research context store. */
 function answerPlainText(a: MarketAnswer): string {
@@ -111,6 +112,20 @@ function restoreMsg(h: IpsChatMessage): Msg {
   return { from: "agent", text: h.text, reply: { text: h.text, runId: null } };
 }
 
+/** Geneva's reasoning for one generated section. Open by default for the newest section; the RM can toggle any of them. */
+function ReasoningToggle({ lines, latest }: { lines: string[]; latest: boolean }) {
+  const [open, setOpen] = useState<boolean | null>(null);
+  const shown = open ?? latest;
+  return (
+    <div className="mt-3" data-testid="ips-reasoning">
+      <button type="button" aria-expanded={shown} onClick={() => setOpen(!shown)} className="text-[13px] uppercase tracking-[0.06em] text-ink-muted underline-offset-2 hover:underline">
+        {shown ? "Hide reasoning" : "Reasoning"}
+      </button>
+      {shown && <ul className="mt-2 list-disc space-y-1 border-l border-hairline-strong pl-8 text-[15px] leading-6 text-ink-muted">{lines.map((l, i) => <li key={i}>{l}</li>)}</ul>}
+    </div>
+  );
+}
+
 /** Evidence per IPS section: which meeting note each filled item was pulled from. Sections that have not arrived yet show as thinking steps. */
 function IpsGenView({ g, clientId }: { g: NonNullable<Msg["ipsGen"]>; clientId: string; role?: Role }) {
   const [note, setNote] = useState<{ id: string; passage?: string; date?: string; title?: string } | null>(null);
@@ -129,12 +144,22 @@ function IpsGenView({ g, clientId }: { g: NonNullable<Msg["ipsGen"]>; clientId: 
         const r = g.sections.find((x) => x.section === def.id);
         if (!r) return null;
         const ev = r.evidence ?? [];
+        const latest = IPS_GEN_SECTIONS.filter((s) => g.sections.some((x) => x.section === s.id)).pop()?.id === def.id;
+        const reasoning = (r.reasoning ?? []).filter((l) => l?.trim());
         return (
           <section key={def.id} className="animate-geneva-in">
             <h4 className="text-[22px] font-light tracking-tight">{def.label}</h4>
             {r.status !== "ok" ? <p className="mt-3 text-[16px] leading-7 text-ink-700">{r.message}</p> : def.id === "allocation" && r.allocation ? (
               <div className="mt-3 space-y-6">
                 {r.allocation.summary && <p className="text-[16px] leading-7 text-ink-700">{r.allocation.summary}</p>}
+                {r.proportion ? (
+                  <div data-testid="ips-gen-proportion">
+                    <h5 className="text-[18px] font-light tracking-tight text-ink">{`3L proportion · ${(["liquidity", "longevity", "legacy"] as const).reduce((n, k) => n + r.proportion![k].pct, 0)}%`}</h5>
+                    <ul className="mt-2 list-disc space-y-2 pl-5 text-[16px] leading-7 text-ink-700">
+                      {(["liquidity", "longevity", "legacy"] as const).map((k) => <li key={k}>{`${BUCKET_LABEL[k].replace(" portfolio", "")} ${r.proportion![k].pct}%`}{r.proportion![k].reason ? <span className="text-ink-muted">{` — ${r.proportion![k].reason}`}</span> : null}</li>)}
+                    </ul>
+                  </div>
+                ) : !!r.proportionMissing?.length && <p className="text-[16px] leading-7 text-ink-muted">{`3L proportion not generated. Missing: ${r.proportionMissing.join("; ")}.`}</p>}
                 {r.allocation.buckets.map((b) => (
                   <div key={b.id}>
                     <h5 className="text-[18px] font-light tracking-tight text-ink">{bucketLine(b)}</h5>
@@ -164,6 +189,7 @@ function IpsGenView({ g, clientId }: { g: NonNullable<Msg["ipsGen"]>; clientId: 
                 ))}
               </ul>
             )}
+            {reasoning.length > 0 && <ReasoningToggle lines={reasoning} latest={latest} />}
           </section>
         );
       })}
@@ -395,7 +421,7 @@ function RecommendView({ r, picked, onToggle, clientId }: { r: Recommend; picked
 
 /* ---- PS finalise-by-prompt: detect "I'm happy with X and Y" and match product names ---- */
 const FINALISE_INTENT = /\b(finali[sz]e|happy with|ok with|okay with|fine with|good with|comfortable with|go with|going with|proceed with|shortlist|i like|i(?:'|’)ll take|i want to (?:take|go|proceed|keep)|i(?:'|’)m (?:ok|ok?ay|happy|fine) )/i;
-interface Chat { id: number; title: string; messages: Msg[]; sessionId: string; /** Dedicated AI IPS chat: saved to the server and answers allocation questions. */ ips?: boolean }
+interface Chat { id: number; title: string; messages: Msg[]; sessionId: string; /** Last activity (ms), for newest-first order and the date beside the title. */ at: number; /** Saved on the server (IS-98) but its messages are fetched only when opened. */ remote?: boolean; loaded?: boolean; /** Dedicated AI IPS chat: saved to the server and answers allocation questions. */ ips?: boolean }
 
 function Direction({ d }: { d: MacroView["direction"] }) {
   return <DirectionArrow d={d === "Up" ? "up" : d === "Down" ? "down" : "flat"} size={16} />;
@@ -543,7 +569,7 @@ function ClientSwitcher({ clientId, name, role }: { clientId: string; name: stri
 export function GenevaChat({ role, clientId, compact = false }: { role: Role; clientId: string; compact?: boolean }) {
   const { pathname: routePath } = useLocation();
   const onIpsDraft = role === "rm" && /\/clients\/[^/]+\/ips-draft\/?$/.test(routePath);
-  const blank = (id: number): Chat => ({ id, title: "New chat", messages: [], sessionId: arcApi.newChatSession(role, clientId) });
+  const blank = (id: number): Chat => ({ id, title: DEFAULT_CHAT_TITLE, messages: [], sessionId: arcApi.newChatSession(role, clientId), at: Date.now() });
   const [chats, setChats] = useState<Chat[]>(() => [blank(1)]);
   const [source, setSource] = useState<SourceRef | null>(null);
   const closeSource = useCallback(() => setSource(null), []);
@@ -564,6 +590,27 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
     setChats([blank(1)]); setActiveId(1); setWorking(null); setDraft(""); setSource(null);
   }
   const ipsVersion = activeIps ?? clientIps ?? null;
+  /** IS-98: named chats persisted per RM. The list loads on mount; a chat's messages load when it is opened. */
+  const [chatsNote, setChatsNote] = useState<string | null>(null);
+  const [chatsLoaded, setChatsLoaded] = useState(false);
+  const chatQueue = useRef(new Map<number, Promise<unknown>>());
+  const savedChat = useRef(new WeakSet<Msg>());
+  useEffect(() => {
+    let on = true;
+    setChatsLoaded(false);
+    listSavedChats().then((list) => {
+      if (!on) return;
+      setChatsLoaded(true);
+      if (list === null) { setChatsNote(CHAT_HISTORY_UNAVAILABLE); return; }
+      setChatsNote(null);
+      setChats((cs) => {
+        const have = new Set(cs.map((c) => c.sessionId));
+        const add: Chat[] = list.filter((s) => !have.has(s.id)).map((s) => ({ id: nextId.current++, title: s.title, messages: [], sessionId: s.id, at: Date.parse(s.updatedAt) || 0, remote: true, loaded: false }));
+        return add.length ? [...cs, ...add] : cs;
+      });
+    });
+    return () => { on = false; };
+  }, [clientId]);
   const nextId = useRef(2);
   const nameRef = useRef<string | null>(null);
   nameRef.current = clientName;
@@ -603,6 +650,35 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
       });
     });
   }, [chats, clientId]);
+  // Every turn of a normal chat is saved in order; after Geneva's first reply the backend names the chat.
+  useEffect(() => {
+    chats.forEach((c) => {
+      if (c.ips || (c.remote && !c.loaded)) return;
+      c.messages.forEach((m) => {
+        if (m.ipsGen || m.approval || savedChat.current.has(m) || !m.text) return;
+        savedChat.current.add(m);
+        const prev = chatQueue.current.get(c.id) ?? Promise.resolve();
+        chatQueue.current.set(c.id, prev.then(async () => {
+          const title = await saveChatMessage(c.sessionId, m.from === "user" ? "user" : "assistant", m.text);
+          if (title === null) { setChatsNote(CHAT_HISTORY_UNAVAILABLE); return; }
+          setChats((cs) => cs.map((x) => x.id === c.id ? { ...x, title, at: Date.now() } : x));
+        }));
+      });
+    });
+  }, [chats]);
+  const selectChat = (id: number) => {
+    setActiveId(id);
+    const c = chats.find((x) => x.id === id);
+    if (!c?.remote || c.loaded) return;
+    setChats((cs) => cs.map((x) => x.id === id ? { ...x, loaded: true } : x));
+    loadSavedMessages(c.sessionId).then((rows) => {
+      if (rows === null) { setChatsNote(CHAT_HISTORY_UNAVAILABLE); setChats((cs) => cs.map((x) => x.id === id ? { ...x, loaded: false } : x)); return; }
+      const messages: Msg[] = rows.map((r) => r.role === "user" ? { from: "user", text: r.text } : { from: "agent", text: r.text, reply: { text: r.text, runId: null } });
+      messages.forEach((m) => savedChat.current.add(m));
+      nearBottom.current = true;
+      setChats((cs) => cs.map((x) => x.id === id ? { ...x, messages: [...messages, ...x.messages] } : x));
+    });
+  };
   const clearHistory = async () => {
     if (!window.confirm("Clear the saved IPS conversation for this client? This removes it for good.")) return;
     try { await arcApi.clearIpsChat(clientId); } catch { setHistoryNote(historyNotice({ failed: true })); return; }
@@ -653,6 +729,9 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientId]);
   const chat = chats.find((c) => c.id === activeId) ?? chats[0];
+  const ordered = [...chats].sort((a, b) => b.at - a.at);
+  const noChatsYet = chatsLoaded && !chatsNote && chats.every((c) => c.ips ? false : !c.remote && c.messages.length === 0);
+  const shownNote = historyNote ?? chatsNote;
   const busy = working?.chatId === chat.id;
   /** What produced the latest agent answer: a local model, a hosted API model, or plain rules. */
   const engine = (() => {
@@ -681,6 +760,8 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
 
   const patch = (id: number, fn: (c: Chat) => Chat) => setChats((cs) => cs.map((c) => (c.id === id ? fn(c) : c)));
   const newChat = () => {
+    const empty = chats.find((c) => !c.ips && !c.remote && c.messages.length === 0);
+    if (empty) { setActiveId(empty.id); return; }
     const id = nextId.current++;
     setChats((cs) => [...cs, blank(id)]);
     setActiveId(id);
@@ -801,7 +882,7 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
     const sessionId = chat.sessionId;
     nearBottom.current = true;
     setDraft("");
-    patch(id, (c) => ({ ...c, title: c.messages.length === 0 ? text.slice(0, 40) : c.title, messages: resend ? c.messages : [...c.messages, { from: "user", text }] }));
+    patch(id, (c) => ({ ...c, messages: resend ? c.messages : [...c.messages, { from: "user", text }] }));
     setWorking({ chatId: id, steps: [], shown: 0 });
     if (chat.ips && !profilingClient) {
       const pending = pendingProposalOf(chat.messages);
@@ -987,11 +1068,11 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
     <div className={`geneva-light ${compact ? "flex h-full min-h-0 flex-col overflow-hidden bg-surface-200" : "flex min-h-[640px] flex-col overflow-hidden rounded-lg border border-hairline bg-surface-200 lg:h-[calc(100vh-18rem)] lg:min-h-[640px] lg:flex-row"}`}>
       {compact && (
         <div className="flex items-center gap-3 border-b border-hairline px-6 py-3">
-          <select value={chat.id} onChange={(e) => setActiveId(Number(e.target.value))} aria-label="Chats" className="min-w-0 flex-1 truncate rounded-sm border border-hairline bg-surface-100 px-3 py-2 text-[14px] text-ink">
-            {chats.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
+          <select value={chat.id} onChange={(e) => selectChat(Number(e.target.value))} aria-label="Chats" className="min-w-0 flex-1 truncate rounded-sm border border-hairline bg-surface-100 px-3 py-2 text-[14px] text-ink">
+            {ordered.map((c) => <option key={c.id} value={c.id} title={c.title}>{shortTitle(c.title)} · {chatDate(c.at)}</option>)}
           </select>
           <button type="button" onClick={newChat} aria-label="New chat" title="New chat" className="inline-flex size-9 items-center justify-center rounded-sm border border-hairline-strong text-ink hover:bg-surface-300"><MessageSquarePlus size={16} /></button>
-          <button type="button" onClick={() => removeChat(chat.id)} aria-label="Delete chat" title="Delete chat" className="inline-flex size-9 items-center justify-center rounded-sm border border-hairline text-ink-muted hover:text-negative"><Trash2 size={16} /></button>
+          {(chat.ips || (!chat.remote && chat.messages.length === 0)) && <button type="button" onClick={() => removeChat(chat.id)} aria-label="Delete chat" title="Delete chat" className="inline-flex size-9 items-center justify-center rounded-sm border border-hairline text-ink-muted hover:text-negative"><Trash2 size={16} /></button>}
         </div>
       )}
       <aside className={`${compact ? "hidden" : "flex"} w-full shrink-0 flex-col border-b border-hairline p-4 lg:w-80 lg:border-b-0 lg:border-r`}>
@@ -1000,13 +1081,17 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
         </button>
         <p className="mt-5 px-3 text-[13px] text-ink-muted">Chats</p>
         <ul className="mt-2 flex-1 space-y-1 overflow-y-auto">
-          {chats.map((c) => (
+          {ordered.map((c) => (
             <li key={c.id} className={`group flex items-center gap-2 rounded-sm px-3 py-2.5 ${c.id === chat.id ? "bg-surface-300" : "hover:bg-surface-300"}`}>
-              <button type="button" onClick={() => setActiveId(c.id)} className="min-w-0 flex-1 truncate text-left text-[15px]">{c.title}</button>
-              <button type="button" onClick={() => removeChat(c.id)} aria-label="Delete chat" title="Delete chat" className="text-ink-muted opacity-0 hover:text-negative focus:opacity-100 group-hover:opacity-100"><Trash2 size={15} /></button>
+              <button type="button" onClick={() => selectChat(c.id)} title={c.title} className="min-w-0 flex-1 text-left">
+                <span className="block truncate text-[15px]">{shortTitle(c.title)}</span>
+                <span className="block text-[12px] font-light text-ink-muted">{chatDate(c.at)}</span>
+              </button>
+              {(c.ips || (!c.remote && c.messages.length === 0)) && <button type="button" onClick={() => removeChat(c.id)} aria-label="Delete chat" title="Delete chat" className="text-ink-muted opacity-0 hover:text-negative focus:opacity-100 group-hover:opacity-100"><Trash2 size={15} /></button>}
             </li>
           ))}
         </ul>
+        {noChatsYet && <p role="status" className="px-3 pb-2 text-[13px] font-light text-ink-muted">No chats yet</p>}
       </aside>
 
       <section className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -1026,7 +1111,8 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
           <div className="flex min-h-0 flex-1 flex-col items-center justify-center-safe overflow-y-auto px-8 py-10">
             <img src="/ubs-logo.png" alt="Geneva" className="ubs-logo mb-5 h-10 w-auto" />
             <h2 className="mb-8 text-center text-3xl font-light">{HEADING[role]}</h2>
-            {historyNote && <p role="status" className="mb-3 border-l border-hairline-strong pl-3 text-[13px] font-light text-ink-muted">Geneva: {historyNote}</p>}
+            {noChatsYet && compact && <p role="status" className="mb-3 text-[13px] font-light text-ink-muted">No chats yet</p>}
+            {shownNote && <p role="status" className="mb-3 border-l border-hairline-strong pl-3 text-[13px] font-light text-ink-muted">Geneva: {shownNote}</p>}
             {composer}
             <ul className="mt-6 w-full max-w-4xl">
               {SEEDED[role].map((q) => (
@@ -1148,7 +1234,7 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
                   <button type="button" onClick={clearHistory} className="inline-flex items-center gap-1.5 text-[13px] font-light text-ink-muted hover:text-ink"><Trash2 size={13} strokeWidth={1.5} />Clear history</button>
                 </div>
               )}
-              {historyNote && <p role="status" className="mx-auto mb-3 w-full max-w-4xl border-l border-hairline-strong pl-3 text-[13px] font-light text-ink-muted">Geneva: {historyNote}</p>}
+              {shownNote && <p role="status" className="mx-auto mb-3 w-full max-w-4xl border-l border-hairline-strong pl-3 text-[13px] font-light text-ink-muted">Geneva: {shownNote}</p>}
               {composer}
             </div>
           </>

@@ -1,8 +1,8 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { arcApi } from "../../../services/arcApi";
 import { Badge, useAsync } from "../../ui";
 import type { Strategy } from "../../../types/arc";
-import { EDIT_BOX, WRAP } from "./parts";
+import { CELL, EDIT_BOX, IPS_FRAME, LABEL, SMALL, SubHead, WRAP } from "./parts";
 import { StrategyDonut } from "./charts";
 
 export type AllocBucketId = "liquidity" | "longevity" | "legacy";
@@ -12,6 +12,9 @@ export interface ThreeLMeta {
   source?: string | { date?: string; title?: string; id?: string };
   default?: boolean;
   conflict?: string | { dates?: string[]; note?: string } | boolean;
+  eligible?: string[]; boundary?: string;
+  /** Backend sentence: expected portfolio rate of return for this strategy. */
+  rateOfReturn?: string;
 }
 const BUCKETS: { id: AllocBucketId; label: string }[] = [
   { id: "liquidity", label: "Liquidity" }, { id: "longevity", label: "Longevity" }, { id: "legacy", label: "Legacy" },
@@ -40,7 +43,7 @@ export function StrategyBoxes({ bucket, label, strategies, value, editing, onPic
           const disabled = bucket === "liquidity" && c > "B";
           const on = value === c;
           const cls = `flex size-[84px] flex-col items-center justify-center border px-1 text-center ${on ? "border-2 border-ink bg-surface-100 text-ink" : "border-hairline-strong text-ink"} ${disabled ? "cursor-not-allowed bg-surface-200 text-ink-muted opacity-50" : editing ? "bg-surface-100 hover:border-ink" : "bg-surface-100"}`;
-          const inner = (<><span className="text-[18px] leading-5">{c}</span><span className="mt-0.5 text-[11px] leading-3 text-ink-muted">{st.name}</span></>);
+          const inner = (<><span className="text-[15px] leading-5">{c}</span><span className="mt-0.5 text-[12px] leading-4 text-ink-muted">{st.name}</span></>);
           if (!editing) return <div key={c} role="radio" aria-checked={on} aria-disabled="true" data-strategy={c} className={cls}>{inner}</div>;
           return (
             <button key={c} type="button" role="radio" aria-checked={on} data-strategy={c}
@@ -52,7 +55,7 @@ export function StrategyBoxes({ bucket, label, strategies, value, editing, onPic
           );
         })}
       </div>
-      {bucket === "liquidity" && <p className="mt-2 text-[12px] text-ink-muted" data-testid="liq-note">{LIQ_MESSAGE}</p>}
+      {bucket === "liquidity" && <p className={`mt-2 ${SMALL} text-ink-muted`} data-testid="liq-note">{LIQ_MESSAGE}</p>}
     </div>
   );
 }
@@ -61,64 +64,71 @@ export function StrategyBoxes({ bucket, label, strategies, value, editing, onPic
  * Three 3L portfolios. Per portfolio: row 1 = strategy boxes + donut of the selected strategy, row 2 = reason box.
  * Same layout in preview (read-only) and editor. `proposed` is Geneva's strategy; a different pick requires a reason, which is logged.
  */
-export function AllocationBuckets({ allocation, notes, editing, blank, onPick, onNote, proposed, meta, clientId }: {
+export function AllocationBuckets({ allocation, notes, editing, blank, onPick, onNote, proposed, meta, outOfDate }: {
   allocation: Partial<Record<AllocBucketId, string>>; notes?: Record<string, string>;
   editing: boolean; blank: boolean; onPick?: (bucket: AllocBucketId, code: string) => void;
   onNote?: (bucket: AllocBucketId, v: string) => void;
   proposed?: Partial<Record<AllocBucketId, string>>; meta?: Partial<Record<AllocBucketId, ThreeLMeta>>; clientId?: string;
+  /** Message when the stored recommendation is out of date (profile or notes changed since it was generated). */
+  outOfDate?: string;
 }) {
   const table = useAsync(() => arcApi.getStrategies().then((r) => r.strategies).catch(() => [] as Strategy[]), []);
   const strategies = table && table.length ? table : FALLBACK;
   const [local, setLocal] = useState<Record<string, string>>({});
-  const logged = useRef<Record<string, string>>({});
   if (!editing && !blank && !Object.values(allocation).some(Boolean) && !Object.values(meta ?? {}).some((m) => m?.strategy))
     return <p className="text-ink-muted">3L's Strategic Asset Allocations not yet completed.</p>;
 
   return (
-    <div className="mt-8 space-y-6">
-      <p className="text-[12px] uppercase tracking-[0.06em] text-ink-muted">3L's Strategic Asset Allocations</p>
+    <div className="space-y-6">
+      <SubHead>3L's Strategic Asset Allocations</SubHead>
+      {outOfDate && (
+        <p role="alert" className={`flex flex-wrap items-center gap-2 border-l-2 border-hairline-strong pl-3 ${SMALL} text-ink-muted`} data-testid="out-of-date">
+          <Badge tone="grey">Out of date</Badge>{outOfDate.replace(/^Out of date:\s*/, "")}
+        </p>
+      )}
       {BUCKETS.map(({ id, label }) => {
         const m = meta?.[id];
         const code = blank && !editing ? undefined : allocation[id] ?? m?.strategy;
         const s = strategies.find((x) => x.code === code);
+        const rorText = (m?.rateOfReturn && code === m.strategy ? m.rateOfReturn : s?.rateOfReturnText)?.trim();
         const reason = local[id] ?? notes?.[id] ?? m?.reason ?? "";
         const prop = proposed?.[id] ?? m?.strategy;
         const differs = editing && !!code && !!prop && code !== prop;
-        const needReason = differs && !reason.trim();
+        const needReason = differs && (!reason.trim() || reason.trim() === (m?.reason ?? "").trim());  // Geneva's own reason does not explain a different pick; the override is logged on save
         const src = sourceText(m?.source);
         const conflict = conflictText(m?.conflict);
-        const logOverride = () => {
-          if (!differs || !reason.trim() || !code) return;
-          const key = `${code}|${reason.trim()}`;
-          if (logged.current[id] === key) return;
-          logged.current[id] = key;
-          void arcApi.logStrategyOverride({ clientId: clientId ?? "", bucket: id, proposed: prop, chosen: code, reason: reason.trim() });
-        };
         return (
-          <section key={id} data-bucket={id} className="avoid-break min-w-0 border border-hairline p-5">
+          <section key={id} data-bucket={id} className={`@container ${CELL} ${IPS_FRAME}`}>
             <div className="flex flex-wrap items-center gap-2">
-              <h4 className="font-normal text-ink">{label} portfolio{code ? <span className="font-light"> · {code} - {s?.name ?? ""}</span> : null}</h4>
+              <SubHead>{label} portfolio{code ? <span className="font-light"> · {code} - {s?.name ?? ""}</span> : null}</SubHead>
               {m?.default && <Badge tone="grey">Default</Badge>}
             </div>
-            {conflict && <p className="mt-2 border-l-2 border-hairline-strong pl-3 text-[13px] text-ink-muted" data-testid="conflict-note">{conflict}</p>}
-            <div className="mt-4 grid min-w-0 grid-cols-1 gap-6 lg:grid-cols-2">
+            {m?.boundary && <p className={`mt-2 border-l-2 border-hairline-strong pl-3 ${SMALL} text-ink-muted`} data-testid="boundary-note">{m.boundary}{m.eligible && m.eligible.length > 1 ? ` Eligible: ${m.eligible.join(" or ")}.` : ""}</p>}
+            {conflict && <p className={`mt-2 border-l-2 border-hairline-strong pl-3 ${SMALL} text-ink-muted`} data-testid="conflict-note">{conflict}</p>}
+            <div className="mt-4 grid min-w-0 grid-cols-1 gap-6 @xl:grid-cols-2">
               <StrategyBoxes bucket={id} label={label} strategies={strategies} value={code} editing={editing} onPick={(c) => onPick?.(id, c)} />
               <StrategyDonut allocation={s?.allocation} label={`${label} strategic asset allocation${s ? `, Strategy ${s.code}` : ""}`} />
             </div>
-            <div className="mt-5 min-w-0">
-              <label htmlFor={`reason-${id}`} className="text-[13px] text-ink-muted">Reason for {label} strategy</label>
-              {src && <p className="text-[12px] text-ink-muted">Source: {src}</p>}
-              {!src && m?.default && <p className="text-[12px] text-ink-muted">Default: no meeting note states this strategy.</p>}
+            {rorText && (
+              <div className="avoid-break mt-6 min-w-0" data-testid={`ror-${id}`}>
+                <p className={LABEL}>Portfolio rate of return</p>
+                <p className={`mt-1 ${WRAP}`}>{rorText}</p>
+              </div>
+            )}
+            <div className="mt-6 min-w-0">
+              <label htmlFor={`reason-${id}`} className={LABEL}>Reason for {label} strategy</label>
+              {src && <p className={`mt-1 ${SMALL} text-ink-muted`}>Source: {src}</p>}
+              {!src && m?.default && <p className={`mt-1 ${SMALL} text-ink-muted`}>Default: no meeting note states this strategy.</p>}
               {editing ? (
                 <>
-                  <textarea id={`reason-${id}`} value={reason} rows={3} onBlur={logOverride}
+                  <textarea id={`reason-${id}`} value={reason} rows={3}
                     onChange={(e) => { setLocal((l) => ({ ...l, [id]: e.target.value })); onNote?.(id, e.target.value); }}
                     placeholder={differs ? `Why Strategy ${code} instead of Geneva's Strategy ${prop}` : "Why this strategy suits the client"}
-                    className={`mt-1 block w-full px-2 py-2 text-[14px] leading-[22px] placeholder:text-ink-muted ${EDIT_BOX}`} />
-                  {needReason && <p role="alert" className="mt-1 text-[13px] text-negative">A reason is required: you chose Strategy {code}, Geneva proposed Strategy {prop}. The change is logged.</p>}
+                    className={`mt-1 block w-full px-2 py-2 text-[15px] leading-6 placeholder:text-ink-muted ${EDIT_BOX}`} />
+                  {needReason && <p role="alert" className={`mt-1 ${SMALL} text-negative`}>A reason is required: you chose Strategy {code}, Geneva proposed Strategy {prop}. The change is logged when you save.</p>}
                 </>
               ) : (
-                <div id={`reason-${id}`} className={`mt-1 min-h-[72px] whitespace-pre-wrap px-2 py-2 text-[14px] leading-[22px] ${EDIT_BOX} ${WRAP}`}>
+                <div id={`reason-${id}`} className={`mt-1 min-h-[72px] whitespace-pre-wrap px-2 py-2 text-[15px] leading-6 ${EDIT_BOX} ${WRAP}`}>
                   {reason || <span className="text-ink-muted">No reason recorded.</span>}
                 </div>
               )}

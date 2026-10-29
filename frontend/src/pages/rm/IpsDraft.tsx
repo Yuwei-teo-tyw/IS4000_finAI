@@ -4,10 +4,13 @@ import { arcApi } from "../../services/arcApi";
 import { Eye } from "lucide-react";
 import { Button, GateChip, Loading, PageHeader, Stepper, useAsync } from "../../components/ui";
 import { onboardingSteps } from "./rmShared";
-import { getIpsDraftExtras, saveIpsDraftExtras, useIpsDraftExtras, sendIpsToPm, useIpsSent, withdrawIpsFromPm } from "../../services/workflowStore";
+import { getIpsDraftExtras, saveIpsDraftExtras, useIpsDraftExtras, sendIpsToPm, useIpsSent, useIpsReturned, withdrawIpsFromPm } from "../../services/workflowStore";
+import { IpsSendError } from "../../services/arcApi";
+import { ConfirmDialog, IpsStatusBadge } from "./IpsSendUi";
+import { findEmptySections, formatSentAt, useIpsSendStatus, type IpsStatusLabel } from "./ipsSendUtil";
 import { IpsDocument, type IpsEditApi } from "../../components/documents/IpsDocument";
 import { DocumentPreviewModal } from "../../components/documents/DocumentPreviewModal";
-import type { Bucket3L, IpsGenerated, IpsVersion } from "../../types/arc";
+import type { Bucket3L, IpsGenerated, IpsVersion, ThreeLProportion } from "../../types/arc";
 import { useIpsAutosave } from "../../components/documents/ips/useIpsAutosave";
 import { buildIpsData, seedFromData, type IpsSeed } from "../../components/documents/ips/ipsData";
 import type { ThreeLMeta } from "../../components/documents/ips/Allocation";
@@ -40,24 +43,32 @@ export default function IpsDraft({ embedded = false, clientId: clientIdProp, bla
   const storeExtras = useIpsDraftExtras(clientId);
   const [demo, setDemo] = useState<Record<string, string>>({});
   const [risk, setRisk] = useState<Record<string, string>>({});
-  const [philosophy, setPhilosophy] = useState<{ approach?: string; believes?: string; avoids?: string }>({});
+  const [philosophy, setPhilosophy] = useState<{ approach?: string; believes?: string; avoids?: string; statement?: string; investmentPeriod?: string }>({});
   const [allocation, setAllocation] = useState<{ liquidity?: string; longevity?: string; legacy?: string }>({});
   const [allocationNotes, setAllocationNotes] = useState<Record<string, string>>({});
+  const [proportion, setProportion] = useState<ThreeLProportion | null>(null);
+  const [proportionNote, setProportionNote] = useState<{ message?: string; missing?: string[] }>({});
   const [signatures, setSignatures] = useState<{ client?: string; rm?: string }>({});
   const hydrated = useRef(false);
   const [previewing, setPreviewing] = useState(false);
-  const sent = !!useIpsSent(clientId);
+  const sentRec = useIpsSent(clientId);
+  const sent = !!sentRec;
+  const returnedLocal = useIpsReturned(clientId);
+  const { status: sendStatus, refresh: refreshSend } = useIpsSendStatus(clientId);
+  const [dlg, setDlg] = useState<{ kind: "send" | "withdraw"; empties: string[]; error?: string; busy?: boolean } | null>(null);
+  const [dismissedOutdated, setDismissedOutdated] = useState<number | null>(null);
   const seq = useRef(0);
   const [saveMsg, setSaveMsg] = useState<{ tone: "ok" | "pending" | "error"; text: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const saveRef = useRef<() => Promise<void>>(async () => {});  // throws when the save fails (autosave shows the error)
   const savedVersion = useRef<number | undefined>(undefined);
+  const loggedOverrides = useRef<Set<string>>(new Set());
   const saveChain = useRef<Promise<void>>(Promise.resolve());
   /** Geneva's original proposal per bucket (before the Liquidity A-B clamp), for override detection. */
   const proposedAllocation = useMemo(() => ({ ...(Object.fromEntries((generated?.allocation?.buckets ?? []).map((b) => [b.id, b.strategy])) as Partial<Record<"liquidity" | "longevity" | "legacy", string>>), ...proposed0 }), [generated, proposed0]);
   const allocationMeta = useMemo(() => ({ ...Object.fromEntries((generated?.allocation?.buckets ?? []).map((b) => [b.id, { strategy: b.strategy, reason: b.justification }])), ...allocationMeta0 }), [generated, allocationMeta0]);
   // A saved backend version (generated or edited before) is autosaved in place; a client-side-only generated draft saves once at once.
-  const autosave = useIpsAutosave({ ready: hydrated.current && !sent && (!!generated || savedVersion.current !== undefined), signature: JSON.stringify([text, buckets, demo, risk, philosophy, allocation, allocationNotes, signatures, notIncluded, storeExtras.targets, storeExtras.lifeEvents, storeExtras.rmSignedDate]), save: () => saveRef.current(), immediate: !!generated && !rec });
+  const autosave = useIpsAutosave({ ready: hydrated.current && (!!generated || savedVersion.current !== undefined), signature: JSON.stringify([proportion, text, buckets, demo, risk, philosophy, allocation, allocationNotes, signatures, notIncluded, storeExtras.targets, storeExtras.rmSignedDate]), save: () => saveRef.current(), immediate: !!generated && !rec });
   useEffect(() => {
     if (!parts) return;
     // Part 5 once carried an appended "3L's Strategic Asset Allocations" (formerly "3L strategy allocation") block; keep it out of the review-rules editor.
@@ -80,13 +91,15 @@ export default function IpsDraft({ embedded = false, clientId: clientIdProp, bla
       setDemo(seed.demo); setRisk(seed.risk); setPhilosophy(seed.philosophy);
       const sigRm = seed.rmSignatureImage && seed.rmSignatureImage !== "/signature-isabel.png" ? seed.rmSignatureImage : undefined;
       setSignatures({ ...(x.signatures ?? {}), ...(sigRm && x.signatures?.rm === undefined ? { rm: sigRm } : {}) });
+      setProportion(seed.proportion ?? generated?.proportion ?? null); setProportionNote({ message: seed.proportionMessage, missing: generated?.proportionMissing });
       setNotIncluded(seed.notIncluded); setAllocationMeta0(seed.allocationMeta); setProposed0(seed.proposed);
-      saveIpsDraftExtras(clientId, { targets: seed.targets, lifeEvents: seed.lifeEvents, reviewRules: seed.reviewRules, ...(seed.rmSignedDate ? { rmSignedDate: seed.rmSignedDate } : {}), allocation: seed.allocation, allocationNotes: seed.allocationNotes });
+      saveIpsDraftExtras(clientId, { targets: seed.targets, reviewRules: seed.reviewRules, ...(seed.rmSignedDate ? { rmSignedDate: seed.rmSignedDate } : {}), allocation: seed.allocation, allocationNotes: seed.allocationNotes });
       if (Object.keys(seed.allocation).length) { setAllocation(seed.allocation); setAllocationNotes(seed.allocationNotes); }
       else { setAllocation({}); setAllocationNotes({}); }
     } else {
       setDemo(!empty(x.demo) ? x.demo! : generated?.demo ?? {}); setRisk(!empty(x.risk) ? x.risk! : generated?.risk ?? {}); setPhilosophy(!empty(x.philosophy) ? x.philosophy! : generated?.philosophy ?? {}); setSignatures(x.signatures ?? {});
     }
+    if (!seed) { setProportion(generated?.proportion ?? null); setProportionNote({ missing: generated?.proportionMissing }); }
     if (!seed) {
       const fixLiq = (a: { liquidity?: string; longevity?: string; legacy?: string }) => ({ ...a, ...(a.liquidity && !["A", "B"].includes(a.liquidity) ? { liquidity: "B" } : {}) });
       const hasA = x.allocation && Object.values(x.allocation).some(Boolean);
@@ -115,7 +128,9 @@ export default function IpsDraft({ embedded = false, clientId: clientIdProp, bla
     demo, setDemo: (l, v) => setDemo((d) => ({ ...d, [l]: v })),
     risk, setRisk: (l, v) => setRisk((d) => ({ ...d, [l]: v })),
     philosophy, setPhilosophy: (k, v) => setPhilosophy((d) => ({ ...d, [k]: v })),
-    allocation, allocationNotes, proposedAllocation, allocationMeta, notIncluded, setNotIncluded,
+    allocation, allocationNotes, proposedAllocation, allocationMeta, notIncluded, setNotIncluded, outOfDate: seed?.outOfDate,
+    proportion, proportionMessage: proportionNote.message, proportionMissing: proportionNote.missing,
+    setProportionPct: (k, n) => setProportion((p) => p ? { ...p, [k]: { ...p[k], pct: Number.isFinite(n) ? Math.max(0, n) : 0 } } : p),
     setAllocationNote: (b, t) => setAllocationNotes((n) => ({ ...n, [b]: t })),
     setAllocation: (b, c) => setAllocation((a) => ({ ...a, [b]: b === "liquidity" && !["A", "B"].includes(c) ? "B" : c })),
     signatures, setSignature: (who, url) => setSignatures((g) => ({ ...g, [who]: url })),
@@ -148,12 +163,35 @@ export default function IpsDraft({ embedded = false, clientId: clientIdProp, bla
    *  Saves are chained, never parallel: an autosave and a click on Save IPS must not both create "the first version". */
   const saveIps = (): Promise<boolean> => {
     const run = async () => {
+      // A strategy different from Geneva's proposal needs the RM's own reason; it is logged for future reference.
+      const overrides = (["liquidity", "longevity", "legacy"] as const).filter((b) => allocation[b] && proposedAllocation[b] && allocation[b] !== proposedAllocation[b]);
+      const noReason = overrides.filter((b) => { const r = (allocationNotes[b] ?? "").trim(); return !r || r === (allocationMeta[b]?.reason ?? "").trim(); });
+      if (noReason.length) {
+        setSaveMsg({ tone: "error", text: `Give a reason before saving: ${noReason.map((b) => `${b} Strategy ${allocation[b]} instead of Geneva's Strategy ${proposedAllocation[b]}`).join("; ")}.` });
+        return false;
+      }
+      for (const b of overrides) {
+        const key = `${b}|${allocation[b]}|${allocationNotes[b]!.trim()}`;
+        if (loggedOverrides.current.has(key)) continue;
+        loggedOverrides.current.add(key);
+        void arcApi.logStrategyOverride({ clientId, bucket: b, proposed: proposedAllocation[b], chosen: allocation[b]!, reason: allocationNotes[b]!.trim() });
+      }
+      if (proportion) {
+        const v = await arcApi.validateThreeLProportion({ liquidity: proportion.liquidity.pct, longevity: proportion.longevity.pct, legacy: proportion.legacy.pct });
+        if (!v.ok) { setSaveMsg({ tone: "error", text: `${v.message || `Total is ${v.total}%, not 100%.`} Fix the 3L proportion in section 5 before saving.` }); return false; }
+      }
       setSaving(true); setSaveMsg(null);
       try {
         const x = getIpsDraftExtras(clientId);
+        const table = await arcApi.getStrategies().then((r) => r.strategies).catch(() => []);
+        const rateOfReturn = Object.fromEntries((["liquidity", "longevity", "legacy"] as const).flatMap((b) => {
+          const t = table.find((s) => s.code === allocation[b])?.rateOfReturnText?.trim();
+          return t ? [[b, t]] : [];
+        }));
         const data = buildIpsData(rec?.data, {
-          text, targets: x.targets, lifeEvents: x.lifeEvents, demo, risk, philosophy, allocation, allocationNotes,
-          allocationMeta, notIncluded, rmSignedDate: x.rmSignedDate, rmSignature: signatures.rm,
+          rateOfReturn,
+          text, targets: x.targets, demo, risk, philosophy, allocation, allocationNotes,
+          allocationMeta, notIncluded, proportion, rmSignedDate: x.rmSignedDate, rmSignature: signatures.rm,
         });
         const out = await arcApi.saveClientIps(
           clientId,
@@ -162,6 +200,7 @@ export default function IpsDraft({ embedded = false, clientId: clientIdProp, bla
             ...(savedVersion.current === undefined && (blank || !!generated) ? { status: "Draft" as const } : {}) },
         );
         savedVersion.current = out.version;
+        void refreshSend();
         setSaveMsg({ tone: out.indexing.status === "indexed" ? "ok" : "pending", text: out.indexing.message });
         return true;
       } catch (e) {
@@ -189,6 +228,34 @@ export default function IpsDraft({ embedded = false, clientId: clientIdProp, bla
   const onPointerKey = () => { if (!openFromSelection(false) && !pop?.expanded) setPop(null); };
   const askGeneral = () => { if (!openFromSelection(true)) setPop({ id: ++seq.current, part: null, range: null, expanded: true }); };
 
+  const label: IpsStatusLabel = sendStatus?.status === "Returned by PM" || (sent && returnedLocal) ? "Returned by PM"
+    : sendStatus?.status === "Sent to PM" || (!sendStatus && sent) ? "Sent to PM" : "Draft";
+  const sentAtIso = sendStatus?.sentAt ?? sentRec?.sentAt ?? null;
+  const sentLine = label === "Draft" ? "" : `${label === "Returned by PM" ? "Sent to PM" : label} · ${formatSentAt(sentAtIso)}`.replace(/ · $/, "");
+  const noIps = sendStatus ? sendStatus.status === "No IPS" : !rec && !generated && savedVersion.current === undefined;
+  const outdated = label !== "Draft" && !!sendStatus?.outdated && dismissedOutdated !== sendStatus.latestVersion;
+  const emptiesNow = () => findEmptySections({ text, targetsCount: (storeExtras.targets ?? []).filter((t) => (t.text ?? "").trim() || t.amount).length, philosophy, risk, proportion, allocation });
+  const openSend = () => setDlg({ kind: "send", empties: emptiesNow() });
+  const doSend = async () => {
+    setDlg((d) => d && { ...d, busy: true, error: undefined });
+    try {
+      if (!(await saveIps())) throw new IpsSendError("Not sent. The IPS is still a Draft.");
+      const out = await arcApi.sendIpsToPm(clientId, savedVersion.current ?? null);
+      sendIpsToPm(clientId, { buckets, demo, risk, philosophy, allocation, allocationNotes, signatures });  // local flag only after the backend accepted it
+      await refreshSend();
+      setDismissedOutdated(null);
+      void out;
+      setDlg(null);
+    } catch (e) {
+      setDlg((d) => d && { ...d, busy: false, error: e instanceof IpsSendError && e.message.startsWith("Generate") ? e.message : "Not sent. The IPS is still a Draft." });
+    }
+  };
+  const doWithdraw = async () => {
+    setDlg((d) => d && { ...d, busy: true, error: undefined });
+    try { await arcApi.withdrawIpsSend(clientId); withdrawIpsFromPm(clientId); await refreshSend(); setDlg(null); }
+    catch { setDlg((d) => d && { ...d, busy: false, error: "Not withdrawn. The IPS is still with the PM. Try again." }); }
+  };
+
   return (
     <div data-ips-editor={clientId}>
       {!embedded && (<>
@@ -197,8 +264,21 @@ export default function IpsDraft({ embedded = false, clientId: clientIdProp, bla
         <Stepper steps={onboardingSteps} current={sent ? 3 : 2} />
       </>)}
 
+      <div className="mx-auto mb-4 flex max-w-[1080px] flex-wrap items-center gap-4">
+        <IpsStatusBadge status={label} detail={label === "Draft" ? undefined : formatSentAt(sentAtIso) || undefined} />
+        {sendStatus?.sentVersion != null && label !== "Draft" && <span className="text-sm font-light text-ink-muted">PM has version {sendStatus.sentVersion}</span>}
+      </div>
+      {outdated && sendStatus && (
+        <div role="status" className="mx-auto mb-4 flex max-w-[1080px] flex-wrap items-center justify-between gap-4 rounded-sm border border-hairline-strong bg-surface-200 px-6 py-4">
+          <p className="text-[15px] font-light text-ink">The PM has an older version (v{sendStatus.sentVersion}). Send the updated version?</p>
+          <div className="flex gap-3">
+            <Button variant="secondary" onClick={() => setDismissedOutdated(sendStatus.latestVersion)}>Not now</Button>
+            <Button onClick={openSend}>Send updated</Button>
+          </div>
+        </div>
+      )}
       <div className="mx-auto mb-4 flex max-w-[1080px] items-center justify-between gap-4">
-        <p className="text-xs text-ink-muted">Edit directly on the page. Highlight text to ask Geneva. Sections 2 and 4 are filled by the Investment Counsellor.</p>
+        <p className="text-xs text-ink-muted">Edit directly on the page. Highlight text to ask Geneva. Sections 2 and 4 are filled by the Portfolio Manager.</p>
         <div className="flex shrink-0 items-center">{previewBtn}</div>
       </div>
 
@@ -216,17 +296,35 @@ export default function IpsDraft({ embedded = false, clientId: clientIdProp, bla
       <p role="status" className="mx-auto mb-1 max-w-[1080px] text-right text-[12px] text-ink-muted">{autosave === "saving" ? "Saving…" : autosave === "saved" ? "Saved" : autosave === "error" ? "Not saved, press Save IPS" : ""}</p>
       {saveMsg && <p role={saveMsg.tone === "error" ? "alert" : "status"} className={`mx-auto mb-3 max-w-[1080px] text-right text-sm ${saveMsg.tone === "error" ? "text-red-700" : "text-ink"}`}>{saveMsg.text}</p>}
       <div className="mx-auto flex max-w-[1080px] flex-wrap items-center justify-end gap-3">
-        {sent ? (<>
-          <p className="mr-auto text-sm text-ink-500">Sent to the Investment Counsellor. Withdraw to pull the draft back.</p>
-          {!embedded && <Button variant="secondary" to={`/rm/clients/${clientId}/ips-approval`}>Preview PM return</Button>}
-          <Button onClick={() => withdrawIpsFromPm(clientId)}>Withdraw</Button>
-        </>) : (<>
-          {!embedded && <Button variant="secondary" onClick={() => nav(-1)}>Back</Button>}
-          <Button variant="secondary" onClick={openPreview}><Eye size={16} className="mr-2" aria-hidden />Preview IPS document</Button>
-          <Button variant="secondary" onClick={saveIps} disabled={saving}>{saving ? "Saving…" : "Save IPS"}</Button>
-          <Button onClick={() => sendIpsToPm(clientId, { buckets, demo, risk, philosophy, allocation, allocationNotes, signatures })}>Send to Investment Counsellor</Button>
-        </>)}
+        {noIps && !sent && <p role="status" className="mr-auto text-sm text-ink-muted">Generate an IPS first</p>}
+        {sent && <p className="mr-auto text-sm font-light text-ink-500">{sentLine}. Withdraw to pull the draft back.</p>}
+        {!embedded && !sent && <Button variant="secondary" onClick={() => nav(-1)}>Back</Button>}
+        {sent && !embedded && <Button variant="secondary" to={`/rm/clients/${clientId}/ips-approval`}>Preview PM return</Button>}
+        <Button variant="secondary" onClick={openPreview}><Eye size={16} className="mr-2" aria-hidden />Preview IPS document</Button>
+        <Button variant="secondary" onClick={saveIps} disabled={saving}>{saving ? "Saving…" : "Save IPS"}</Button>
+        {sent && <Button variant="secondary" onClick={() => setDlg({ kind: "withdraw", empties: [] })}>Withdraw</Button>}
+        {!sent && <Button onClick={openSend} disabled={noIps}>Send IPS draft to PM</Button>}
       </div>
+      {dlg?.kind === "send" && (
+        <ConfirmDialog title="Send IPS draft to PM" busy={dlg.busy}
+          primary={dlg.error ? "Retry" : dlg.empties.length ? "Send anyway" : "Send to PM"} secondary={dlg.error ? "Close" : dlg.empties.length ? "Go back" : "Cancel"}
+          onPrimary={() => void doSend()} onSecondary={() => setDlg(null)}>
+          {dlg.error ? <p role="alert" className="text-negative">{dlg.error}</p> : (<>
+            <p>The Portfolio Manager will receive this IPS as version {savedVersion.current ?? "(new)"}. You can keep editing and withdraw it later.</p>
+            {dlg.empties.length > 0 && (
+              <div className="mt-4" role="alert">
+                <p>These sections still show "Not yet completed":</p>
+                <ul className="mt-2 list-disc pl-6">{dlg.empties.map((x) => <li key={x}>{x}</li>)}</ul>
+              </div>
+            )}
+          </>)}
+        </ConfirmDialog>
+      )}
+      {dlg?.kind === "withdraw" && (
+        <ConfirmDialog title="Withdraw IPS from PM" busy={dlg.busy} primary={dlg.error ? "Retry" : "Withdraw"} secondary="Cancel" onPrimary={() => void doWithdraw()} onSecondary={() => setDlg(null)}>
+          {dlg.error ? <p role="alert" className="text-negative">{dlg.error}</p> : <p>The IPS goes back to Draft and leaves the PM's inbox. Any PM return is cleared.</p>}
+        </ConfirmDialog>
+      )}
       {previewing && (
         <DocumentPreviewModal title="Preview IPS document" onClose={() => setPreviewing(false)}>
           <IpsDocument version={previewVersion} clientName={client?.name ?? ""} clientId={clientId} aiGenerated={!!generated} />

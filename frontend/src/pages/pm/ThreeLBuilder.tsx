@@ -5,6 +5,7 @@ import { arcApi } from "../../services/arcApi";
 import { Button, Card, GateChip, Loading, NextAction, PageHeader, Section, Stepper, sgd, sgdFull, useAsync } from "../../components/ui";
 import { AutoSaveStatus } from "../../components/pm/SaveProgressButton";
 import { savePmProgress, usePmProgress, useIpsReturned } from "../../services/workflowStore";
+import { formatSentAt } from "../rm/ipsSendUtil";
 import { Bar, BackLink, Msg, NumInput } from "./pmHelpers";
 import { PM_STEPS } from "./pmSteps";
 
@@ -13,7 +14,12 @@ export default function ThreeLBuilder() {
   const { clientId = "ser" } = useParams();
   const client = useAsync(() => arcApi.getClient(clientId), [clientId]);
   const buckets = useAsync(() => arcApi.get3L(clientId), [clientId]);
-  const ips = useAsync(() => arcApi.getIps(clientId), [clientId]);
+  /** The IPS exactly as the RM sent it (content + version); legacy sent flags with no snapshot fall back to the live IPS. */
+  const sentIps = useAsync(async () => {
+    const snap = await arcApi.getSentIpsSnapshot(clientId);
+    return snap ? { parts: snap.parts, version: snap.version, sentAt: snap.sentAt } : { parts: await arcApi.getIps(clientId), version: null, sentAt: undefined };
+  }, [clientId]);
+  const ips = sentIps?.parts;
   const goals = useAsync(() => arcApi.getGoalProjection(clientId), [clientId]);
   const progress = usePmProgress(clientId);
   const returned = useIpsReturned(clientId);
@@ -41,7 +47,7 @@ export default function ThreeLBuilder() {
 
       <Card className="mb-12">
         <button type="button" onClick={() => setOpen(!open)} className="flex w-full items-center justify-between text-left">
-          <span><span className="block text-lg font-semibold text-ink">RM's IPS (read-only)</span><span className="text-sm text-ink-500">Open to read what the RM captured</span></span>
+          <span><span className="block text-lg font-semibold text-ink">RM's IPS (read-only)</span><span className="text-sm text-ink-500">{sentIps?.version != null ? `Version ${sentIps.version}${sentIps.sentAt ? ` (sent ${formatSentAt(sentIps.sentAt)})` : ""}. ` : ""}Open to read what the RM captured</span></span>
           <ChevronDown className={`transition ${open ? "rotate-180" : ""}`} />
         </button>
         {open && (

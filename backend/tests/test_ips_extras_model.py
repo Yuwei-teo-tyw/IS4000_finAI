@@ -1,7 +1,7 @@
-"""IPS extras: targets, life events, review rules, signature fields, reasons (pure model + seed data)."""
+"""IPS extras: targets, review rules, signature fields, reasons (pure model + seed data)."""
 from datetime import date
 
-from app.agents.client_profiling.ips_model import (REVIEW_RULES, apply_targets, empty_goals, extract_life_events, extract_targets,
+from app.agents.client_profiling.ips_model import (REVIEW_RULES, apply_targets, empty_goals, extract_targets,
                                                     merge_section, new_ips_data, normalize_data, render_parts)
 from app.agents.client_profiling.ips_generate import generate_ips_section, third_person
 from app.agents.client_profiling.store import DocumentStore
@@ -33,27 +33,9 @@ def test_target_not_duplicated_in_bullets():
     assert len(g[0]["bullets"]) == 1
 
 
-def test_life_events_with_dates_and_third_person():
-    skipped = []
-    ev = extract_life_events([N], third_person, skipped)
-    by = {e["label"]: e for e in ev}
-    assert by["Daughter starts university"]["date"] == "2029-09" and by["Daughter starts university"]["year"] == 2029
-    assert by["Property purchase"]["year"] == 2028 and by["Retirement"]["year"] == 2041
-    assert all(e["manual"] is False and e["source_note"]["id"] == "note_1" and e["id"] for e in ev)
-    assert "The client plans to buy" in by["Property purchase"]["detail"]
-    assert [e["year"] for e in ev] == sorted(e["year"] for e in ev)
-    assert any("We will retire" in s for s in skipped)  # unsafe first-person-plural sentence is listed, not used
-
-
-def test_seed_notes_have_life_events():
-    ev = extract_life_events(DocumentStore().get_notes("jfr"), third_person)
-    assert {e["label"] for e in ev} >= {"Daughter starts university", "Property purchase", "Retirement"}
-    assert all(e["year"] and e["detail"].startswith("The client") or "the client" in e["detail"].lower() for e in ev)
-
-
-def test_generation_goals_include_targets_and_life_events():
+def test_generation_goals_include_targets_and_no_life_events():
     r = generate_ips_section(FakeStore([N]), "x", "goals", Chat({"bullets": []}))
-    assert r["targets"][0]["amount"] == 800_000_000 and r["lifeEvents"]
+    assert r["targets"][0]["amount"] == 800_000_000 and "lifeEvents" not in r
     g = {x["key"]: x for x in r["goals"]}
     assert g["returnRequirements"]["bullets"] and g["primaryGoals"]["bullets"]
 
@@ -74,13 +56,15 @@ def test_signed_date_fallback_for_old_versions_and_defaults():
     assert normalize_data({"rmSignedDate": "2026-05-05"})["rmSignedDate"] == "2026-05-05"
 
 
-def test_manual_life_events_survive_regeneration_and_normalization():
+def test_life_events_gone_from_data_and_old_data_loads():
     d = new_ips_data()
-    d["lifeEvents"] = [{"id": "m1", "year": 2035, "label": "Sabbatical", "detail": "x", "manual": True}]
+    assert "lifeEvents" not in d
     merge_section(d, {"section": "goals", "status": "ok", "goals": empty_goals(), "targets": [],
                       "lifeEvents": [{"id": "le_1", "year": 2029, "label": "Retirement", "detail": "d", "manual": False}]})
-    assert [(e["id"], e["manual"]) for e in d["lifeEvents"]] == [("le_1", False), ("m1", True)]
-    assert normalize_data(d)["lifeEvents"][1]["manual"] is True
+    assert "lifeEvents" not in d
+    old = normalize_data({"lifeEvents": [{"id": "m1", "year": 2035, "label": "Sabbatical", "manual": True}]})
+    assert "lifeEvents" not in old
+    assert "Life events" not in " ".join(p["body"] for p in render_parts({"lifeEvents": [{"year": 2035, "label": "Sabbatical"}]}))
 
 
 def test_three_l_reason_rendered_in_parts():

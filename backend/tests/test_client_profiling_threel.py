@@ -172,7 +172,8 @@ def api(monkeypatch):
 def test_strategies_endpoint(api):
     j = api.get(f"{U}/strategies").json()
     assert j["liquidityAllowed"] == ["A", "B"] and [s["code"] for s in j["strategies"]] == list("ABCDEF")
-    assert set(j["strategies"][0]) == {"code", "name", "riskLabel", "allocation", "expectedReturnPct", "volatilityPct", "maxDrawdownPct", "longestDrawdownYears"}
+    assert set(j["strategies"][0]) == {"code", "name", "riskLabel", "allocation", "expectedReturnPct", "volatilityPct", "maxDrawdownPct", "longestDrawdownYears",
+                                        "nominalLowPct", "nominalHighPct", "realLowPct", "realHighPct", "inflationPct", "rateOfReturnText"}
     assert j["strategies"][0]["maxDrawdownPct"] == 15 and j["source"]
 
 
@@ -205,3 +206,60 @@ def test_ips_chat_endpoints(api):
     assert api.get(f"{U}/ips-chat/ser").status_code == 403
     assert api.delete(f"{U}/ips-chat/jft").status_code == 200
     assert api.get(f"{U}/ips-chat/jft").json()["messages"] == []
+
+
+# --- compact strategy-pick reply (IS-75/76 live fix) --------------------------------
+def _compact(strats=("A", "B", "B"), reasons=None):
+    reasons = reasons or ["The client needs S$2m in cash over 2 years.", "The client is very risk averse with a long horizon.",
+                          "The client wants to leave a legacy for her children."]
+    return {"riskCategory": "Conservative", "buckets": [
+        {"id": i, "strategy": s, "reason": r, "cite": "N1"} for i, s, r in zip(("liquidity", "longevity", "legacy"), strats, reasons)]}
+
+
+def _alloc(raw_or_dict):
+    calls = []
+
+    def chat(system, user):
+        calls.append(1)
+        return raw_or_dict if isinstance(raw_or_dict, str) else json.dumps(raw_or_dict)
+    from app.agents.client_profiling.threel import generate_allocation
+    return generate_allocation(St(), "x", St().notes, chat), calls
+
+
+def test_compact_reply_one_call_ok_with_table_facts():
+    res, calls = _alloc(_compact())
+    assert len(calls) == 1 and res["status"] == "ok"
+    b = {x["id"]: x for x in res["allocation"]["buckets"]}
+    assert [b[i]["strategy"] for i in ("liquidity", "longevity", "legacy")] == ["A", "B", "B"]
+    assert not any(x["default"] for x in b.values())
+    assert "maximum historical drawdown" in b["liquidity"]["reason"]  # figures appended from strategies.json, not the model
+
+
+def test_fenced_json_is_tolerated():
+    res, _ = _alloc("```json\n" + json.dumps(_compact()) + "\n```")
+    assert res["status"] == "ok" and not res["allocation"]["fallback"]
+
+
+def test_bad_strategy_code_uses_rule_based_default_for_that_bucket_only():
+    res, _ = _alloc(_compact(strats=("A", "Z", "B")))
+    b = {x["id"]: x for x in res["allocation"]["buckets"]}
+    assert b["longevity"]["default"] is True and b["longevity"]["strategy"] in "ABCDEF"
+    assert not b["liquidity"]["default"] and not b["legacy"]["default"]
+    assert res["allocation"]["fallback"] is True
+
+
+def test_liquidity_above_b_is_not_accepted():
+    res, _ = _alloc(_compact(strats=("D", "B", "B")))
+    b = {x["id"]: x for x in res["allocation"]["buckets"]}
+    assert b["liquidity"]["default"] and b["liquidity"]["strategy"] in ("A", "B")
+
+
+def test_truncated_or_garbage_reply_is_unavailable_after_two_attempts():
+    res, calls = _alloc('{"riskCategory":"Conservative","buckets":[{"id":"liq')
+    assert res["status"] == "unavailable" and len(calls) == 2
+
+
+def test_parse_model_json():
+    from app.agents.client_profiling.threel import parse_model_json
+    assert parse_model_json('text {"a": 1} tail') == {"a": 1}
+    assert parse_model_json("") is None and parse_model_json("[1]") is None

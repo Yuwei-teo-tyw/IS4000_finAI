@@ -143,11 +143,11 @@ export function BucketEditor({ buckets, onChange }: { buckets: Bucket3L[]; onCha
       <div className="flex h-6 w-full overflow-hidden border border-hairline" role="img" aria-label="3L bucket allocation">
         {buckets.map((b) => <div key={b.id} className={BUCKET_BG[b.id]} style={{ width: `${Math.min(100, b.pct)}%` }} />)}
       </div>
-      <table className="mt-4 w-full table-fixed border-collapse text-left text-[14px]">
+      <table className="mt-4 w-full table-fixed border-collapse text-left text-[15px]">
         <thead>
-          <tr className="border-b border-hairline text-[12px] uppercase tracking-[0.06em] text-ink-muted">
-            <th className="py-2 pr-2 font-normal">Bucket</th><th className="py-2 pr-2 font-normal">Horizon</th>
-            <th className="py-2 pr-2 text-right font-normal">Amount (SGD)</th><th className="w-24 py-2 text-right font-normal">%</th>
+          <tr className="border-b border-hairline text-[12px] leading-4 uppercase tracking-[0.06em] font-normal text-ink-muted">
+            <th className="py-2 pr-2 font-light">Bucket</th><th className="py-2 pr-2 font-light">Horizon</th>
+            <th className="py-2 pr-2 text-right font-light">Amount (SGD)</th><th className="w-24 py-2 text-right font-light">%</th>
           </tr>
         </thead>
         <tbody>
@@ -161,7 +161,7 @@ export function BucketEditor({ buckets, onChange }: { buckets: Bucket3L[]; onCha
                   type="number" min={0} max={100} step={1} value={b.pct}
                   aria-label={`${b.name} percentage`}
                   onChange={(e) => set(b.id, e.target.value)}
-                  className={`w-20 px-2 py-1 text-right text-[14px] text-ink ${EDIT_BOX}`}
+                  className={`w-20 px-2 py-1 text-right text-[15px] text-ink ${EDIT_BOX}`}
                 />
               </td>
             </tr>
@@ -169,7 +169,7 @@ export function BucketEditor({ buckets, onChange }: { buckets: Bucket3L[]; onCha
         </tbody>
         <tfoot>
           <tr>
-            <td colSpan={3} className="py-2 pr-2 text-right text-[12px] uppercase tracking-[0.06em] text-ink-muted">Total</td>
+            <td colSpan={3} className="py-2 pr-2 text-right text-[12px] leading-4 uppercase tracking-[0.06em] font-normal text-ink-muted">Total</td>
             <td className={`py-2 text-right ${ok ? "text-ink" : "text-negative"}`}>{total}%</td>
           </tr>
         </tfoot>

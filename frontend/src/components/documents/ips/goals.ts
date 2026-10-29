@@ -22,16 +22,15 @@ const keyFor = (label: string): GoalKey | undefined => {
   return exact?.key ?? ALIASES.find(([re]) => re.test(label))?.[1];
 };
 
-/** Part-1 body ("Heading: bullet" lines) -> the 7 fixed sections in order (always all 7). Unlabelled bullets go to Primary Goals. */
+/** Part-1 body ("Heading: bullet" lines) -> the 7 fixed sections in order (always all 7). Unlabelled bullets (no recognised "Heading:" prefix) fit no sub-heading, so each goes to Unique Circumstances and Preferences; there is no carry-over from the previous heading. */
 export function parseGoals(body: string): GoalGroup[] {
   const groups: GoalGroup[] = GOAL_SECTIONS.map((s) => ({ ...s, bullets: [] }));
   const by = (k: GoalKey) => groups.find((g) => g.key === k)!;
-  let cur: GoalKey = "primary";
   for (const t of toBullets(body)) {
     const m = LABEL.exec(t);
     const k = m ? keyFor(m[1]) : undefined;
-    if (m && k) { cur = k; by(k).bullets.push(m[2]); }
-    else by(cur).bullets.push(t);
+    if (m && k) by(k).bullets.push(m[2]);
+    else by("unique").bullets.push(t);
   }
   return groups;
 }
