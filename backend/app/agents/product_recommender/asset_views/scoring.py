@@ -1,12 +1,18 @@
 """
 Deterministic scoring behind an asset-class view.
 
-score = (sum of weight x direction x reading over available signals
-         + regime weight x regime tilt) / (sum of the weights used)
+data score = (sum of weight x direction x reading over available signals
+              + regime weight x regime tilt) / (sum of the weights used)
 
 so it always lies in [-1, 1] and can be recomputed from the response's own
-snapshot. The stance, segment preferences, scenarios and watch items all
-come from here; an LLM may only describe them.
+snapshot. The agent view is anchored on the CIO view:
+
+score = CIO_SHARE x CIO anchor + (1 - CIO_SHARE) x data score
+
+and its stance is kept within one step of the CIO's, so market data can
+soften or firm up the CIO view but never flip it. The stance, segment
+preferences, scenarios and watch items all come from here; an LLM may only
+describe them.
 """
 from dataclasses import dataclass
 from typing import Optional
@@ -114,34 +120,78 @@ def regime_inputs(ac: AssetClass, market: MarketResearchOutput) -> tuple[Optiona
     return tilt, weight
 
 
+_ORDER = ("Sell", "Hold", "Buy")
+
+
+def step_confidence(confidence: str, steps: int) -> str:
+    i = cfg.CONFIDENCE_STEPS.index(confidence) + steps
+    return cfg.CONFIDENCE_STEPS[max(0, min(len(cfg.CONFIDENCE_STEPS) - 1, i))]
+
+
+def combine(data_score: float, cio_view: str) -> tuple[float, str]:
+    """The agent score and stance: the CIO anchor blended with the data score, kept within one step of the CIO."""
+    score = round(cfg.CIO_SHARE * cfg.CIO_ANCHOR[cio_view] + (1 - cfg.CIO_SHARE) * data_score, 3)
+    raw, cio = _ORDER.index(stance(score)), _ORDER.index(cio_view)
+    return score, _ORDER[max(cio - 1, min(cio + 1, raw))]
+
+
+def adjustment(cio_view: str, view: str) -> str:
+    if view == cio_view:
+        return "unchanged"
+    if cio_view != "Hold":
+        return "softened"
+    return "upgraded" if view == "Buy" else "downgraded"
+
+
 @dataclass
 class Headline:
-    scored: Scored
+    scored: Scored  # market data only; scored.score is the data score
     view: str
     confidence: str
     insufficient: bool
+    score: float  # the agent score, anchored on the CIO view
+    cio_view: str
+    adjustment: str
 
 
-def headline(ac: AssetClass, spec: AssetClassSpec, idx: dict[str, Series], market: MarketResearchOutput) -> Headline:
-    tilt, weight = regime_inputs(ac, market)
-    scored = score_signals(spec.signals, idx, tilt, weight)
-    coverage = scored.available / scored.mapped if scored.mapped else 0.0
-    if coverage < cfg.MIN_COVERAGE:
-        return Headline(scored, "Hold", "Low", insufficient=True)
-    view = stance(scored.score)
+def _data_confidence(spec: AssetClassSpec, scored: Scored, coverage: float) -> str:
+    """How firmly the market data alone points one way."""
     sign = 1 if scored.score >= 0 else -1
     moving = [c for c in scored.contributions if abs(c.value) > 0.05]
     agree_w = sum(c.sig.weight for c in moving if (c.value > 0) == (sign > 0))
     agree = agree_w / sum(c.sig.weight for c in moving) if moving else 0.0
+    if spec.low_coverage or coverage < 0.6 or agree < 0.55:
+        return "Low"
     if coverage >= 0.8 and agree >= 0.7 and abs(scored.score) >= 0.35:
-        confidence = "High"
-    elif coverage < 0.6 or agree < 0.55:
-        confidence = "Low"
+        return "High"
+    return "Medium"
+
+
+def headline(ac: AssetClass, spec: AssetClassSpec, idx: dict[str, Series], market: MarketResearchOutput,
+             cio_view: str, cio_confidence: str) -> Headline:
+    tilt, weight = regime_inputs(ac, market)
+    scored = score_signals(spec.signals, idx, tilt, weight)
+    coverage = scored.available / scored.mapped if scored.mapped else 0.0
+    if coverage < cfg.MIN_COVERAGE:
+        # Too little data to move the CIO view: keep it, one step less sure.
+        return Headline(scored, cio_view, step_confidence(cio_confidence, -1), insufficient=True,
+                        score=round(cfg.CIO_SHARE * cfg.CIO_ANCHOR[cio_view], 3), cio_view=cio_view, adjustment="unchanged")
+    score, view = combine(scored.score, cio_view)
+    data_dir = _ORDER.index(stance(scored.score)) - 1
+    cio_dir = _ORDER.index(cio_view) - 1
+    data_conf = _data_confidence(spec, scored, coverage)
+    if view != cio_view:
+        confidence = step_confidence(cio_confidence, -1)
+    elif data_dir == cio_dir and data_conf != "Low":
+        confidence = step_confidence(cio_confidence, 1)
+    elif data_dir == -cio_dir and data_dir != 0:
+        confidence = step_confidence(cio_confidence, -1)
     else:
-        confidence = "Medium"
+        confidence = cio_confidence
     if spec.low_coverage:
         confidence = "Low"
-    return Headline(scored, view, confidence, insufficient=False)
+    return Headline(scored, view, confidence, insufficient=False, score=score, cio_view=cio_view,
+                    adjustment=adjustment(cio_view, view))
 
 
 @dataclass
@@ -175,8 +225,8 @@ def what_if(h: Headline, target: Contribution, reading: float) -> tuple[float, s
     total_w = sum(c.sig.weight for c in sc.contributions) + sc.regime_weight
     total = sum(c.weighted for c in sc.contributions if c is not target) + target.sig.weight * target.sig.direction * reading
     total += sc.regime_weight * (sc.regime_tilt or 0.0)
-    score = round(total / total_w, 3) if total_w else 0.0
-    return score, stance(score)
+    data_score = round(total / total_w, 3) if total_w else 0.0
+    return combine(data_score, h.cio_view)
 
 
 def biggest_swing(h: Headline, towards: int) -> Optional[Contribution]:

@@ -18,7 +18,8 @@ from typing import Iterable, Optional
 from app.agents.portfolio_agent.explain.guardrails import find_claim_violations
 
 _TAG = re.compile(r"\[([A-Za-z0-9-]+)\]")
-_PRODUCT_ID = re.compile(r"\bMOCK-[A-Z]+-\d+\b")
+# Illustrative ids (MOCK-CORP-001) and live ids (FND-<ISIN>, FND-ALT-001 for funds without an ISIN).
+_PRODUCT_ID = re.compile(r"\b(?:MOCK-[A-Z]+-\d+|FND-(?:ALT-\d{3}|[A-Z]{2}[A-Z0-9]{9}\d))\b")
 _NUMBER = re.compile(r"\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?")
 _FEE = re.compile(r"\b(?:fees?|expense ratio|TER|commissions?)\b", re.I)
 # Market prose may talk about financing costs; a product reason may not talk about any cost.
@@ -131,8 +132,6 @@ def check_view_slot(kind: str, text: str, allowed_numbers: set[float], *, agent_
                 problems.append(f"thesis does not state the agent view {agent_view}")
             if agent_confidence.lower() not in text.lower():
                 problems.append(f"thesis does not state {agent_confidence.lower()} confidence")
-            if re.search(r"\b(?:house|CIO(?:'s)?) view\b", text, re.I):
-                problems.append("thesis mentions the house view (the agent view must stand alone)")
     if kind == "segment" and stance:
         for s in _SEGMENT_STANCES:
             if s.lower() in text.lower() and s != stance:

@@ -94,9 +94,13 @@ export interface GoalProjection {
 
 export interface HouseView { id: string; month: string; issuedOn: string; author: string; file: string | null }
 
-export interface MarketRow { assetClass: string; product: string; industryFocus: string; top5: string[]; confidencePct: number; ranking: string[];
+export interface MarketRow { assetClass: string; product: string; industryFocus: string; top5: string[];
+  /** The shelf's product quality rating, 1 to 5; null when the shelf has none. Not a confidence in the recommendation. */
+  rating: number | null; ranking: string[];
   /** Product Recommender's cited reason ("• ... [TAG]." bullets) when the row came from a recommendation. */
-  agentReason?: string }
+  agentReason?: string;
+  /** The shortlist role the product fills (e.g. "Core growth"), when the row came from a recommendation. */
+  role?: string }
 export interface MacroView { assetClass: string; view: "Buy" | "Hold" | "Sell"; industry: string; direction: "Up" | "Flat" | "Down"; note: string }
 export interface MacroBrief { phase: string; asOf: string; events: string[]; views: MacroView[] }
 /** One chat turn. `steps` (agents fired, thinking) show only while thinking, never in the final answer. */

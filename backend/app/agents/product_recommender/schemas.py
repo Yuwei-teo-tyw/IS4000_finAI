@@ -32,6 +32,7 @@ class ShelfProduct(ProductCandidate):
     why_buy: Optional[str] = None
     suitability_note: Optional[str] = None
     rating: Optional[int] = Field(default=None, ge=1, le=5, description="Product quality rating; a minor tie-breaker only.")
+    sharpe_ratio: Optional[float] = Field(default=None, description="Risk-adjusted return; ranked only against products in the same role.")
 
 
 class Shelf(BaseModel):
@@ -76,7 +77,9 @@ class HouseView(BaseModel):
 class RecommendOptions(BaseModel):
     model_config = ConfigDict(extra="forbid")
     top_n: int = Field(default=5, ge=1, le=20)
-    max_per_asset_class: int = Field(default=2, ge=1, le=20)
+    max_per_asset_class: Optional[int] = Field(
+        default=None, ge=1, le=20,
+        description="Optional backstop. Diversity comes from the role plan and the overlap penalty, not a cap per class.")
     asset_classes: Optional[list[str]] = None
     named_products: list[str] = Field(default_factory=list, max_length=20)
 
@@ -122,8 +125,21 @@ class Reason(BaseModel):
     citations: list[str]
 
 
+Role = Literal["liquidity", "income", "stability", "core_growth", "diversifier"]
+
+
+class RolePlanItem(BaseModel):
+    role: Role
+    slots: int = Field(description="Slots the plan gave this role.")
+    filled: int = Field(description="Products shortlisted under this role, including slots passed on from other roles.")
+    why: str
+    passed_on: int = Field(default=0, description="Slots this role could not fill (no eligible product) and passed on.")
+
+
 class ShortlistItem(BaseModel):
     rank: int
+    role: Role
+    role_rank: int
     product: ProductSummary
     score: ScoreBreakdown
     notes: list[str]
@@ -135,6 +151,7 @@ class EligibleItem(BaseModel):
     product_id: str
     product_name: str
     asset_class: str
+    role: Role
     total: float
 
 
@@ -169,6 +186,7 @@ class RecommendResponse(BaseModel):
     sources: dict[str, str]
     client_summary: ClientSummary
     house_view: HouseView
+    role_plan: list[RolePlanItem] = Field(default_factory=list)
     shortlist: list[ShortlistItem]
     eligible_not_shortlisted: list[EligibleItem]
     excluded: list[Exclusion]

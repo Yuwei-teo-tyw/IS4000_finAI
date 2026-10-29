@@ -3,7 +3,7 @@ import { Check, ChevronDown, ArrowUp, MessageSquarePlus, Search, Trash2 } from "
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import type { Client } from "../../types/arc";
 import { pathForClient, setActiveClientId } from "../../layouts/navConfig";
-import { arcApi, bookToClient, assetClassSlug, GenevaBackendError, ClientProfilingError, PortfolioAgentError, ProductRecommenderError, shortlistRow } from "../../services/arcApi";
+import { arcApi, bookToClient, assetClassSlug, GenevaBackendError, ClientProfilingError, PortfolioAgentError, ProductRecommenderError, PR_ROLE_LABELS, shortlistRow } from "../../services/arcApi";
 import { ClientProfilingCard } from "./ClientProfilingCard";
 import type { AllocationDialogue, AllocationProposal, ClientProfilingResult, ClientProfilingSourceChoice } from "../../types/clientProfiling";
 import { profileApi } from "../../services/profileApi";
@@ -60,6 +60,8 @@ interface Recommend {
   name: string; riskLevel: number | null; riskCategory: string; profile: string[]; market: string[]; tags: string[];
   /** `reason` is the Product Recommender's cited bullets; `fee` is for information only. */
   shortlist: { row: MarketRow; riskRating: number; reason: string; fee: number | null; notes: string[] }[];
+  /** How the shortlist was planned: one line per role with its slots and why. */
+  rolePlan: string[];
   excluded: { name: string; reason: string }[];
   /** True when at least one reason was written by the LLM from the engine's facts. */
   llmReasons: boolean;
@@ -356,6 +358,10 @@ async function buildRecommendation(clientId: string, ipsVersion: number | null):
       name, riskLevel: cs.risk_level, riskCategory: client?.riskCategory ?? "", profile, market,
       tags: [cycle.tag, ...new Set(hv.views.map((v) => v.citation_id)), ...(ipsVersion ? [`IPS-v${ipsVersion}`] : [])],
       shortlist: res.shortlist.map((s) => ({ row: shortlistRow(s), riskRating: s.product.risk_rating ?? 0, reason: s.reason.text, fee: s.costs.management_fee_pct, notes: s.notes })),
+      rolePlan: (res.role_plan ?? []).map((p) => p.slots === 0
+        ? `${PR_ROLE_LABELS[p.role]}: ${p.filled} product${p.filled === 1 ? "" : "s"}, taking over slots other roles had no eligible product for.`
+        : `${PR_ROLE_LABELS[p.role]}: ${p.filled} of ${p.slots} slot${p.slots === 1 ? "" : "s"} filled, as ${p.why}${p.passed_on
+          ? `; ${p.passed_on} passed on because no eligible product fills this role` : ""}.`),
       excluded: res.excluded.map((x) => ({ name: x.product_name, reason: x.reason })),
       llmReasons: res.shortlist.some((s) => s.reason.source === "llm"),
     },
@@ -363,7 +369,8 @@ async function buildRecommendation(clientId: string, ipsVersion: number | null):
 }
 
 /** Reason bullets for display: the trailing full stop after a closing tag would wrap onto its own line. */
-const reasonLines = (text: string) => toBulletItems(text).map((l) => l.replace(/\]\.$/, "]"));
+// Source tags like [MOCK-CORP-001] are dropped: the shortlist reasons read as plain bullets.
+const reasonLines = (text: string) => toBulletItems(text).map((l) => l.replace(/\s*\[[A-Za-z0-9-]+\]/g, "").replace(/\.$/, "").trim()).filter(Boolean);
 
 function RecommendView({ r, picked, onToggle, clientId }: { r: Recommend; picked: string[]; onToggle: (m: MarketRow) => void; clientId: string }) {
   const h = "text-[26px] font-light tracking-tight";
@@ -377,6 +384,7 @@ function RecommendView({ r, picked, onToggle, clientId }: { r: Recommend; picked
       <section><h4 className={h}>CIO house view and market</h4><ul className={ul}>{r.market.map((x) => <li key={x}><Tagged text={x} /></li>)}</ul></section>
       {r.shortlist.length > 0 && <section>
         <h4 className={h}>Ranked shortlist</h4>
+        {r.rolePlan.length > 0 && <ul className={ul}>{r.rolePlan.map((x) => <li key={x}>{x}</li>)}</ul>}
         <div className="mt-3">
           <Table
             head={["Select", "Rank", "Product", "Why it suits this client"]}
@@ -385,11 +393,12 @@ function RecommendView({ r, picked, onToggle, clientId }: { r: Recommend; picked
               String(i + 1),
               <span className="block min-w-36 max-w-48">
                 <span className="block font-semibold">{s.row.product}</span>
+                {s.row.role && <span className="mt-2 block text-[14px] font-semibold text-ink-700">{s.row.role} · {s.row.assetClass}</span>}
                 <span className="mt-2 block text-[14px] text-ink-muted">Risk {s.riskRating} of 5</span>
                 <span className="block text-[14px] text-ink-muted">{s.fee === null ? "Fee not available" : `Fee ${s.fee.toFixed(2)}%`}, information only</span>
               </span>,
-              <ul className="block space-y-1.5 text-ink-700">
-                {reasonLines(s.reason).map((line) => <li key={line}><Tagged text={line} /></li>)}
+              <ul className="block list-disc space-y-1.5 pl-5 text-ink-700 marker:text-ink-muted">
+                {reasonLines(s.reason).map((line) => <li key={line}>{line}</li>)}
                 {s.notes.map((n) => <li key={n} className="text-ink-muted">{n}</li>)}
               </ul>,
             ])}
@@ -474,15 +483,16 @@ function AnswerView({ a, picked, onToggle, clientId, role }: { a: MarketAnswer; 
 
       {a.rows.length > 0 && (
         <section className="space-y-10">
-          {[...new Set(a.rows.map((r) => r.assetClass))].map((cls) => (
-            <div key={cls}>
-              <h4 className="mb-3 text-[26px] font-light tracking-tight">{cls}</h4>
+          {/* Recommendations are grouped by the role each product fills; other rows by asset class. */}
+          {[...new Set(a.rows.map((r) => r.role ?? r.assetClass))].map((group) => (
+            <div key={group}>
+              <h4 className="mb-3 text-[26px] font-light tracking-tight">{group}</h4>
               <Table
                 head={["Select", "Product", "What it offers", "Why it suits this client"]}
-                rows={a.rows.filter((r) => r.assetClass === cls).map((r) => [
+                rows={a.rows.filter((r) => (r.role ?? r.assetClass) === group).map((r) => [
                   <input type="checkbox" className="h-5 w-5 cursor-pointer" checked={picked.includes(r.product)} onChange={() => onToggle(r)} aria-label={`Select ${r.product}`} />,
                   <span className="block max-w-56 font-semibold">{r.product}</span>,
-                  <span className="block max-w-48">{r.industryFocus}</span>,
+                  <span className="block max-w-48">{r.role ? `${r.assetClass} · ${r.industryFocus}` : r.industryFocus}</span>,
                   <ul className="block space-y-1.5 text-ink-700">
                     {(r.agentReason ? reasonLines(r.agentReason) : r.ranking).map((line) => <li key={line}><Tagged text={line} /></li>)}
                   </ul>,

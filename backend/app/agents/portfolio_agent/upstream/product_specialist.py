@@ -16,7 +16,7 @@ from app.agents.product_recommender import shelf
 
 logger = logging.getLogger(__name__)
 
-# Provenance of the shared shelf: "MOCK" while it is illustrative data.
+# Provenance of the shared shelf: "LIVE" for the workbook-built shelf, "MOCK" for the illustrative one.
 PRODUCT_CANDIDATES_SOURCE = shelf.SHELF_SOURCE
 
 

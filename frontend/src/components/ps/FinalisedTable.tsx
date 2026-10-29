@@ -2,6 +2,7 @@ import { Fragment, useState } from "react";
 import { Check, ChevronDown, ChevronRight } from "lucide-react";
 import { BulletList, Card } from "../ui";
 import { useFinalised } from "../../services/workflowStore";
+import { ratingText } from "../../utils/productMatch";
 
 interface Props {
   clientId: string;
@@ -20,7 +21,7 @@ export function FinalisedTable({ clientId, selected, onToggle, expandable = fals
     return <Card className="!p-8"><p className="text-base text-ink-muted">No finalised list yet.</p></Card>;
   }
   const pick = selected !== undefined && !!onToggle;
-  const head = [...(pick ? ["Include"] : []), ...(expandable ? [""] : []), "Product", "Asset class", "Industry focus", "Confidence", ...(expandable ? [] : ["PS reason"])];
+  const head = [...(pick ? ["Include"] : []), ...(expandable ? [""] : []), "Product", "Asset class", "Industry focus", "Product rating", ...(expandable ? [] : ["PS reason"])];
   const span = head.length;
   return (
     <div>
@@ -49,7 +50,7 @@ export function FinalisedTable({ clientId, selected, onToggle, expandable = fals
                     <td className="px-6 py-5 align-top"><span className="font-semibold">{p.product}</span></td>
                     <td className="px-6 py-5 align-top">{p.assetClass}</td>
                     <td className="px-6 py-5 align-top">{p.industryFocus}</td>
-                    <td className="px-6 py-5 align-top">{p.confidencePct}%</td>
+                    <td className="px-6 py-5 align-top">{ratingText(p.rating)}</td>
                     {!expandable && <td className="px-6 py-5 align-top"><BulletList text={p.reason} empty="" /></td>}
                   </tr>
                   {isOpen && (

@@ -18,7 +18,7 @@ from app.agents.portfolio_agent.engine.profile_assessment import assess_profile
 from app.agents.portfolio_agent.schemas.client import ClientProfile
 from app.agents.portfolio_agent.taxonomy import ASSET_CLASS_ORDER, AssetClass
 from app.agents.product_recommender.asset_views import config as cfg
-from app.agents.product_recommender.asset_views.scoring import stance
+from app.agents.product_recommender.asset_views.scoring import combine
 from app.agents.product_recommender.asset_views.shelf_lens import in_class
 from app.agents.product_recommender.house_view import load_house_view
 from app.agents.product_recommender.shelf import load_shelf
@@ -50,9 +50,12 @@ def test_cio_view_is_reported_exactly_as_curated(ac):
 def test_agent_stance_can_be_recomputed_from_the_snapshot(ac):
     v = view(ac)
     assert v.agent_view.label == "Agent view (analysis, not the CIO house view)"
-    assert recompute(v) == pytest.approx(v.agent_view.score, abs=0.002)
-    if not v.agent_view.insufficient_evidence:
-        assert v.agent_view.view == stance(v.agent_view.score)
+    a = v.agent_view
+    assert recompute(v) == pytest.approx(a.data_score, abs=0.002)
+    assert a.cio_anchor == cfg.CIO_ANCHOR[v.cio_view.view]
+    if not a.insufficient_evidence:
+        assert a.score == pytest.approx(a.cio_share * a.cio_anchor + (1 - a.cio_share) * a.data_score, abs=0.002)
+        assert a.view == combine(a.data_score, v.cio_view.view)[1]
 
 
 @pytest.mark.parametrize("ac", CLASSES)
@@ -110,21 +113,58 @@ def test_low_coverage_classes_are_capped_at_low_confidence():
         assert any("capped at Low" in c for c in v.caveats)
 
 
-def test_too_little_data_gives_hold_low_with_insufficient_evidence():
+def test_too_little_data_keeps_the_cio_view_one_step_less_sure():
     market = mock_market()
     keep = {"DGS10"}
     market["indicators"] = [i for i in market["indicators"] if i["id"] in keep]
     market["market_snapshot"] = []
     v = view("Fixed income", market)
-    assert (v.agent_view.view, v.agent_view.confidence, v.agent_view.insufficient_evidence) == ("Hold", "Low", True)
+    a, cio = v.agent_view, v.cio_view
+    assert (a.view, a.insufficient_evidence, a.basis, a.cio_adjustment) == (cio.view, True, "cio_only", "unchanged")
+    assert a.confidence == {"High": "Medium", "Medium": "Low", "Low": "Low"}[cio.confidence]
     assert any("Insufficient evidence" in c for c in v.caveats)
 
 
-def test_market_researcher_unavailable_still_returns_cio_view_and_shelf():
+def test_market_researcher_unavailable_gives_the_cio_view_as_the_agent_view():
     v = asyncio.run(service(market_fetcher=market_fetcher_from(RuntimeError("down"))).asset_class_view("Equities"))
-    assert v.agent_view is None and v.agent_view_unavailable_reason
+    a = v.agent_view
+    assert (a.view, a.basis, a.insufficient_evidence) == (v.cio_view.view, "cio_only", True)
+    assert v.agent_view_unavailable_reason and v.agreement.status == "aligned"
+    assert v.narrative_source == "deterministic"
     assert v.cio_view.asset_class == "Equities"
     assert v.implementation.products
+
+
+@pytest.mark.parametrize("cio", ["Buy", "Hold", "Sell"])
+@pytest.mark.parametrize("data", [-1.0, -0.6, -0.3, 0.0, 0.3, 0.6, 1.0])
+def test_agent_view_never_moves_more_than_one_step_from_the_cio(cio, data):
+    order = ["Sell", "Hold", "Buy"]
+    _, agent = combine(data, cio)
+    assert abs(order.index(agent) - order.index(cio)) <= 1
+
+
+def test_market_data_softens_or_moves_the_cio_view():
+    assert combine(-1.0, "Buy")[1] == "Hold"   # softened, never flipped to Sell
+    assert combine(1.0, "Sell")[1] == "Hold"
+    assert combine(0.0, "Buy")[1] == "Buy"     # neutral data keeps the CIO view
+    assert combine(0.6, "Hold")[1] == "Buy"    # strong data can move a Hold
+    assert combine(-0.6, "Hold")[1] == "Sell"
+    assert combine(0.2, "Hold")[1] == "Hold"   # weak data cannot
+
+
+@pytest.mark.parametrize("cio", ["Buy", "Hold", "Sell"])
+@pytest.mark.parametrize("ac", CLASSES)
+def test_agent_view_is_anchored_on_the_cio_view_end_to_end(ac, cio):
+    hv = load_house_view()
+    for entry in hv.views:
+        if entry.asset_class == ac:
+            entry.view = cio
+    a = view(ac, house_view_loader=lambda: hv).agent_view
+    order = ["Sell", "Hold", "Buy"]
+    assert abs(order.index(a.view) - order.index(cio)) <= 1
+    assert a.cio_adjustment == ("unchanged" if a.view == cio else "softened" if cio != "Hold"
+                                else "upgraded" if a.view == "Buy" else "downgraded")
+    assert "CIO" in a.thesis
 
 
 @pytest.mark.parametrize("ac", CLASSES)

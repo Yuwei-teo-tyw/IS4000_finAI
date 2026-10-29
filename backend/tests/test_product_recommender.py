@@ -23,13 +23,20 @@ from app.agents.portfolio_agent.schemas.upstream import (
     ProductCandidate,
     UpstreamResult,
 )
-from app.agents.portfolio_agent.taxonomy import ASSET_CLASS_ORDER
+from app.agents.portfolio_agent.taxonomy import (
+    ASSET_CLASS_ORDER,
+    AssetClass,
+    parse_asset_class,
+)
+from app.agents.product_recommender import ranking
 from app.agents.product_recommender import shelf as shelf_mod
+from app.agents.product_recommender.asset_views.builder import AgentStance
 from app.agents.product_recommender.config import Settings
 from app.agents.product_recommender.house_view import HouseViewError, load_house_view
+from app.agents.product_recommender.roles import RoleSlot, roles_for
 from app.agents.product_recommender.schemas import RecommendRequest, Shelf, ShelfProduct
 from app.agents.product_recommender.service import ProductRecommenderService
-from app.agents.product_recommender.suitability import gate
+from app.agents.product_recommender.suitability import ScreenedProduct, gate
 from app.endpoints.portfolio_agent import install_validation_handler
 from app.endpoints.product_recommender import PREFIX, router
 
@@ -297,6 +304,138 @@ def test_named_products_report_their_status():
     assert status["MOCK-CORP-003"] == "excluded"
     assert status["No such fund"] == "not_found"
     assert status["MOCK-CASH-001"] in {"shortlisted", "eligible"}
+
+
+# --- Roles: what the shortlist is for ------------------------------------------
+
+def _plan(resp) -> dict[str, int]:
+    return {p.role: p.slots for p in resp.role_plan if p.slots}
+
+
+def screened(*products: ShelfProduct) -> list[ScreenedProduct]:
+    return [ScreenedProduct(p, parse_asset_class(p.asset_class)) for p in products]
+
+
+def ctx(**kw) -> ranking.RankContext:
+    base = {"level": 4, "horizon": 10, "base_currency": "SGD", "max_drawdown": 20, "views": {}, "current_mix": None}
+    base.update(kw)
+    return ranking.RankContext(**base)
+
+
+def test_role_weights_sum_to_ten():
+    for role, weights in ranking.WEIGHTS.items():
+        assert sum(weights.values()) == pytest.approx(10.0), role
+
+
+@pytest.mark.parametrize("client_id", sorted(CLIENTS))
+def test_role_plan_uses_every_slot_and_says_why(client_id):
+    resp = service().recommend(request(client_id))
+    assert sum(p.slots for p in resp.role_plan) == 5
+    assert all(p.why for p in resp.role_plan)
+    assert sum(p.filled for p in resp.role_plan) == len(resp.shortlist) <= 5
+    for s in resp.shortlist:
+        assert s.reason.text.startswith("• Fills a ") or s.reason.text.startswith("• Takes a ")
+
+
+def test_near_term_withdrawal_adds_a_liquidity_slot_filled_by_cash():
+    resp = service().recommend(request("ser", planned_withdrawals=[{"amount": 100_000, "months_from_now": 6}]))
+    assert _plan(resp)["liquidity"] == 1
+    liquid = [s for s in resp.shortlist if s.role == "liquidity"]
+    assert len(liquid) == 1 and liquid[0].product.asset_class == "Cash"
+    assert "6 months" in resp.role_plan[0].why
+    assert "liquidity" not in _plan(service().recommend(request("ser")))
+
+
+def test_conservative_client_leans_on_stability_and_gets_no_diversifier():
+    plan = _plan(service().recommend(request("dso")))
+    assert plan.get("stability", 0) >= 2 and "diversifier" not in plan and "core_growth" not in plan
+
+
+def test_growth_client_gets_core_growth_and_a_diversifier():
+    plan = _plan(service().recommend(request("jfr")))
+    assert plan["core_growth"] >= 2 and plan["diversifier"] >= 1
+
+
+def test_short_horizon_drops_the_diversifier_role():
+    goals = [{"goal": "Grow wealth", "years_to_goal": 2, "priority": "High", "currency": "SGD"}]
+    assert "diversifier" not in _plan(service().recommend(request("ser", financial_goals=goals)))
+
+
+def test_income_objective_adds_an_income_slot():
+    goals = [{"goal": "Retirement income", "years_to_goal": 8, "priority": "High", "currency": "SGD"}]
+    assert _plan(service().recommend(request("teo", financial_goals=goals)))["income"] > _plan(
+        service().recommend(request("teo")))["income"]
+
+
+def test_products_map_to_the_roles_they_serve():
+    roles_of = {p.product_id: roles_for(sp) for p, sp in zip(shelf_products(), screened(*shelf_products()))}
+    assert roles_of["MOCK-CASH-001"] == ("liquidity",)
+    assert "stability" in roles_of["MOCK-GOVT-002"]  # a bill fund is still a bond holding
+    assert set(roles_of["MOCK-DIV-002"]) >= {"income", "core_growth"}
+    assert all(r for r in roles_of.values())
+
+
+def test_a_role_with_no_eligible_product_passes_its_slots_on_but_never_to_weak_duplicates():
+    resp = service().recommend(request("dso"))
+    assert sum(p.passed_on for p in resp.role_plan) > 0
+    assert len(resp.shortlist) < 5
+    passed = [s for s in resp.shortlist if s.reason.text.startswith("• Takes a ")]
+    assert all(s.score.total >= ranking.MIN_PASSED_ON_SCORE for s in passed)
+
+
+def test_overlap_penalty_prefers_a_different_sub_asset_class():
+    a = product(product_id="EQ-A", asset_class="Equities", sub_asset_class="Global core equities", currency="SGD",
+                risk_rating=3, historical_returns={"5y": 9.0}, sharpe_ratio=0.9)
+    b = product(product_id="EQ-B", asset_class="Equities", sub_asset_class="Global core equities", currency="SGD",
+                risk_rating=3, historical_returns={"5y": 8.9}, sharpe_ratio=0.89)
+    c = product(product_id="EQ-C", asset_class="Equities", sub_asset_class="Asia equities", currency="SGD",
+                risk_rating=3, historical_returns={"5y": 8.0}, sharpe_ratio=0.8)
+    scored = ranking.score_all(screened(a, b, c), ctx())
+    by_score = [r.sp.product_id for r in scored["core_growth"]]
+    assert by_score.index("EQ-B") < by_score.index("EQ-C")  # B outscores C on its own...
+    sel = ranking.select([RoleSlot("core_growth", 2, "")], scored)
+    assert [r.sp.product_id for r in sel.picked] == ["EQ-A", "EQ-C"]  # ...but repeats A's sub-asset class
+    # C still shares A's issuer and currency, but not its sub-asset class.
+    assert sel.picked[1].components["overlap_penalty"] > -ranking.OVERLAP_PENALTY["sub_asset_class"]
+    assert "EQ-B" in [r.sp.product_id for r in sel.rest]
+
+
+def test_gap_fit_favours_classes_the_client_is_short_of():
+    held = {"Equities": 90.0, "Fixed income": 10.0}
+    base = service().recommend(request("jfr"))
+    heavy = service().recommend(request("jfr", current_asset_allocation=held))
+    def gap(resp, asset_class):
+        return [s.score.components["gap_fit"] for s in resp.shortlist if s.product.asset_class == asset_class]
+    assert all(g < b for g, b in zip(gap(heavy, "Equities"), gap(base, "Equities")))
+    assert all(g > b for g, b in zip(gap(heavy, "Fixed income"), gap(base, "Fixed income")))
+
+
+def test_ranking_uses_the_agent_view_not_only_the_cio_view():
+    hv = load_house_view()
+    cio = hv.for_class("Equities")
+    def stances(view, adjustment):
+        return {AssetClass.EQUITIES: AgentStance(AssetClass.EQUITIES, view, "High", "cio_plus_market", adjustment, cio)}
+    buy = service().recommend(request("jfr"), stances("Buy", "unchanged" if cio.view == "Buy" else "upgraded"))
+    hold = service().recommend(request("jfr"), stances("Hold", "softened" if cio.view != "Hold" else "unchanged"))
+    def view_pts(resp):
+        return {s.product.product_id: s.score.components["market_view"] for s in resp.shortlist if s.product.asset_class == "Equities"}
+    b, h = view_pts(buy), view_pts(hold)
+    assert b and all(h[k] < b[k] for k in b if k in h)
+    if cio.view != "Hold":
+        eq = next(s for s in hold.shortlist if s.product.asset_class == "Equities")
+        assert any("Agent view on equities is Hold" in n for n in eq.notes)
+        assert "agent view starts from it" in eq.reason.text
+
+
+def test_missing_risk_data_scores_zero_never_a_bonus():
+    full = product(product_id="FULL", asset_class="Equities", sub_asset_class="X", risk_rating=3,
+                   historical_returns={"5y": 5.0}, sharpe_ratio=0.5)
+    bare = product(product_id="BARE", asset_class="Equities", sub_asset_class="Y", risk_rating=3,
+                   historical_returns=None, sharpe_ratio=None, volatility=None)
+    ranked = {r.sp.product_id: r for r in ranking.score_role("core_growth", screened(full, bare), ctx())}
+    assert ranked["BARE"].components["risk_adjusted"] == 0
+    assert ranked["BARE"].components["role_fit"] == 0
+    assert any("risk-adjusted quality scored 0" in n for n in ranked["BARE"].notes)
 
 
 # --- Endpoints ---------------------------------------------------------------

@@ -53,6 +53,12 @@ MIN_COVERAGE = 0.5
 REGIME_WEIGHT = 0.15
 REGIME_CONFIDENCE = {"low": 0.5, "medium": 0.75, "high": 1.0}
 
+# The agent view starts from the CIO view: score = CIO_SHARE x anchor + (1 - CIO_SHARE) x market-data score,
+# and the stance is then kept within one step of the CIO's (Buy can soften to Hold, never flip to Sell).
+CIO_ANCHOR = {"Buy": 0.5, "Hold": 0.0, "Sell": -0.5}
+CIO_SHARE = 0.5
+CONFIDENCE_STEPS = ("Low", "Medium", "High")
+
 # How each cycle phase leans for each class, in [-1, 1].
 REGIME_TILT: dict[str, dict[AssetClass, float]] = {
     "early_expansion": {AssetClass.EQUITIES: 1.0, AssetClass.FIXED_INCOME: 0.0, AssetClass.CASH: -1.0, AssetClass.GOLD: 0.0,

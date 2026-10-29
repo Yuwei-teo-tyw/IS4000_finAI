@@ -1,3 +1,4 @@
 -r requirements.txt
 pytest>=7
 ruff
+openpyxl>=3.1  # build_live_shelf.py reads the product workbook
