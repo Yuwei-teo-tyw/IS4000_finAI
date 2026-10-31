@@ -54,9 +54,4 @@ export function splitCitations(text: string): { text: string; tags: string[] } {
   return { text: text.replace(/\s*\[[A-Za-z0-9-]+\]/g, ""), tags };
 }
 
-export const CASE_STEPS = [
-  { label: "Product recommendations", path: "products" }, { label: "Market view and portfolio health", path: "market-health" }, { label: "TAA", path: "taa" },
-  { label: "Individual holdings", path: "holdings" }, { label: "Review pack", path: "pack" },
-];
-
 export const BULLET_PLACEHOLDER = "- State the conclusion first\n- Give the supporting evidence with its source tag\n- Note the impact on the client portfolio\n- Flag the main risk or caveat\n- Close with the recommended action";

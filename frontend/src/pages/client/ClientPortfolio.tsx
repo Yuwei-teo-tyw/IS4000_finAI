@@ -2,6 +2,7 @@ import { useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { Link, useOutletContext } from "react-router-dom";
 import { Button, Section, Loading, MockTag } from "../../components/ui";
+import { BUCKET_BG } from "../../components/documents/ips/charts";
 import type { PortfolioCtx } from "./ClientLayout";
 import type { ClientPortfolio as Portfolio, PortfolioHolding, PortfolioThreeLRow } from "../../types/arc";
 
@@ -84,25 +85,35 @@ function Kpi({ label, value, note, mock }: { label: string; value: string; note:
 
 /* ---- 3L target vs actual ---- */
 function ThreeLBars({ rows }: { rows: PortfolioThreeLRow[] }) {
+  const bg = (p: string) => BUCKET_BG[p.toLowerCase() as keyof typeof BUCKET_BG] ?? "bg-surface-300";
+  const share = (r: PortfolioThreeLRow) => r.actual_pct ?? r.target_pct ?? 0;
+  const total = rows.reduce((s, r) => s + share(r), 0);
+  const hasTarget = rows.some((r) => r.target_pct != null);
   return (
-    <div className="space-y-6">
-      {rows.map((r) => {
-        const t = r.target_pct, a = r.actual_pct;
-        const gap = t != null && r.difference_pct != null ? ` · Gap ${r.difference_pct > 0 ? "+" : ""}${r.difference_pct.toFixed(1)}%` : "";
-        return (
-          <div key={r.portfolio}>
-            <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-              <p className="text-base font-light">{cap(r.portfolio)}</p>
-              <p className="text-sm font-light tabular-nums text-ink-muted">{t == null ? "Target not set" : `Target ${p1(t)}`} · Actual {p1(a)}{gap}</p>
-            </div>
-            <div className="relative h-2 bg-surface-300" role="img" aria-label={`${cap(r.portfolio)} actual ${p1(a)}, ${t == null ? "target not set" : `target ${p1(t)}`}`}>
-              <div className="h-2 bg-ink" style={{ width: `${Math.min(a ?? 0, 100)}%` }} />
-              {t != null && <div className="absolute -top-1 h-4 w-0.5 bg-ink" style={{ left: `${Math.min(t, 100)}%` }} title={`Target ${p1(t)}`} />}
-            </div>
-          </div>
-        );
-      })}
-      <p className="text-xs font-light text-ink-muted">{rows.some((r) => r.target_pct != null) ? "Bar is the actual share of AUM; the marker is the IPS target. Portfolios with no target set show no marker." : "Bar is the actual share of AUM. No IPS target is set, so there is no marker."}</p>
+    <div>
+      <div className="flex h-6 w-full overflow-hidden border border-hairline bg-surface-200" role="img"
+        aria-label={`3L allocation: ${rows.map((r) => `${cap(r.portfolio)} ${p1(r.actual_pct)}`).join(", ")}`}>
+        {total > 0 && rows.map((r) => <div key={r.portfolio} className={bg(r.portfolio)} style={{ width: `${(share(r) / total) * 100}%` }} title={`${cap(r.portfolio)} ${p1(r.actual_pct)}`} />)}
+      </div>
+      <table className="mt-4 w-full table-fixed border-collapse text-left text-[15px]">
+        <thead>
+          <tr className="border-b border-hairline text-[12px] leading-4 font-normal uppercase tracking-[0.06em] text-ink-muted">
+            <th className="py-2 pr-2 font-light">Portfolio</th><th className="py-2 pr-2 text-right font-light">Actual</th>
+            <th className="py-2 pr-2 text-right font-light">IPS target</th><th className="py-2 text-right font-light">Gap</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.portfolio} className="border-b border-hairline align-top tabular-nums">
+              <td className="py-2 pr-2"><i className={`mr-2 inline-block h-3 w-3 ${bg(r.portfolio)}`} />{cap(r.portfolio)}</td>
+              <td className="py-2 pr-2 text-right">{p1(r.actual_pct)}</td>
+              <td className="py-2 pr-2 text-right">{r.target_pct == null ? "Target not set" : p1(r.target_pct)}</td>
+              <td className="py-2 text-right">{r.target_pct != null && r.difference_pct != null ? `${r.difference_pct > 0 ? "+" : ""}${r.difference_pct.toFixed(1)}%` : ""}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="mt-4 text-xs font-light text-ink-muted">{hasTarget ? "Bar is the actual share of AUM split across the three portfolios. Targets come from the IPS; portfolios with no target set show none." : "Bar is the actual share of AUM. No IPS target is set."}</p>
     </div>
   );
 }
@@ -180,7 +191,7 @@ function HoldingsPanel({ name, hs, currency, active }: { name: string; hs: Portf
   const total = hs.reduce((a, h) => a + (h.market_value ?? 0), 0);
   return (
     <div className={panel}>
-      <h4 className="text-lg font-light">Holdings</h4>
+      <h4 className="text-lg font-light">Individual holdings</h4>
       {hs.length === 0 ? (
         <p className="mt-6 text-sm font-light text-ink-muted">No holdings in the {name} portfolio.</p>
       ) : (
@@ -219,7 +230,8 @@ function HoldingsPanel({ name, hs, currency, active }: { name: string; hs: Portf
 
 function LRow({ name, hs, row, currency, tlAvailable }: { name: string; hs: PortfolioHolding[]; row?: PortfolioThreeLRow; currency: string; tlAvailable: boolean }) {
   const [active, setActive] = useState<ClassKey | null>(null);
-  const saa = tlAvailable ? bucketSaa(row?.saa) : null;
+  const isLiquidity = name === "liquidity"; // Liquidity has no SAA: show an "NA" box so the row keeps the 3-box format.
+  const saa = tlAvailable && !isLiquidity ? bucketSaa(row?.saa) : null;
   const taa = bucketHoldings(hs);
   const saaMsg = !tlAvailable
     ? "The saved IPS has no 3L allocation, so the strategic allocation is unavailable."
@@ -234,12 +246,23 @@ function LRow({ name, hs, row, currency, tlAvailable }: { name: string; hs: Port
           ))}
         </ul>
       )}
-      {!saa && <p className="mb-4 text-sm font-light text-ink-muted">{bothMissing ? `${saaMsg} There are also no priced holdings in the ${name} portfolio.` : saaMsg}</p>}
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {saa && <Donut title="Strategic allocation (SAA)" slices={saa} empty="" active={active} onActive={setActive} />}
-        {taa ? <Donut title="Tactical allocation (TAA, current)" slices={taa} empty="" active={active} onActive={setActive} compareTo={saa} /> : saa ? <Donut title="Tactical allocation (TAA, current)" slices={null} empty={`No priced holdings in the ${name} portfolio.`} /> : null}
-        <div className={`${saa && taa ? "md:col-span-2 lg:col-span-1" : "md:col-span-2 lg:col-span-3"}`}><HoldingsPanel name={name} hs={hs} currency={currency} active={active} /></div>
-      </div>
+      {!saa && !isLiquidity && <p className="mb-4 text-sm font-light text-ink-muted">{bothMissing ? `${saaMsg} There are also no priced holdings in the ${name} portfolio.` : saaMsg}</p>}
+      {isLiquidity ? (
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div className={panel}>
+            <h4 className="text-lg font-light">Strategic allocation (SAA)</h4>
+            <p className="mt-6 text-3xl font-light text-ink-muted">NA</p>
+          </div>
+          {taa ? <Donut title="Tactical allocation (TAA, current)" slices={taa} empty="" active={active} onActive={setActive} /> : <Donut title="Tactical allocation (TAA, current)" slices={null} empty={`No priced holdings in the ${name} portfolio.`} />}
+          <div className="md:col-span-2 lg:col-span-1"><HoldingsPanel name={name} hs={hs} currency={currency} active={active} /></div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {saa && <Donut title="Strategic allocation (SAA)" slices={saa} empty="" active={active} onActive={setActive} />}
+          {taa ? <Donut title="Tactical allocation (TAA, current)" slices={taa} empty="" active={active} onActive={setActive} compareTo={saa} /> : saa ? <Donut title="Tactical allocation (TAA, current)" slices={null} empty={`No priced holdings in the ${name} portfolio.`} /> : null}
+          <div className={`${saa && taa ? "md:col-span-2 lg:col-span-1" : "md:col-span-2 lg:col-span-3"}`}><HoldingsPanel name={name} hs={hs} currency={currency} active={active} /></div>
+        </div>
+      )}
     </Section>
   );
 }
@@ -301,14 +324,14 @@ export default function ClientPortfolio() {
       <p className="mt-2 text-sm font-light text-ink-muted">{portfolio.error.message || "The portfolio service did not respond."} Your data is unchanged; try again.</p>
       <div className="mt-6 flex items-center gap-6">
         <Button variant="secondary" onClick={portfolio.retry}>Retry</Button>
-        <Link to=".." relative="path" className="text-sm text-ink-muted hover:text-ink">Back to overview</Link>
+        <Link to=".." relative="path" className="text-sm text-ink-muted hover:text-ink">Back to client book</Link>
       </div>
     </div>
   );
   if (!portfolio.data) return (
     <div>
       <p className="text-lg font-light text-ink">Portfolio data is unavailable.</p>
-      <Link to=".." relative="path" className="mt-4 inline-block text-sm text-ink-muted hover:text-ink">Back to overview</Link>
+      <Link to=".." relative="path" className="mt-4 inline-block text-sm text-ink-muted hover:text-ink">Back to client book</Link>
     </div>
   );
   if (portfolio.data.status === "no_holdings") return <NoHoldingsView p={portfolio.data} />;

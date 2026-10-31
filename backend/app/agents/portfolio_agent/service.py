@@ -78,6 +78,10 @@ RECESSION_PROB_THRESHOLD = 0.5
 MARKET_GROWTH_CUT_PP = 10.0
 
 
+class LiquiditySaaNotApplicableError(Exception):
+    """The Liquidity portfolio gets no SAA / strategy (only Longevity and Legacy do)."""
+
+
 class DuplicateRequestError(Exception):
     pass
 
@@ -132,6 +136,8 @@ class PortfolioService:
         return self.store.get(request_id)
 
     async def generate(self, req: PortfolioGenerateRequest) -> PortfolioResponse:
+        if req.bucket is not None and req.bucket.bucket == "liquidity":
+            raise LiquiditySaaNotApplicableError("The Liquidity portfolio gets no SAA or strategy; only Longevity and Legacy do.")
         request_id = req.request_id or f"PM-{uuid.uuid4().hex[:12].upper()}"
         if self.store.exists(request_id):
             raise DuplicateRequestError(request_id)

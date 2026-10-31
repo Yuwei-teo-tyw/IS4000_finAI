@@ -320,6 +320,8 @@ class DocumentStore(BaseStore):
         self._uploads_path = d / UPLOADS_FILE
         if self._uploads_path.exists():
             self._notes += [MeetingNoteDoc(**n) for n in self._load(self._uploads_path, "meeting_notes")]
+        # Review Pack state per client: {"state": <opaque obj>, "updated_at": iso}. In memory, like put_pm_working.
+        self._review_states: dict[str, dict] = {}
 
     @staticmethod
     def _load(path: Path, key: str) -> list[dict]:
@@ -421,6 +423,45 @@ class DocumentStore(BaseStore):
             rest[0].status = "Active"
         return True
 
+    def activate_ips(self, client_id: str, version: int) -> bool:
+        """Mark one IPS version Active; every other Active version of the client becomes Superseded (in memory)."""
+        cur = next((i for i in self._ips if i.client_id == client_id and i.version == version), None)
+        if cur is None:
+            return False
+        for i in self._ips:
+            if i.client_id == client_id and i.status == "Active" and i is not cur:
+                i.status = "Superseded"
+        cur.status = "Active"
+        return True
+
+    def update_ips_send(self, client_id: str, status: str, snapshot: dict) -> Optional[dict]:
+        """Change the status and snapshot of the client's current send (in memory). None if nothing was sent."""
+        rec = self._send_rows().get(client_id)
+        if rec is None:
+            return None
+        rec["status"] = status
+        rec["snapshot"] = json.loads(json.dumps(snapshot))
+        return json.loads(json.dumps(rec))
+
+    def get_pm_working(self, client_id: str) -> Optional[dict]:
+        """PM's working copy of the sent IPS (in memory), or None."""
+        if not hasattr(self, "_pm_working"):
+            self._pm_working = {}
+        w = self._pm_working.get(client_id)
+        return json.loads(json.dumps(w)) if w is not None else None
+
+    def put_pm_working(self, client_id: str, working: dict) -> None:
+        if not hasattr(self, "_pm_working"):
+            self._pm_working = {}
+        self._pm_working[client_id] = json.loads(json.dumps(working))
+
+    def set_client_status(self, client_id: str, status: str) -> bool:
+        c = self._row(client_id)
+        if c is None:
+            return False
+        c.status = status
+        return True
+
     # ---- client book (in memory; the seed file is never rewritten) ----
     def _row(self, client_id: str) -> Optional[Client]:
         return next((c for c in self._clients if c.id == client_id), None)
@@ -442,6 +483,22 @@ class DocumentStore(BaseStore):
         if monitoring is not None:
             c.monitoring_progress = monitoring
         return True
+
+    # ---- Review Pack state (in memory) ----
+    def get_review_pack_state(self, client_id: str) -> Optional[dict]:
+        r = self._review_states.get(client_id)
+        return json.loads(json.dumps(r["state"])) if r is not None else None
+
+    def put_review_pack_state(self, client_id: str, state: dict) -> str:
+        now = datetime.now(timezone.utc).isoformat()
+        self._review_states[client_id] = {"state": json.loads(json.dumps(state)), "updated_at": now}
+        return now
+
+    def list_review_pack_states(self) -> dict[str, dict]:
+        return {cid: json.loads(json.dumps(r["state"])) for cid, r in self._review_states.items()}
+
+    def delete_review_pack_state(self, client_id: str) -> bool:
+        return self._review_states.pop(client_id, None) is not None
 
 
 _default: Optional[BaseStore] = None

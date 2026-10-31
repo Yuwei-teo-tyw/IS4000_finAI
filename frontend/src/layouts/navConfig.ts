@@ -17,6 +17,8 @@ export interface NavItem {
   to: string;
   icon: LucideIcon;
   end?: boolean;
+  /** Show the pending-request count bubble (PM inbox). */
+  badge?: boolean;
 }
 
 export const ROLE_PEOPLE: Record<Role, { name: string; person: string; blurb: string; home: string }> = {
@@ -29,14 +31,8 @@ export const ROLE_PEOPLE: Record<Role, { name: string; person: string; blurb: st
   pm: {
     name: "Portfolio Manager",
     person: "Wei Lun",
-    blurb: "Owns the 3L, SAA and TAA",
+    blurb: "Owns the 3L, SAA, TAA and product list",
     home: "/pm/inbox",
-  },
-  ps: {
-    name: "Product Specialist",
-    person: "David",
-    blurb: "Owns the product list",
-    home: "/ps/inbox",
   },
 };
 
@@ -51,25 +47,18 @@ export function getNav(role: Role, _clientId: string): NavItem[] {
       ];
     case "pm":
       return [
-        { label: "Inbox", to: "/pm/inbox", icon: Inbox },
+        { label: "Inbox", to: "/pm/inbox", icon: Inbox, badge: true },
         { label: "Client Book", to: "/pm/clients", icon: BookUser },
         { label: "AI Assistant", to: "/pm/assistant", icon: Sparkles },
         { label: "House View Records", to: "/pm/house-views", icon: ScrollText },
-      ];
-    case "ps":
-      return [
-        { label: "Inbox", to: "/ps/inbox", icon: Inbox },
-        { label: "Client Book", to: "/ps/clients", icon: BookUser },
-        { label: "AI Assistant", to: "/ps/assistant", icon: Sparkles },
-        { label: "House View Records", to: "/ps/house-views", icon: ScrollText },
-        { label: "Product Shelf", to: "/ps/shelf", icon: Library },
-        { label: "Asset Class Views", to: "/ps/asset-views", icon: Layers },
+        { label: "Product Shelf", to: "/pm/shelf", icon: Library },
+        { label: "Asset Class Views", to: "/pm/asset-views", icon: Layers },
       ];
   }
 }
 
 const STORAGE_KEY = "arc.activeClient";
-// Any id is selectable: mock clients (mock/data.ts) for PM/PS and the database client book for the RM (e.g. `jft`).
+// Any id is selectable: mock clients (mock/data.ts) for PM and the database client book for the RM (e.g. `jft`).
 const DEFAULT_ID = "jfr";
 
 function isValid(id: string | null | undefined): id is string {
@@ -114,7 +103,7 @@ export function setActiveClientId(id: string) {
   if (current !== id) { current = id; listeners.forEach((fn) => fn()); }
 }
 
-/** Replace the client id segment of a route (/rm/clients/:id, /pm/cases/:id, /ps/cases/:id, /pm/requests/:id) so the same page opens for another client. */
+/** Replace the client id segment of a route (/rm/clients/:id, /pm/cases/:id, /pm/requests/:id) so the same page opens for another client. */
 export function pathForClient(pathname: string, id: string): string | null {
   const m = pathname.match(/^(.*\/(?:clients|requests|cases)\/)([^/]+)(.*)$/);
   if (!m || !isValid(m[2])) return null;

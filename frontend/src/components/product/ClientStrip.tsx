@@ -1,9 +1,5 @@
 import type { Client } from "../../types/arc";
 
-export { loadSelection, saveSelection } from "../../services/workflowStore";
-
-export const PS_STEPS = [{ label: "Product & Market Research" }, { label: "Send To PM" }];
-
 export function ClientStrip({ client }: { client?: Client }) {
   if (!client) return null;
   return (

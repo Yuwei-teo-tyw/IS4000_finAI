@@ -103,6 +103,14 @@ _DDL = [
     """CREATE TABLE IF NOT EXISTS cp_ips_sends (
         client_id TEXT PRIMARY KEY, version INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'Sent to PM',
         sent_at TEXT NOT NULL, rm_id TEXT NOT NULL DEFAULT 'rm_default', snapshot JSONB NOT NULL)""",
+    # PM working copy of the sent IPS: one jsonb per client; working.snapshotVersion says which send it was seeded from.
+    """CREATE TABLE IF NOT EXISTS cp_pm_working (
+        client_id TEXT PRIMARY KEY, working JSONB NOT NULL DEFAULT '{}'::jsonb,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now())""",
+    # Review Pack state (RM <-> PM shared, whole-document, last write wins). state is opaque JSON.
+    """CREATE TABLE IF NOT EXISTS cp_review_pack_state (
+        client_id TEXT PRIMARY KEY, state JSONB NOT NULL,
+        updated_at TIMESTAMPTZ NOT NULL)""",
     *_VIEW_DDL,
 ]
 
@@ -582,6 +590,64 @@ class PostgresStore(BaseStore):
     def withdraw_ips_send(self, client_id: str) -> bool:
         with self._connect() as conn:
             return conn.execute("DELETE FROM cp_ips_sends WHERE client_id = %s", (client_id,)).rowcount > 0
+
+    def update_ips_send(self, client_id: str, status: str, snapshot: dict) -> Optional[dict]:
+        with self._connect() as conn:
+            r = conn.execute("UPDATE cp_ips_sends SET status = %s, snapshot = %s WHERE client_id = %s "
+                             "RETURNING client_id, version, status, sent_at, rm_id, snapshot",
+                             (status, Jsonb(json.loads(json.dumps(snapshot))), client_id)).fetchone()
+        if r is None:
+            return None
+        return {"clientId": r["client_id"], "version": r["version"], "status": r["status"], "sentAt": r["sent_at"],
+                "rmId": r["rm_id"], "snapshot": r["snapshot"]}
+
+    # ---- PM working copy of the sent IPS (cp_pm_working) ----
+    def get_pm_working(self, client_id: str) -> Optional[dict]:
+        with self._connect() as conn:
+            r = conn.execute("SELECT working FROM cp_pm_working WHERE client_id = %s", (client_id,)).fetchone()
+        return r["working"] if r else None
+
+    def put_pm_working(self, client_id: str, working: dict) -> None:
+        with self._connect() as conn:
+            conn.execute("INSERT INTO cp_pm_working (client_id, working, updated_at) VALUES (%s, %s, now()) "
+                         "ON CONFLICT (client_id) DO UPDATE SET working = EXCLUDED.working, updated_at = now()",
+                         (client_id, Jsonb(json.loads(json.dumps(working)))))
+
+    # ---- Review Pack state (cp_review_pack_state) ----
+    def get_review_pack_state(self, client_id: str) -> Optional[dict]:
+        with self._connect() as conn:
+            r = conn.execute("SELECT state FROM cp_review_pack_state WHERE client_id = %s", (client_id,)).fetchone()
+        return r["state"] if r else None
+
+    def put_review_pack_state(self, client_id: str, state: dict) -> str:
+        with self._connect() as conn:
+            r = conn.execute("INSERT INTO cp_review_pack_state (client_id, state, updated_at) VALUES (%s, %s, now()) "
+                             "ON CONFLICT (client_id) DO UPDATE SET state = EXCLUDED.state, updated_at = EXCLUDED.updated_at "
+                             "RETURNING updated_at",
+                             (client_id, Jsonb(state))).fetchone()
+        return r["updated_at"].isoformat()
+
+    def list_review_pack_states(self) -> dict[str, dict]:
+        with self._connect() as conn:
+            rows = conn.execute("SELECT client_id, state FROM cp_review_pack_state").fetchall()
+        return {r["client_id"]: r["state"] for r in rows}
+
+    def delete_review_pack_state(self, client_id: str) -> bool:
+        with self._connect() as conn:
+            return conn.execute("DELETE FROM cp_review_pack_state WHERE client_id = %s", (client_id,)).rowcount > 0
+
+    # ---- activation and client status ----
+    def activate_ips(self, client_id: str, version: int) -> bool:
+        """One transaction: the other Active versions of the client become Superseded, this one becomes Active."""
+        with self._connect() as conn:
+            conn.execute("UPDATE cp_ips_versions SET status = 'Superseded' WHERE client_id = %s AND status = 'Active' AND version <> %s",
+                         (client_id, version))
+            return conn.execute("UPDATE cp_ips_versions SET status = 'Active' WHERE client_id = %s AND version = %s",
+                                (client_id, version)).rowcount > 0
+
+    def set_client_status(self, client_id: str, status: str) -> bool:
+        with self._connect() as conn:
+            return conn.execute("UPDATE cp_clients SET status = %s WHERE id = %s", (status, client_id)).rowcount > 0
 
     # ---- IPS chat history (cp_ips_chat) ----
     @staticmethod

@@ -26,9 +26,9 @@ def get_strategy(code: str) -> dict | None:
 
 
 def allowed_strategies(bucket: str) -> list[str]:
-    """Liquidity is limited to A-B; Longevity and Legacy may use any of A-F."""
+    """Only Longevity and Legacy get a strategy (A-F); the Liquidity portfolio gets no SAA / strategy."""
     if bucket == "liquidity":
-        return list(_raw()["liquidity_allowed"])
+        return []
     return [s["code"] for s in load_strategies()]
 
 

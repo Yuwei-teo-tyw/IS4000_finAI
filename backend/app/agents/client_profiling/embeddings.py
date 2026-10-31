@@ -27,10 +27,17 @@ def embed(texts: list[str], prefix: str = "") -> Optional[list[list[float]]]:
     """One vector per text (same order), or None on any failure."""
     if not texts:
         return []
-    url = os.getenv("CLIENT_PROFILING_LLM_URL", "http://localhost:1234/v1").rstrip("/") + "/embeddings"
-    body = json.dumps({"model": embed_model(), "input": [prefix + t for t in texts]}).encode()
+    base = (os.getenv("CLIENT_PROFILING_EMBED_URL") or os.getenv("CLIENT_PROFILING_LLM_URL", "http://localhost:1234/v1")).rstrip("/")
+    url = base + "/embeddings"
+    payload: dict = {"model": embed_model(), "input": [prefix + t for t in texts]}
+    if "api.openai.com" in base and os.getenv("CLIENT_PROFILING_EMBED_DIMS"):
+        payload["dimensions"] = int(os.environ["CLIENT_PROFILING_EMBED_DIMS"])  # text-embedding-3 can shrink to the DB's vector size
+    headers = {"Content-Type": "application/json"}
+    if os.getenv("CLIENT_PROFILING_EMBED_API_KEY"):
+        headers["Authorization"] = f"Bearer {os.environ['CLIENT_PROFILING_EMBED_API_KEY']}"
+    body = json.dumps(payload).encode()
     try:
-        req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"})
+        req = urllib.request.Request(url, data=body, headers=headers)
         with urllib.request.urlopen(req, timeout=TIMEOUT_S) as resp:
             data = sorted(json.loads(resp.read())["data"], key=lambda d: d.get("index", 0))
         vecs = [[float(x) for x in d["embedding"]] for d in data]

@@ -8,7 +8,8 @@ import { SortByDate, type SortOrder } from "../../components/documents/SortByDat
 import { IpsGenerationTimeline } from "../../components/documents/IpsGenerationTimeline";
 import { dismissIpsRun, startIpsGeneration, useIpsRun } from "../../services/ipsGenStore";
 import { arcApi } from "../../services/arcApi";
-import { activateIps, setActiveIps, useActiveIps, useIpsReturned } from "../../services/workflowStore";
+import { setActiveIps, useActiveIps, useIpsReturned } from "../../services/workflowStore";
+import { activateIpsForClient } from "../../services/ipsHandover";
 import IpsDraft from "../rm/IpsDraft";
 import { IpsStatusBadge } from "../rm/IpsSendUi";
 import { formatSentAt, useIpsSendStatus, type IpsStatusLabel } from "../rm/ipsSendUtil";
@@ -66,7 +67,14 @@ export function IpsHistory({ clientId, clientName = "" }: { clientId: string; cl
   const [generated, setGenerated] = useState<IpsGenerated | undefined>(undefined);
   const [editVersion, setEditVersion] = useState<number | undefined>(undefined);
   const [deleteError, setDeleteError] = useState("");
+  const [activateError, setActivateError] = useState("");
   const [reload, setReload] = useState(0);
+  /** Draft -> Active goes through the backend first (G1 gate); a refusal is shown, never swallowed. */
+  const activateDraft = async (v: IpsVersion) => {
+    setActivateError("");
+    try { await activateIpsForClient(clientId, v.version); setReload((n) => n + 1); }
+    catch (e) { setActivateError(e instanceof Error ? e.message : "The IPS could not be made active."); }
+  };
   useEffect(() => {  // Geneva applied an allocation change to a saved IPS while no editor was open
     const h = (e: Event) => { if ((e as CustomEvent<{ clientId?: string }>).detail?.clientId === clientId) setReload((n) => n + 1); };
     window.addEventListener("ips-versions-changed", h);
@@ -81,7 +89,8 @@ export function IpsHistory({ clientId, clientName = "" }: { clientId: string; cl
   );
   const { status: sendStatus } = useIpsSendStatus(clientId);
   const explicit = useActiveIps(clientId);
-  const returned = useIpsReturned(clientId);
+  const returnedLocal = useIpsReturned(clientId);
+  const returned = returnedLocal || sendStatus?.status === "Returned by PM";
   const activeVersion = explicit ?? [...(versions ?? [])].filter((v) => v.status !== "Draft").sort((a, b) => b.version - a.version)[0]?.version ?? null;
   const name = clientName || client?.name || "Client";
   const removeVersion = async (v: IpsVersion) => {
@@ -169,8 +178,9 @@ export function IpsHistory({ clientId, clientName = "" }: { clientId: string; cl
             <SortByDate value={order} onChange={setOrder} />
           </div>
           {deleteError && <p role="alert" className="mb-4 text-sm text-negative">{deleteError}</p>}
+          {activateError && <p role="alert" className="mb-4 text-sm text-negative">{activateError}</p>}
           <div className="flex flex-col gap-8">
-            {sorted.map((v) => <VersionCard key={v.version} v={v} clientName={name} canEdit={role === "rm" && (v.status === "Active" || v.status === "Draft")} onEdit={() => { setEditVersion(v.status === "Draft" ? v.version : undefined); setEditing(true); }} onDelete={role === "rm" ? () => removeVersion(v) : undefined} isActive={v.version === activeVersion} canActivate={role === "rm"} onActivate={() => { if (v.status === "Draft") activateIps(clientId, v.version); else setActiveIps(clientId, v.version); }} returned={returned} />)}
+            {sorted.map((v) => <VersionCard key={v.version} v={v} clientName={name} canEdit={role === "rm" && (v.status === "Active" || v.status === "Draft")} onEdit={() => { setEditVersion(v.status === "Draft" ? v.version : undefined); setEditing(true); }} onDelete={role === "rm" ? () => removeVersion(v) : undefined} isActive={v.version === activeVersion} canActivate={role === "rm"} onActivate={() => { if (v.status === "Draft") void activateDraft(v); else setActiveIps(clientId, v.version); }} returned={returned} />)}
           </div>
         </div>
       )}

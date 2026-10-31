@@ -3,7 +3,7 @@ import { Badge, Card, Loading, PageHeader, Section, useAsync, useAsyncResult } f
 import { arcApi, ProductRecommenderError } from "../../services/arcApi";
 import type { Product } from "../../types/arc";
 import { useActiveClientId } from "../../layouts/navConfig";
-import { ClientStrip } from "./psShared";
+import { ClientStrip } from "../../components/product/ClientStrip";
 
 function ProductShelf({ products, limit }: { products: Product[]; limit: number }) {
   const [cls, setCls] = useState<string>("All");
@@ -43,7 +43,7 @@ export default function ProductShelfPage() {
   const { data: products, error } = useAsyncResult(() => arcApi.getProducts(clientId), [clientId]);
   return (
     <div>
-      <PageHeader eyebrow="Product Specialist" title="Product Shelf" />
+      <PageHeader eyebrow="Portfolio Manager" title="Product Shelf" />
       <ClientStrip client={client} />
       {error ? (
         <Card className="!p-8">

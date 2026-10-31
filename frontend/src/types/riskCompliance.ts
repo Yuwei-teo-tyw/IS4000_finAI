@@ -11,7 +11,7 @@ export type RcEffect = "BLOCK" | "NEEDS_INFO" | "CONDITION" | "NOTE";
 
 export interface RcAllocationRow { asset_class: string; saa: number; current: number; old_taa: number; new_taa: number; band: number }
 export interface RcPackProduct { product_id?: string | null; product_name: string; asset_class?: string | null; weight_pct?: number | null }
-export interface RcPackSection { n: number; title: string; owner: "rm" | "pm" | "ps"; gate: GateId | null; status: "draft" | "ready" | "flagged" | "approved"; text: string; kind?: "signoff" | null }
+export interface RcPackSection { n: number; title: string; owner: "rm" | "pm"; gate: GateId | null; status: "draft" | "ready" | "flagged" | "approved"; text: string; kind?: "signoff" | null }
 
 export interface RcPackRequest {
   request_id?: string; client_id: string; pack_version?: string | null; reference_date: string; policy_version?: string | null;

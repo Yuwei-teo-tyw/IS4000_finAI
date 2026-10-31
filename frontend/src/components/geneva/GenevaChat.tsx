@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Check, ChevronDown, ArrowUp, MessageSquarePlus, Search, Trash2 } from "lucide-react";
+import { Check, ChevronDown, ArrowUp, Square, MessageSquarePlus, Search, Trash2 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import type { Client } from "../../types/arc";
 import { pathForClient, setActiveClientId } from "../../layouts/navConfig";
@@ -8,14 +8,14 @@ import { ClientProfilingCard } from "./ClientProfilingCard";
 import type { AllocationDialogue, AllocationProposal, ClientProfilingResult, ClientProfilingSourceChoice } from "../../types/clientProfiling";
 import { profileApi } from "../../services/profileApi";
 import type { PaBucketId, PaChatReply, PaChatTurn } from "../../types/portfolio";
-import { RefLine, ViewHeadline } from "../ps/AssetViewParts";
+import { RefLine, ViewHeadline } from "../product/AssetViewParts";
 import type { PrAssetView } from "../../types/productRecommender";
 import { findProducts } from "../../utils/productMatch";
 import { saveIpsDraftExtras, toggleSelection, useActiveIps, useSelection, loadSelection, saveSelection, getIpsDraftExtras, appendIpsDraftNote } from "../../services/workflowStore";
 import { IPS_GEN_SECTIONS, type IpsGenSectionResult,type IpsChatMessage, type IpsDiscussResult } from "../../types/arc";
 import { historyNotice, STANCE_CHIP, NO_MODEL_NOTICE } from "../../services/ipsChatHistory";
 import { subscribeIpsGen, type IpsGenEvent } from "../../services/ipsGenBus";
-import { getIpsRun } from "../../services/ipsGenStore";
+import { getIpsRun, cancelIpsGeneration } from "../../services/ipsGenStore";
 import type { GenevaPendingAction, GenevaReply, MacroView, MarketAnswer, MarketRow, Role } from "../../types/arc";
 import { Badge, BulletList, Button, CitationTag, DirectionArrow, Table, toBulletItems } from "../ui";
 import { savePackDraft } from "../../services/packDraftStore";
@@ -34,24 +34,19 @@ function answerPlainText(a: MarketAnswer): string {
   return parts.join(" ").replace(/<[^>]*>/g, "").replace(/\[[^\]]*\]/g, "").replace(/[*_`#]+/g, "").replace(/\s+/g, " ").trim();
 }
 
-const MATCH_PROMPT = "Read client IPS, and research market, match products most suited to client via risk appetite and preferences and current market condition";
 const SEEDED: Record<Role, string[]> = {
-  ps: [
-    MATCH_PROMPT,
-    "Tell me if the Global Quality Dividend ETF suits the client's profile, explain why, and whether it fits the current macroeconomic status",
-    "For fixed income, I want the Asia Investment-Grade Bond Fund, the Singapore Government Bond ETF and the Accredited-Investor Senior Bond Note",
+  rm: ["Summarise the client's IPS", "What are the client's goals?", "Review the IPS", "Summarise the meeting notes", "What did the client say in the last meeting?", "Write the latest client profile + goals section formally in bullet points", "Why is portfolio health flagged?", "Explain the old vs new TAA", "Are recession risks rising right now?"],
+  pm: ["Analyse this client's portfolio strengths and weaknesses", "Which holdings move together?", "Compare the old and new TAA", "Propose a TAA", "Summarise the client's IPS", "How are the markets today, and what is the regime, according to the CIO House View and the web?", "Edit the client's individual holdings", "Why are Treasury yields moving this week?",
     "What is the CIO House View?",
     "What is the current economic cycle and the CIO view per asset class?",
-    "What is the top 5 ranking for equities and why?",
     "What's the view on fixed income?",
     "How does gold look for this client?",
-    "How is oil affecting the inflation outlook?",
+    "How is oil affecting the inflation outlook?"
   ],
-  rm: ["Summarise the client's IPS", "What are the client's goals?", "Review the IPS", "Summarise the meeting notes", "What did the client say in the last meeting?", "Write the latest client profile + goals section formally in bullet points", "Why is portfolio health flagged?", "Explain the old vs new TAA", "Are recession risks rising right now?"],
-  pm: ["Analyse this client's portfolio strengths and weaknesses", "Which holdings move together?", "Compare the old and new TAA", "Propose a TAA", "Summarise the client's IPS", "How are the markets today, and what is the regime, according to the CIO House View and the web?", "Edit the client's individual holdings", "Why are Treasury yields moving this week?"],
 };
-const HEADING: Record<Role, string> = { ps: "What would you like to research?", rm: "How can I help with this client?", pm: "How can I help with this portfolio?" };
-const PLACEHOLDER: Record<Role, string> = { ps: "Ask about markets or products", rm: "Ask about the IPS, goals or meetings", pm: "Ask about the portfolio or TAA" };
+const PM_IPS_PROMPTS = ["Why was this 3L split proposed?", "Explain the SAA strategy for Longevity", "Explain the SAA strategy for Legacy", "Why does Liquidity have no SAA?", "Which sections of this IPS drive the 3L and SAA rationale?", "Is the Longevity strategy consistent with the client's risk profile?"];
+const HEADING: Record<Role, string> = { rm: "How can I help with this client?", pm: "How can I help with this portfolio?" };
+const PLACEHOLDER: Record<Role, string> = { rm: "Ask about the IPS, goals or meetings", pm: "Ask about the portfolio or TAA" };
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const viewTone = { Buy: "green", Hold: "amber", Sell: "red" } as const;
 const label = "text-xs font-semibold uppercase tracking-[0.12em] text-ink-muted";
@@ -206,7 +201,7 @@ function IpsGenView({ g, clientId }: { g: NonNullable<Msg["ipsGen"]>; clientId: 
           </ol>
         </div>
       )}
-      {g.status === "error" && <p className="text-[16px] leading-7 text-negative">{g.error}</p>}
+      {g.status === "error" && <p className={`text-[16px] leading-7 ${g.error === "Generation cancelled." ? "text-ink-muted" : "text-negative"}`}>{g.error === "Generation cancelled." ? "Stopped. Sections already written are shown above; nothing was saved." : g.error}</p>}
       {g.status === "done" && !g.unavailable && <p className="text-[17px] leading-7 text-ink-700">{g.saved ? "Draft saved automatically to the IPS versions. Open it to review and edit before sending." : "Draft ready in the IPS editor."} Please ascertain these facts against the meeting notes before sending.</p>}
       {g.unavailable && <p className="text-[17px] leading-7 text-ink-700">{NO_MODEL_NOTICE}</p>}
       {note && <MeetingNoteModal clientId={clientId} noteId={note.id} passage={note.passage} fallbackLabel={note.title} fallbackDate={note.date} onClose={() => setNote(null)} />}
@@ -214,7 +209,7 @@ function IpsGenView({ g, clientId }: { g: NonNullable<Msg["ipsGen"]>; clientId: 
   );
 }
 
-/* ---- PS asset-class view: "What's the view on fixed income?" (one class named, view wording, no product wording) ---- */
+/* ---- PM asset-class view: "What's the view on fixed income?" (one class named, view wording, no product wording) ---- */
 const ASSET_WORDS: [RegExp, string][] = [
   [/\bfixed income\b|\bbonds?\b/i, "Fixed income"], [/\bequit(?:y|ies)\b|\bstocks?\b/i, "Equities"], [/\bcash\b|\bmoney market\b/i, "Cash"],
   [/\bgold\b/i, "Gold"], [/\breal estate\b|\breits?\b|\bproperty\b/i, "Real estate"], [/\bhedge funds?\b/i, "Hedge funds"],
@@ -241,7 +236,7 @@ function AssetViewCard({ v, clientId }: { v: PrAssetView; clientId: string }) {
       )}
       <div className="flex flex-wrap items-center justify-between gap-4 rounded-sm border border-hairline-strong px-5 py-3">
         <p className="text-sm text-ink-700">Segments, market snapshot, scenarios, risks and products are in the full analysis, with Accept and Edit.</p>
-        <Button variant="primary" size="sm" to={`/ps/asset-views/${assetClassSlug(v.asset_class)}?client=${clientId}`}>Open full analysis</Button>
+        <Button variant="primary" size="sm" to={`/pm/asset-views/${assetClassSlug(v.asset_class)}?client=${clientId}`}>Open full analysis</Button>
       </div>
     </div>
   );
@@ -258,7 +253,11 @@ async function buildIpsDraftQuestion(clientId: string, question: string): Promis
   const buckets = IPS_BUCKETS.filter((b) => saa[b]);
   const prof = await profileApi.getClientProfile(clientId).catch(() => null);
   const w = buckets.map((b) => `${IPS_BUCKET_LABEL[b]} ${saa[b]!.optionName ?? saa[b]!.optionId}: ${Object.entries(saa[b]!.weights).filter(([, v]) => v > 0).map(([k, v]) => `${k} ${Math.round(v * 10) / 10}%`).join(", ")}`).join("; ");
-  const facts = prof ? `Client: age ${prof.age}; horizon ${prof.timeHorizon}; income ${prof.incomeSource}; liquidity ${prof.liquidityNeeds}; loss tolerance ${prof.lossTolerance.join(" / ")}; goals ${prof.goals.join(" / ")}.` : "";
+  const x = getIpsDraftExtras(clientId);
+  const split = (x.buckets ?? []).map((b) => `${b.id} ${b.pct}% (S$${Math.round(b.amountSgd)}, ${b.horizon})`).join("; ");
+  const strat = (["liquidity", "longevity", "legacy"] as const).filter((b) => x.allocation?.[b]).map((b) => `${IPS_BUCKET_LABEL[b]} Strategy ${x.allocation![b]}${x.allocationNotes?.[b] ? ` (${x.allocationNotes[b]})` : ""}`).join("; ");
+  const facts0 = prof ? `Client: age ${prof.age}; horizon ${prof.timeHorizon}; income ${prof.incomeSource}; liquidity ${prof.liquidityNeeds}; loss tolerance ${prof.lossTolerance.join(" / ")}; goals ${prof.goals.join(" / ")}.` : "";
+  const facts = `${facts0}${split ? ` 3L split: ${split}.` : ""}${strat ? ` Strategies chosen: ${strat}.` : ""}`;
   const brief = `${question}\n\nProposed portfolios on the IPS draft (answer only from these and the client facts, short bullets): ${w || "none yet"}. ${facts}`;
   return { q: brief, buckets };
 }
@@ -289,6 +288,8 @@ function IpsExplainCard({ x, onAdd }: { x: NonNullable<Msg["ipsExplain"]>; onAdd
   );
 }
 
+/** PM product questions: shortlist, product names, product wording. Everything else stays with the portfolio agents. */
+const PRODUCT_ASK = /\b(products?|etfs?|funds?|notes?|shortlist\w*|recommend\w*|house view|cio view|top 5|finali[sz]e)\b/i;
 const MATCH_INTENT = /read client ips.*(research market|match products)/i;
 /** Agent failures are shown, never replaced with mock answers. */
 /** The user text that prompted the agent message at index i. */
@@ -409,7 +410,7 @@ function RecommendView({ r, picked, onToggle, clientId }: { r: Recommend; picked
         {picked.length > 0 && (
           <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-sm border border-hairline-strong px-5 py-3">
             <p className="text-sm text-ink-700">{picked.length} product{picked.length === 1 ? "" : "s"} ticked. They also show in the Product Shelf.</p>
-            <Button variant="primary" size="sm" to={`/ps/cases/${clientId}/finalise`}>Finalise list</Button>
+            <Button variant="primary" size="sm" to={`/pm/cases/${clientId}/review`}>Open review pack</Button>
           </div>
         )}
       </section>
@@ -418,7 +419,7 @@ function RecommendView({ r, picked, onToggle, clientId }: { r: Recommend; picked
   );
 }
 
-/* ---- PS finalise-by-prompt: detect "I'm happy with X and Y" and match product names ---- */
+/* ---- PM finalise-by-prompt: detect "I'm happy with X and Y" and match product names ---- */
 const FINALISE_INTENT = /\b(finali[sz]e|happy with|ok with|okay with|fine with|good with|comfortable with|go with|going with|proceed with|shortlist|i like|i(?:'|’)ll take|i want to (?:take|go|proceed|keep)|i(?:'|’)m (?:ok|ok?ay|happy|fine) )/i;
 interface Chat { id: number; title: string; messages: Msg[]; sessionId: string; /** Last activity (ms), for newest-first order and the date beside the title. */ at: number; /** Saved on the server (IS-98) but its messages are fetched only when opened. */ remote?: boolean; loaded?: boolean; /** Dedicated AI IPS chat: saved to the server and answers allocation questions. */ ips?: boolean }
 
@@ -493,7 +494,7 @@ function AnswerView({ a, picked, onToggle, clientId, role }: { a: MarketAnswer; 
           {picked.length > 0 && (
             <div className="flex flex-wrap items-center justify-between gap-4 rounded-sm border border-hairline-strong px-5 py-3">
               <p className="text-sm text-ink-700">{picked.length} product{picked.length === 1 ? "" : "s"} ticked. They also show in the Product Shelf.</p>
-              <Button variant="primary" size="sm" to={`/ps/cases/${clientId}/finalise`}>Finalise list</Button>
+              <Button variant="primary" size="sm" to={`/pm/cases/${clientId}/review`}>Open review pack</Button>
             </div>
           )}
         </section>
@@ -511,7 +512,7 @@ function ClientSwitcher({ clientId, name, role }: { clientId: string; name: stri
   const ref = useRef<HTMLDivElement>(null);
   const { pathname, search } = useLocation();
   const navigate = useNavigate();
-  // The RM's chat reads the client book DB (the same ids the profiling agent checks access against); PM/PS still use the mock list.
+  // The RM's chat reads the client book DB (the same ids the profiling agent checks access against); PM still uses the mock list.
   useEffect(() => {
     let on = true;
     const load = role === "rm" ? arcApi.listBook().then((b) => b.clients.map(bookToClient)) : arcApi.listClients();
@@ -567,7 +568,7 @@ function ClientSwitcher({ clientId, name, role }: { clientId: string; name: stri
 /** The one Geneva chat. Used full-page (AI Assistant) and inside the floating launcher (compact). Style rules: AGENTS.md "Chatbot style". */
 export function GenevaChat({ role, clientId, compact = false }: { role: Role; clientId: string; compact?: boolean }) {
   const { pathname: routePath } = useLocation();
-  const onIpsDraft = role === "rm" && /\/clients\/[^/]+\/ips-draft\/?$/.test(routePath);
+  const onIpsDraft = (role === "rm" && /\/clients\/[^/]+\/ips-draft\/?$/.test(routePath)) || (role === "pm" && /\/requests\/[^/]+\/ips\/?$/.test(routePath));
   const blank = (id: number): Chat => ({ id, title: DEFAULT_CHAT_TITLE, messages: [], sessionId: arcApi.newChatSession(role, clientId), at: Date.now() });
   const [chats, setChats] = useState<Chat[]>(() => [blank(1)]);
   const [source, setSource] = useState<SourceRef | null>(null);
@@ -616,6 +617,8 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
   /** AI IPS generation: one dedicated chat per run. Events replay for 5s, so handled ones are tracked by identity. */
   const genChat = useRef<number | null>(null);
   const handled = useRef(new WeakSet<IpsGenEvent>());
+  /** Chats whose in-flight reply the user stopped: late results for them are dropped. */
+  const dropped = useRef(new Set<number>());
   const genSections = useRef<IpsGenSectionResult[]>([]);
   /** Messages already on the server (restored or saved); everything else in an IPS chat is saved once. */
   const saved = useRef(new WeakSet<Msg>());
@@ -731,7 +734,14 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
   const ordered = [...chats].sort((a, b) => b.at - a.at);
   const noChatsYet = chatsLoaded && !chatsNote && chats.every((c) => c.ips ? false : !c.remote && c.messages.length === 0);
   const shownNote = historyNote ?? chatsNote;
-  const busy = working?.chatId === chat.id;
+  const busy = working?.chatId === chat.id && !dropped.current.has(chat.id);
+  const genRunning = chat.ips && chat.messages.some((m) => m.ipsGen?.status === "running");
+  const stop = () => {
+    if (genRunning) { cancelIpsGeneration(clientId); return; }
+    dropped.current.add(chat.id);
+    setWorking(null);
+    setChats((cs) => cs.map((c) => c.id === chat.id ? { ...c, messages: [...c.messages, { from: "agent", text: "Stopped. No answer was produced for this question." }] } : c));
+  };
   /** What produced the latest agent answer: a local model, a hosted API model, or plain rules. */
   const engine = (() => {
     const last = [...chat.messages].reverse().find((m) => m.from === "agent" && !m.approval);
@@ -757,7 +767,7 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
     if (el && nearBottom.current) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [chat.messages, working?.shown]);
 
-  const patch = (id: number, fn: (c: Chat) => Chat) => setChats((cs) => cs.map((c) => (c.id === id ? fn(c) : c)));
+  const patch = (id: number, fn: (c: Chat) => Chat) => dropped.current.has(id) ? undefined : setChats((cs) => cs.map((c) => (c.id === id ? fn(c) : c)));
   const newChat = () => {
     const empty = chats.find((c) => !c.ips && !c.remote && c.messages.length === 0);
     if (empty) { setActiveId(empty.id); return; }
@@ -878,6 +888,7 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
     const text = raw.trim();
     if (!text || busy || awaitingApproval) return;
     const id = chat.id;
+    dropped.current.delete(id);
     const sessionId = chat.sessionId;
     nearBottom.current = true;
     setDraft("");
@@ -946,7 +957,7 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
         return;
       }
     }
-    if (role === "ps" && MATCH_INTENT.test(text)) {
+    if (role === "pm" && MATCH_INTENT.test(text)) {
       try {
         const { steps, rec } = await buildRecommendation(clientId, ipsVersion);
         setWorking({ chatId: id, steps, shown: 0 });
@@ -960,7 +971,7 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
       }
       return;
     }
-    const assetClass = role === "ps" ? askedAssetClass(text) : null;
+    const assetClass = role === "pm" ? askedAssetClass(text) : null;
     if (assetClass) {
       try {
         const v = await arcApi.getAssetClassView(assetClass, clientId);
@@ -983,7 +994,7 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
       }
       return;
     }
-    if (role === "ps" && FINALISE_INTENT.test(text)) {
+    if (role === "pm" && PRODUCT_ASK.test(text) && FINALISE_INTENT.test(text)) {
       let reply: string; let names: string[] | undefined;
       try {
         const products = await arcApi.getProducts(clientId);
@@ -1014,7 +1025,7 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
       setWorking(null);
       return;
     }
-    if ((role === "rm" || role === "pm") && PORTFOLIO_INTENT.test(text) && !OTHER_AGENT_INTENT.test(text)) {
+    if ((role === "rm" || role === "pm") && PORTFOLIO_INTENT.test(text) && !OTHER_AGENT_INTENT.test(text) && !(role === "pm" && PRODUCT_ASK.test(text))) {
       const history: PaChatTurn[] = [];
       chat.messages.forEach((m, i) => {
         const next = chat.messages[i + 1];
@@ -1032,7 +1043,7 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
     }
     try {
       // Client-data and workflow intents are answered from the workspace; anything else goes to the LangGraph backend.
-      const a = await arcApi.answerLocally(role, clientId, text, ipsVersion);
+      const a = (role === "pm" && PRODUCT_ASK.test(text) ? await arcApi.answerProductsLocally(clientId, text, ipsVersion) : null) ?? await arcApi.answerLocally(role, clientId, text, ipsVersion);
       if (!a) {
         addReply(id, await withThinking(id, arcApi.askBackend(role, clientId, sessionId, text, ipsVersion), BACKEND_STEPS, () => "Groq"), text);
         return;
@@ -1058,8 +1069,13 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
       <input value={draft} onChange={(e) => setDraft(e.target.value)} aria-label="Message Geneva" disabled={awaitingApproval}
         placeholder={awaitingApproval ? "Approve or decline the proposed action first" : PLACEHOLDER[role]}
         className="min-h-10 min-w-0 flex-1 bg-transparent text-[15px] text-ink outline-none placeholder:text-ink-muted" />
+      {(busy || genRunning) ? (
+        <button type="button" onClick={stop} aria-label="Stop" title="Stop"
+          className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-full border border-hairline-strong bg-surface-100 px-4 text-[14px] text-ink hover:bg-surface-300"><Square size={12} />Stop</button>
+      ) : (
       <button type="submit" disabled={busy || awaitingApproval || !draft.trim()} aria-label="Send" title="Send"
         className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-brand text-white disabled:opacity-40"><ArrowUp size={18} /></button>
+      )}
     </form>
   );
 
@@ -1114,7 +1130,7 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
             {shownNote && <p role="status" className="mb-3 border-l border-hairline-strong pl-3 text-[13px] font-light text-ink-muted">Geneva: {shownNote}</p>}
             {composer}
             <ul className="mt-6 w-full max-w-4xl">
-              {SEEDED[role].map((q) => (
+              {(onIpsDraft && role === "pm" ? PM_IPS_PROMPTS : SEEDED[role]).map((q) => (
                 <li key={q}>
                   <button type="button" onClick={() => send(q)} className="flex w-full items-start gap-4 rounded-sm px-4 py-3 text-left text-[15px] leading-6 text-ink-700 hover:bg-surface-300 hover:text-ink">
                     <Search size={18} className="mt-0.5 shrink-0 text-ink-muted" /> {q}
@@ -1137,7 +1153,7 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
                       {m.finalise.length > 0 && (
                         <>
                           <ul className="list-disc space-y-1 pl-5 text-[17px] leading-7 text-ink-700">{m.finalise.map((n) => <li key={n}>{n}</li>)}</ul>
-                          <div><Button variant="primary" size="sm" to={`/ps/cases/${clientId}/finalise`}>Finalise list</Button></div>
+                          <div><Button variant="primary" size="sm" to={`/pm/cases/${clientId}/review`}>Open review pack</Button></div>
                         </>
                       )}
                     </div>

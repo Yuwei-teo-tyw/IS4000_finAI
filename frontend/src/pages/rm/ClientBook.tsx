@@ -3,6 +3,7 @@ import { ArrowDownWideNarrow, ArrowUpNarrowWide, CalendarClock, Landmark, Users,
 import { arcApi, bookToClient } from "../../services/arcApi";
 import { Button, Card, Loading, RiskScale, sgd, useAsyncResult } from "../../components/ui";
 import { WelcomeBanner } from "../../components/ui/WelcomeBanner";
+import { PackBackBubble } from "../../components/rm/PackBackBubble";
 import { useRole } from "../../layouts/AppShell";
 import { fmtDate, usePackStatus } from "./rmShared";
 import type { Client } from "../../types/arc";
@@ -158,7 +159,7 @@ export default function ClientBook() {
             <div className="flex flex-col gap-4">
         {g.list.map((c) => (
           <Card key={c.id} className={`grid gap-y-4 !px-8 !py-6 ${isRm ? COLS_RM : COLS}`}>
-            <p className="text-xl text-ink">{c.name}</p>
+            <div className="flex min-w-0 flex-wrap items-center gap-3"><p className="text-xl text-ink">{c.name}</p>{isRm && <PackBackBubble clientId={c.id} />}</div>
             {c.riskCap ? <div><RiskScale value={c.riskCap} /><p className="mt-2 text-xs text-ink-muted">{c.riskCategory}, {c.riskCap} of 5</p></div> : NONE}
             <p className="text-sm font-semibold">{sgd(c.aumSgd)}</p>
             {c.nextMeeting ? (

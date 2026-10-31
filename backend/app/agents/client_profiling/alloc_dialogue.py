@@ -85,6 +85,8 @@ def _label(b: str) -> str:
 
 
 def _strategy_ref(code: str) -> str:
+    if code == "NA":
+        return "no strategy (no SAA)"
     return f"Strategy {code} ({strategy_name(code)})"
 
 
@@ -158,6 +160,9 @@ def justify_allocation(store, client_id: str, message: str, allocation: Optional
     paras, sources, thin = [], [], False
     for b in targets:
         code = cur[b]["strategy"]
+        if b == "liquidity":  # no SAA / strategy: nothing to justify beyond the rule
+            paras.append(f"{_label(b)}: {LIQUIDITY_LIMIT_MSG}")
+            continue
         ev = best_evidence(notes, f"{_BUCKET_QUERY[b]} {strategy_name(code)}", b)
         head = f"{_label(b)}: {_strategy_ref(code)}."
         if ev is None:
@@ -202,8 +207,7 @@ def _liquidity_refusal(cur: dict) -> dict:
     lng = cur.get("longevity", {}).get("strategy")
     sug = (f"The extra growth fits better in the Longevity portfolio (currently {_strategy_ref(lng)}); I can propose a higher "
            f"strategy there if you want." if lng else "The extra growth fits better in the Longevity portfolio.")
-    liq = cur["liquidity"]["strategy"]
-    text = f"{STANCE_LABEL['disagree']}. {LIQUIDITY_LIMIT_MSG} {_table_facts(liq)}. {sug}"
+    text = f"{STANCE_LABEL['disagree']}. {LIQUIDITY_LIMIT_MSG} {sug}"
     return _result("ok", text, stance="disagree", stanceLabel=STANCE_LABEL["disagree"], allocation=_full_alloc(cur),
                    rule={"bucket": "liquidity", "allowed": allowed_strategies("liquidity")})
 
@@ -228,9 +232,10 @@ def challenge_allocation(store, client_id: str, message: str, history: Optional[
     if not cur:
         return _result("no_allocation", NO_ALLOCATION_CHALLENGE_MSG, offer={"action": "generate_allocation", "label": "Generate allocation"})
     for b in BUCKET_IDS:  # fill any missing bucket from the model's view of the current state
-        cur.setdefault(b, {"strategy": "B" if b == "liquidity" else "C", "justification": ""})
+        cur.setdefault(b, {"strategy": "NA" if b == "liquidity" else "C", "justification": ""})
+    cur["liquidity"]["strategy"] = "NA"
     target = _target_bucket(message, history)
-    if target == "liquidity" and _LIQ_GROWTH.search(message) and cur["liquidity"]["strategy"] in allowed_strategies("liquidity"):
+    if target == "liquidity" and _LIQ_GROWTH.search(message):
         return _liquidity_refusal(cur)  # hard rule, decided in code before any model call
     out = discuss_allocation(store, client_id, message, history, _full_alloc(cur), chat)
     if out.get("status") == "unavailable":

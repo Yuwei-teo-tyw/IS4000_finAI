@@ -8,7 +8,7 @@ from datetime import date
 from typing import Optional
 
 from .ips_generate_labels import GOAL_LABELS
-from .strategies import rate_of_return_text
+from .strategies import get_strategy, rate_of_return_text
 
 PLACEHOLDER = "Not yet completed"
 GOAL_KEYS = [("returnRequirements", "Return Requirements"), ("investmentTimeHorizon", "Investment Time Horizon"),
@@ -285,10 +285,14 @@ def render_parts(data: dict) -> list[dict]:
                                                             ("investmentPeriod", "Investment period")) if ph.get(key))
     demo = "; ".join(f"{k}: {v}" for k, v in ((d.get("demographics") or {}).get("fields") or {}).items())
     # Part numbers are a stable contract with the frontend (part 1 goals, 2 3L, 3 risk, 5 review rules, 6 signature); never renumber.
+    saa = d.get("saa") if isinstance(d.get("saa"), dict) else {}
+    saa_txt = "\n".join(f"{lab}: Strategy {saa[k]['strategy']} ({(get_strategy(saa[k]['strategy']) or {}).get('name', '')})."
+                        for k, lab in (("longevity", "Longevity"), ("legacy", "Legacy"))
+                        if isinstance(saa.get(k), dict) and saa[k].get("strategy"))
     return [{"part": 1, "title": "Client goals and objectives", "owner": "rm", "status": "filled", "body": "\n".join(goals)},
             {"part": 2, "title": "3L buckets and explanation", "owner": "pm", "status": "filled" if threel else "empty", "body": threel},
             {"part": 3, "title": "Client risk profile", "owner": "rm", "status": "filled" if risk_txt.strip() else "empty", "body": risk_txt.strip()},
-            {"part": 4, "title": "Strategic Asset Allocation", "owner": "pm", "status": "empty", "body": ""},
+            {"part": 4, "title": "Strategic Asset Allocation", "owner": "pm", "status": "filled" if saa_txt else "empty", "body": saa_txt},
             {"part": 5, "title": "Review rules", "owner": "rm", "status": "filled", "body": rules},
             {"part": 6, "title": "Signature line", "owner": "rm", "status": "filled", "body": sign},
             ] + ([{"part": 7, "title": "Investment philosophy", "owner": "rm", "status": "filled", "body": phil_txt}] if phil_txt else []) \

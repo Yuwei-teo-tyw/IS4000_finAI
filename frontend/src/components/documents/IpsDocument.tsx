@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 import { useParams } from "react-router-dom";
 import { Sparkles } from "lucide-react";
 import type { IpsVersion, Philosophy, ThreeLBucketKey, ThreeLProportion } from "../../types/arc";
@@ -11,10 +11,9 @@ import { useAsync } from "../ui";
 import { GenevaMark } from "./GenevaMark";
 import { Bullets, Cell, DocSection, FreeText, Dashes, InlineText, IpsGrid, KV, LABEL, SignatureBlock, WRAP, toBullets } from "./ips/parts";
 import type { Bucket3L } from "../../types/arc";
-import { BucketBar } from "./ips/charts";
-import { ProportionTable } from "./ips/ProportionTable";
-import { AllocationBuckets, type AllocBucketId } from "./ips/Allocation";
-import { BucketEditor, BulletEditor } from "./ips/edit";
+import { BucketAllocation } from "./ips/ProportionTable";
+import { AllocationBuckets, type AllocBucketId, type AllocWeights } from "./ips/Allocation";
+import { BulletEditor } from "./ips/edit";
 import { GoalsSection } from "./ips/GoalsSection";
 import { groupsFromBackend } from "./ips/goals";
 import { rulesToBullets, seedFromData } from "./ips/ipsData";
@@ -40,23 +39,25 @@ export interface IpsEditApi {
   philosophy: Philosophy; setPhilosophy: (key: keyof Philosophy, v: string) => void;
   /** Uploaded signature images (data URLs). */
   signatures: { client?: string; rm?: string }; setSignature: (who: "client" | "rm", dataUrl?: string) => void;
-  /** Strategy code (A-F) per 3L bucket; liquidity is limited to A-B. */
+  /** Strategy code (A-F) per 3L bucket; Liquidity carries no SAA and shows "NA". */
   allocation?: { liquidity?: string; longevity?: string; legacy?: string }; setAllocation?: (bucket: AllocBucketId, code: string) => void;
   /** Optional justification per bucket. */
+  allocationWeights?: AllocWeights; setAllocationWeights?: (bucket: AllocBucketId, w: Record<string, number> | undefined) => void;
   allocationNotes?: Record<string, string>; setAllocationNote?: (bucket: AllocBucketId, text: string) => void;
   /** Geneva's original (un-clamped) strategy per bucket, and backend threeL metadata, for override detection. */
   proposedAllocation?: Partial<Record<AllocBucketId, string>>; allocationMeta?: Partial<Record<AllocBucketId, ThreeLMeta>>;
   /** Lines Geneva could not safely write in the third person (review list in the editor). */
   notIncluded?: string[]; setNotIncluded?: (n: string[]) => void;
   /** IS-75: base 3L percentage proportion from generation (null: not generated, see message/missing). */
-  proportion?: ThreeLProportion | null; proportionMessage?: string; proportionMissing?: string[]; setProportionPct?: (k: ThreeLBucketKey, pct: number) => void;
+  proportion?: ThreeLProportion | null; proportionMessage?: string; proportionMissing?: string[]; setProportionPct?: (k: ThreeLBucketKey, pct: number) => void; setProportionReason?: (k: ThreeLBucketKey, text: string) => void;
   /** Message when the stored 3L recommendation is out of date. */
   outOfDate?: string;
 }
 /** `blank`: a brand-new IPS. Same template, but nothing is prefilled from mock/client data (empty fields for the RM to fill). */
-interface Props { version: IpsVersion; clientName: string; clientId?: string; mode?: "view" | "edit"; edit?: IpsEditApi; blank?: boolean; aiGenerated?: boolean; wide?: boolean }
+interface Props { version: IpsVersion; clientName: string; clientId?: string; mode?: "view" | "edit"; edit?: IpsEditApi; blank?: boolean; aiGenerated?: boolean; wide?: boolean; /** PM vetting view: sections other than 3L/SAA are read-only, 3L/SAA highlighted. */ pmReview?: boolean; /** Extra content under the SAA boxes (PM: Run Geneva 3L recommendation). */ saaSlot?: ReactNode; /** PM signature slot (PM review page); read-only elsewhere from the saved draft. */ pmSign?: PmSign }
+export interface PmSign { image?: string; signedAt?: string; onChange?: (dataUrl?: string) => void }
 
-export function IpsDocument({ version: v, clientName, clientId, mode = "view", edit, blank = false, aiGenerated = false, wide = false }: Props) {
+export function IpsDocument({ version: v, clientName, clientId, mode = "view", edit, blank = false, aiGenerated = false, wide = false, pmReview = false, saaSlot, pmSign }: Props) {
   const editing = mode === "edit" && !!edit;
   const params = useParams();
   const cid = clientId ?? params.clientId ?? "";
@@ -82,6 +83,8 @@ export function IpsDocument({ version: v, clientName, clientId, mode = "view", e
   const targets: IpsTarget[] = seed?.targets ?? ex?.targets ?? profile?.targets ?? [];
   const defaultRules = rulesToBullets(seed?.reviewRules.length ? seed.reviewRules : ex?.reviewRules?.length ? ex.reviewRules : DEFAULT_REVIEW_RULES);
   const rmSigned = fmt((seed?.rmSignedDate ?? ex?.rmSignedDate ?? v.issuedOn ?? new Date().toISOString()));
+  const pmSaved = (saved?.signatures ?? extras?.signatures) as { pm?: string; pmSignedAt?: string } | undefined;
+  const pmShown = pmSign ?? { image: pmSaved?.pm, signedAt: pmSaved?.pmSignedAt };
   const rmImage = sigs.rm === undefined ? (seed?.rmSignatureImage || RM_SIGNATURE) : sigs.rm || undefined;
 
   const part = (n: number) => v.parts.find((p) => p.part === n)?.body ?? "";
@@ -114,7 +117,7 @@ export function IpsDocument({ version: v, clientName, clientId, mode = "view", e
         </p>
       </header>
 
-      <DocSection n={1} title="Client Demographics">
+      <DocSection n={1} locked={pmReview} title="Client Demographics">
         <KV
           onEdit={editing ? edit.setDemo : undefined}
           locked={["Full name", "Client ID", "Contact RM"]}
@@ -128,7 +131,7 @@ export function IpsDocument({ version: v, clientName, clientId, mode = "view", e
           ], demoVals)} />
       </DocSection>
 
-      <DocSection n={2} title="Investment Philosophy">
+      <DocSection n={2} locked={pmReview} title="Investment Philosophy">
         <IpsGrid>
           <Cell wide>
             {editing ? (
@@ -147,12 +150,12 @@ export function IpsDocument({ version: v, clientName, clientId, mode = "view", e
         </IpsGrid>
       </DocSection>
 
-      <DocSection n={3} title="Client Goals & Objectives">
+      <DocSection n={3} locked={pmReview} title="Client Goals & Objectives">
         <GoalsSection editing={editing} body={textOf(1, goalItems)} groups={editing ? undefined : viewGroups} onBody={(t) => edit?.setText(1, t)}
           notIncluded={edit?.notIncluded} onNotIncluded={edit?.setNotIncluded} clientId={cid} targets={targets} onTargets={(t) => saveIpsDraftExtras(cid, { targets: t })} />
       </DocSection>
 
-      <DocSection n={4} title="Risk Profile">
+      <DocSection n={4} locked={pmReview} title="Risk Profile">
         <KV
           onEdit={editing ? edit.setRisk : undefined}
           hints={{ "Risk tolerance (willingness)": "Psychological comfort enduring drawdowns", "Risk capacity (ability)": "Financial ability to bear risk" }}
@@ -180,27 +183,32 @@ export function IpsDocument({ version: v, clientName, clientId, mode = "view", e
         </KV>
       </DocSection>
 
-      <DocSection n={5} title="3L Bucket Allocation">
-        {editing && bucketList ? <BucketEditor buckets={bucketList} onChange={edit.setBuckets} />
-          : buckets ? <BucketBar buckets={buckets} /> : <p className="text-ink-muted">Loading…</p>}
-        <ProportionTable proportion={edit ? edit.proportion : seed?.proportion} message={edit ? edit.proportionMessage : seed?.proportionMessage}
-          missing={edit?.proportionMissing} editing={editing} onChange={edit?.setProportionPct} />
+      <DocSection n={5} highlight={pmReview} title="3L Bucket Allocation">
+        <BucketAllocation buckets={editing ? bucketList : buckets} onBuckets={editing ? edit.setBuckets : undefined}
+          proportion={edit ? edit.proportion : seed?.proportion ?? saved?.proportion} message={edit ? edit.proportionMessage : seed?.proportionMessage}
+          missing={edit?.proportionMissing} onPct={edit?.setProportionPct} onReason={edit?.setProportionReason} />
         <AllocationBuckets editing={editing} blank={blank} allocation={edit?.allocation ?? seed?.allocation ?? saved?.allocation ?? {}}
           notes={edit?.allocationNotes ?? seed?.allocationNotes ?? saved?.allocationNotes} onPick={edit?.setAllocation} clientId={cid}
+          weights={edit?.allocationWeights ?? saved?.allocationWeights} onWeights={edit?.setAllocationWeights}
           outOfDate={edit?.outOfDate ?? seed?.outOfDate} onNote={edit?.setAllocationNote} proposed={edit?.proposedAllocation ?? seed?.proposed} meta={edit?.allocationMeta ?? seed?.allocationMeta} />
+        {saaSlot}
       </DocSection>
 
-      <DocSection n={6} title="Review Rules">
+      <DocSection n={6} locked={pmReview} title="Review Rules">
         {editing
           ? <BulletEditor part={5} label="Review rules" value={textOf(5, ruleItems.length || blank ? ruleItems : defaultRules)} onChange={(t) => edit.setText(5, t)} />
           : <Bullets items={ruleItems.length ? ruleItems : defaultRules} />}
       </DocSection>
 
-      <DocSection n={7} title="Acknowledgement & Signature">
-        <p>The client confirms that this Investment Policy Statement reflects their objectives, risk profile and constraints.</p>
-        <div className="@container"><div className="grid grid-cols-1 gap-12 @xl:grid-cols-2">
-          <SignatureBlock label="Client" image={sigs.client} editable={editing} onChange={(d) => edit?.setSignature("client", d)} />
-          <SignatureBlock label={`Relationship Manager (${rm.person})`} image={rmImage} date={rmSigned} editable={editing} onChange={(d) => edit?.setSignature("rm", d ?? "")} />
+      <DocSection n={7} title="Acknowledgement & Signatures">
+        <p>The client confirms that this Investment Policy Statement reflects their objectives, risk profile and constraints.{(pmSign || pmSaved?.pm) && " The Portfolio Manager confirms the 3L allocation and SAA portfolios have been reviewed."}</p>
+        <div className="@container"><div className={`grid grid-cols-1 gap-8 ${pmSign || pmSaved?.pm ? "@xl:grid-cols-3" : "@xl:grid-cols-2"}`}>
+          <div className={pmReview ? "pointer-events-none" : ""}><SignatureBlock label="Client" image={sigs.client} editable={editing && !pmReview} onChange={(d) => edit?.setSignature("client", d)} /></div>
+          <div className={pmReview ? "pointer-events-none" : ""}><SignatureBlock label={`Relationship Manager (${rm.person})`} image={rmImage} date={rmSigned} editable={editing && !pmReview} onChange={(d) => edit?.setSignature("rm", d ?? "")} /></div>
+          {(pmSign || pmSaved?.pm) && (
+            <SignatureBlock label={`Portfolio Manager (${ROLE_PEOPLE.pm.person})`} image={pmShown.image} date={pmShown.image && pmShown.signedAt ? fmt(pmShown.signedAt) : undefined}
+              editable={!!pmSign?.onChange} onChange={pmSign?.onChange} />
+          )}
         </div></div>
       </DocSection>
 

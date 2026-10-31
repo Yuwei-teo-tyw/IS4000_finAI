@@ -40,5 +40,5 @@ export const DEFAULT_REVIEW_RULES: { title: string; text: string }[] = [
   { title: "Life events", text: "Review the IPS on any major life event of the client" },
   { title: "Risk profile change", text: "Reissue the IPS on any change in the client risk profile" },
   { title: "Annual IPS review", text: "Confirm objectives, constraints and risk tolerance with the client at least once a year" },
-  { title: "Ownership", text: "Portfolio Manager owns the SAA and TAA; Product Specialist owns product selection; Relationship Manager owns the IPS and client contact" },
+  { title: "Ownership", text: "Portfolio Manager owns the SAA, TAA and product selection; Relationship Manager owns the IPS and client contact" },
 ];

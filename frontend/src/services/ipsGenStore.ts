@@ -86,7 +86,15 @@ async function run(clientId: string, clientName: string) {
   const ordered = () => IPS_GEN_SECTIONS.map((x) => byId.get(x.id)).filter((r): r is IpsGenSectionResult => !!r && r.status === "ok");
   emitIpsGen({ type: "start", clientId, clientName });
   snap(waiting());
+  // Sections are generated concurrently and resolve in any order; reveal them in IPS document order.
+  const arrived = new Map<string, IpsGenSectionResult>();
+  let nextIdx = 0;
   const onSection = (r: IpsGenSectionResult) => {
+    arrived.set(r.section, r);
+    while (nextIdx < IPS_GEN_SECTIONS.length && arrived.has(IPS_GEN_SECTIONS[nextIdx].id)) reveal(arrived.get(IPS_GEN_SECTIONS[nextIdx++].id)!);
+  };
+  const flush = () => { for (; nextIdx < IPS_GEN_SECTIONS.length; nextIdx++) { const r = arrived.get(IPS_GEN_SECTIONS[nextIdx].id); if (r) reveal(r); } };
+  const reveal = (r: IpsGenSectionResult) => {
     byId.set(r.section, r);
     if (r.model && !model) { model = r.model; emitIpsGen({ type: "model", clientId, model }); }
     if (!r.model && r.modelMessage && !modelMessage) modelMessage = r.modelMessage;
@@ -106,12 +114,14 @@ async function run(clientId: string, clientName: string) {
   let final: Awaited<ReturnType<typeof streamIpsGeneration>> = null;
   try { final = await streamIpsGeneration(clientId, { onSection }, ctrl.signal); }
   catch (e) {
+    flush();
     controllers.delete(clientId);
     const cancelled = e instanceof DOMException && e.name === "AbortError";
     const msg = cancelled ? "Generation cancelled." : e instanceof Error ? e.message : "AI IPS generation failed.";
     steps.forEach((x) => { if (x.state === "active") x.state = "pending"; });
     fail(msg); emitIpsGen({ type: "error", clientId, message: msg }); return;
   }
+  flush();
   controllers.delete(clientId);
   const missing = IPS_GEN_SECTIONS.filter((x) => !byId.has(x.id)).map((x) => x.label);
   steps.forEach((x) => { if (x.state === "active") { x.state = "pending"; x.note = "Not finished"; } });

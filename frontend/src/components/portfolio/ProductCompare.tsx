@@ -18,7 +18,7 @@ function reason(c: PaCandidateProduct) {
   return "Passed every client check but ranked lower in its asset class, or its asset class was not used.";
 }
 
-/** Every product the Product Specialist supplied, with why it was used or excluded. No scores or rankings are invented. */
+/** Every product the product recommender supplied, with why it was used or excluded. No scores or rankings are invented. */
 export function ProductCompare({ response }: { response: PaResponse }) {
   const options = response.portfolio_options.filter(isOffered);
   const [filter, setFilter] = useState("ALL");

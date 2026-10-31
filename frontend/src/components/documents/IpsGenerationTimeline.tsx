@@ -3,6 +3,8 @@ import { IPS_GEN_SECTIONS, type IpsGenSectionId } from "../../types/arc";
 
 export type IpsGenStepState = "pending" | "active" | "done";
 export interface IpsGenStep { id: IpsGenSectionId; state: IpsGenStepState; note?: string }
+/** Generic step state for other generation runs (e.g. the review pack A-G). */
+export interface GenStepState { id: string; state: IpsGenStepState; note?: string }
 
 /** Prestige step wording, one per backend section; the last row ("Composing the IPS") is the save/assemble phase. */
 const STEP_LABEL: Record<IpsGenSectionId, string> = {
@@ -54,33 +56,41 @@ function Mark({ done }: { done: boolean }) {
  * and when every step is done a fine red sweep and a drawn check close the run. All motion stops under prefers-reduced-motion.
  * `saved` shows the Saved chip once the backend has stored the generated IPS; `modelUnavailable` hides the producer.
  */
-export function IpsGenerationTimeline({ sections, message, model, saved, modelUnavailable }: {
-  sections: IpsGenStep[]; message?: string; model?: string; saved?: boolean; modelUnavailable?: boolean;
+export function IpsGenerationTimeline({ sections, message, model, saved, modelUnavailable, steps, composeLabel, title, readyTitle, savedLabel }: {
+  sections: GenStepState[]; message?: string; model?: string; saved?: boolean; modelUnavailable?: boolean;
+  /** Optional custom steps (default: the IPS sections). */
+  steps?: { id: string; label: string }[];
+  /** Label of the final assemble row; null hides it. Default "Composing the IPS". */
+  composeLabel?: string | null;
+  title?: string; readyTitle?: string; savedLabel?: string;
 }) {
-  const rawOf = (id: IpsGenSectionId): IpsGenStepState => sections.find((x) => x.id === id)?.state ?? "pending";
+  const STEPS: { id: string; label: string }[] = steps ?? IPS_GEN_SECTIONS.map((s) => ({ id: s.id, label: STEP_LABEL[s.id] }));
+  const rawOf = (id: string): IpsGenStepState => sections.find((x) => x.id === id)?.state ?? "pending";
   // Ordered progress index: number of leading steps that are done. Later "done" flags never count until all earlier steps are done.
   let doneCount = 0;
-  while (doneCount < IPS_GEN_SECTIONS.length && rawOf(IPS_GEN_SECTIONS[doneCount].id) === "done") doneCount++;
-  const allDone = doneCount === IPS_GEN_SECTIONS.length;
+  while (doneCount < STEPS.length && rawOf(STEPS[doneCount].id) === "done") doneCount++;
+  const allDone = doneCount === STEPS.length;
   const complete = allDone && !!saved;
-  const progressIdx = complete ? IPS_GEN_SECTIONS.length + 1 : doneCount;
-  const total = IPS_GEN_SECTIONS.length + 1;
+  const compose = composeLabel === undefined ? COMPOSE_LABEL : composeLabel;
+  const extra = compose === null ? 0 : 1;
+  const progressIdx = complete ? STEPS.length + extra : doneCount;
+  const total = STEPS.length + extra;
   const progress = progressIdx / total;
   const chip = modelChipLabel(model, modelUnavailable);
   const rows = [
-    ...IPS_GEN_SECTIONS.map((s) => ({ id: s.id as string, label: STEP_LABEL[s.id], note: sections.find((x) => x.id === s.id)?.note })),
-    { id: "compose", label: COMPOSE_LABEL, note: undefined as string | undefined },
+    ...STEPS.map((s) => ({ id: s.id, label: s.label, note: sections.find((x) => x.id === s.id)?.note })),
+    ...(compose === null ? [] : [{ id: "compose", label: compose, note: undefined as string | undefined }]),
   ].map((r, i) => ({ ...r, state: (i < progressIdx ? "done" : i === progressIdx ? "active" : "pending") as IpsGenStepState }));
   return (
     <div className="ipsg mx-auto max-w-xl py-4">
       <style>{CSS}</style>
       <div className="flex flex-col items-center text-center">
         <Mark done={complete} />
-        <h3 className="mt-6 text-[32px] font-light leading-[1.2] text-ink">{complete ? "Your IPS is ready" : "Preparing the Investment Policy Statement"}</h3>
+        <h3 className="mt-6 text-[32px] font-light leading-[1.2] text-ink">{complete ? (readyTitle ?? "Your IPS is ready") : (title ?? "Preparing the Investment Policy Statement")}</h3>
         <span aria-hidden className="mt-4 block h-px w-24" style={{ background: BRAND }} />
         <div className="mt-5 flex flex-wrap items-center justify-center gap-2" aria-live="polite">
           {chip && <span className="inline-block border px-3 py-1 text-[12px] tracking-[0.08em] text-ink" style={{ borderColor: BRAND }}>{chip}</span>}
-          {complete && <span className="inline-block border px-3 py-1 text-[12px] uppercase tracking-[0.14em] text-ink" style={{ borderColor: BRAND }}>Saved</span>}
+          {complete && <span className="inline-block border px-3 py-1 text-[12px] uppercase tracking-[0.14em] text-ink" style={{ borderColor: BRAND }}>{savedLabel ?? "Saved"}</span>}
         </div>
       </div>
       <div className="relative mt-10 pl-12">

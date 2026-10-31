@@ -31,7 +31,7 @@ export default function GenevaLauncher({ role, clientId }: { role: Role; clientI
   const [dragging, setDragging] = useState(false);
   const drag = useRef<{ x: number; w: number } | null>(null);
   const client = useAsync(() => arcApi.getClient(clientId), [clientId]);
-  const fullPage = role === "rm" || role === "ps" ? `/${role}/assistant` : null;
+  const fullPage = role === "rm" ? `/${role}/assistant` : null;
 
   const set = (o: boolean) => { setOpen(o); try { localStorage.setItem("arc.assistantOpen", String(o)); } catch { /* ignore */ } };
   const save = (w: number) => { try { localStorage.setItem("arc.assistantWidth", String(w)); } catch { /* ignore */ } };
@@ -75,7 +75,7 @@ export default function GenevaLauncher({ role, clientId }: { role: Role; clientI
       {/* Kept mounted while closed so chats survive. Outer width animates the page push; inner panel shrinks into the icon. */}
       <aside aria-label="Geneva assistant" aria-hidden={!open}
         style={{ width: open ? width : 0, transition: dragging ? "none" : "width 350ms ease" }}
-        className="sticky top-0 h-screen shrink-0 max-w-[60vw]">
+        className="sticky top-0 h-full shrink-0 max-w-[60vw]">
         <div style={{
             width, transformOrigin: "calc(100% - 52px) calc(100% - 52px)",
             transition: "transform 350ms ease, opacity 350ms ease, visibility 0s linear " + (open ? "0s" : "350ms"),
