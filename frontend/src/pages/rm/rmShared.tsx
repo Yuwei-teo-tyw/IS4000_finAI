@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useState, type ReactNode } from "react";
+import { NumberInput } from "../../components/ui/NumberInput";
 import { Lock, X } from "lucide-react";
 import { CitationTag, BulletList, Badge, Button, SCRIPT_FONT, SignatureBlock, toBulletItems } from "../../components/ui";
 import type { DocSection } from "../../components/export/CompiledDocument";
@@ -166,7 +167,7 @@ function SaaPanel({ saa }: { saa: SaaEditor }) {
             <li key={r.assetClass} className="flex items-center justify-between gap-4 border-b border-hairline pb-2 text-[15px]">
               <label htmlFor={`saa-${i}`}>{r.assetClass}</label>
               <span className="flex items-center gap-2">
-                <input id={`saa-${i}`} type="number" min={0} max={100} step={1} value={saa.vals[i] ?? 0}
+                <NumberInput id={`saa-${i}`} min={0} max={100} step={1} value={saa.vals[i] ?? 0}
                   onChange={(e) => saa.setVals(saa.vals.map((v, k) => (k === i ? Math.max(0, Number(e.target.value) || 0) : v)))}
                   className="w-20 border border-hairline-strong bg-surface-100 px-2 py-1.5 text-right text-[15px] text-ink" />%
               </span>

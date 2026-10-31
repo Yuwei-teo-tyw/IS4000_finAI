@@ -131,6 +131,21 @@ def test_rm_context_is_optional_and_non_overriding():
     assert not any(s["id"] == "rm_context" for s in base["sources"])
 
 
+def test_rm_context_response_is_computed_and_rendered():
+    base = gen()
+    assert base["rm_context_response"] is None
+    out = gen(rm_context="Client is interested in looking into additional holdings like Goldman Sachs, "
+                         "and unsure what to do about portfolio concentration in tech")
+    bullets = out["rm_context_response"]
+    assert bullets and bullets[0].startswith("The points below are computed")
+    assert any(b.startswith("'Goldman Sachs'") for b in bullets)
+    assert any(b.startswith("Sector Technology") or b.startswith("Largest single holding") for b in bullets)
+    body = out["sections"][0]["body"]
+    assert "RM context response (computed from the data above):" in body
+    assert all(f"- {b}" in body for b in bullets)
+    assert out["taa"] == base["taa"] and out["holdings_shifts"] == base["holdings_shifts"]
+
+
 def test_invented_figures_are_rejected_to_rule_based_text():
     bad = GOOD.model_copy(update={"client_summary": "The client holds 87.3% in equities and should buy more.",
                                   "taa_longevity": "Equities will rise 42% next year."})

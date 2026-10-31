@@ -6,6 +6,7 @@ HTTP interface for the Client Profiling Agent.
 Read-only: never updates IPS documents, client records or allocations. Validation errors do not echo
 submitted values (client data).
 """
+import asyncio
 import json
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -393,6 +394,15 @@ def _msg_json(m) -> dict:
             "ts": str(d.get("ts") or ""), "meta": d.get("meta")}
 
 
+@router.get("/search-status")
+async def search_status() -> dict:
+    """Is semantic (embedding) search up? Down = answers about meeting notes and IPS fall back to keyword search / full text."""
+    from app.agents.client_profiling import embeddings
+    st = await asyncio.to_thread(embeddings.status)
+    return {"embeddings": "ok" if st["ok"] else "down", "mode": "hybrid" if st["ok"] else "keyword_only", "model": st["model"],
+            "message": "" if st["ok"] else "The embedding service is unreachable, so semantic search is off. Answers use keyword search only and may miss relevant passages."}
+
+
 @router.delete("/ips/{client_id}/{version}")
 async def delete_client_ips(client_id: str, version: int) -> dict:
     store = get_default_store()
@@ -403,7 +413,14 @@ async def delete_client_ips(client_id: str, version: int) -> dict:
         raise HTTPException(status_code=503, detail="IPS database is unavailable")
     if not ok:
         raise HTTPException(status_code=404, detail=f"IPS v{version} not found")
-    return {"deleted": True, "version": version}
+    # No active IPS left: the review pack goes with it and the client falls back to Onboarding at 0%.
+    reset = not any(v.status == "Active" for v in store.get_ips_versions(client_id))
+    if reset:
+        store.delete_review_pack_state(client_id)
+        store.withdraw_ips_send(client_id)
+        store.set_client_status(client_id, "Onboarding Phase")
+        store.set_progress(client_id, onboarding=0, monitoring=0)
+    return {"deleted": True, "version": version, "reset": reset}
 
 
 TRUNCATED_MSG = f"IPS chat history keeps only the latest {IPS_CHAT_CAP} messages; the oldest were removed."

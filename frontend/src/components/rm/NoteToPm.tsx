@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Button, NextAction } from "../ui";
 import { BulletTextarea } from "../documents/BulletTextarea";
 import { SEED_RM_PACK_COMMENTS } from "../pm/RmCommentsPanel";
@@ -10,8 +10,20 @@ const fmt = (iso?: string | null) => { const d = iso ? new Date(iso) : null; ret
 /** Shared send step, placed at the bottom of the page after the pack: editable note, then send. After sending the note stays visible read-only with Withdraw. */
 export function NoteToPm({ clientId, title = "Send to Portfolio Manager", body, label = "Send to Portfolio Manager", disabled, rmContext, extra }:
   { clientId: string; title?: string; body?: string; label?: string; disabled?: boolean; rmContext?: string; extra?: ReactNode }) {
-  const [note, setNote] = useState(() => loadPmNote(clientId) || SEED_RM_PACK_COMMENTS.join("\n"));
-  const h = usePackStates()[clientId]?.handover;
+  const stAll = usePackStates()[clientId];
+  const h = stAll?.handover;
+  const ctx = rmContext?.trim() || stAll?.pack?.rmContext?.trim() || "";
+  const genAt = stAll?.pack?.generated_at ?? "";
+  const seed = ctx || SEED_RM_PACK_COMMENTS.join("\n");  // the RM context typed on the generate screen is the starting note
+  const [note, setNoteRaw] = useState(() => loadPmNote(clientId) || seed);
+  const edited = useRef(false);
+  const seedKey = useRef(`${clientId}|${genAt}`);
+  const setNote = (v: string) => { edited.current = true; setNoteRaw(v); };
+  useEffect(() => {
+    const key = `${clientId}|${genAt}`;
+    if (seedKey.current !== key) { seedKey.current = key; edited.current = false; }  // a different pack starts a fresh note
+    if (!edited.current) setNoteRaw(loadPmNote(clientId) || seed);
+  }, [clientId, genAt, seed]);
   if (h?.status) {
     const back = h.status === "returned_to_rm";
     const sentNote = (h.note ?? note).split("\n").map((l) => l.replace(/^\s*[-•*]\s*/, "").trim()).filter(Boolean);

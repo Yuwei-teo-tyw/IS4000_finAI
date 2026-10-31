@@ -18,7 +18,7 @@ from psycopg import sql
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
-from . import embeddings
+from . import embeddings, hybrid
 from .store import (DEFAULT_DATA_DIR, DEFAULT_RM, IPS_CHAT_CAP, UPLOADS_FILE, BaseStore, Client, DocumentStore, IpsPartDoc, IpsVersion,
                     SENT_STATUS, MeetingNoteDoc, StoreUnavailableError, _check_chat, _check_progress)
 
@@ -246,14 +246,25 @@ class PostgresStore(BaseStore):
             lit = embeddings.vector_literal(qv)
             extra, params = ("AND c.note_id = %s ", [note_id]) if note_id else ("", [])
             with self._connect() as conn:
-                rows = conn.execute(
+                dense = conn.execute(
                     "SELECT c.note_id, n.note_date AS date, n.title, c.text, c.chunk_idx, "
                     "1 - (c.embedding <=> %s::vector) AS score "
                     "FROM cp_note_chunks c JOIN cp_meeting_notes n ON n.id = c.note_id AND n.client_id = c.client_id "
                     "WHERE c.client_id = %s " + extra +
                     "ORDER BY c.embedding <=> %s::vector LIMIT %s",
-                    [lit, client_id, *params, lit, k]).fetchall()
-            return [dict(r) for r in rows] or None
+                    [lit, client_id, *params, lit, k * 3]).fetchall()
+                every = conn.execute(
+                    "SELECT c.note_id, n.note_date AS date, n.title, c.text, c.chunk_idx "
+                    "FROM cp_note_chunks c JOIN cp_meeting_notes n ON n.id = c.note_id AND n.client_id = c.client_id "
+                    "WHERE c.client_id = %s " + extra, [client_id, *params]).fetchall()
+            # Hybrid: dense (meaning) + lexical (exact names and figures), fused with RRF.
+            by_key = {(r["note_id"], r["chunk_idx"]): dict(r, score=0.0) for r in every}
+            for r in dense:
+                by_key[(r["note_id"], r["chunk_idx"])] = dict(r)
+            lexical = hybrid.lexical_rank(query, [(key, r["text"]) for key, r in by_key.items()])
+            fused = [key for key, _ in hybrid.rrf_fuse([[(r["note_id"], r["chunk_idx"]) for r in dense], lexical], top=k)]
+            rows = [by_key[key] for key in fused]
+            return rows or None
         except Exception:
             return None
 
@@ -497,11 +508,19 @@ class PostgresStore(BaseStore):
                 self.index_ips(client_id, ips.version)  # lazy backfill
             lit = embeddings.vector_literal(qv)
             with self._connect() as conn:
-                rows = conn.execute(
-                    "SELECT part_n, version, text, 1 - (embedding <=> %s::vector) AS score FROM cp_ips_chunks "
+                dense = conn.execute(
+                    "SELECT part_n, chunk_idx, version, text, 1 - (embedding <=> %s::vector) AS score FROM cp_ips_chunks "
                     "WHERE client_id = %s AND version = %s ORDER BY embedding <=> %s::vector LIMIT %s",
-                    [lit, client_id, ips.version, lit, k]).fetchall()
-            return [dict(r) for r in rows] or None
+                    [lit, client_id, ips.version, lit, k * 3]).fetchall()
+                every = conn.execute("SELECT part_n, chunk_idx, version, text FROM cp_ips_chunks WHERE client_id = %s AND version = %s",
+                                     (client_id, ips.version)).fetchall()
+            # Hybrid: dense (meaning) + lexical (exact names and figures), fused with RRF.
+            by_key = {(r["part_n"], r["chunk_idx"]): dict(r, score=0.0) for r in every}
+            for r in dense:
+                by_key[(r["part_n"], r["chunk_idx"])] = dict(r)
+            lexical = hybrid.lexical_rank(query, [(key, r["text"]) for key, r in by_key.items()])
+            fused = [key for key, _ in hybrid.rrf_fuse([[(r["part_n"], r["chunk_idx"]) for r in dense], lexical], top=k)]
+            return [{k_: v for k_, v in by_key[key].items() if k_ != "chunk_idx"} for key in fused] or None  # same shape as before
         except Exception:
             return None
 
@@ -643,6 +662,12 @@ class PostgresStore(BaseStore):
             conn.execute("UPDATE cp_ips_versions SET status = 'Superseded' WHERE client_id = %s AND status = 'Active' AND version <> %s",
                          (client_id, version))
             return conn.execute("UPDATE cp_ips_versions SET status = 'Active' WHERE client_id = %s AND version = %s",
+                                (client_id, version)).rowcount > 0
+
+    def deactivate_ips(self, client_id: str, version: int) -> bool:
+        """The Active version becomes Superseded. False if it is missing or not Active."""
+        with self._connect() as conn:
+            return conn.execute("UPDATE cp_ips_versions SET status = 'Superseded' WHERE client_id = %s AND version = %s AND status = 'Active'",
                                 (client_id, version)).rowcount > 0
 
     def set_client_status(self, client_id: str, status: str) -> bool:

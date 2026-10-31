@@ -35,6 +35,8 @@ services:
     volumes:
       # also persists market researcher run outputs (backend/data/market_research)
       - ./backend:/app
+      # the CIO house view PDF that citations such as HV-2026-08-p18 open (served by /agents/product-recommender/house-view/document)
+      - ./house_views:/house_views:ro
     depends_on:
       postgres:
         condition: service_healthy

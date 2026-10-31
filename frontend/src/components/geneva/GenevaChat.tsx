@@ -20,6 +20,7 @@ import type { GenevaPendingAction, GenevaReply, MacroView, MarketAnswer, MarketR
 import { Badge, BulletList, Button, CitationTag, DirectionArrow, Table, toBulletItems } from "../ui";
 import { savePackDraft } from "../../services/packDraftStore";
 import { appendChatContext } from "../../services/chatContextStore";
+import { useSearchStatus } from "./useSearchStatus";
 import { MeetingNoteModal } from "./MeetingNoteModal";
 import { GenevaMarkdown, Tagged, type SourceRef } from "./GenevaMarkdown";
 import { GenevaArticlePanel } from "./GenevaArticlePanel";
@@ -118,7 +119,7 @@ function ReasoningToggle({ lines, latest }: { lines: string[]; latest: boolean }
       <button type="button" aria-expanded={shown} onClick={() => setOpen(!shown)} className="text-[13px] uppercase tracking-[0.06em] text-ink-muted underline-offset-2 hover:underline">
         {shown ? "Hide reasoning" : "Reasoning"}
       </button>
-      {shown && <ul className="mt-2 list-disc space-y-1 border-l border-hairline-strong pl-8 text-[15px] leading-6 text-ink-muted">{lines.map((l, i) => <li key={i}>{l}</li>)}</ul>}
+      {shown && <ul className="mt-2 min-w-0 list-disc space-y-1 break-words border-l border-hairline-strong pl-8 text-[15px] leading-6 text-ink-muted">{lines.map((l, i) => <li key={i}>{l}</li>)}</ul>}
     </div>
   );
 }
@@ -578,6 +579,7 @@ function ClientSwitcher({ clientId, name, role }: { clientId: string; name: stri
 /** The one Geneva chat. Used full-page (AI Assistant) and inside the floating launcher (compact). Style rules: AGENTS.md "Chatbot style". */
 export function GenevaChat({ role, clientId, compact = false }: { role: Role; clientId: string; compact?: boolean }) {
   const { pathname: routePath } = useLocation();
+  const searchStatus = useSearchStatus();
   const onIpsDraft = (role === "rm" && /\/clients\/[^/]+\/ips-draft\/?$/.test(routePath)) || (role === "pm" && /\/requests\/[^/]+\/ips\/?$/.test(routePath));
   const blank = (id: number): Chat => ({ id, title: DEFAULT_CHAT_TITLE, messages: [], sessionId: arcApi.newChatSession(role, clientId), at: Date.now() });
   const [chats, setChats] = useState<Chat[]>(() => [blank(1)]);
@@ -1120,6 +1122,11 @@ export function GenevaChat({ role, clientId, compact = false }: { role: Role; cl
       </aside>
 
       <section className="flex min-h-0 min-w-0 flex-1 flex-col">
+        {searchStatus?.embeddings === "down" && (
+          <div role="status" className="border-b border-hairline-strong bg-surface-100 px-6 py-3 text-[13px] font-light text-ink sm:px-10">
+            {searchStatus.message || "Semantic search is unavailable. Answers about meeting notes and the IPS use keyword search and may miss relevant passages."}
+          </div>
+        )}
         <div className="flex flex-wrap items-center justify-end gap-3 border-b border-hairline px-6 py-3 sm:px-10">
           <ClientSwitcher clientId={clientId} name={clientName} role={role} />
           <Link to={`/${role}/clients/${clientId}/documents`} title="Open the client's IPS" className="inline-flex items-center gap-2.5 rounded-full border border-hairline-strong bg-surface-100 px-4 py-1.5 text-[13px] text-ink hover:bg-surface-300">

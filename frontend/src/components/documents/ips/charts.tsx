@@ -1,3 +1,6 @@
+import { useState } from "react";
+import { NumberInput } from "../../../components/ui/NumberInput";
+import { EDIT_BOX } from "./parts";
 import type { AllocationRow, Bucket3L } from "../../../types/arc";
 import { sgd, SliceTooltip, useSliceTooltip } from "../../ui";
 
@@ -93,7 +96,9 @@ export const STRAT_COLOR: Record<string, string> = {
   "Alternative Investments": "var(--chart-alternatives)", Other: "var(--ink-muted)",
 };
 
-export function StrategyDonut({ allocation, label, hideLegend = false }: { allocation?: Record<string, number>; label: string; hideLegend?: boolean }) {
+/** `editable`: the legend percentages become number inputs (one per asset class in `keys`); the value is clamped by `onCommit` on blur. */
+export function StrategyDonut({ allocation, label, hideLegend = false, editable }: { allocation?: Record<string, number>; label: string; hideLegend?: boolean; editable?: { keys: string[]; onCommit: (k: string, raw: string) => void } }) {
+  const [draft, setDraft] = useState<Record<string, string>>({});
   const r = 60, c = 2 * Math.PI * r;
   const rows = Object.entries(allocation ?? {}).filter(([, v]) => v > 0);
   const total = rows.reduce((s, [, v]) => s + v, 0) || 1;
@@ -112,7 +117,19 @@ export function StrategyDonut({ allocation, label, hideLegend = false }: { alloc
         </g>
         {!rows.length && <text x="80" y="84" textAnchor="middle" fontSize="12" fill="var(--ink-muted)">No strategy</text>}
       </svg>
-      {!hideLegend && <ul className="min-w-0 flex-1 space-y-1 self-stretch text-[13px]">
+      {!hideLegend && editable && <ul className="min-w-0 flex-1 space-y-1 self-stretch text-[13px]">
+        {editable.keys.map((k) => (
+          <li key={k} className="flex items-center gap-2"><i className="inline-block h-3 w-3 shrink-0" style={{ background: STRAT_COLOR[k] ?? "var(--ink-muted)" }} />{k}
+            <span className="ml-auto flex items-center gap-1">
+              <NumberInput step="0.1" value={draft[k] ?? String(allocation?.[k] ?? 0)} aria-label={`${k} percent`}
+                onChange={(e) => setDraft((d) => ({ ...d, [k]: e.target.value }))}
+                onBlur={(e) => { editable.onCommit(k, e.target.value); setDraft((d) => { const { [k]: _x, ...r } = d; return r; }); }}
+                className={`w-16 px-1 py-0.5 text-right text-[13px] ${EDIT_BOX}`} />%
+            </span>
+          </li>
+        ))}
+      </ul>}
+      {!hideLegend && !editable && <ul className="min-w-0 flex-1 space-y-1 self-stretch text-[13px]">
         {rows.map(([k, v]) => (
           <li key={k} className="flex items-center gap-2"><i className="inline-block h-3 w-3 shrink-0" style={{ background: STRAT_COLOR[k] ?? "var(--ink-muted)" }} />{k}<span className="ml-auto">{v}%</span></li>
         ))}

@@ -9,8 +9,10 @@ model is unavailable the pack is not generated (PackGenerationError), never fake
 
 Rules that hold everywhere in this module:
   - Liquidity has no SAA and no TAA. Only Longevity and Legacy appear in either.
-  - The RM's optional context is advisory prose. It is echoed and may colour the narrative,
-    but no computation reads it, so it can never override the IPS, risk profile or suitability.
+  - The RM's optional context is advisory. It is echoed, may colour the narrative and the IPS retrieval query,
+    and is scanned only to report computed facts about the issuers, sectors and asset classes it names
+    (`rm_context_response`, section A). No allocation, limit, suitability check, figure or product ranking reads it,
+    so it can never override the IPS, risk profile or suitability.
   - The market stance (portfolio_agent/upstream/market_analysis.py) is still a MOCK and is
     labelled as such in the sources and in section B.
   - Facts the data does not contain are stated as unknown, never invented.
@@ -489,6 +491,223 @@ def _hv_category(asset_class: str) -> str:
     return "Other"
 
 
+# --- RM context response (computed facts only; no LLM, no figure changed) ---------------------------------
+
+RM_CLAUSE_SPLIT = re.compile(r"[.;!?\n,:]+|\s(?:and|but|also|plus)\s", re.IGNORECASE)
+RM_CAP_RUN = re.compile(r"\b[A-Z][\w&'.-]*(?:\s+(?:&\s+)?[A-Z][\w&'.-]*)*")
+RM_NOT_ENTITY = frozenset({
+    "a", "an", "and", "any", "are", "about", "also", "as", "at", "balanced", "be", "buy", "by", "client", "clients", "consider",
+    "conservative", "do", "for", "from", "growth", "holdings", "i", "if", "in", "income", "interested", "into", "is", "it",
+    "legacy", "like", "liquidity", "longevity", "looking", "more", "moderate", "no", "not", "of", "on", "or", "our", "please",
+    "portfolio", "relationship", "risk", "should", "sell", "the", "this", "to", "unsure", "we", "what", "with", "would",
+    "ips", "taa", "saa", "rm", "pm", "ps", "ic", "sgd", "usd", "manager", "add", "more", "reduce", "increase",
+})
+RM_SECTOR_ALIASES = {  # whole-word terms in the RM note; holdings are matched on their sector label by substring
+    "Technology": ("tech", "technology", "software", "semiconductor", "semiconductors"),
+    "Financials": ("financial", "financials", "financial services", "bank", "banks", "banking", "insurance"),
+    "Healthcare": ("health", "healthcare", "health care", "pharma", "pharmaceutical", "biotech"),
+    "Energy": ("energy", "oil", "gas"),
+    "Consumer": ("consumer", "consumers", "retail"),
+    "Industrials": ("industrial", "industrials"),
+    "Utilities": ("utility", "utilities"),
+    "Communication services": ("communication", "communications", "telecom", "media"),
+    "Real estate": ("reit", "reits", "real estate"),
+}
+RM_ASSET_ALIASES = {  # keys are the Bonds / Equities / Alternative Investments categories used by the holdings shifts
+    "Bonds": ("bond", "bonds", "fixed income"),
+    "Equities": ("equity", "equities", "stock", "stocks"),
+    "Alternative Investments": ("alternative", "alternatives", "hedge fund", "hedge funds", "private market", "private markets",
+                                "private equity", "gold"),
+}
+RM_CONCENTRATION = re.compile(r"concentrat|overweight|over-weight|too much|overexpos|over-expos", re.IGNORECASE)
+RM_QUOTE_CHARS = 120
+
+
+def _rm_clauses(text: str) -> list[str]:
+    return [c.strip() for c in RM_CLAUSE_SPLIT.split(text) if c and c.strip()]
+
+
+def _has_phrase(haystack: str, needle: Optional[str]) -> bool:
+    """Whole-word, case-insensitive containment. Needles under 3 characters never match."""
+    n = (needle or "").strip().lower()
+    return bool(haystack) and len(n) >= 3 and re.search(r"(?<![a-z0-9])" + re.escape(n) + r"(?![a-z0-9])", haystack.lower()) is not None
+
+
+def _mentions(clause: str, terms: tuple[str, ...]) -> bool:
+    return any(re.search(r"(?<![a-z])" + re.escape(t) + r"(?![a-z])", clause, re.IGNORECASE) for t in terms)
+
+
+def _entity_candidates(clause: str) -> list[str]:
+    """Capitalised runs that could name an issuer or product. A lone capitalised first word is sentence case, so skipped."""
+    out: list[str] = []
+    for m in RM_CAP_RUN.finditer(clause):
+        words = m.group(0).strip(" .-&'").split()
+        while words and words[0].lower() in RM_NOT_ENTITY:  # "Consider Morgan Stanley" -> "Morgan Stanley"
+            words.pop(0)
+        if not words:
+            continue
+        run = " ".join(words)
+        if len(words) == 1 and clause[:m.start()].strip() == "" and not run.isupper():
+            continue
+        if run not in out:
+            out.append(run)
+    return out
+
+
+def _mentioned(clause: str, names: list, codes: list, cand: Optional[str] = None) -> bool:
+    """Names match case-insensitively as whole words (in the clause, or the candidate). Codes (tickers, product ids)
+    match only as written in upper case, so a word like 'cash' does not hit the ticker CASH."""
+    if cand is not None:
+        if any(_has_phrase(n, cand) for n in names if n):
+            return True
+        return cand in codes
+    return any(_has_phrase(clause, n) for n in names if n) or any(
+        c and len(c) >= 2 and re.search(r"(?<![A-Za-z0-9])" + re.escape(c) + r"(?![A-Za-z0-9])", clause) for c in codes)
+
+
+def _shelf_parts(s: dict) -> tuple[list, list]:
+    return [t for t in (s.get("product_name"), s.get("issuer")) if t], [s["product_id"]]
+
+
+def _holding_parts(h: dict) -> tuple[list, list]:
+    return [h["name"]] if h.get("name") else [], [h["ticker"]] if h.get("ticker") else []
+
+
+def _lookups(clause: str, shelf_rows: list[dict], holdings: list[dict]) -> list[tuple[str, list[dict], list[dict]]]:
+    """Each name the clause raises, with the shelf products and holdings it matches."""
+    low = clause.lower()
+    out: list[tuple[str, list[dict], list[dict]]] = []
+    covered_s: set[str] = set()
+    covered_h: set[int] = set()
+    for cand in _entity_candidates(clause):
+        sm = [s for s in shelf_rows if _mentioned(clause, *_shelf_parts(s), cand=cand)]
+        hm = [h for h in holdings if _mentioned(clause, *_holding_parts(h), cand=cand)]
+        covered_s |= {s["product_id"] for s in sm}
+        covered_h |= {id(h) for h in hm}
+        out.append((cand, sm, hm))
+    for s in shelf_rows:  # shelf names written in the clause, not caught above
+        if s["product_id"] not in covered_s and _mentioned(clause, *_shelf_parts(s)):
+            out.append((s["product_name"], [s], []))
+    for h in holdings:
+        if id(h) not in covered_h and _mentioned(clause, *_holding_parts(h)):
+            out.append((h["name"], [], [h]))
+    return out
+
+
+def rm_context_response(rm_context: Optional[str], portfolio: dict, shelf_rows: Optional[list[dict]],
+                        status_by_pid: dict[str, str]) -> Optional[list[str]]:
+    """Bullet facts answering each point of the RM's note, from code only. Weights are shares of all priced non-cash
+    holdings. `shelf_rows` is None when the shelf is unavailable. Returns None when there is no RM note."""
+    if not (rm_context or "").strip():
+        return None
+    holdings = portfolio.get("holdings") or []
+    priced = [h for h in holdings if h.get("price_available") and h.get("asset_class") != "Cash"]
+    total = sum(h["market_value"] for h in priced)
+    flag = f"{CONCENTRATION_PCT:.1f}% concentration flag"
+
+    def share(mv: float) -> float:
+        return mv / total * 100 if total > 0 else 0.0
+
+    def vs_flag(pct: float) -> str:
+        return f"{'at or above' if pct >= CONCENTRATION_PCT else 'below'} the {flag}"
+
+    shelf_ok = shelf_rows is not None
+    shelf = shelf_rows or []
+    bullets: list[str] = ["The points below are computed from the data held. None of them changes the IPS, risk profile, "
+                          "suitability, allocations, figures or product ranking."]
+
+    def add(text: str) -> None:
+        if text not in bullets:
+            bullets.append(text)
+
+    for clause in _rm_clauses(rm_context):
+        low = clause.lower()
+        quote = clause if len(clause) <= RM_QUOTE_CHARS else clause[:RM_QUOTE_CHARS - 3] + "..."
+        answered = False
+
+        for label, sm, hm in _lookups(clause, shelf, holdings):
+            answered = True
+            if sm:
+                items = "; ".join(f"{s['product_name']} ({s['product_id']}, "
+                                  f"{status_by_pid.get(s['product_id'], 'on the shelf, not assessed for this client')})" for s in sm[:5])
+                more = f", first 5 shown" if len(sm) > 5 else ""
+                add(f"'{label}': the product shelf has {len(sm)} matching product(s){more}: {items}.")
+            elif shelf_ok:
+                add(f"'{label}': no product on the product shelf matches this name or issuer.")
+            else:
+                add(f"'{label}': the product shelf is unavailable, so products cannot be checked.")
+            if hm:
+                parts = []
+                for h in hm:
+                    if h.get("price_available") and h.get("asset_class") != "Cash":
+                        parts.append(f"{h['name']} ({h['ticker']}), {share(h['market_value']):.1f}% of priced non-cash holdings")
+                    else:
+                        parts.append(f"{h['name']} ({h['ticker']}), no stored price so no weight")
+                add(f"'{label}': the client already holds it: " + "; ".join(parts) + ".")
+            else:
+                add(f"'{label}': the client does not hold a matching holding.")
+
+        concept = False
+        for sector, kws in RM_SECTOR_ALIASES.items():
+            if _mentions(low, kws):
+                concept = answered = True
+                hit = [h for h in priced if any(k in (h.get("sector") or "").lower() for k in kws)]
+                pct = share(sum(h["market_value"] for h in hit))
+                add(f"Sector {sector}: the client holds {len(hit)} priced holding(s) classified in this sector, "
+                    f"{pct:.1f}% of priced non-cash holdings, {vs_flag(pct)}.")
+        for cat, kws in RM_ASSET_ALIASES.items():
+            if _mentions(low, kws):
+                concept = answered = True
+                hit = [h for h in priced if _category(h["asset_class"]) == cat]
+                pct = share(sum(h["market_value"] for h in hit))
+                add(f"Asset class {cat}: the client holds {len(hit)} priced holding(s), "
+                    f"{pct:.1f}% of priced non-cash holdings, {vs_flag(pct)}.")
+        if RM_CONCENTRATION.search(clause) and not concept:
+            answered = True
+            if priced:
+                top = max(priced, key=lambda h: h["market_value"])
+                add(f"Largest single holding: {top['name']} ({top['ticker']}), "
+                    f"{share(top['market_value']):.1f}% of priced non-cash holdings, {vs_flag(share(top['market_value']))}.")
+                by_sector: dict[str, float] = {}
+                for h in priced:
+                    by_sector[h.get("sector") or "n/a"] = by_sector.get(h.get("sector") or "n/a", 0.0) + h["market_value"]
+                sec, mv = max(by_sector.items(), key=lambda kv: kv[1])
+                add(f"Largest sector in the holdings data: {sec}, {share(mv):.1f}% of priced non-cash holdings, {vs_flag(share(mv))}.")
+            else:
+                add("Concentration: there are no priced non-cash holdings, so no weight can be computed.")
+
+        if not answered:
+            add(f"'{quote}': noted as advisory. No figure was changed on the basis of this point.")
+    return bullets
+
+
+def _shelf_rows(service: ProductRecommenderService) -> Optional[list[dict]]:
+    """The product shelf as plain dicts, or None when it is unavailable."""
+    try:
+        res = service.shelf()
+    except Exception:
+        logger.warning("Review pack could not read the product shelf for the RM context check")
+        return None
+    if res.data is None:
+        return None
+    return [{"product_id": p.product_id, "product_name": p.product_name, "issuer": p.issuer, "asset_class": p.asset_class}
+            for p in res.data.products]
+
+
+def _product_status(products: Optional[dict]) -> dict[str, str]:
+    """Status of each shelf product for this client, from the recommender response (shortlist, suitable, excluded)."""
+    status: dict[str, str] = {}
+    if not products:
+        return status
+    for it in products.get("shortlist") or []:
+        status[it["product"]["product_id"]] = f"shortlisted, rank {it['rank']}"
+    for e in products.get("eligible_not_shortlisted") or []:
+        status.setdefault(e["product_id"], "suitable, not shortlisted")
+    for x in products.get("excluded") or []:
+        status.setdefault(x["product_id"], f"excluded by the suitability gate: {x['reason']}")
+    return status
+
+
 # --- narrative (LLM writes words only) -------------------------------------------------
 
 class NarrativeOut(BaseModel):
@@ -518,6 +737,36 @@ You receive JSON facts. Rules:
    (objectives, risk limits, allocation policy) and paraphrase; do not quote them at length.
 Return client_summary, market_implications, strengths, weaknesses, taa_longevity (why the Longevity TAA differs from its
 SAA, tied to the house view and the client's objectives) and taa_legacy (the same for Legacy)."""
+
+
+# House-view asset class -> keys of the market read's `implications` that speak to it.
+_IMPL_KEYS = {"equities": ("equities",), "fixed income": ("duration", "credit", "rates"), "cash": ("rates",)}
+
+
+def _class_rationales(hv, headlines: dict, implications: dict, market_label: str) -> dict[str, str]:
+    """Why each asset class is favoured or avoided: the CIO rating and rationale, the agent's view beside it, and the market read.
+    Plain code over the house view, headlines and market read; no LLM, no figure invented."""
+    out: dict[str, str] = {}
+    for v in hv.views:
+        parts = [f"CIO house view: {v.view} on {v.asset_class.lower()} ({v.cio_term}, {v.confidence} confidence)."]
+        if (v.rationale or "").strip():
+            parts.append(v.rationale.strip().rstrip(".") + ".")
+        h = headlines.get(v.asset_class)
+        if h is not None and h.agent_view:
+            line = f"Agent view: {h.agent_view}" + (f" ({h.agent_confidence} confidence)" if h.agent_confidence else "")
+            if h.agreement:
+                line += ", " + {"aligned": "aligned with the CIO", "differs": "differs from the CIO", "opposed": "opposed to the CIO"}.get(h.agreement, str(h.agreement))
+            if h.cio_adjustment and h.cio_adjustment != "unchanged":
+                line += f"; the market data {h.cio_adjustment} the CIO view"
+            parts.append(line + ".")
+        reads = [implications[k].strip() for k in _IMPL_KEYS.get(v.asset_class.lower(), ()) if implications.get(k)]
+        if reads:
+            parts.append("Market read: " + " ".join(reads) + (f" ({market_label} market data)." if market_label == "MOCK" else ""))
+        out[v.asset_class] = " ".join(parts)
+    for h in headlines.values():  # an agent-only Sell (the CIO is not Sell) also needs its reason
+        if h.agent_view == "Sell" and h.asset_class not in out:
+            out[h.asset_class] = f"Agent view: Sell ({market_label} market data), against a CIO rating of {h.cio_view} ({h.cio_term})."
+    return out
 
 
 def _bad(text: str, allowed: set[float]) -> list[str]:
@@ -644,6 +893,7 @@ async def generate_review_pack(client_id: str, rm_context: Optional[str] = None,
 
     shifts = build_shifts(existing, taa, shortlist)
     add_unpriced(shifts, portfolio, shortlist)
+    rm_response = rm_context_response(rm_context, portfolio, _shelf_rows(service), _product_status(products))
 
     # --- deterministic text -------------------------------------------------------
     unknown = "Not documented"
@@ -753,6 +1003,8 @@ async def generate_review_pack(client_id: str, rm_context: Optional[str] = None,
     a_lines.append(summary)
     if rm_context:
         a_lines.append("RM context (advisory only; it does not change the IPS, risk profile, suitability or any figure): " + rm_context)
+        a_lines.append("RM context response (computed from the data above):")
+        a_lines += [f"- {b}" for b in rm_response or []]
 
     b_lines = [macro, f"Source: {MARKET_ANALYSIS_SOURCE} market data. " + (MOCK_NOTE if MARKET_ANALYSIS_SOURCE == "MOCK" else ""),
                "Main concerns: " + ("; ".join(concerns) if concerns else "not available"),
@@ -803,7 +1055,8 @@ async def generate_review_pack(client_id: str, rm_context: Optional[str] = None,
         "sections": [
             {"id": "A", "title": "Client Summary", "body": "\n".join(a_lines), "blocks": [{"type": "saa", "items": saa_blocks}]},
             {"id": "B", "title": "Market View", "body": "\n".join(b_lines),
-             "blocks": [{"type": "market", "source": MARKET_ANALYSIS_SOURCE, "concerns": concerns, "favoured": favoured, "headwinds": headwinds}]},
+             "blocks": [{"type": "market", "source": MARKET_ANALYSIS_SOURCE, "concerns": concerns, "favoured": favoured, "headwinds": headwinds,
+                         "rationales": _class_rationales(hv, headlines, implications, MARKET_ANALYSIS_SOURCE)}]},
             {"id": "C", "title": "Current Portfolio: Strengths and Weaknesses", "body": "\n".join(c_lines), "blocks": []},
             {"id": "D", "title": "Existing vs Proposed TAA", "body": "\n".join(d_lines), "blocks": [{"type": "taa", "buckets": list(BUCKETS)}]},
             {"id": "E", "title": "Product Recommendations", "body": "\n".join(e_lines), "blocks": []},
@@ -820,5 +1073,6 @@ async def generate_review_pack(client_id: str, rm_context: Optional[str] = None,
                              "detail": "Figures come from code; the LLM wrote only the commentary, and any text that failed the guardrail was replaced by rule-based text."},
         "ips_sources": [{"chunk_id": p["chunk_id"], "part": p["part"],
                          "excerpt": p["text"][:IPS_EXCERPT_CHARS]} for p in ips_passages],
+        "rm_context_response": rm_response,  # new, optional: bullets answering the RM note; None when there is no note
         "generated_at": clock().isoformat(),
     }

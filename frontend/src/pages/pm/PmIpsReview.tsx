@@ -67,7 +67,7 @@ export default function PmIpsReview() {
     if (!ready) return;
     const prev = getIpsDraftExtras(clientId).signatures ?? {};
     const signatures = { ...prev, pm: pmSig.image, pmSignedAt: pmSig.image ? pmSig.signedAt : undefined } as IpsDraftExtras["signatures"];
-    saveIpsDraftExtras(clientId, { buckets, allocation, allocationNotes: notes, allocationWeights: weights, signatures });
+    saveIpsDraftExtras(clientId, { buckets, allocation, allocationNotes: notes, allocationWeights: weights, signatures, pmOpened: true });
   }, [ready, buckets, allocation, notes, weights, pmSig, clientId]);
 
   // Local check (not the Portfolio Agent's combined review): both strategies chosen and the 3L split sums to 100%.
@@ -89,7 +89,7 @@ export default function PmIpsReview() {
   Object.assign(text, seed?.text ?? {});
   const api: IpsEditApi = {
     text, setText: () => {}, buckets, setBuckets, demo: seed?.demo ?? {}, setDemo: () => {}, risk: seed?.risk ?? {}, setRisk: () => {},
-    philosophy: seed?.philosophy ?? {}, setPhilosophy: () => {}, signatures: {}, setSignature: () => {},
+    philosophy: seed?.philosophy ?? {}, setPhilosophy: () => {}, signatures: getIpsDraftExtras(clientId).signatures ?? {}, setSignature: () => {},
     allocation, allocationNotes: notes, allocationWeights: weights,
     setAllocationWeights: (b, w) => setWeights((m) => { if (b === "liquidity") return m; const { [b]: _o, ...r } = m; return w ? { ...r, [b]: { strategy: allocation[b] ?? "", weights: w } } : r; }),
     proposedAllocation: seed?.proposed, allocationMeta: meta, proportion, proportionMessage: seed?.proportionMessage, outOfDate: seed?.outOfDate,
@@ -125,24 +125,24 @@ export default function PmIpsReview() {
         subtitle="The IPS the RM sent. Vet and edit the highlighted 3L and SAA section; the other sections are read-only."
         actions={<GateChip id="G2" state={returned ? "pending" : "not_started"} />} />
       {returned
-        ? <div className="mx-auto mb-4 max-w-[1080px]"><Msg ok>Sent back to the RM. Awaiting RM approval.</Msg></div>
-        : <p className="mx-auto mb-4 max-w-[1080px] text-xs text-ink-muted">Choose the Longevity and Legacy strategies in the allocation section. Ask Geneva in the sidebar about this IPS.</p>}
+        ? <div className="mx-auto mb-4 max-w-[1480px]"><Msg ok>Sent back to the RM. Awaiting RM approval.</Msg></div>
+        : <p className="mx-auto mb-4 max-w-[1480px] text-xs text-ink-muted">Choose the Longevity and Legacy strategies in the allocation section. Ask Geneva in the sidebar about this IPS.</p>}
       <div className="mb-10">
         <IpsDocument version={version} clientName={client.name} clientId={clientId} mode={returned ? "view" : "edit"} edit={returned ? undefined : api} wide pmReview={!returned}
           pmSign={returned ? undefined : { image: pmSig.image, signedAt: pmSig.signedAt, onChange: (d) => setPmSig(d ? { image: d, signedAt: new Date().toISOString() } : {}) }}  />
       </div>
 
-      <div className="mx-auto mb-6 flex max-w-[1080px]">
+      <div className="mx-auto mb-6 flex max-w-[1480px]">
         <Button variant="secondary" onClick={() => setPreviewing(true)}><Eye size={16} className="mr-2" aria-hidden />Preview IPS document</Button>
       </div>
       {previewing && (
         <DocumentPreviewModal title="Preview IPS document" onClose={() => setPreviewing(false)}>
-          <IpsDocument version={previewVersion} clientName={client.name} clientId={clientId} />
+          <IpsDocument version={previewVersion} clientName={client.name} clientId={clientId} mode="view" edit={api} pmSign={{ image: pmSig.image, signedAt: pmSig.signedAt }} />
         </DocumentPreviewModal>
       )}
 
       {!returned && (
-        <section className="mx-auto mb-12 max-w-[1080px] border-t border-hairline pt-8" aria-label="Combined check and send back">
+        <section className="mx-auto mb-12 max-w-[1480px] border-t border-hairline pt-8" aria-label="Combined check and send back">
           <h2 className="text-xl font-light">Check and send back to the RM</h2>
           <p className="mt-6 text-sm" aria-live="polite" data-testid="local-check">{passed ? "" : `Check failed. ${problems.join(" ")}`}</p>
           {msg && <div className="mt-6"><Msg ok={msg.ok}>{msg.text}</Msg></div>}

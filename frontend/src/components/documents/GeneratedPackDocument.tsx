@@ -1,4 +1,5 @@
 import { useSearchParams } from "react-router-dom";
+import { NumberInput } from "../../components/ui/NumberInput";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Tagged } from "../product/AssetViewParts";
 import { GenevaMark } from "./GenevaMark";
@@ -8,6 +9,8 @@ import { BUCKET_VAR } from "./ips/charts";
 import { BucketAllocation } from "./ips/ProportionTable";
 import type { Bucket3L, ThreeLProportion } from "../../types/arc";
 import { useAsync } from "../ui";
+import { CitationChips } from "../ui/CitationTag";
+import { registerCitations } from "../../services/citationRegistry";
 import { arcApi } from "../../services/arcApi";
 import { useIpsDraftExtras } from "../../services/workflowStore";
 import { StrategyDonut, STRAT_COLOR } from "./ips/charts";
@@ -20,11 +23,9 @@ import { useSignatures } from "../../services/packDraftStore";
 import { loadGeneratedPack, saveGeneratedPack, type GeneratedPack, type GenTaaRow, type GenShift } from "../../pages/rm/generatedPackStore";
 
 const NUM = `w-20 px-2 py-1 text-right text-[15px] text-ink ${EDIT_BOX}`;
-/** Number box that drops leading zeros while typing (0 then 33 shows 33, not 033). */
+/** Number box (shared NumberInput) that reports a number to the caller. */
 function NumInput({ value, onValue, ...rest }: { value: number | null | undefined; onValue: (n: number) => void } & Omit<React.InputHTMLAttributes<HTMLInputElement>, "value" | "onChange" | "type">) {
-  const [draft, setDraft] = useState<string | null>(null);
-  return <input {...rest} type="number" value={draft ?? value ?? ""} onFocus={(e) => { e.target.select(); }} onBlur={() => setDraft(null)}
-    onChange={(e) => { const t = e.target.value.replace(/^(-?)0+(?=\d)/, "$1"); setDraft(t); onValue(Number(t) || 0); }} />;
+  return <NumberInput {...rest} value={value ?? ""} onFocus={(e) => { e.target.select(); }} onChange={(e) => onValue(Number(e.target.value) || 0)} />;
 }
 const items = (t: string) => toBulletItems(t);
 const parse = <T,>(s: string | undefined, fb: T): T => { try { return s ? (JSON.parse(s) as T) : fb; } catch { return fb; } };
@@ -57,7 +58,7 @@ function Cited({ value, bullets, children }: { value: string; bullets?: boolean;
       </EditField>
     );
   }
-  return <div ref={ref} onBlur={(e) => { if (editing && !e.currentTarget.contains(e.relatedTarget as Node | null)) setEditing(false); }}>{children}</div>;
+  return <div ref={ref} onBlur={(e) => { if (editing && !e.currentTarget.contains(e.relatedTarget as Node | null)) setEditing(false); }}>{children}<CitationChips text={value} /></div>;
 }
 function FreeText(p: React.ComponentProps<typeof BulletTextarea>) { return <Cited value={p.value} bullets><BulletTextarea {...p} /></Cited>; }
 
@@ -130,28 +131,29 @@ function CollapsiblePortfolio({ title, ro, children }: { title: string; ro: bool
   const show = ro || open;
   return (
     <div className="min-w-0 space-y-8">
-      {ro ? <h3 className="text-[30px] font-light leading-tight text-ink">{title}</h3> : <>
+      {ro ? <h3 className="text-[20px] font-light leading-tight text-ink">{title}</h3> : <>
         <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="flex w-full items-center gap-3 text-left print:hidden">
-          <span aria-hidden className="inline-block w-9 text-[30px] leading-none text-ink-muted">{open ? "\u25BE" : "\u25B8"}</span><h3 className="text-[30px] font-light leading-tight text-ink">{title}</h3></button>
-        <div className="hidden print:block"><h3 className="text-[30px] font-light leading-tight text-ink">{title}</h3></div></>}
+          <span aria-hidden className="inline-block w-6 text-[20px] leading-none text-ink-muted">{open ? "\u25BE" : "\u25B8"}</span><h3 className="text-[20px] font-light leading-tight text-ink">{title}</h3></button>
+        <div className="hidden print:block"><h3 className="text-[20px] font-light leading-tight text-ink">{title}</h3></div></>}
       <div className={show ? "min-w-0 space-y-8" : "hidden print:block"}>{children}</div>
     </div>);
 }
 
 function SecView({ n, title, children }: { n: number; id?: string; title: string; children: ReactNode }) {
-  return <DocSection n={n} title={title} headingClass="text-[48px] font-light leading-tight text-ink"><div className="@container min-w-0"><div className="min-w-0 space-y-6">{children}</div></div></DocSection>;
+  return <DocSection n={n} title={title} headingClass="text-[26px] font-light leading-tight text-ink"><div className="@container min-w-0"><div className="min-w-0 space-y-6">{children}</div></div></DocSection>;
 }
 
-export interface PackDocProps { clientId: string; clientName: string; pack: GeneratedPack; role: "rm" | "pm"; notice?: string; preview?: boolean }
+export interface PackDocProps { clientId: string; clientName: string; pack: GeneratedPack; role: "rm" | "pm"; notice?: string; preview?: boolean; /** every page at once with no pager (used to export the whole pack as a PDF) */ allPages?: boolean }
 
 /** The generated review pack as an editable IPS-style document. RM and PM edit in place. */
-export function GeneratedPackDocument({ clientId, clientName, pack, role, preview = false }: PackDocProps) {
+export function GeneratedPackDocument({ clientId, clientName, pack, role, preview = false, allPages = false }: PackDocProps) {
   const sigs = useSignatures(clientId);
   const pmHas = role === "pm" || !!usePackHandover(clientId);
   const sec = (id: string) => pack.sections.find((s) => s.id === id);
   const latest = () => loadGeneratedPack(clientId) ?? pack;
   const set = (k: string, v: string) => { const cur = latest(); saveGeneratedPack(clientId, { ...cur, edits: { ...cur.edits, [k]: v } }); };
   const ro = preview;
+  useEffect(() => { registerCitations((pack.sources ?? []).map((x) => ({ id: x.id, title: x.label, note: x.status }))); }, [pack.sources]);
   useEffect(() => {
     if (clientId !== "ser" || preview || localStorage.getItem("pack-rm-comments-purged-ser")) return;
     localStorage.setItem("pack-rm-comments-purged-ser", "1");
@@ -170,6 +172,8 @@ export function GeneratedPackDocument({ clientId, clientName, pack, role, previe
 
   // B: favoured / avoid asset classes, stored as JSON in edits["B.stance"] ({ class: { stance } }); seeded from the section B house-view lines until first saved.
   const ALIAS: Record<string, string> = { "Exchange-Traded Funds": "", ETFs: "" };
+  // Backend per-class reasons (CIO rationale, agent view, market read), keyed by house-view class name; the short "(term, view)" text is the fallback.
+  const fullWhy: Record<string, string> = Object.fromEntries(Object.entries(((sec("B")?.blocks ?? []) as { type?: string; rationales?: Record<string, string> }[]).find((b) => b.type === "market")?.rationales ?? {}).map(([k, v]) => [k.toLowerCase(), v]));
   const effStance = (edits: Record<string, string>): StanceMap => {
     if (edits["B.stance"] != null) {
       const o: StanceMap = {};
@@ -186,7 +190,7 @@ export function GeneratedPackDocument({ clientId, clientName, pack, role, previe
       parts.push(cur);
       parts.forEach((p) => {
         const cls = HV_CLASS[p.replace(/\(.*$/, "").trim().toLowerCase()]; if (!cls) return;
-        const why = /\(([^)]*)\)/.exec(p)?.[1]?.trim(), rationale = why ? `CIO house view rating: ${why}.` : undefined;
+        const why = /\(([^)]*)\)/.exec(p)?.[1]?.trim(), name = p.replace(/\(.*$/, "").trim().toLowerCase(), rationale = fullWhy[name] ?? (why ? `CIO house view rating: ${why}.` : undefined);
         if (avo || (/\bSell\b/.test(p))) o[cls] = { stance: "Avoid", rationale };
         else if (fav && /\bBuy\b/.test(p)) o[cls] = { stance: "Favoured", rationale };
       });
@@ -328,7 +332,7 @@ export function GeneratedPackDocument({ clientId, clientName, pack, role, previe
     const key = `C.${b}.${k}`, v = pack.edits[key] ?? swDefault[b][k].join("\n");
     return (
       <div className="min-w-0 space-y-2"><p className={LABEL}>{title}</p>
-        {ro ? (v.trim() ? <Paras text={v} /> : <p className={`${BODY} ${MISSING}`}>None recorded</p>)
+        {ro ? (v.trim() ? <div className="avoid-break border border-hairline-strong px-3 py-2"><Paras text={v} /></div> : <p className={`${BODY} ${MISSING}`}>None recorded</p>)
           : <FreeText value={v} onChange={(x) => set(key, x)} label={`${title} for the ${b} portfolio`} placeholder="Add points, one per line" />}
       </div>);
   };
@@ -343,7 +347,7 @@ export function GeneratedPackDocument({ clientId, clientName, pack, role, previe
             <p className={LABEL}>Client SAA, existing TAA and proposed (new) TAA</p>
             <div className="grid grid-cols-1 gap-8 @xl:grid-cols-3">
               {([["Client SAA", "saa"], ["Existing TAA (old)", "existing"], ["Proposed TAA (new)", "proposed"]] as const).map(([t, k]) => (
-                <div key={k} className="min-w-0 space-y-2"><p className={`${SMALL} text-ink-muted`}>{t}{roM && k === "proposed" && <span className="block text-[12px] italic text-negative">Derived from the previous page (3. Current Portfolio and TAA)</span>}</p><StrategyDonut hideLegend allocation={dist(rows, k)} label={`${label} ${t}`} />
+                <div key={k} className="min-w-0 space-y-2"><p className={`${SMALL} text-ink-muted`}>{t}{roM && k === "proposed" && <span className="block text-[12px] italic text-negative">{allPages ? "Derived from section 3, Current Portfolio and TAA" : "Derived from the previous page (3. Current Portfolio and TAA)"}</span>}</p><StrategyDonut hideLegend allocation={dist(rows, k)} label={`${label} ${t}`} />
                   <ul className={`space-y-1 ${SMALL}`} aria-label={`${t} weights`}>{rows.filter((r) => k === "proposed" ? !roM || r.proposed > 0 : (r[k] ?? 0) > 0).map((r) => {
                     const i = rows.indexOf(r), d = r.existing == null ? 0 : r.proposed - r.existing, tone = k === "proposed" ? (d > 0.049 ? "text-up" : d < -0.049 ? "text-down" : "") : "";
                     return (
@@ -375,8 +379,8 @@ export function GeneratedPackDocument({ clientId, clientName, pack, role, previe
               {rows.map((r, i) => { const up = r.existing != null && r.proposed > r.existing + 0.049;
                 if (ro && !(r.reason ?? "").trim() && !up) return null;
                 return (
-                  <div key={r.asset_class} className="min-w-0 space-y-2"><p className={`${BODY} font-semibold`}>{r.asset_class}</p>
-                    {ro ? ((r.reason ?? "").trim() ? <Paras text={r.reason ?? ""} /> : <p className={`${BODY} italic ${MISSING}`}>No reason recorded</p>)
+                  <div key={r.asset_class} className="avoid-break min-w-0 space-y-2"><p className={`${BODY} font-semibold`}>{r.asset_class}</p>
+                    {ro ? ((r.reason ?? "").trim() ? <div className="avoid-break border border-hairline-strong px-3 py-2"><Paras text={r.reason ?? ""} /></div> : <p className={`${BODY} italic ${MISSING}`}>No reason recorded</p>)
                       : <FreeText value={r.reason ?? ""} onChange={(v) => upd(i, { reason: v })} label={`${label} ${r.asset_class} reason`} placeholder={up ? "No reason recorded: add one for this increase" : "Add a reason, one point per line"} />}
                   </div>); })}
             </div>
@@ -435,7 +439,7 @@ export function GeneratedPackDocument({ clientId, clientName, pack, role, previe
   const setShift = (i: number, patch: Partial<GenShift>) => set("F.shifts", JSON.stringify(shifts.map((s, j) => (j === i ? { ...s, ...patch } : s))));
   const ASSET_TAG: Record<string, string> = { equity: "#1d4ed8", "fixed income": "#047857", bond: "#047857", cash: "#b45309", "money market": "#b45309", commodit: "#a16207", "real estate": "#7c3aed", reit: "#7c3aed", alternative: "#be185d", "hedge": "#be185d", "private": "#0e7490", multi: "#4b5563" };
   const tagColor = (t: string) => { const k = Object.keys(ASSET_TAG).find((x) => t.toLowerCase().includes(x)); return k ? ASSET_TAG[k] : "#4b5563"; };
-  const badge = (t: string) => { const c = tagColor(t || ""); return <span className={`inline-block border px-2 py-0.5 ${LABEL}`} style={{ borderColor: c, color: c, background: `${c}14` }}>{t || "n/a"}</span>; };
+  const badge = (t: string) => { const c = tagColor(t || ""); return <span className={`inline-flex h-7 items-center whitespace-nowrap border px-2 leading-none ${LABEL}`} style={{ borderColor: c, color: c, background: `${c}14` }}>{t || "n/a"}</span>; };
   const nums = (s: GenShift) => {
     const f = (t: string) => (t.match(/-?\d+(?:\.\d+)?/g) ?? []).map(Number);
     const a = f(String(s.proposed ?? ""));
@@ -529,7 +533,7 @@ export function GeneratedPackDocument({ clientId, clientName, pack, role, previe
   const pageIds = [...(["A", "B"] as const).filter((x) => sec(x)), "D", "E", "F"] as string[];
   total.current = pageIds.length;
   const cur = pageIds[Math.min(page, pageIds.length - 1)];
-  const pg = (id: string, node: ReactNode) => <div key={id} className={cur === id ? "" : "hidden print:block"}>{node}</div>;
+  const pg = (id: string, node: ReactNode) => <div key={id} data-pdf-page={id} className={cur === id || allPages ? "" : "hidden print:block"}>{node}</div>;
   const at = pageIds.indexOf(cur);
   return (
     <article className="@container mx-auto w-full min-w-0 max-w-[1400px] border border-hairline bg-surface-100 px-6 py-10 font-light text-[15px] leading-6 text-ink break-words [overflow-wrap:anywhere] sm:px-14 sm:py-16 print:max-w-none print:border-0 print:bg-transparent print:p-0 print:shadow-none">
@@ -562,7 +566,7 @@ export function GeneratedPackDocument({ clientId, clientName, pack, role, previe
               <div className="min-w-0">
                 <p className={`${BODY} ${WRAP}`}>{c.name}</p>
               </div>
-              <div className="flex flex-wrap gap-2">{badge(c.assetClass)}{c.score != null && <span className={`inline-block border border-hairline-strong px-2 py-0.5 ${LABEL}`}>Score {Math.round(c.score)}</span>}{c.riskLevel && <span className={`inline-block border border-negative px-2 py-0.5 ${LABEL} ${MISSING}`}>Risk {c.riskLevel}</span>}</div>
+              <div className="flex flex-wrap gap-2">{badge(c.assetClass)}{c.score != null && <span className={`inline-flex h-7 items-center whitespace-nowrap border border-hairline-strong px-2 leading-none ${LABEL}`}>Score {Math.round(c.score)}</span>}{c.riskLevel && <span className={`inline-flex h-7 items-center whitespace-nowrap border border-negative px-2 leading-none ${LABEL} ${MISSING}`}>Risk {c.riskLevel}</span>}</div>
               <div className="min-w-0 flex-1">{ro ? <Paras text={c.rationale} /> : <FreeText value={c.rationale} onChange={c.setRationale} label={`Rationale for ${c.name}`} placeholder="Add a rationale…" />}</div>
               {!ro && <button type="button" onClick={c.remove} className={`${LABEL} self-start underline underline-offset-4`}>Remove</button>}
             </div>))}
@@ -570,9 +574,9 @@ export function GeneratedPackDocument({ clientId, clientName, pack, role, previe
         </div>
         {!ro && <ProductShelfPicker open={picker} onClose={() => setPicker(false)} existingIds={cards.map((c) => c.id).filter(Boolean)} onRemove={(id) => cards.find((c) => c.id === id)?.remove()} onAdd={(p) => { saveGeneratedPack(clientId, { ...latest(), addedProducts: [...added, p] }); setPicker(false); }} onAddMany={(ps) => { saveGeneratedPack(clientId, { ...latest(), addedProducts: [...added, ...ps] }); setPicker(false); }} />}
         {(missing.length > 0 || incomplete.length > 0 || disclaimers.length > 0) && (
-          <div className="grid grid-cols-1 gap-6 @xl:grid-cols-2">
-            {missing.length > 0 && <div className="space-y-2"><p className={`${LABEL} ${MISSING}`}>Missing information</p><div className="flex flex-wrap gap-2">{missing.map((m) => <span key={m} className={`border border-negative px-2 py-0.5 ${SMALL} ${MISSING}`}>{m}</span>)}</div></div>}
-            {incomplete.length > 0 && <div className="space-y-2"><p className={LABEL}>Products with incomplete data</p><div className="flex flex-wrap gap-2">{incomplete.map((m) => <span key={m} className={`border border-negative px-2 py-0.5 ${SMALL} ${MISSING}`}>{m}</span>)}</div></div>}
+          <div className="space-y-6">
+            {missing.length > 0 && <div className="space-y-2"><p className={`${LABEL} ${MISSING}`}>Missing information ({missing.length})</p><div className="grid grid-cols-2 border-l border-t border-negative @xl:grid-cols-3">{missing.map((m) => <span key={m} className={`break-words border-b border-r border-negative px-3 py-2 ${SMALL} ${MISSING}`}>{m}</span>)}</div></div>}
+            {incomplete.length > 0 && <div className="space-y-2"><p className={LABEL}>Products with incomplete data ({incomplete.length})</p><div className="grid grid-cols-3 border-l border-t border-hairline-strong @xl:grid-cols-6">{incomplete.map((m) => <span key={m} className={`break-words border-b border-r border-hairline-strong px-2 py-1.5 text-center ${SMALL} ${MISSING}`}>{m}</span>)}{Array.from({ length: (6 - (incomplete.length % 6)) % 6 }, (_, i) => <span key={`pad${i}`} aria-hidden className="border-b border-r border-hairline-strong py-1.5 text-xs">&nbsp;</span>)}</div></div>}
             {disclaimers.length > 0 && <details open={ro} className="space-y-2"><summary className={`${LABEL} cursor-pointer`}>Disclaimers</summary><ul className={`mt-2 list-disc space-y-1 pl-5 ${SMALL} text-ink-muted`}>{disclaimers.map((l, i) => <li key={i} className={WRAP}>{l}</li>)}</ul></details>}
           </div>)}
       </SecView>)}
@@ -615,16 +619,16 @@ export function GeneratedPackDocument({ clientId, clientName, pack, role, previe
         </div>
       </SecView>)}
 
-      <nav aria-label="Pack pages" className="sticky bottom-0 z-30 -mx-6 mt-10 flex items-center justify-between gap-4 border-y border-black bg-black px-6 py-2 text-white sm:-mx-14 sm:px-14 print:hidden">
-        <button type="button" aria-label="Previous page" disabled={at <= 0} onClick={() => setPage(at - 1)} className="border border-white px-3 py-1 text-[16px] leading-6 text-white hover:bg-white hover:text-black focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-white">{"\u2190"}</button>
-        <p className={`min-w-0 flex-1 truncate text-center text-[16px] font-semibold text-white`} aria-live="polite">Page {at + 1} of {pageIds.length}</p>
-        <button type="button" aria-label="Next page" disabled={at >= pageIds.length - 1} onClick={() => setPage(at + 1)} className="border border-white px-3 py-1 text-[16px] leading-6 text-white hover:bg-white hover:text-black focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-white">{"\u2192"}</button>
-      </nav>
-
       <footer className="avoid-break mt-12 flex flex-wrap justify-between gap-2 border-t border-hairline pt-4 text-[12px] text-ink-muted">
         <span />
         <span>Confidential · {`PACK-${clientId.toUpperCase()}${pack.generated_at ? `-${pack.generated_at.slice(0, 10)}` : ""}`}</span>
       </footer>
+
+      <nav aria-label="Pack pages" hidden={allPages} className="sticky bottom-0 z-30 -mx-6 mt-6 flex items-center justify-between gap-4 border-y border-black bg-black px-6 py-2 text-white sm:-mx-14 sm:px-14 print:hidden">
+        <button type="button" aria-label="Previous page" disabled={at <= 0} onClick={() => setPage(at - 1)} className="border border-white px-3 py-1 text-[16px] leading-6 text-white hover:bg-white hover:text-black focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-white">{"\u2190"}</button>
+        <p className={`min-w-0 flex-1 truncate text-center text-[16px] font-semibold text-white`} aria-live="polite">Page {at + 1} of {pageIds.length}</p>
+        <button type="button" aria-label="Next page" disabled={at >= pageIds.length - 1} onClick={() => setPage(at + 1)} className="border border-white px-3 py-1 text-[16px] leading-6 text-white hover:bg-white hover:text-black focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-white">{"\u2192"}</button>
+      </nav>
     </article>
   );
 }

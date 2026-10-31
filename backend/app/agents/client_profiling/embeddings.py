@@ -9,6 +9,8 @@ from __future__ import annotations
 import json
 import os
 import re
+import ssl
+import time
 import urllib.request
 from typing import Optional
 
@@ -17,6 +19,26 @@ DOC_PREFIX = "search_document: "
 QUERY_PREFIX = "search_query: "
 CHUNK_CHARS = 400
 TIMEOUT_S = 10
+
+
+def _ssl_context() -> ssl.SSLContext:
+    """System CA store, plus certifi's bundle when installed (python.org builds on macOS ship without CA certs)."""
+    try:
+        import certifi
+        return ssl.create_default_context(cafile=certifi.where())
+    except Exception:
+        return ssl.create_default_context()
+
+
+_state: dict = {"ok": None, "at": 0.0}
+STATUS_TTL_S = 60
+
+
+def status() -> dict:
+    """Whether the embedding service answers. Re-probed at most once a minute; every real embed call also updates it."""
+    if _state["ok"] is None or time.time() - _state["at"] > STATUS_TTL_S:
+        embed(["ping"])
+    return {"ok": bool(_state["ok"]), "checkedAt": _state["at"], "model": embed_model()}
 
 
 def embed_model() -> str:
@@ -38,11 +60,14 @@ def embed(texts: list[str], prefix: str = "") -> Optional[list[list[float]]]:
     body = json.dumps(payload).encode()
     try:
         req = urllib.request.Request(url, data=body, headers=headers)
-        with urllib.request.urlopen(req, timeout=TIMEOUT_S) as resp:
+        with urllib.request.urlopen(req, timeout=TIMEOUT_S, context=_ssl_context()) as resp:
             data = sorted(json.loads(resp.read())["data"], key=lambda d: d.get("index", 0))
         vecs = [[float(x) for x in d["embedding"]] for d in data]
-        return vecs if len(vecs) == len(texts) and all(vecs) else None
+        good = len(vecs) == len(texts) and all(vecs)
+        _state.update(ok=good, at=time.time())
+        return vecs if good else None
     except Exception:
+        _state.update(ok=False, at=time.time())
         return None
 
 

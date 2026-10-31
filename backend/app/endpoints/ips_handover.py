@@ -4,6 +4,7 @@
   PUT  /agents/client-profiling/pm-ips/{client_id}            PM edits the 3L split and the Longevity/Legacy strategy (persisted)
   POST /agents/client-profiling/pm-ips/{client_id}/return     PM signs off -> status "Returned by PM"; edits written into the IPS version
   POST /agents/client-profiling/ips/{client_id}/{version}/activate   RM approves: Active, older superseded, indexed, client -> Monitoring
+  POST /agents/client-profiling/ips/{client_id}/{version}/deactivate RM switches the Active version to Superseded; no Active left -> Onboarding 0%
 
 Liquidity never has an SAA or strategy, anywhere here. The Portfolio Agent's option ids A-F are the strategy codes A-F, so the
 RM-chosen strategy is the pre-selected option for that bucket.
@@ -217,3 +218,25 @@ async def activate_ips(client_id: str, version: int) -> dict:
     return {"client_id": client_id, "version": version, "status": "Active", "clientStatus": ACTIVE_CLIENT_STATUS,
             "superseded": [v.version for v in versions if v.status == "Superseded"],
             "indexing": _index_after_save(store, client_id, version)}
+
+
+@router.post("/ips/{client_id}/{version}/deactivate")
+async def deactivate_ips(client_id: str, version: int) -> dict:
+    """RM switches the Active IPS back to non-active (Superseded). With no Active IPS left, the client goes back to Onboarding at 0%."""
+    store = get_default_store()
+    _require_in_book(store, client_id)
+    cur = next((v for v in store.get_ips_versions(client_id) if v.version == version), None)
+    if cur is None:
+        raise HTTPException(status_code=404, detail=f"IPS v{version} not found")
+    if cur.status != "Active":
+        raise HTTPException(status_code=409, detail=f"IPS v{version} is not the active version")
+    if not store.deactivate_ips(client_id, version):
+        raise HTTPException(status_code=409, detail=f"IPS v{version} is not the active version")
+    # No active IPS left: the review pack goes with it and the client falls back to Onboarding at 0%, as in delete_client_ips.
+    reset = not any(v.status == "Active" for v in store.get_ips_versions(client_id))
+    if reset:
+        store.delete_review_pack_state(client_id)
+        store.withdraw_ips_send(client_id)
+        store.set_client_status(client_id, "Onboarding Phase")
+        store.set_progress(client_id, onboarding=0, monitoring=0)
+    return {"client_id": client_id, "version": version, "status": "Superseded", "reset": reset}

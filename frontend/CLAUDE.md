@@ -8,6 +8,7 @@ If a required resource is unavailable (design system, Claude Doc, tool, file, ac
 `ubs-frontend-` + `chatbot-agent` (Geneva chat), `ps-agent`, `pm-agent`, `rm-agent`, `generic-agent` (everything else). One agent per file in parallel; cross-file needs go to the owner. Finish with `reviewer-agent` (read-only: imports, duplicates, conflicts, ownership, Lux).
 
 ## Design (Lux, IS4000 UBS)
+- Numeric inputs: never use a raw `<input type="number">`; use the shared `NumberInput` from `components/ui` (typing a digit after 0 must show 12, not 012).
 - Never compact: one page = one job, ≤3 blocks per screen, generous spacing.
 - `Stepper` + `NextAction` on workflow pages, `GateChip` G1-G4.
 - Tokens in `styles/tokens.css`; Source Sans 3 light; red `brand` only for the one primary action. Reuse `components/ui`.

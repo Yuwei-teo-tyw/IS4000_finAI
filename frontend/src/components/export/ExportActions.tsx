@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Download, Eye, X } from "lucide-react";
 import { Button } from "../ui";
 import { ROLE_LABEL } from "../../types/arc";
+import { downloadElementAsPdf } from "../../utils/pdf";
 import { CompiledDocument, pendingRoles, type DocSection } from "./CompiledDocument";
 
 const PRINT_CSS = `@media print {
@@ -28,6 +29,8 @@ export function ExportActions({ docTitle, clientName, version, date, sections, e
   const [html, setHtml] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const frame = useRef<HTMLIFrameElement>(null);
+  const area = useRef<HTMLDivElement>(null);
+  const [saving, setSaving] = useState(false);
   useEffect(() => {
     if (!open || !renderHtml) return;
     let live = true;
@@ -37,7 +40,14 @@ export function ExportActions({ docTitle, clientName, version, date, sections, e
     // renderHtml is a fresh closure every render; refetch only when the overlay opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
-  const print = () => (renderHtml ? frame.current?.contentWindow?.print() : window.print());
+  const download = async () => {
+    const el = (renderHtml ? frame.current?.contentDocument?.body : area.current) ?? null;
+    if (!el) return;
+    setSaving(true);
+    try { await downloadElementAsPdf(el, `${docTitle} - ${clientName}`); }
+    catch (err) { console.error("PDF export failed", err); }
+    finally { setSaving(false); }
+  };
   const fit = () => { const d = frame.current?.contentDocument; if (frame.current && d) frame.current.style.height = `${d.documentElement.scrollHeight}px`; };
   const roles = pendingRoles(sections);
   const complete = roles.length === 0;
@@ -57,14 +67,14 @@ export function ExportActions({ docTitle, clientName, version, date, sections, e
               </p>
             </div>
             <div className="flex gap-3">
-              <Button variant={finalOk ? "gold" : "ghost"} onClick={print} disabled={renderHtml ? !html : false}>
-                <Download size={16} />{finalOk ? "Export PDF" : "Export Draft PDF"}
+              <Button variant={finalOk ? "gold" : "ghost"} onClick={download} disabled={saving || (renderHtml ? !html : false)}>
+                <Download size={16} />{saving ? "Preparing PDF…" : finalOk ? "Export PDF" : "Export Draft PDF"}
               </Button>
               <Button variant="ghost" onClick={() => setOpen(false)}><X size={16} />Close</Button>
             </div>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 sm:px-8 py-10 print:overflow-visible print:p-0">
-            <div className="print-area mx-auto w-full min-w-0 max-w-full">
+            <div ref={area} className="print-area mx-auto w-full min-w-0 max-w-full">
               {renderHtml ? (
                 error ? <p className="mx-auto max-w-xl border border-dashed border-negative bg-surface-100 p-8 text-center text-sm text-negative">{error}</p>
                 : html === null ? <p className="py-20 text-center text-sm text-ink-muted">Rendering preview…</p>

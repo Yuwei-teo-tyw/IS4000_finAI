@@ -1,12 +1,26 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Eye, Printer, X } from "lucide-react";
+import { Download, Eye, X } from "lucide-react";
 import { Button } from "../ui";
+import { downloadPagedPdf } from "../../utils/pdf";
 import { GeneratedPackDocument, type PackDocProps } from "./GeneratedPackDocument";
 
 /** Large read-only preview of the review pack. Renders from the props it is given, so it always shows the live pack. */
 export function PackPreviewDialog({ open, onClose, ...doc }: PackDocProps & { open: boolean; onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
+  const exportRef = useRef<HTMLDivElement>(null);
+  const [exporting, setExporting] = useState(false);
+  const [error, setError] = useState("");
+  /** Renders every page off-screen, then saves it as one PDF (the on-screen preview shows one page at a time). */
+  const download = async () => {
+    setError(""); setExporting(true);
+    try {
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      if (!exportRef.current) throw new Error("not ready");
+      await downloadPagedPdf(exportRef.current, `Review pack - ${doc.clientName}`);
+    } catch { setError("The PDF could not be created. Please try again."); }
+    finally { setExporting(false); }
+  };
   useEffect(() => {
     if (!open) return;
     const prev = document.activeElement as HTMLElement | null;
@@ -33,10 +47,16 @@ export function PackPreviewDialog({ open, onClose, ...doc }: PackDocProps & { op
         <div className="flex items-center justify-between gap-4 border-b border-hairline bg-white px-6 py-4 print:hidden">
           <h2 className="text-xl">Review pack preview</h2>
           <div className="flex gap-3">
-            <Button variant="secondary" onClick={() => window.print()}><Printer size={16} /> Print</Button>
+            <Button variant="secondary" onClick={() => void download()} disabled={exporting}><Download size={16} /> {exporting ? "Preparing PDF…" : "Download PDF"}</Button>
             <Button variant="ghost" onClick={onClose}><X size={16} /> Close</Button>
           </div>
         </div>
+        {error && <p role="alert" className="border-b border-hairline bg-white px-6 py-2 text-sm text-negative print:hidden">{error}</p>}
+        {exporting && (
+          <div aria-hidden style={{ position: "fixed", left: -10000, top: 0, width: 1200 }}>
+            <div ref={exportRef} data-theme="light" className="bg-white"><GeneratedPackDocument {...doc} preview allPages /></div>
+          </div>
+        )}
         <div className="min-h-0 flex-1 overflow-y-auto p-6 sm:p-10 print:overflow-visible print:p-0">
           <div className="mx-auto w-full max-w-[297mm] bg-white p-8 shadow-sm sm:p-14 print:max-w-none print:p-0 print:shadow-none">
             <GeneratedPackDocument {...doc} preview />

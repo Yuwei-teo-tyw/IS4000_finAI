@@ -4,6 +4,7 @@
  * Later, swap bodies for LangGraph/REST calls; keep signatures stable so pages don't change.
  * Pages must NEVER import from src/mock directly.
  */
+import { registerCitations } from "./citationRegistry";
 import * as m from "../mock/data";
 import type { ClientPortfolio, ThreeLValidation } from "../types/arc";
 import { getActiveIps, isActivated, isIpsReturned, loadPmProgress } from "./workflowStore";
@@ -251,9 +252,10 @@ export const arcApi = {
   getSaaTemplates: () => delay(m.saaTemplates),
   /** Save an IPS (new version, or edit when `version` is set); the backend vectorizes it. Returns the confirmation text ("IPS v3 indexed" / "IPS saved, but not yet searchable"); throws the backend message (e.g. "Client is not in your book"). */
   /** Deletes one IPS version from the database (and any local edits of it). Throws when the backend cannot delete it. */
-  deleteIps: async (clientId: string, version: number): Promise<void> => {
-    await cpJson<{ deleted: boolean }>(`/ips/${encodeURIComponent(clientId)}/${version}`, { method: "DELETE" });
+  deleteIps: async (clientId: string, version: number): Promise<{ reset: boolean }> => {
+    const r = await cpJson<{ deleted: boolean; reset?: boolean }>(`/ips/${encodeURIComponent(clientId)}/${version}`, { method: "DELETE" });
     delete ipsEdits[`${clientId}:${version}`];
+    return { reset: !!r.reset };
   },
   /** IS-97: portfolio of a client. null = not in the RM's book (403/404) or portfolio data unavailable. A client with no holdings returns the status "no_holdings" payload (AUM label "No holdings yet", no value), not null. */
   getClientPortfolio: async (clientId: string): Promise<ClientPortfolio | null> => {
@@ -271,6 +273,10 @@ export const arcApi = {
   returnPmIps: (clientId: string): Promise<{ status: string; version: number; returnedAt: string }> => cpJson(`/pm-ips/${encodeURIComponent(clientId)}/return`, { method: "POST" }),
   /** G1: the backend sets IpsVersion.status = Active (older ones Superseded) and moves the client to Monitoring. Required before a pack can be generated. */
   activateIpsVersion: (clientId: string, version: number): Promise<{ client_id: string; version: number; status: string; clientStatus: string }> => cpJson(`/ips/${encodeURIComponent(clientId)}/${version}/activate`, { method: "POST" }),
+  /** RM switches the Active IPS back to non-active. `reset` is true when no Active IPS is left (client back to Onboarding 0%). */
+  deactivateIpsVersion: (clientId: string, version: number): Promise<{ client_id: string; version: number; status: string; reset: boolean }> => cpJson(`/ips/${encodeURIComponent(clientId)}/${version}/deactivate`, { method: "POST" }),
+  /** Search health of the Client Profiling agent: when embeddings are down, answers use keyword search only. */
+  getSearchStatus: (): Promise<SearchStatus> => cpJson<SearchStatus>("/search-status"),
   getIpsSendStatus: (clientId: string): Promise<IpsSendStatus> => cpJson<IpsSendStatus>(`/ips-send/${encodeURIComponent(clientId)}`),
   /** Sends one IPS version (null = latest) to the PM. Throws IpsSendError (message is shown to the RM) when it is not sent. */
   sendIpsToPm: async (clientId: string, version: number | null): Promise<IpsSendResult> => {
@@ -732,6 +738,7 @@ export class PortfolioAgentError extends Error {
 }
 
 /* ---- Client Profiling Agent: IPS and meeting-note questions. Proposals only; nothing is saved or executed. ---- */
+export interface SearchStatus { embeddings: "ok" | "down"; mode: "hybrid" | "keyword_only"; model: string; message: string }
 const CP_URL = `${API_BASE}/agents/client-profiling`;
 const CP_TIMEOUT_MS = 90_000;
 /** The RM whose IPS chat history and override audit rows are scoped by the backend (header X-RM-Id). No auth yet: the backend's default RM. */
@@ -952,6 +959,8 @@ export function mergeIpsGenerated(results: IpsGenSectionResult[]): IpsGenerated 
   for (const r of results) for (const s of r.sources ?? []) if (s.id && !seen.has(s.id)) { seen.add(s.id); sources.push(s); }
   const ev = new Set<string>(); const evidence: IpsGenEvidence[] = [];
   for (const r of results) for (const e of r.evidence ?? []) { const key = `${e.noteId}|${e.item}`; if (!ev.has(key)) { ev.add(key); evidence.push(e); } }
+  registerCitations(sources.map((x) => ({ id: x.id, date: x.date, title: x.label })));
+  registerCitations(evidence.map((e) => ({ id: e.noteId, date: e.date, title: e.title, passage: e.passage })));
   const alloc = by("allocation")?.allocation;
   const model = results.find((r) => r.model)?.model;
   const allocRes = by("allocation");

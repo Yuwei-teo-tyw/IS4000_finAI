@@ -18,7 +18,7 @@ def test_delete_version_and_promote():
     cid = next(x["id"] for x in book["clients"])
     v1 = _save(c, cid, "one")
     v2 = _save(c, cid, "two")
-    assert c.delete(f"{URL}/ips/{cid}/{v2}").json() == {"deleted": True, "version": v2}
+    assert c.delete(f"{URL}/ips/{cid}/{v2}").json() == {"deleted": True, "version": v2, "reset": False}
     versions = c.get(f"{URL}/ips/{cid}").json()["versions"]
     assert all(v["version"] != v2 for v in versions)
     assert next(v for v in versions if v["version"] == v1)["status"] == "Active"

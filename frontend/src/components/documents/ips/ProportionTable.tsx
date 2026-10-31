@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { NumberInput } from "../../../components/ui/NumberInput";
 import type { Bucket3L, ThreeLBucketKey, ThreeLProportion } from "../../../types/arc";
 import { sgd } from "../../ui";
 import { BUCKET_BG } from "./charts";
@@ -54,7 +55,7 @@ export function BucketAllocation({ buckets, onBuckets, proportion, message, miss
                 <td className="py-3 pr-2 text-right">{sgd(b.amountSgd)}</td>
                 <td className="py-2 pr-4 text-right">
                   {editing
-                    ? <input type="number" min={0} max={100} step={1} value={b.pct} aria-label={`${b.name} percentage`} onChange={(e) => setPct(b.id, e.target.value)}
+                    ? <NumberInput min={0} max={100} step={1} value={b.pct} aria-label={`${b.name} percentage`} onChange={(e) => setPct(b.id, e.target.value)}
                         className={`w-20 px-2 py-1 text-right text-[15px] text-ink ${EDIT_BOX}`} />
                     : <span className="inline-block py-1">{b.pct}%</span>}
                 </td>

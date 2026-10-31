@@ -8,8 +8,9 @@ import { SortByDate, type SortOrder } from "../../components/documents/SortByDat
 import { IpsGenerationTimeline } from "../../components/documents/IpsGenerationTimeline";
 import { dismissIpsRun, startIpsGeneration, useIpsRun } from "../../services/ipsGenStore";
 import { arcApi } from "../../services/arcApi";
-import { setActiveIps, useActiveIps, useIpsReturned } from "../../services/workflowStore";
+import { deactivateIpsLocal, resetOnboarding, setActiveIps, useActiveIps, useIpsReturned } from "../../services/workflowStore";
 import { activateIpsForClient } from "../../services/ipsHandover";
+import { mutateState } from "../rm/generatedPackStore";
 import IpsDraft from "../rm/IpsDraft";
 import { IpsStatusBadge } from "../rm/IpsSendUi";
 import { formatSentAt, useIpsSendStatus, type IpsStatusLabel } from "../rm/ipsSendUtil";
@@ -18,7 +19,7 @@ import type { IpsGenerated, IpsVersion } from "../../types/arc";
 const statusTone = { Active: "green", Superseded: "grey", Draft: "gold" } as const;
 const iconBtn = "inline-flex size-10 items-center justify-center rounded-sm border border-ink text-ink hover:bg-surface-300";
 
-function VersionCard({ v, clientName, canEdit, onEdit, onDelete, isActive, canActivate, onActivate, returned }: { v: IpsVersion; clientName: string; canEdit: boolean; onEdit: () => void; onDelete?: () => void; isActive: boolean; canActivate: boolean; onActivate: () => void; returned: boolean }) {
+function VersionCard({ v, clientName, canEdit, onEdit, onDelete, isActive, canActivate, onActivate, onDeactivate, returned }: { v: IpsVersion; clientName: string; canEdit: boolean; onEdit: () => void; onDelete?: () => void; isActive: boolean; canActivate: boolean; onActivate: () => void; onDeactivate?: () => void; returned: boolean }) {
   const [preview, setPreview] = useState(false);
   const editable = canEdit;
   return (
@@ -45,6 +46,11 @@ function VersionCard({ v, clientName, canEdit, onEdit, onDelete, isActive, canAc
           {canActivate && !isActive && (
             <span title={v.status === "Draft" && !returned ? "Draft versions cannot be made active until the PM returns the IPS." : "Make this the IPS the AI assistant uses"}>
               <Button variant="ghost" disabled={v.status === "Draft" && !returned} onClick={onActivate}>Make active</Button>
+            </span>
+          )}
+          {canActivate && isActive && onDeactivate && (
+            <span title="Stop using this IPS in the AI assistant">
+              <Button variant="ghost" onClick={onDeactivate}>Make non-active</Button>
             </span>
           )}
           {editable && <button type="button" aria-label="Edit" title="Edit" onClick={onEdit} className={iconBtn}><Pencil size={18} /></button>}
@@ -81,6 +87,18 @@ export function IpsHistory({ clientId, clientName = "" }: { clientId: string; cl
     return () => window.removeEventListener("ips-versions-changed", h);
   }, [clientId]);
   const { data: versions, error: loadError } = useAsyncResult(() => arcApi.getIpsHistory(clientId), [clientId, editing, reload]);
+  /** Active -> non-active. Confirmed first; with no Active IPS left the client goes back to Onboarding and the review pack is cleared, as on delete. */
+  const deactivateVersion = async (v: IpsVersion) => {
+    if (!window.confirm(`Make IPS v${v.version} non-active for ${name}? The AI assistant will stop using it. If no active IPS is left, the client returns to Onboarding and the review pack is cleared.`)) return;
+    setActivateError("");
+    try {
+      const { reset } = await arcApi.deactivateIpsVersion(clientId, v.version);
+      deactivateIpsLocal(clientId, reset);
+      if (reset) mutateState(clientId, () => null, true);
+      setReload((n) => n + 1);
+    }
+    catch (e) { setActivateError(e instanceof Error ? e.message : "The IPS could not be made non-active."); }
+  };
   const client = useAsync(() => arcApi.getClient(clientId), [clientId]);
   const [order, setOrder] = useState<SortOrder>("latest");
   const sorted = useMemo(
@@ -91,12 +109,17 @@ export function IpsHistory({ clientId, clientName = "" }: { clientId: string; cl
   const explicit = useActiveIps(clientId);
   const returnedLocal = useIpsReturned(clientId);
   const returned = returnedLocal || sendStatus?.status === "Returned by PM";
-  const activeVersion = explicit ?? [...(versions ?? [])].filter((v) => v.status !== "Draft").sort((a, b) => b.version - a.version)[0]?.version ?? null;
+  // Explicit choice first; otherwise the version the backend reports as Active (a deactivated IPS is Superseded, so nothing shows as active).
+  const activeVersion = explicit ?? versions?.find((v) => v.status === "Active")?.version ?? null;
   const name = clientName || client?.name || "Client";
   const removeVersion = async (v: IpsVersion) => {
     if (!window.confirm(`Delete IPS v${v.version} for ${name}? This cannot be undone.`)) return;
     setDeleteError("");
-    try { await arcApi.deleteIps(clientId, v.version); setReload((n) => n + 1); }
+    try {
+      const { reset } = await arcApi.deleteIps(clientId, v.version);
+      if (reset) { resetOnboarding(clientId); mutateState(clientId, () => null, true); }  // no active IPS left: review pack gone, back to Onboarding 0%
+      setReload((n) => n + 1);
+    }
     catch (e) { setDeleteError(e instanceof Error ? e.message : "The IPS could not be deleted."); }
   };
   const run = useIpsRun(clientId);
@@ -180,7 +203,7 @@ export function IpsHistory({ clientId, clientName = "" }: { clientId: string; cl
           {deleteError && <p role="alert" className="mb-4 text-sm text-negative">{deleteError}</p>}
           {activateError && <p role="alert" className="mb-4 text-sm text-negative">{activateError}</p>}
           <div className="flex flex-col gap-8">
-            {sorted.map((v) => <VersionCard key={v.version} v={v} clientName={name} canEdit={role === "rm" && (v.status === "Active" || v.status === "Draft")} onEdit={() => { setEditVersion(v.status === "Draft" ? v.version : undefined); setEditing(true); }} onDelete={role === "rm" ? () => removeVersion(v) : undefined} isActive={v.version === activeVersion} canActivate={role === "rm"} onActivate={() => { if (v.status === "Draft") void activateDraft(v); else setActiveIps(clientId, v.version); }} returned={returned} />)}
+            {sorted.map((v) => <VersionCard key={v.version} v={v} clientName={name} canEdit={role === "rm" && (v.status === "Active" || v.status === "Draft")} onEdit={() => { setEditVersion(v.status === "Draft" ? v.version : undefined); setEditing(true); }} onDelete={role === "rm" ? () => removeVersion(v) : undefined} isActive={v.version === activeVersion} canActivate={role === "rm"} onActivate={() => { if (v.status === "Draft") void activateDraft(v); else setActiveIps(clientId, v.version); }} onDeactivate={role === "rm" ? () => void deactivateVersion(v) : undefined} returned={returned} />)}
           </div>
         </div>
       )}

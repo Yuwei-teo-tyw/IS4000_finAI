@@ -274,12 +274,12 @@ export default function IpsDraft({ embedded = false, clientId: clientIdProp, bla
         <Stepper steps={onboardingSteps} current={sent ? 3 : 2} />
       </>)}
 
-      <div className="mx-auto mb-4 flex max-w-[1080px] flex-wrap items-center gap-4">
+      <div className="mx-auto mb-4 flex max-w-[1480px] flex-wrap items-center gap-4">
         <IpsStatusBadge status={label} detail={label === "Draft" ? undefined : formatSentAt(sentAtIso) || undefined} />
         {sendStatus?.sentVersion != null && label !== "Draft" && <span className="text-sm font-light text-ink-muted">PM has version {sendStatus.sentVersion}</span>}
       </div>
       {outdated && sendStatus && (
-        <div role="status" className="mx-auto mb-4 flex max-w-[1080px] flex-wrap items-center justify-between gap-4 rounded-sm border border-hairline-strong bg-surface-200 px-6 py-4">
+        <div role="status" className="mx-auto mb-4 flex max-w-[1480px] flex-wrap items-center justify-between gap-4 rounded-sm border border-hairline-strong bg-surface-200 px-6 py-4">
           <p className="text-[15px] font-light text-ink">The PM has an older version (v{sendStatus.sentVersion}). Send the updated version?</p>
           <div className="flex gap-3">
             <Button variant="secondary" onClick={() => setDismissedOutdated(sendStatus.latestVersion)}>Not now</Button>
@@ -287,7 +287,7 @@ export default function IpsDraft({ embedded = false, clientId: clientIdProp, bla
           </div>
         </div>
       )}
-      <div className="mx-auto mb-4 flex max-w-[1080px] items-center justify-between gap-4">
+      <div className="mx-auto mb-4 flex max-w-[1480px] items-center justify-between gap-4">
         <p className="text-xs text-ink-muted">Edit directly on the page. Highlight text to ask Geneva. Sections 2 and 4 are filled by the Portfolio Manager.</p>
         <div className="flex shrink-0 items-center">{previewBtn}</div>
       </div>
@@ -303,9 +303,9 @@ export default function IpsDraft({ embedded = false, clientId: clientIdProp, bla
           getText={(n) => text[n] ?? ""} onApplied={(n, v) => api.setText(n, v)} onClose={() => setPop(null)} />
       )}
 
-      <p role="status" className="mx-auto mb-1 max-w-[1080px] text-right text-[12px] text-ink-muted">{autosave === "saving" ? "Saving…" : autosave === "saved" ? "Saved" : autosave === "error" ? "Not saved yet, see the message below. Your edits are kept and retried on the next change." : ""}</p>
-      {saveMsg && <p role={saveMsg.tone === "error" ? "alert" : "status"} className={`mx-auto mb-3 max-w-[1080px] text-right text-sm ${saveMsg.tone === "error" ? "text-red-700" : "text-ink"}`}>{saveMsg.text}</p>}
-      <div className="mx-auto flex max-w-[1080px] flex-wrap items-center justify-end gap-3">
+      <p role="status" className="mx-auto mb-1 max-w-[1480px] text-right text-[12px] text-ink-muted">{autosave === "saving" ? "Saving…" : autosave === "saved" ? "Saved" : autosave === "error" ? "Not saved yet, see the message below. Your edits are kept and retried on the next change." : ""}</p>
+      {saveMsg && <p role={saveMsg.tone === "error" ? "alert" : "status"} className={`mx-auto mb-3 max-w-[1480px] text-right text-sm ${saveMsg.tone === "error" ? "text-red-700" : "text-ink"}`}>{saveMsg.text}</p>}
+      <div className="mx-auto flex max-w-[1480px] flex-wrap items-center justify-end gap-3">
         {noIps && !sent && <p role="status" className="mr-auto text-sm text-ink-muted">Generate an IPS first</p>}
         {sent && <p className="mr-auto text-sm font-light text-ink-500">{sentLine}. Withdraw to pull the draft back.</p>}
         {!embedded && !sent && <Button variant="secondary" onClick={() => nav(-1)}>Back</Button>}
@@ -336,7 +336,7 @@ export default function IpsDraft({ embedded = false, clientId: clientIdProp, bla
       )}
       {previewing && (
         <DocumentPreviewModal title="Preview IPS document" onClose={() => setPreviewing(false)}>
-          <IpsDocument version={previewVersion} clientName={client?.name ?? ""} clientId={clientId} aiGenerated={!!generated} />
+          <IpsDocument version={previewVersion} clientName={client?.name ?? ""} clientId={clientId} mode="view" edit={api} blank={blank} aiGenerated={!!generated} />
         </DocumentPreviewModal>
       )}
     </div>

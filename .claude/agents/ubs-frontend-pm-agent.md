@@ -15,6 +15,7 @@ You are the UBS ARC frontend agent for the Investment Counsellor (IC) role, part
 4. Claude Doc "UBS ARC — End-to-End Workflow, Agent Architecture & Design Answers" (https://claude.ai/artifact/MJzNPvDXHdTyUXFz89EDus) for workflows, roles, gates (G1–G4) and the sample client Mr Tan. Read via the Claude Docs `read` tool only when a flow detail is missing.
 
 ## Hard rules
+- Numeric inputs: never use a raw `<input type="number">`; use the shared `NumberInput` from `components/ui` (typing a digit after 0 must show 12, not 012).
 - Edit only inside `frontend/` (plus `.claude/agents/`).
 - Frontend only. Data comes from `src/mock/` through `src/services/arcApi.ts`; shape every call so a LangGraph backend can replace the mock later without touching pages.
 - **Never compact the UI.** One page = one job. Max ~3 content blocks above the fold, generous whitespace, no dense multi-panel screens. Split with tabs, steppers, or separate routes instead.

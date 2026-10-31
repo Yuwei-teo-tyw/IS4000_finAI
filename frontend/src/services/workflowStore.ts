@@ -135,7 +135,9 @@ export interface IpsDraftExtras {
   demo?: Record<string, string>; risk?: Record<string, string>;
   /** Investment philosophy statement blanks (RM-filled). */
   philosophy?: { approach?: string; believes?: string; avoids?: string; statement?: string; investmentPeriod?: string };
-  signatures?: { client?: string; rm?: string };
+  signatures?: { client?: string; rm?: string; pm?: string; pmSignedAt?: string };
+  /** Set when the Portfolio Manager opens the IPS; the PM signature is shown only after this. Reset when the RM (re)sends. */
+  pmOpened?: boolean;
   /** Strategy code (A-F) chosen per 3L bucket, and the justification text per bucket. */
   allocation?: { liquidity?: string; longevity?: string; legacy?: string };
   allocationNotes?: Record<string, string>;
@@ -165,6 +167,7 @@ export const saveIpsDraftExtras = (clientId: string, patch: IpsDraftExtras) =>
 
 export const sendIpsToPm = (clientId: string, extras?: IpsDraftExtras) => {
   if (extras) saveIpsDraftExtras(clientId, extras);
+  saveIpsDraftExtras(clientId, { pmOpened: false });
   sendIpsToPmRaw(clientId);
 };
 const sendIpsToPmRaw = (clientId: string) => ipsSent.write({ ...ipsSent.read(), [clientId]: { sentAt: new Date().toISOString() } });
@@ -210,6 +213,20 @@ export const activateIps = (clientId: string, version: number, opts: { skipBacke
   // The Review Pack gate needs the IPS Active in the backend store too. Best effort: local-only (mock) clients are refused by the backend and keep working locally.
   if (!opts.skipBackend) void import("./arcApi").then(({ arcApi }) => arcApi.activateIpsVersion(clientId, version)).then(() => notifyClientChanged(clientId)).catch(() => {});
   return true;
+};
+/** The client's last IPS was deleted: forget the send/return/activation and the active version, so it is back to Onboarding at 0%. */
+export const resetOnboarding = (clientId: string) => {
+  withdrawIpsFromPm(clientId);
+  const { [clientId]: _a, ...actRest } = activated.read(); activated.write(actRest);
+  const { [clientId]: _v, ...ipsRest } = activeIps.read(); activeIps.write(ipsRest);
+  notifyClientChanged(clientId);
+};
+/** The RM switched the active IPS back to non-active: forget the active version and the activation. With reset (no active IPS left) the client goes back to Onboarding via resetOnboarding. */
+export const deactivateIpsLocal = (clientId: string, reset: boolean): void => {
+  if (reset) { resetOnboarding(clientId); return; }
+  const { [clientId]: _a, ...actRest } = activated.read(); activated.write(actRest);
+  const { [clientId]: _v, ...ipsRest } = activeIps.read(); activeIps.write(ipsRest);
+  notifyClientChanged(clientId);
 };
 /** Mirror the backend send/return status into the browser cache (backend stays the source of truth). */
 export const mirrorIpsStatus = (clientId: string, status: "Draft" | "Sent to PM" | "Returned by PM"): void => {

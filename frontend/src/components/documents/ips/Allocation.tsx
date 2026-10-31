@@ -31,37 +31,26 @@ export const weightsOk = (w: Record<string, number>, model: Record<string, numbe
   sumW(w) === 100 && Object.keys({ ...model, ...w }).every((k) => Math.abs((w[k] ?? 0) - (model[k] ?? 0)) <= SAA_TOL + 1e-9);
 const edited = (w: Record<string, number>, model: Record<string, number>) => Object.keys({ ...model, ...w }).some((k) => Math.abs((w[k] ?? 0) - (model[k] ?? 0)) > 1e-9);
 
-/** Editable (PM) or read-only percent fields per asset class for one bucket, clamped to +/-10pp of the model on blur. */
-function WeightFields({ code, model, value, onChange }: { code: string; model: Record<string, number>; value: Record<string, number>; onChange?: (w: Record<string, number>) => void }) {
-  const [draft, setDraft] = useState<Record<string, string>>({});
-  const keys = Object.keys(model);
+/** Clamp one edited asset-class weight to +/-10pp of the model (blank or invalid falls back to the model weight). */
+const commitWeight = (model: Record<string, number>, value: Record<string, number>, k: string, raw: string): Record<string, number> => {
+  const n = Number(raw), lo = Math.max(0, (model[k] ?? 0) - SAA_TOL), hi = (model[k] ?? 0) + SAA_TOL;
+  const v = Number.isFinite(n) && raw.trim() !== "" ? Math.round(Math.min(hi, Math.max(lo, n)) * 100) / 100 : model[k] ?? 0;
+  return { ...value, [k]: v };
+};
+
+/** Status line under the donut: edited badge, total, and the tolerance rule. The percentages themselves are edited beside the donut. */
+function WeightSummary({ code, model, value, editable }: { code: string; model: Record<string, number>; value: Record<string, number>; editable: boolean }) {
   const total = sumW(value), isEdited = edited(value, model);
-  const commit = (k: string, raw: string) => {
-    const n = Number(raw), lo = Math.max(0, (model[k] ?? 0) - SAA_TOL), hi = (model[k] ?? 0) + SAA_TOL;
-    const v = Number.isFinite(n) && raw.trim() !== "" ? Math.round(Math.min(hi, Math.max(lo, n)) * 100) / 100 : model[k] ?? 0;
-    setDraft((d) => { const { [k]: _x, ...r } = d; return r; });
-    onChange?.({ ...value, [k]: v });
-  };
   return (
-    <div className="mt-6 min-w-0" data-testid="saa-weights">
+    <div className="mt-4 min-w-0" data-testid="saa-weights">
       <div className="flex flex-wrap items-center gap-2">
-        <p className={LABEL}>SAA weights (%)</p>
         <Badge tone="grey">{isEdited ? "Edited vs model" : "Model weights"}</Badge>
       </div>
-      <div className="mt-2 grid grid-cols-2 gap-3 @xl:grid-cols-3">
-        {keys.map((k) => (
-          <label key={k} className={`block ${SMALL}`}>
-            <span className="text-ink-muted">{k}{onChange ? ` (model ${model[k]})` : ""}</span>
-            {onChange
-              ? <input type="number" step="0.1" value={draft[k] ?? String(value[k] ?? 0)} aria-label={`${k} percent`}
-                  onChange={(e) => setDraft((d) => ({ ...d, [k]: e.target.value }))} onBlur={(e) => commit(k, e.target.value)}
-                  className={`mt-1 block w-full px-2 py-1 text-[15px] ${EDIT_BOX}`} />
-              : <span className="mt-1 block text-[15px]">{value[k] ?? 0}%{isEdited && value[k] !== model[k] ? <span className="text-ink-muted"> (model {model[k]}%)</span> : null}</span>}
-          </label>
-        ))}
-      </div>
+      {!editable && isEdited && (
+        <p className={`mt-2 ${SMALL} text-ink-muted`}>{Object.keys(model).filter((k) => value[k] !== model[k]).map((k) => `${k} ${value[k] ?? 0}% (model ${model[k]}%)`).join(", ")}</p>
+      )}
       <p className={`mt-2 ${SMALL} ${total === 100 ? "text-ink-muted" : "text-negative"}`} role={total === 100 ? undefined : "alert"}>
-        Total {total}%{total === 100 ? "" : ". Weights must add to 100%."}{onChange ? ` Each class stays within +/-${SAA_TOL}pp of Strategy ${code}.` : ""}
+        Total {total}%{total === 100 ? "" : ". Weights must add to 100%."}{editable ? ` Each class stays within +/-${SAA_TOL}pp of Strategy ${code}.` : ""}
       </p>
     </div>
   );
@@ -167,9 +156,10 @@ export function AllocationBuckets({ allocation, notes, editing, blank, onPick, o
             {conflict && <p className={`mt-2 border-l-2 border-hairline-strong pl-3 ${SMALL} text-ink-muted`} data-testid="conflict-note">{conflict}</p>}
             <div className="mt-4 grid min-w-0 grid-cols-1 gap-6 @xl:grid-cols-2">
               <StrategyBoxes bucket={id} label={label} strategies={strategies} value={code} editing={editing} onPick={(c) => onPick?.(id, c)} />
-              <StrategyDonut allocation={w ?? s?.allocation} label={`${label} strategic asset allocation${s ? `, Strategy ${s.code}` : ""}`} />
+              <StrategyDonut allocation={w ?? s?.allocation} label={`${label} strategic asset allocation${s ? `, Strategy ${s.code}` : ""}`}
+                editable={onWeights && hasModel ? { keys: Object.keys(model), onCommit: (k, raw) => onWeights(id, commitWeight(model, w ?? model, k, raw)) } : undefined} />
             </div>
-            {showW && code && <WeightFields key={`${id}-${code}`} code={code} model={model} value={w ?? model} onChange={onWeights ? (nw) => onWeights(id, nw) : undefined} />}
+            {showW && code && <WeightSummary key={`${id}-${code}`} code={code} model={model} value={w ?? model} editable={!!onWeights} />}
             {rorText && (
               <div className="avoid-break mt-6 min-w-0" data-testid={`ror-${id}`}>
                 <p className={LABEL}>Portfolio rate of return</p>

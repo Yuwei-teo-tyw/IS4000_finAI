@@ -129,9 +129,17 @@ export function startNewPack(clientId: string, pack: GeneratedPack | null) {
     return { history, pack: rest, edits };
   }, true);
 }
-/** Remove a Draft from history only; sent/approved packs are never deleted. */
+/** Remove a history pack unless Approved (Draft, Sent to PM, Returned by PM). */
 export function discardHistoryPack(clientId: string, id: string) {
-  mutateState(clientId, (s) => ({ ...s, history: (s.history ?? []).filter((h) => h.id !== id || packStatusLabel(h) !== "Draft") }), true);
+  mutateState(clientId, (s) => ({ ...s, history: (s.history ?? []).filter((h) => h.id !== id || packStatusLabel(h) === "Approved") }), true);
+}
+/** Delete the current pack unless Approved; also drops its handover so it leaves the PM inbox. Empty state deletes on the backend. */
+export function deleteCurrentPack(clientId: string) {
+  mutateState(clientId, (s) => {
+    if (s.approvedAt) return s;
+    const history = s.history ?? [];
+    return history.length ? { history } : null;
+  }, true);
 }
 /** Make a history pack the current one (the current pack goes to history). Callers must not do this while the current pack is with the PM. */
 export function openHistoryPack(clientId: string, id: string) {

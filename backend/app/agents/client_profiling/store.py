@@ -434,6 +434,14 @@ class DocumentStore(BaseStore):
         cur.status = "Active"
         return True
 
+    def deactivate_ips(self, client_id: str, version: int) -> bool:
+        """Turn the Active IPS version back into Superseded (in memory). False if it is missing or not Active."""
+        cur = next((i for i in self._ips if i.client_id == client_id and i.version == version), None)
+        if cur is None or cur.status != "Active":
+            return False
+        cur.status = "Superseded"
+        return True
+
     def update_ips_send(self, client_id: str, status: str, snapshot: dict) -> Optional[dict]:
         """Change the status and snapshot of the client's current send (in memory). None if nothing was sent."""
         rec = self._send_rows().get(client_id)

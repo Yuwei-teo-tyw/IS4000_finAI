@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { NumberInput } from "../../components/ui/NumberInput";
 import { Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { Badge } from "../../components/ui";
@@ -13,8 +14,8 @@ export const sum = (v: number[]) => v.reduce((a, b) => a + b, 0);
 export function NumInput({ value, onChange, suffix, width = "w-28" }: { value: number; onChange: (n: number) => void; suffix?: string; width?: string }) {
   return (
     <span className="inline-flex items-center gap-2">
-      <input
-        type="number" value={Number.isFinite(value) ? value : 0}
+      <NumberInput
+        value={Number.isFinite(value) ? value : 0}
         onChange={(e) => onChange(Number(e.target.value))}
         className={`${width} rounded-md border border-ink-200 bg-surface-100 px-3 py-2 text-right text-sm text-ink focus:border-ink focus:outline-none`}
       />

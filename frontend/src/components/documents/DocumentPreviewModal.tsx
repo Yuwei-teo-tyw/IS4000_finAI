@@ -1,6 +1,7 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "../ui";
+import { downloadElementAsPdf } from "../../utils/pdf";
 import { GenevaMark } from "./GenevaMark";
 
 const PRINT_CSS = `@media print {
@@ -12,6 +13,16 @@ const PRINT_CSS = `@media print {
 
 export function DocumentPreviewModal({ title, onClose, children, withMark = false }: { title: string; onClose: () => void; children: ReactNode; withMark?: boolean }) {
   const closeRef = useRef<HTMLButtonElement>(null);
+  const areaRef = useRef<HTMLDivElement>(null);
+  const [saving, setSaving] = useState(false);
+
+  const download = async () => {
+    if (!areaRef.current) return;
+    setSaving(true);
+    try { await downloadElementAsPdf(areaRef.current, title); }
+    catch (err) { console.error("PDF download failed", err); }
+    finally { setSaving(false); }
+  };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -28,16 +39,16 @@ export function DocumentPreviewModal({ title, onClose, children, withMark = fals
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <style>{PRINT_CSS}</style>
-      <div role="dialog" aria-modal="true" aria-label={title} className="print-shell flex max-h-full w-full max-w-[920px] flex-col rounded-sm border border-hairline bg-surface-200">
+      <div role="dialog" aria-modal="true" aria-label={title} className="print-shell flex max-h-full w-full max-w-[1280px] flex-col rounded-sm border border-hairline bg-surface-200">
         <div className="no-print flex items-center justify-between gap-4 border-b border-hairline px-8 py-5">
           <h2 className="text-xl font-light text-ink">{title}</h2>
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="sm" onClick={() => window.print()}>Download PDF</Button>
+            <Button variant="ghost" size="sm" onClick={download} disabled={saving}>{saving ? "Preparing PDF…" : "Download PDF"}</Button>
             <button ref={closeRef} type="button" onClick={onClose} className="inline-flex min-h-9 items-center rounded-sm border border-ink bg-transparent px-4 text-[15px] font-semibold text-ink hover:bg-surface-300">Close</button>
           </div>
         </div>
         <div className="print-scroll flex-1 overflow-y-auto p-8">
-          <div className="print-area">{withMark && <GenevaMark className="mb-6" />}{children}</div>
+          <div ref={areaRef} className="print-area">{withMark && <GenevaMark className="mb-6" />}{children}</div>
         </div>
       </div>
     </div>,

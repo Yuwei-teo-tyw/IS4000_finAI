@@ -17,7 +17,10 @@ financial data (install the PM's handler with this PREFIX).
 """
 from datetime import datetime, timezone
 
+from pathlib import Path as FsPath
+
 from fastapi import APIRouter, Depends, HTTPException, Path, Request
+from fastapi.responses import FileResponse
 
 from app.agents.product_recommender.asset_views.schemas import (
     AssetClassHeadline,
@@ -88,6 +91,29 @@ async def shelf(service: ProductRecommenderService = Depends(get_service)):
 @router.get("/house-view", response_model=HouseView)
 async def house_view(service: ProductRecommenderService = Depends(get_service)) -> HouseView:
     return _house_view_or_503(service)
+
+
+def _house_view_pdfs() -> list[FsPath]:
+    """PDFs in the repo's house_views folder (HOUSE_VIEW_DIR overrides); looked up from this file and the working directory upwards."""
+    import os
+    roots = [FsPath(os.environ["HOUSE_VIEW_DIR"])] if os.getenv("HOUSE_VIEW_DIR") else []
+    here = FsPath(__file__).resolve()
+    roots += [d / "house_views" for d in [*here.parents, FsPath.cwd(), *FsPath.cwd().parents]]
+    for d in roots:
+        if d.is_dir():
+            pdfs = sorted(d.glob("*.pdf"))
+            if pdfs:
+                return pdfs
+    return []
+
+
+@router.get("/house-view/document")
+async def house_view_document() -> FileResponse:
+    """The CIO house view PDF itself, shown inline so a citation like HV-2026-08-p18 can open it (the page is chosen with #page=N)."""
+    pdfs = _house_view_pdfs()
+    if not pdfs:
+        raise HTTPException(status_code=404, detail="The house view document is not available")
+    return FileResponse(pdfs[-1], media_type="application/pdf", headers={"Content-Disposition": "inline"})
 
 
 @router.post("/recommend", response_model=RecommendResponse)

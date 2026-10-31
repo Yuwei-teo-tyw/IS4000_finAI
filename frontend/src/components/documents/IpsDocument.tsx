@@ -74,7 +74,9 @@ export function IpsDocument({ version: v, clientName, clientId, mode = "view", e
   const demoVals = edit?.demo ?? seed?.demo ?? saved?.demo ?? {};
   const riskVals = edit?.risk ?? seed?.risk ?? saved?.risk ?? {};
   const phil: Philosophy = edit?.philosophy ?? seed?.philosophy ?? saved?.philosophy ?? {};
-  const sigs = edit?.signatures ?? saved?.signatures ?? {};
+  /** Signatures always come from the live editor state; a plain Draft view reads the live draft store, never a stale snapshot. */
+  const liveDraft = v.status === "Draft" && !edit ? extras : undefined;
+  const sigs = edit?.signatures ?? liveDraft?.signatures ?? {};
   const withOverrides = (rows: [string, string][], o: Record<string, string>): [string, string][] => rows.map(([k, v]) => [k, o[k] ?? v]);
   const profileLoaded = useAsync(() => profileApi.getClientProfile(cid), [cid]);
   const profile = blank ? undefined : profileLoaded;
@@ -83,7 +85,7 @@ export function IpsDocument({ version: v, clientName, clientId, mode = "view", e
   const targets: IpsTarget[] = seed?.targets ?? ex?.targets ?? profile?.targets ?? [];
   const defaultRules = rulesToBullets(seed?.reviewRules.length ? seed.reviewRules : ex?.reviewRules?.length ? ex.reviewRules : DEFAULT_REVIEW_RULES);
   const rmSigned = fmt((seed?.rmSignedDate ?? ex?.rmSignedDate ?? v.issuedOn ?? new Date().toISOString()));
-  const pmSaved = (saved?.signatures ?? extras?.signatures) as { pm?: string; pmSignedAt?: string } | undefined;
+  const pmSaved = (extras?.pmOpened ? (liveDraft?.signatures ?? extras?.signatures) : undefined) as { pm?: string; pmSignedAt?: string } | undefined;
   const pmShown = pmSign ?? { image: pmSaved?.pm, signedAt: pmSaved?.pmSignedAt };
   const rmImage = sigs.rm === undefined ? (seed?.rmSignatureImage || RM_SIGNATURE) : sigs.rm || undefined;
 
@@ -100,7 +102,7 @@ export function IpsDocument({ version: v, clientName, clientId, mode = "view", e
   const id = (client?.id ?? cid).toUpperCase() || "—";
 
   return (
-    <article className={`mx-auto w-full min-w-0 ${wide ? "max-w-[1080px]" : "max-w-[780px]"} px-6 py-10 sm:px-14 sm:py-16 print:max-w-none print:border-0 print:bg-transparent print:p-0 break-words [overflow-wrap:anywhere] border border-hairline bg-surface-100 font-light text-[15px] leading-6 text-ink`}>
+    <article className={`mx-auto w-full min-w-0 ${wide ? "max-w-[1480px]" : "max-w-[1180px]"} px-6 py-10 sm:px-14 sm:py-16 print:max-w-none print:border-0 print:bg-transparent print:p-0 break-words [overflow-wrap:anywhere] border border-hairline bg-surface-100 font-light text-[15px] leading-6 text-ink`}>
       {aiGenerated && (
         <div role="note" className="no-print print:hidden mb-8 flex items-start gap-3 rounded-sm border border-hairline bg-surface-200 px-4 py-3 text-[13px] leading-[20px] text-ink">
           <Sparkles size={16} aria-hidden className="mt-0.5 shrink-0 text-ink-muted" />

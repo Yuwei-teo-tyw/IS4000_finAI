@@ -2,10 +2,10 @@ import { useEffect, useState } from "react";
 import { Eye, Trash2 } from "lucide-react";
 import { Badge, Button, Card, Section } from "../../components/ui";
 import { PackBackBubble } from "../../components/rm/PackBackBubble";
-import { ackPackReturned, usePackReturnedUnseen } from "../../services/packHandover";
+import { ackPackReturned, usePackReturnedUnseen, withdrawPackFromPm } from "../../services/packHandover";
 import { PackGenerate } from "./PackGenerate";
 import { GeneratedPackView } from "./GeneratedPackView";
-import { discardHistoryPack, getPackHistory, loadGeneratedPack, openHistoryPack, packStatusLabel, usePackStates, type PackStatusLabel } from "./generatedPackStore";
+import { deleteCurrentPack, discardHistoryPack, getPackHistory, loadGeneratedPack, openHistoryPack, packStatusLabel, usePackStates, type PackStatusLabel } from "./generatedPackStore";
 
 const tone: Record<PackStatusLabel, "gold" | "amber" | "grey" | "green"> = { Draft: "gold", "Sent to PM": "amber", "Returned by PM": "grey", Approved: "green" };
 const iconBtn = "inline-flex size-10 items-center justify-center rounded-sm border border-ink text-ink hover:bg-surface-300 disabled:cursor-not-allowed disabled:opacity-40";
@@ -55,8 +55,11 @@ export function PackHistory({ clientId, clientName }: { clientId: string; client
                 <div className="mt-6 flex flex-wrap items-center gap-3">
                   <button type="button" aria-label="Open" title={r.current || !withPm ? "Open" : "Withdraw the pack with the Portfolio Manager first"} disabled={!r.current && withPm}
                     onClick={() => { if (!r.current && r.id) openHistoryPack(clientId, r.id); setOpen(true); }} className={iconBtn}><Eye size={18} /></button>
-                  {!r.current && r.id && r.status === "Draft" && (
-                    <button type="button" aria-label="Discard draft" title="Discard draft" onClick={() => { if (window.confirm("Discard this draft pack? This cannot be undone.")) discardHistoryPack(clientId, r.id!); }} className={iconBtn}><Trash2 size={18} /></button>
+                  {r.status !== "Approved" && (
+                    <button type="button" aria-label="Delete review pack" title="Delete review pack" onClick={() => {
+                      if (!window.confirm("Delete this review pack? This cannot be undone.")) return;
+                      if (r.current) { if (r.status === "Sent to PM") withdrawPackFromPm(clientId); deleteCurrentPack(clientId); } else if (r.id) discardHistoryPack(clientId, r.id);
+                    }} className={iconBtn}><Trash2 size={18} /></button>
                   )}
                   {r.current && r.status === "Sent to PM" && <Button variant="ghost" onClick={() => setOpen(true)}>Open to withdraw</Button>}
                 </div>

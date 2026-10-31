@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
+import { NumberInput } from "../../../components/ui/NumberInput";
 import type { Bucket3L } from "../../../types/arc";
 import { sgd } from "../../ui";
 import { WRAP, EDIT_BOX, EditField } from "./parts";
@@ -157,8 +158,8 @@ export function BucketEditor({ buckets, onChange }: { buckets: Bucket3L[]; onCha
               <td className="break-words py-2 pr-2">{b.horizon}</td>
               <td className="py-2 pr-2 text-right">{sgd(b.amountSgd)}</td>
               <td className="py-1 text-right">
-                <input
-                  type="number" min={0} max={100} step={1} value={b.pct}
+                <NumberInput
+                  min={0} max={100} step={1} value={b.pct}
                   aria-label={`${b.name} percentage`}
                   onChange={(e) => set(b.id, e.target.value)}
                   className={`w-20 px-2 py-1 text-right text-[15px] text-ink ${EDIT_BOX}`}

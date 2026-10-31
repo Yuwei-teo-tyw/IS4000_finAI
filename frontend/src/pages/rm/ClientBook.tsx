@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { ArrowDownWideNarrow, ArrowUpNarrowWide, CalendarClock, Landmark, Users, type LucideIcon } from "lucide-react";
 import { arcApi, bookToClient } from "../../services/arcApi";
 import { Button, Card, Loading, RiskScale, sgd, useAsyncResult } from "../../components/ui";
@@ -8,6 +9,7 @@ import { useRole } from "../../layouts/AppShell";
 import { fmtDate, usePackStatus } from "./rmShared";
 import type { Client } from "../../types/arc";
 import type { BookClient } from "../../types/clientProfiling";
+import { markNoticeSeen, useReturnedNotices } from "../../services/ipsReturnedNotice";
 import { useActivated, useIpsReturned, useIpsSent } from "../../services/workflowStore";
 
 const TODAY = new Date("2026-10-17");
@@ -105,6 +107,8 @@ export default function ClientBook() {
     return { list: b.clients.map(fromBook), message: b.message };
   }, [isRm]);
   const clients = loaded?.list;
+  const navigate = useNavigate();
+  const notices = useReturnedNotices(isRm ? (clients ?? []).filter((c) => c.status.startsWith("Onboarding")).map((c) => c.id) : []);
   const [furthestFirst, setFurthestFirst] = useState(false);
   const [filter, setFilter] = useState<"all" | "Onboarding" | "Monitoring">("all");
   if (error) return <div><WelcomeBanner role={role} /><Card><p className="text-lg text-ink">{error.message}</p></Card></div>;
@@ -159,7 +163,10 @@ export default function ClientBook() {
             <div className="flex flex-col gap-4">
         {g.list.map((c) => (
           <Card key={c.id} className={`grid gap-y-4 !px-8 !py-6 ${isRm ? COLS_RM : COLS}`}>
-            <div className="flex min-w-0 flex-wrap items-center gap-3"><p className="text-xl text-ink">{c.name}</p>{isRm && <PackBackBubble clientId={c.id} />}</div>
+            <div className="flex min-w-0 flex-wrap items-center gap-3"><p className="text-xl text-ink">{c.name}</p>{isRm && notices.some((x) => x.clientId === c.id) && (
+              <button type="button" title="IPS returned by the PM. Open the IPS tab" aria-label={`${c.name}, 1 returned IPS notice`} onClick={() => { notices.filter((x) => x.clientId === c.id).forEach((x) => markNoticeSeen(x.key, "book")); navigate(`/rm/clients/${c.id}/documents`); }}
+                className="cursor-pointer rounded-full border border-brand px-2 text-sm font-semibold text-brand hover:bg-surface-300">{notices.filter((x) => x.clientId === c.id).length}</button>
+            )}{isRm && <PackBackBubble clientId={c.id} />}</div>
             {c.riskCap ? <div><RiskScale value={c.riskCap} /><p className="mt-2 text-xs text-ink-muted">{c.riskCategory}, {c.riskCap} of 5</p></div> : NONE}
             <p className="text-sm font-semibold">{sgd(c.aumSgd)}</p>
             {c.nextMeeting ? (

@@ -202,3 +202,4 @@ export { useSliceTooltip, SliceTooltip } from "./SliceTooltip";
 export type { SliceTip } from "./SliceTooltip";
 export { SignatureBlock, SCRIPT_FONT } from "./SignatureBlock";
 export type { SignatureRole } from "./SignatureBlock";
+export { NumberInput, stripLeadingZeros } from "./NumberInput";

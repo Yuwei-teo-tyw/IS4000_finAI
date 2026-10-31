@@ -81,7 +81,7 @@ export default function GenevaLauncher({ role, clientId }: { role: Role; clientI
             transition: "transform 350ms ease, opacity 350ms ease, visibility 0s linear " + (open ? "0s" : "350ms"),
             transform: open ? "none" : "translate(8px, 8px) scale(0.05)", opacity: open ? 1 : 0, visibility: open ? "visible" : "hidden",
           }}
-          className="absolute inset-y-0 right-0 flex max-w-[60vw] flex-col border-l border-hairline bg-surface-200">
+          className="absolute inset-y-0 right-0 flex max-w-[60vw] flex-col overflow-x-hidden break-words border-l border-hairline bg-surface-200">
         <div role="separator" aria-orientation="vertical" aria-label="Resize assistant" aria-valuemin={MIN_W} aria-valuemax={maxW()} aria-valuenow={width} tabIndex={0}
           onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}
           onKeyDown={(e) => { if (e.key === "ArrowLeft") { e.preventDefault(); apply(width + 24); } else if (e.key === "ArrowRight") { e.preventDefault(); apply(width - 24); } }}

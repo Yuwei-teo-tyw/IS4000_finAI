@@ -7,6 +7,7 @@ import { fmtDate } from "../rm/rmShared";
 import { arcApi } from "../../services/arcApi";
 import type { ClientPortfolio as Portfolio } from "../../types/arc";
 import { PackBackBubble } from "../../components/rm/PackBackBubble";
+import { usePendingReturnedNotice } from "../../services/ipsReturnedNotice";
 import { useClient } from "../../components/client/useClient";
 
 const TABS = [
@@ -27,6 +28,7 @@ export default function ClientLayout() {
   const { data: pRes, error: pError } = useAsyncResult(async () => ({ p: await arcApi.getClientPortfolio(clientId) }), [clientId, attempt]);
   const portfolio = pRes?.p ?? null;
   const ctx: PortfolioCtx = { portfolio: { data: portfolio, error: pError, loading: !pRes && !pError, retry: () => setAttempt((a) => a + 1) } };
+  const returnedIps = !!usePendingReturnedNotice(clientId, "tab");  // PM returned the IPS: stays until the IPS is made active
   if (notFound) {
     return (
       <div>
@@ -67,7 +69,7 @@ export default function ClientLayout() {
         ) : (
           <NavLink key={t.label} to={`/${role}/clients/${clientId}/${t.to}`} end={t.end} state={state}
             className={({ isActive }) => `-mb-px border-b-2 px-5 py-3 text-sm font-semibold ${isActive ? "border-hairline-strong text-ink" : "border-transparent text-ink-500 hover:text-ink"}`}>
-            {t.label}{t.to === "review-pack" && <PackBackBubble clientId={clientId} text="Returned" className="ml-2" />}
+            {t.label}{t.to === "documents" && role === "rm" && onboarding && returnedIps && <span aria-label="IPS returned by the PM" title="IPS returned by the PM" className="ml-2 rounded-full border border-brand px-2 text-sm font-semibold text-brand">1</span>}{t.to === "review-pack" && <PackBackBubble clientId={clientId} text="Returned" className="ml-2" />}
           </NavLink>
         ))}
       </nav>
