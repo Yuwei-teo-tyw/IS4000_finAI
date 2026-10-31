@@ -3,6 +3,7 @@ Assembles an AssetClassView from the latest Market Researcher run, the CIO
 house view and the shelf. All text here is deterministic and built from the
 scores, with an indicator, event or citation ref on every point.
 """
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
 
@@ -37,6 +38,42 @@ US_ONLY = "Market data is US-only; SGD rates and Singapore and Asian markets are
 PHASE_TEXT = {"early_expansion": "early expansion", "late_expansion": "late expansion",
               "recession": "recession", "late_recession": "late recession"}
 _ORDER = {"Sell": 0, "Hold": 1, "Buy": 2}
+ADJUSTMENT_TEXT = {"unchanged": "keeps it", "softened": "softens it to Hold", "upgraded": "raises it to Buy",
+                   "downgraded": "lowers it to Sell"}
+
+
+# --- The agent stance (shared by the full view, the headlines and the Product Recommender's ranking) ----
+
+@dataclass
+class AgentStance:
+    asset_class: AssetClass
+    view: str
+    confidence: str
+    basis: str  # "cio_plus_market" | "cio_only"
+    adjustment: str
+    cio: AssetClassHouseView
+    headline: Optional[scoring.Headline] = None  # None when there was no usable market data
+
+
+def market_of(market_res: UpstreamResult) -> Optional[MarketResearchOutput]:
+    return market_res.data if market_res.status != "UNAVAILABLE" else None
+
+
+def agent_stance(ac: AssetClass, market: Optional[MarketResearchOutput], hv: HouseView,
+                 idx: Optional[dict] = None) -> AgentStance:
+    """The CIO view, moved at most one step by the market data; the CIO view one step less sure without data."""
+    cv = hv.for_class(ac.value)
+    if market is None:
+        return AgentStance(ac, cv.view, scoring.step_confidence(cv.confidence, -1), "cio_only", "unchanged", cv)
+    h = scoring.headline(ac, cfg.SPECS[ac], idx if idx is not None else scoring.index_series(market), market,
+                         cv.view, cv.confidence)
+    return AgentStance(ac, h.view, h.confidence, "cio_only" if h.insufficient else "cio_plus_market", h.adjustment, cv, h)
+
+
+def agent_stances(market: Optional[MarketResearchOutput], hv: HouseView) -> dict[AssetClass, AgentStance]:
+    """The agent stance for all seven classes; without market data, each is its CIO view (basis cio_only)."""
+    idx = scoring.index_series(market) if market is not None else None
+    return {ac: agent_stance(ac, market, hv, idx) for ac in cfg.SPECS}
 
 
 # --- Text helpers ------------------------------------------------------------
@@ -115,8 +152,9 @@ def _agreement(cio: str, agent: str, h: scoring.Headline, ac: AssetClass, cv: As
     because = "; ".join(describe(c) for c in drivers) or "the regime reading"
     return AgreementResult(
         status="differs" if gap == 1 else "opposed",
-        explanation=(f"The CIO rates {ac.value.lower()} {cv.cio_term} ({cv.view}) [{cv.citation_id}]; the agent's data reads "
-                     f"{agent}, driven by {because}. Raise with the CIO desk if it matters for this client."),
+        explanation=(f"The CIO rates {ac.value.lower()} {cv.cio_term} ({cv.view}) [{cv.citation_id}]; the agent starts from "
+                     f"that view and the market data moves it to {agent}, driven by {because}. Raise with the CIO desk "
+                     f"if it matters for this client."),
     )
 
 
@@ -138,7 +176,7 @@ def _segments(ac: AssetClass, spec, idx, class_score: float) -> list[SegmentResu
 def _scenarios(ac: AssetClass, h: scoring.Headline) -> tuple[list[Scenario], list[Ref]]:
     key = [c for c in scoring.key_signals(h, len(h.scored.contributions)) if c.sig.basis != "level"][:3]
     scenarios = [Scenario(case="base", description=f"Current readings persist: the agent view stays {h.view}.",
-                          stance_implication=f"Stays {h.view} (score {h.scored.score:+.2f}).")]
+                          stance_implication=f"Stays {h.view} (score {h.score:+.2f}).")]
     for case, towards in (("upside", 1), ("downside", -1)):
         lead = scoring.biggest_swing(h, towards)
         if lead is None:
@@ -176,7 +214,7 @@ def build_view(ac: AssetClass, market_res: UpstreamResult, hv: HouseView, shelf:
     spec = cfg.SPECS[ac]
     cv = hv.for_class(ac.value)
     products = shelf_lens.in_class(ac, shelf)
-    market: Optional[MarketResearchOutput] = market_res.data if market_res.status != "UNAVAILABLE" else None
+    market = market_of(market_res)
     caveats = [US_ONLY]
     if market_res.source == "MOCK":
         caveats.append("Market data is an illustrative mock run, not a live Market Researcher run.")
@@ -186,8 +224,19 @@ def build_view(ac: AssetClass, market_res: UpstreamResult, hv: HouseView, shelf:
     mapped_ids = sorted({s.id for s in spec.signals})
 
     if market is None:
+        st = agent_stance(ac, None, hv)
+        anchor = cfg.CIO_ANCHOR[cv.view]
+        cio_only = AgentView(
+            view=st.view, confidence=st.confidence, score=round(cfg.CIO_SHARE * anchor, 3), data_score=0.0,
+            cio_anchor=anchor, cio_share=cfg.CIO_SHARE, basis="cio_only", cio_adjustment="unchanged",
+            thesis=(f"Not enough market data to adjust the CIO view, so the agent view is the CIO's {cv.cio_term} "
+                    f"({st.view}) with {st.confidence.lower()} confidence."),
+            thesis_points=[], regime=RegimeRef(), coverage=Coverage(mapped=len(spec.signals), available=0),
+            insufficient_evidence=True,
+        )
         return AssetClassView(
-            asset_class=ac.value, generated_at=now, is_illustrative=True, cio_view=cv, agent_view=None,
+            asset_class=ac.value, generated_at=now, is_illustrative=True, cio_view=cv, agent_view=cio_only,
+            agreement=AgreementResult(status="aligned"),
             agent_view_unavailable_reason="; ".join(market_res.issues) or "No usable Market Researcher run.",
             snapshot=[], segments=[SegmentResult(group=s.group, segment=s.name, view="Neutral", reason="No market data") for s in spec.segments],
             drivers=[], scenarios=[], watch_items=[], risks=[], implementation=shelf_lens.implementation(ac, products),
@@ -197,7 +246,8 @@ def build_view(ac: AssetClass, market_res: UpstreamResult, hv: HouseView, shelf:
         )
 
     idx = scoring.index_series(market)
-    h = scoring.headline(ac, spec, idx, market)
+    st = agent_stance(ac, market, hv, idx)
+    h = st.headline
     sc = h.scored
     ranked = sorted(sc.contributions, key=lambda c: (-abs(c.weighted), c.sig.id))
     supports = [c for c in ranked if c.value > 0.05]
@@ -214,11 +264,14 @@ def build_view(ac: AssetClass, market_res: UpstreamResult, hv: HouseView, shelf:
     phase = market.regime.phase
     regime_ref = RegimeRef(phase=phase, confidence=market.regime.confidence, tilt=sc.regime_tilt, run_id=market.run_id)
     if h.insufficient:
-        thesis = (f"Not enough current data to form a view ({sc.available} of {sc.mapped} series available); "
-                  f"shown as Hold with Low confidence.")
+        thesis = (f"Not enough current data to adjust the CIO view ({sc.available} of {sc.mapped} series available); "
+                  f"shown as the CIO's {cv.cio_term} ({h.view}) with {h.confidence.lower()} confidence.")
     else:
-        parts = [f"{h.view} with {h.confidence.lower()} confidence: {len(supports)} of {sc.available} indicators support "
-                 f"{ac.value.lower()} and {len(weighs)} {'weighs' if len(weighs) == 1 else 'weigh'} on it"]
+        start = (f"{h.view} with {h.confidence.lower()} confidence: the agent starts from the CIO's {cv.cio_term} "
+                 f"({cv.view}) and the market data {ADJUSTMENT_TEXT[h.adjustment]}")
+        count = (f"{len(supports)} of {sc.available} indicators support "
+                 f"{ac.value.lower()} and {len(weighs)} {'weighs' if len(weighs) == 1 else 'weigh'} on it")
+        parts = [start, count]
         if supports:
             parts.append(f"the strongest support is {short_label(supports[0])}")
         if weighs:
@@ -252,7 +305,9 @@ def build_view(ac: AssetClass, market_res: UpstreamResult, hv: HouseView, shelf:
         asset_class=ac.value, generated_at=now,
         is_illustrative=shelf_illustrative or hv.is_illustrative or market_res.source == "MOCK",
         cio_view=cv,
-        agent_view=AgentView(view=h.view, confidence=h.confidence, score=sc.score, thesis=thesis, thesis_points=points,
+        agent_view=AgentView(view=h.view, confidence=h.confidence, score=h.score, data_score=sc.score,
+                             cio_anchor=cfg.CIO_ANCHOR[cv.view], cio_share=cfg.CIO_SHARE, basis=st.basis,
+                             cio_adjustment=h.adjustment, thesis=thesis, thesis_points=points,
                              regime=regime_ref, coverage=Coverage(mapped=sc.mapped, available=sc.available),
                              insufficient_evidence=h.insufficient),
         agreement=agreement,
@@ -268,12 +323,11 @@ def build_view(ac: AssetClass, market_res: UpstreamResult, hv: HouseView, shelf:
     )
 
 
-def headline_only(ac: AssetClass, market_res: UpstreamResult, hv: HouseView) -> AssetClassHeadline:
-    cv = hv.for_class(ac.value)
-    out = AssetClassHeadline(asset_class=ac.value, cio_view=cv.view, cio_term=cv.cio_term, cio_confidence=cv.confidence)
-    if market_res.status == "UNAVAILABLE" or market_res.data is None:
-        return out
-    h = scoring.headline(ac, cfg.SPECS[ac], scoring.index_series(market_res.data), market_res.data)
-    out.agent_view, out.agent_confidence = h.view, h.confidence
-    out.agreement = _agreement(cv.view, h.view, h, ac, cv).status
-    return out
+def headline_only(ac: AssetClass, market_res: UpstreamResult, hv: HouseView,
+                  stance: Optional[AgentStance] = None) -> AssetClassHeadline:
+    st = stance or agent_stance(ac, market_of(market_res), hv)
+    cv = st.cio
+    agreement = _agreement(cv.view, st.view, st.headline, ac, cv).status if st.headline else "aligned"
+    return AssetClassHeadline(asset_class=ac.value, cio_view=cv.view, cio_term=cv.cio_term, cio_confidence=cv.confidence,
+                              agent_view=st.view, agent_confidence=st.confidence, agent_basis=st.basis,
+                              cio_adjustment=st.adjustment, agreement=agreement)

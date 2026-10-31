@@ -49,6 +49,7 @@ def view_facts(v: AssetClassView) -> dict:
         "asset_class": v.asset_class,
         "is_illustrative": v.is_illustrative,
         "agent_view": {"view": a.view, "confidence": a.confidence, "insufficient_evidence": a.insufficient_evidence,
+                       "anchored_on_cio_view": True, "cio_adjustment": a.cio_adjustment,
                        "coverage": a.coverage.model_dump(), "regime": {"phase": a.regime.phase, "confidence": a.regime.confidence}},
         "cio_view": {"view": cio.view, "cio_term": cio.cio_term, "basis": cio.basis, "confidence": cio.confidence,
                      "rationale": cio.rationale},
@@ -61,9 +62,9 @@ def view_facts(v: AssetClassView) -> dict:
 
 async def llm_narrative(v: AssetClassView, settings: Settings, llm_factory: Callable = get_llm) -> AssetClassView:
     """The view with LLM-written prose where it passes the guardrail; every stance and ref unchanged."""
-    if v.agent_view is None:
+    if v.agent_view is None or not v.snapshot:
         return v.model_copy(update={"explanation_status": llm.deterministic_status(
-            "No agent view, so no narrative was written.", settings)})
+            "No market data behind the agent view, so no narrative was written.", settings)})
     facts = view_facts(v)
     slots = {s["id"]: s for s in facts["items"]}
     allowed = guardrails.numbers_in(str(facts))

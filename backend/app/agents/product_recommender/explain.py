@@ -1,8 +1,8 @@
 """
 Reasons for each shortlisted product.
 
-The deterministic reason is built only from the gate result, the score
-components and the house view, so every statement is traceable. Each
+The deterministic reason is built only from the role plan, the gate result,
+the house view and the agent view, so every statement is traceable. Each
 bullet ends in a citation tag: the house-view page (HV-...) or the product
 id (its factsheet).
 
@@ -20,34 +20,42 @@ from app.agents.portfolio_agent.explain.llm_client import get_llm
 from app.agents.portfolio_agent.schemas.response import ExplanationStatus
 from app.agents.product_recommender import guardrails, llm
 from app.agents.product_recommender.config import Settings
-from app.agents.product_recommender.ranking import Objective, Ranked
+from app.agents.product_recommender.ranking import Ranked
+from app.agents.product_recommender.roles import ROLE_LABELS
 from app.agents.product_recommender.schemas import HouseView, Reason, RecommendResponse
 
-_OBJECTIVE_TEXT = {
-    "income": "an income objective",
-    "preservation": "a capital preservation objective",
-    "growth": "a growth objective",
-    "legacy": "a long-term legacy objective",
-    "balanced": "a balanced objective",
-}
+_ADJUSTED = {"softened": "softens it to Hold", "upgraded": "raises it to Buy", "downgraded": "lowers it to Sell"}
 
 
-def deterministic_reason(r: Ranked, hv: HouseView, objective: Objective, level: int | None,
-                         base_currency: str | None) -> Reason:
+def role_line(r: Ranked, role_why: str) -> str:
+    pid = r.sp.product_id
+    # Not why_buy: shelf copy can mention cost, which a product reason never may.
+    what = r.sp.product.sub_asset_class or r.sp.product.product_type or r.sp.asset_class.value
+    if r.passed_from:
+        lead = (f"Takes a {ROLE_LABELS[r.passed_from]} slot no eligible product could fill, as "
+                f"{ROLE_LABELS[r.role]}")
+    else:
+        lead = f"Fills a {ROLE_LABELS[r.role]} slot ({role_why})"
+    return f"{lead}: {what.rstrip('.')} [{pid}]."
+
+
+def deterministic_reason(r: Ranked, hv: HouseView, level: int | None, base_currency: str | None,
+                         role_why: str = "", stance=None) -> Reason:
     prod = r.sp.product
     pid = prod.product_id
     view = hv.for_class(r.sp.asset_class.value)
-    lines: list[str] = []
+    lines: list[str] = [role_line(r, role_why)]
 
     if prod.risk_rating is not None and level:
         where = "at" if prod.risk_rating == level else "within"
         lines.append(f"Risk {prod.risk_rating} of 5 is {where} the client's limit of {level} [{pid}].")
     if view is not None:
-        stance = view.cio_term if view.basis == "rated" else f"{view.view} (read from the report, not a stated rating)"
-        lines.append(f"The CIO house view on {view.asset_class.lower()} is {stance} [{view.citation_id}].")
-    if r.components.get("objective_fit", 0) >= 5:
-        why = getattr(prod, "why_buy", None) or prod.sub_asset_class or prod.asset_class
-        lines.append(f"Fits {_OBJECTIVE_TEXT[objective]}: {why.rstrip('.')} [{pid}].")
+        cio = view.cio_term if view.basis == "rated" else f"{view.view} (read from the report, not a stated rating)"
+        if stance is not None and stance.adjustment in _ADJUSTED:
+            lines.append(f"The CIO house view on {view.asset_class.lower()} is {cio}; the agent view starts from it and "
+                         f"current market data {_ADJUSTED[stance.adjustment]} [{view.citation_id}].")
+        else:
+            lines.append(f"The CIO house view on {view.asset_class.lower()} is {cio} [{view.citation_id}].")
     dealing = (prod.liquidity or "unknown").replace("_", " ").lower()
     if base_currency and r.sp.is_foreign_unhedged(base_currency):
         currency = f"unhedged {prod.currency}, so it carries currency risk for a {base_currency} client"
@@ -100,7 +108,7 @@ def reasons_facts(resp: RecommendResponse) -> dict:
         hv = resp.house_view.for_class(p.asset_class)
         draft = [line.removeprefix("• ") for line in s.reason.text.splitlines()]
         products.append({
-            "product_id": p.product_id, "product_name": p.product_name, "asset_class": p.asset_class,
+            "product_id": p.product_id, "product_name": p.product_name, "role": s.role, "asset_class": p.asset_class,
             "sub_asset_class": p.sub_asset_class, "product_type": p.product_type, "risk_rating": p.risk_rating,
             "dealing": p.liquidity, "lock_in_period": p.lock_in_period, "currency": p.currency,
             "currency_hedged": p.currency_hedged, "why_buy": p.why_buy, "suitability_note": p.suitability_note,

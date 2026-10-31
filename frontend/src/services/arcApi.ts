@@ -22,7 +22,7 @@ import type {
   PaAnswer, PaBucketChoice, PaBucketId, PaBucketInputs, PaChatReply, PaChatTurn, PaClientProfile, PaCombinedReview,
   PaInputField, PaInputs, PaRequest, PaResponse, PaWeightEvaluation,
 } from "../types/portfolio";
-import type { PrAssetClassHeadline, PrAssetView, PrHouseView, PrOptions, PrRequest, PrResponse, PrShelf, PrShelfProduct, PrShortlistItem } from "../types/productRecommender";
+import type { PrAssetClassHeadline, PrAssetView, PrHouseView, PrOptions, PrRequest, PrResponse, PrRole, PrShelf, PrShelfProduct, PrShortlistItem } from "../types/productRecommender";
 import type { RcPackReport, RcPackRequest, RcPackSection } from "../types/riskCompliance";
 
 const delay = <T,>(v: T, ms = 150) => new Promise<T>((r) => setTimeout(() => r(v), ms));
@@ -1395,17 +1395,22 @@ const toProduct = (p: PrShelfProduct): Product => ({
   tags: [p.product_id],
 });
 
-/** A shortlist item as a chat row; carries the agent's cited reason through to the finalise page. */
+export const PR_ROLE_LABELS: Record<PrRole, string> = {
+  liquidity: "Liquidity reserve", income: "Income", stability: "Stability", core_growth: "Core growth", diversifier: "Diversifier",
+};
+
+/** A shortlist item as a chat row; carries the agent's cited reason and role through to the finalise page. */
 export function shortlistRow(s: PrShortlistItem): MarketRow {
   const lines = toBulletItems(s.reason.text);
   return {
+    role: PR_ROLE_LABELS[s.role],
     assetClass: s.product.asset_class, product: s.product.product_name, industryFocus: s.product.why_buy ?? s.product.sub_asset_class ?? "",
-    top5: [], confidencePct: (s.product.rating ?? 0) * 20, ranking: lines, agentReason: s.reason.text,
+    top5: [], rating: s.product.rating, ranking: lines, agentReason: s.reason.text,
   };
 }
 
 const shelfRow = (p: PrShelfProduct): MarketRow => ({
-  assetClass: p.asset_class, product: p.product_name, industryFocus: p.why_buy ?? p.sub_asset_class ?? "", top5: [], confidencePct: (p.rating ?? 0) * 20, ranking: [],
+  assetClass: p.asset_class, product: p.product_name, industryFocus: p.why_buy ?? p.sub_asset_class ?? "", top5: [], rating: p.rating ?? null, ranking: [],
 });
 
 /** Mock cycle phase and events (Market Researcher seam) with the CIO views from the curated house view. */

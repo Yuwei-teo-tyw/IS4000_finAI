@@ -16,6 +16,9 @@ from app.agents.product_recommender.schemas import AssetClassHouseView, Confiden
 
 SegmentView = Literal["Most preferred", "Neutral", "Least preferred"]
 Agreement = Literal["aligned", "differs", "opposed"]
+# cio_plus_market: the CIO view moved (or confirmed) by market data; cio_only: no usable market data, so the CIO view as is.
+AgentBasis = Literal["cio_plus_market", "cio_only"]
+CioAdjustment = Literal["unchanged", "softened", "upgraded", "downgraded"]
 
 AGENT_LABEL = "Agent view (analysis, not the CIO house view)"
 
@@ -59,7 +62,13 @@ class AgentView(BaseModel):
     label: Literal["Agent view (analysis, not the CIO house view)"] = AGENT_LABEL
     view: View
     confidence: Confidence
-    score: float = Field(description="Weighted score in [-1, 1]; Buy at or above the Buy cut-off, Sell at or below the Sell cut-off.")
+    score: float = Field(description="cio_share x cio_anchor + (1 - cio_share) x data_score, in [-1, 1]; Buy at or above "
+                                     "the Buy cut-off, Sell at or below the Sell cut-off, kept within one step of the CIO view.")
+    data_score: float = Field(default=0.0, description="Market data alone, recomputable from the snapshot and regime tilt.")
+    cio_anchor: float = Field(default=0.0, description="The CIO view as a score: Buy +0.5, Hold 0, Sell -0.5.")
+    cio_share: float = 0.5
+    basis: AgentBasis = "cio_plus_market"
+    cio_adjustment: CioAdjustment = "unchanged"
     thesis: str
     thesis_points: list[Ref]
     regime: RegimeRef
@@ -140,7 +149,7 @@ class AssetClassView(BaseModel):
     generated_at: datetime
     is_illustrative: bool
     cio_view: AssetClassHouseView
-    agent_view: Optional[AgentView] = Field(default=None, description="None when no market data is available.")
+    agent_view: Optional[AgentView] = Field(default=None, description="With no market data, the CIO view as is (basis cio_only).")
     agent_view_unavailable_reason: Optional[str] = None
     agreement: Optional[AgreementResult] = None
     snapshot: list[SnapshotItem]
@@ -164,6 +173,8 @@ class AssetClassHeadline(BaseModel):
     cio_confidence: Confidence
     agent_view: Optional[View] = None
     agent_confidence: Optional[Confidence] = None
+    agent_basis: Optional[AgentBasis] = None
+    cio_adjustment: Optional[CioAdjustment] = None
     agreement: Optional[Agreement] = None
 
 
