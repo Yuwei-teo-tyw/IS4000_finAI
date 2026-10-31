@@ -75,8 +75,8 @@ def test_allocation_ok():
     a = r["allocation"]
     assert r["status"] == "ok" and r["section"] == "allocation" and r["model"]
     assert [b["id"] for b in a["buckets"]] == ["liquidity", "longevity", "legacy"]
-    assert [b["strategy"] for b in a["buckets"]] == ["A", "B", "C"] and a["fallback"] is False
-    assert [b["strategyName"] for b in a["buckets"]] == ["Fixed Income", "Income", "Yield"]
+    assert [b["strategy"] for b in a["buckets"]] == ["NA", "B", "C"] and a["fallback"] is False
+    assert [b["strategyName"] for b in a["buckets"]] == ["No SAA", "Income", "Yield"]
     assert a["riskCategory"] == "Conservative"
     for b in a["buckets"]:
         assert b["justification"] and b["evidence"] and not b["fallback"]
@@ -92,7 +92,7 @@ def test_allocation_liquidity_forced_ab_and_invented_figures_fallback():
     a = r["allocation"]
     assert a["fallback"] is True
     by = {b["id"]: b for b in a["buckets"]}
-    assert by["liquidity"]["strategy"] in ("A", "B") and by["liquidity"]["fallback"]
+    assert by["liquidity"]["strategy"] == "NA" and not by["liquidity"]["fallback"]
     assert by["longevity"]["fallback"] and "99" not in by["longevity"]["justification"]
     assert not by["legacy"]["fallback"] and by["legacy"]["strategy"] == "C"
     assert "rule-based" in r["message"]
@@ -104,11 +104,11 @@ def test_allocation_first_person_justification_rewritten_and_we_rejected():
     g["buckets"][1]["justification"] = "We want growth; Strategy B."
     a = generate_ips_section(St(), "x", "allocation", fake(g))["allocation"]
     by = {b["id"]: b for b in a["buckets"]}
-    assert by["liquidity"]["justification"].startswith("The client needs cash") and not by["liquidity"]["fallback"]
+    assert by["liquidity"]["strategy"] == "NA" and not by["liquidity"]["fallback"]
     assert by["longevity"]["fallback"]
 
 
-@pytest.mark.parametrize("risk,exp", [("Conservative", ("A", "B", "C")), ("Balanced", ("B", "D", "E")), ("Growth", ("B", "E", "F"))])
+@pytest.mark.parametrize("risk,exp", [("Conservative", ("NA", "B", "C")), ("Balanced", ("NA", "D", "E")), ("Growth", ("NA", "E", "F"))])
 def test_rule_based_fallback_by_risk(risk, exp):
     r = generate_ips_section(St(risk=risk), "x", "allocation", fake({"riskCategory": "", "summary": "", "buckets": []}))
     assert tuple(b["strategy"] for b in r["allocation"]["buckets"]) == exp and r["allocation"]["fallback"]
@@ -122,10 +122,10 @@ def test_allocation_unavailable_and_no_notes():
 
 
 # --- discuss ---
-CUR = {"buckets": [{"id": "liquidity", "strategy": "A"}, {"id": "longevity", "strategy": "B"}, {"id": "legacy", "strategy": "C"}]}
+CUR = {"buckets": [{"id": "liquidity", "strategy": "NA"}, {"id": "longevity", "strategy": "B"}, {"id": "legacy", "strategy": "C"}]}
 
 
-def d(stance, answer, liq="A", lon="B", leg="C", cites=("N1",)):
+def d(stance, answer, liq="NA", lon="B", leg="C", cites=("N1",)):
     j = lambda t: f"The client {t}."  # noqa: E731
     return {"stance": stance, "answer": answer, "cites": list(cites), "buckets": [
         {"id": "liquidity", "strategy": liq, "justification": j("needs cash soon")},
@@ -144,8 +144,8 @@ def test_discuss_liquidity_limit_enforced_even_if_model_agrees():
     c = fake(d("agree", "Sure, switching liquidity to Growth.", liq="E"))
     r = discuss_allocation(St(), "x", "For Liquidity I am sure she wants more growth than pure fixed income. Justify.", [], CUR, c)
     liq = r["allocation"]["buckets"][0]
-    assert liq["strategy"] in ("A", "B") and liq["strategy"] == "A"
-    assert r["stance"] in ("disagree", "partial") and "A (Fixed Income) or B" in r["answer"]
+    assert liq["strategy"] == "NA"
+    assert r["stance"] in ("disagree", "partial") and "does not get a strategy" in r["answer"]
     assert r["citations"] and r["citations"][0]["noteId"] == "n1"
 
 
@@ -159,7 +159,7 @@ def test_discuss_sees_history_and_drops_invented_figures():
 
 def test_discuss_unavailable_keeps_allocation():
     r = discuss_allocation(St(), "x", "hi", [], CUR, lambda s, u: "bad")
-    assert r["stance"] == "info" and [b["strategy"] for b in r["allocation"]["buckets"]] == ["A", "B", "C"]
+    assert r["stance"] == "info" and [b["strategy"] for b in r["allocation"]["buckets"]] == ["NA", "B", "C"]
 
 
 # --- endpoints ---
@@ -171,7 +171,7 @@ def api(monkeypatch):
 
 def test_strategies_endpoint(api):
     j = api.get(f"{U}/strategies").json()
-    assert j["liquidityAllowed"] == ["A", "B"] and [s["code"] for s in j["strategies"]] == list("ABCDEF")
+    assert j["liquidityAllowed"] == [] and [s["code"] for s in j["strategies"]] == list("ABCDEF")
     assert set(j["strategies"][0]) == {"code", "name", "riskLabel", "allocation", "expectedReturnPct", "volatilityPct", "maxDrawdownPct", "longestDrawdownYears",
                                         "nominalLowPct", "nominalHighPct", "realLowPct", "realHighPct", "inflationPct", "rateOfReturnText"}
     assert j["strategies"][0]["maxDrawdownPct"] == 15 and j["source"]
@@ -230,9 +230,9 @@ def test_compact_reply_one_call_ok_with_table_facts():
     res, calls = _alloc(_compact())
     assert len(calls) == 1 and res["status"] == "ok"
     b = {x["id"]: x for x in res["allocation"]["buckets"]}
-    assert [b[i]["strategy"] for i in ("liquidity", "longevity", "legacy")] == ["A", "B", "B"]
+    assert [b[i]["strategy"] for i in ("liquidity", "longevity", "legacy")] == ["NA", "B", "B"]
     assert not any(x["default"] for x in b.values())
-    assert "maximum historical drawdown" in b["liquidity"]["reason"]  # figures appended from strategies.json, not the model
+    assert "maximum historical drawdown" in b["longevity"]["reason"]  # figures appended from strategies.json, not the model
 
 
 def test_fenced_json_is_tolerated():
@@ -248,10 +248,10 @@ def test_bad_strategy_code_uses_rule_based_default_for_that_bucket_only():
     assert res["allocation"]["fallback"] is True
 
 
-def test_liquidity_above_b_is_not_accepted():
+def test_liquidity_strategy_from_model_is_ignored():
     res, _ = _alloc(_compact(strats=("D", "B", "B")))
     b = {x["id"]: x for x in res["allocation"]["buckets"]}
-    assert b["liquidity"]["default"] and b["liquidity"]["strategy"] in ("A", "B")
+    assert b["liquidity"]["strategy"] == "NA"  # liquidity never takes a strategy, whatever the model says
 
 
 def test_truncated_or_garbage_reply_is_unavailable_after_two_attempts():

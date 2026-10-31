@@ -457,14 +457,14 @@ class OverrideIn(BaseModel):
 @router.post("/ips-allocation/override")
 async def ips_allocation_override(body: OverrideIn, x_rm_id: Optional[str] = Header(default=None),
                                   rm_id: Optional[str] = Query(default=None)) -> dict:
-    """Audit-log a manual 3L strategy override by the RM (who, when, from -> to, reason). Liquidity stays A or B."""
+    """Audit-log a manual 3L strategy override by the RM (who, when, from -> to, reason). Liquidity takes no strategy."""
     store = get_default_store()
     _require_in_book(store, body.client_id)
     pf, to = body.portfolio.strip().lower(), body.to_strategy.strip().upper()
     if pf not in ("liquidity", "longevity", "legacy"):
         raise HTTPException(status_code=422, detail="portfolio must be Liquidity, Longevity or Legacy")
     if to not in allowed_strategies(pf):
-        raise HTTPException(status_code=422, detail="Liquidity may only use Strategy A or B" if pf == "liquidity" else "unknown strategy")
+        raise HTTPException(status_code=422, detail="The Liquidity portfolio has no strategy or SAA" if pf == "liquidity" else "unknown strategy")
     row = store.log_strategy_override(body.client_id, pf.capitalize(), (body.from_strategy or "").strip().upper(), to,
                                       body.reason.strip(), rm_id=_rm(x_rm_id, rm_id))
     from app.agents.client_profiling.strategies import rate_of_return_text

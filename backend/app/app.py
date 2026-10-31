@@ -25,6 +25,7 @@ from app.endpoints.product_recommender import router as product_recommender_rout
 from app.endpoints.risk_compliance import PREFIX as RISK_COMPLIANCE_PREFIX  # noqa: E402
 from app.endpoints.risk_compliance import router as risk_compliance_router  # noqa: E402
 from app.endpoints.client_profiling import router as client_profiling_router  # noqa: E402
+from app.endpoints.ips_handover import router as ips_handover_router  # noqa: E402
 from app.endpoints.client_portfolio import router as client_portfolio_router  # noqa: E402
 from app.agents.market_researcher.cache import PostgresCache, init_market_tables  # noqa: E402
 from app.agents.market_researcher.runs import MarketResearchRunner, PostgresRunRegistry  # noqa: E402
@@ -62,6 +63,8 @@ app = FastAPI(title="Multi-Agent Triage System", version="1.0.0", lifespan=lifes
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://localhost:5174", "http://localhost:3000"],
+    # Vite bumps its port (5175, 5176, ...) when 5173 is taken; allow any local dev port.
+    allow_origin_regex=r"^http://(localhost|127\.0\.0\.1):\d+$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -76,6 +79,7 @@ app.include_router(portfolio_agent_router)
 app.include_router(product_recommender_router)
 app.include_router(risk_compliance_router)
 app.include_router(client_profiling_router)
+app.include_router(ips_handover_router)
 app.include_router(client_portfolio_router)
 install_pm_validation_handler(app, extra_prefixes=(PRODUCT_RECOMMENDER_PREFIX, RISK_COMPLIANCE_PREFIX))
 

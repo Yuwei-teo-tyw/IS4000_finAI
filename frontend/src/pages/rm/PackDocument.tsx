@@ -9,7 +9,7 @@ import { useRole } from "../../layouts/AppShell";
 import { hasHeadings } from "../../services/packBlocks";
 import { SectionBlocksView, useSeededBlocks, sourcesFor, Tagged, HangList, isSources, isSignoff, fmtDate, usePackStatus, isHiddenFor, PendingBox } from "./rmShared";
 
-const ROLES: Role[] = ["rm", "pm", "ps"];
+const ROLES: Role[] = ["rm", "pm"];
 const A3_PRINT_CSS = "@page a3 { size: A3; margin: 18mm; } @media print { .a3-sheet { page: a3; max-width: none; } }";
 const cap = "text-[12px] uppercase tracking-[0.14em] text-ink-muted";
 const quarterOf = (d: Date) => `Q${Math.floor(d.getMonth() / 3) + 1} ${d.getFullYear()}`;

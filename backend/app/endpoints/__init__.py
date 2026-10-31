@@ -2,6 +2,7 @@ import json
 import uuid
 
 from fastapi import APIRouter, Request, WebSocket, WebSocketDisconnect
+from app.agents.product_recommender.chat import recommend_for_chat, wants_product_recommendation
 from app.core import db
 from app.prompts.prompt_builder import get_prompt
 
@@ -135,6 +136,25 @@ async def langgraph_websocket(websocket: WebSocket):
                     await db.touch_session(session_id, latest_message=user_message)
                 except Exception as e:
                     print(f"Error touching session {session_id}: {e}")
+
+                # PM asking for product recommendations for the client in focus: same RecommendResponse as the REST route.
+                if wants_product_recommendation(turn_context, user_message):
+                    try:
+                        rec = await recommend_for_chat(turn_context["client_id"], websocket.app.state.product_recommender)
+                        rec_payload = {
+                            "message": f"Product recommendations for client {rec.client_id} are below.",
+                            "agent_name": "Product Recommender",
+                            "product_recommendation": rec.model_dump(mode="json"),
+                            "market_research_response": {"message_result": "", "data": {}},
+                        }
+                        await websocket.send_text(json.dumps(rec_payload, ensure_ascii=False))
+                    except Exception as e:
+                        print(f"Error producing product recommendation: {e}")
+                        await websocket.send_text(json.dumps({
+                            "message": f"I could not produce product recommendations: {str(e)[:200]}",
+                            "agent_name": "Product Recommender",
+                        }, ensure_ascii=False))
+                    continue
 
                 # Process with LangGraph
                 try:

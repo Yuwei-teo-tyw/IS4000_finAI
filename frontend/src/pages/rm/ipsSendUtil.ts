@@ -36,6 +36,7 @@ export function findEmptySections(s: {
   if (!p.investmentPeriod?.trim()) out.push("Investment period");
   if (!Object.values(s.risk).some((v) => v?.trim()) && !(s.text[3] ?? "").trim()) out.push("Risk profile");
   if (!s.proportion) out.push("3L proportion");
-  for (const b of ["liquidity", "longevity", "legacy"] as const) if (!s.allocation[b]) out.push(`3L strategy: ${b[0].toUpperCase()}${b.slice(1)}`);
+  // Liquidity has no SAA by design, so it is never flagged.
+  for (const b of ["longevity", "legacy"] as const) if (!s.allocation[b]) out.push(`3L strategy: ${b[0].toUpperCase()}${b.slice(1)}`);
   return out;
 }

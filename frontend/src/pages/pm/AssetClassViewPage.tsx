@@ -1,14 +1,14 @@
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { BulletList, BulletTextarea, Button, Card, CitationTag, Loading, NextAction, PageHeader, Section, Table, useAsync, useAsyncResult } from "../../components/ui";
-import { RefLine, SegmentBadge, ViewHeadline } from "../../components/ps/AssetViewParts";
+import { RefLine, SegmentBadge, ViewHeadline } from "../../components/product/AssetViewParts";
 import { arcApi, ProductRecommenderError } from "../../services/arcApi";
 import { setActiveClientId, useActiveClientId } from "../../layouts/navConfig";
 import { acceptAssetView, useAcceptedAssetView } from "../../services/workflowStore";
 import type { PrAssetView } from "../../types/productRecommender";
-import { ClientStrip } from "./psShared";
+import { ClientStrip } from "../../components/product/ClientStrip";
 
-/** The text the PS accepts: headline and thesis as "• ... [TAG]" bullets. */
+/** The text the reviewer accepts: headline and thesis as "• ... [TAG]" bullets. */
 function draftViewText(v: PrAssetView): string {
   const cio = v.cio_view;
   const lines = [

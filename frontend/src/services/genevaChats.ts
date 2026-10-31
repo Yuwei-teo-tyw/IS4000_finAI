@@ -1,8 +1,8 @@
 /** IS-98: named Geneva chats, persisted in the backend per RM (header X-RM-Id). Global per RM, separate from the per-client IPS chat. */
-import { CURRENT_RM_ID } from "./arcApi";
+import { chatOwnerId } from "./arcApi";
 
 const BASE = `${((import.meta.env.VITE_API_BASE as string | undefined) ?? "http://localhost:8000").replace(/\/$/, "")}/geneva/chats`;
-const headers = { "Content-Type": "application/json", "X-RM-Id": CURRENT_RM_ID };
+const headers = () => ({ "Content-Type": "application/json", "X-RM-Id": chatOwnerId() });
 
 export const CHAT_HISTORY_UNAVAILABLE = "Chat history is unavailable. You can keep chatting in this session, but it will not be saved.";
 export const DEFAULT_CHAT_TITLE = "New chat";
@@ -14,7 +14,7 @@ export interface SavedMessage { role: "user" | "assistant"; text: string }
 /** Null means the history database (or the backend) could not be reached. */
 async function call<T>(path: string, init?: RequestInit): Promise<T | null> {
   try {
-    const res = await fetch(`${BASE}${path}`, { headers, ...init });
+    const res = await fetch(`${BASE}${path}`, { headers: headers(), ...init });
     if (!res.ok) return null;
     return (await res.json()) as T;
   } catch { return null; }

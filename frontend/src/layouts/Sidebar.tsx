@@ -2,9 +2,10 @@ import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import type { Role } from "../types/arc";
 import ThemeToggle from "./ThemeToggle";
 import SettingsDialog from "../components/settings/SettingsDialog";
+import { usePmPendingCount } from "./usePmNotifications";
 import { ROLE_PEOPLE, getNav, useActiveClientId } from "./navConfig";
 
-const ROLES: Role[] = ["rm", "ps", "pm"];
+const ROLES: Role[] = ["rm", "pm"];
 const LABEL = "mb-2 px-2 text-[12px] font-normal text-ink-muted max-md:hidden";
 
 export default function Sidebar({ role }: { role: Role }) {
@@ -13,9 +14,10 @@ export default function Sidebar({ role }: { role: Role }) {
   const current = ROLES.find((r) => pathname === `/${r}` || pathname.startsWith(`/${r}/`)) ?? role;
   const clientId = useActiveClientId();
   const nav = getNav(role, clientId);
+  const pendingCount = usePmPendingCount();
 
   return (
-    <aside className="print:hidden sticky top-0 flex font-normal h-screen w-[76px] shrink-0 flex-col gap-8 overflow-y-auto border-r border-hairline bg-surface-200 px-[14px] py-5 md:w-56">
+    <aside className="print:hidden sticky top-0 flex font-normal h-full w-[76px] shrink-0 flex-col gap-8 overflow-y-auto border-r border-hairline bg-surface-200 px-[14px] py-5 md:w-56">
       <Link to="/rm/clients" aria-label="Geneva home" className="flex items-center gap-3 px-2 max-md:justify-center max-md:px-0">
         <img src="/ubs-logo.png" alt="UBS" className="ubs-logo h-10 w-auto" />
         <span className="text-[24px] font-normal leading-none text-ink max-md:hidden">Geneva</span>
@@ -47,11 +49,14 @@ export default function Sidebar({ role }: { role: Role }) {
       <section>
         <div className={LABEL}>Workspace</div>
         <nav className="flex flex-col gap-1">
-          {nav.map(({ to, label, icon: Icon, end }) => (
+          {nav.map(({ to, label, icon: Icon, end, badge }) => (
             <NavLink key={to} to={to} end={end} title={label}
-              className={({ isActive }) => `flex min-h-11 items-center gap-3 rounded-sm border-l-[3px] px-3 text-[14.5px] font-normal max-md:justify-center max-md:px-0 ${isActive ? "border-brand bg-surface-100 text-ink shadow-card" : "border-transparent text-ink hover:bg-surface-300"}`}>
+              className={({ isActive }) => `relative flex min-h-11 items-center gap-3 rounded-sm border-l-[3px] px-3 text-[14.5px] font-normal max-md:justify-center max-md:px-0 ${isActive ? "border-brand bg-surface-100 text-ink shadow-card" : "border-transparent text-ink hover:bg-surface-300"}`}>
               <Icon size={18} strokeWidth={1.5} className="shrink-0 text-ink-muted" aria-hidden />
               <span className="max-md:sr-only">{label}</span>
+              {badge && pendingCount > 0 && (
+                <span aria-label={`${pendingCount} pending`} className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-ink px-1.5 text-[11.5px] font-normal leading-none text-ink-inverse max-md:absolute max-md:right-1 max-md:top-1 max-md:ml-0">{pendingCount}</span>
+              )}
             </NavLink>
           ))}
         </nav>

@@ -19,6 +19,7 @@ import { IpsEditPopover, type PopoverTarget } from "../../components/geneva/IpsE
 const RM_PARTS = [1, 3, 5, 6];
 
 /** `version`: edit this saved version (a Draft is edited in place; saves reuse its number). Without it the newest Draft, else the current IPS, is opened. */
+const fixLiq = <T extends { liquidity?: string }>(a: T): Omit<T, "liquidity"> => { const { liquidity: _l, ...r } = a; return r; };
 export default function IpsDraft({ embedded = false, clientId: clientIdProp, blank = false, generated, version: versionProp }: { embedded?: boolean; clientId?: string; blank?: boolean; generated?: IpsGenerated; version?: number }) {
   const params = useParams();
   const clientId = clientIdProp ?? params.clientId ?? "";
@@ -59,16 +60,16 @@ export default function IpsDraft({ embedded = false, clientId: clientIdProp, bla
   const [dismissedOutdated, setDismissedOutdated] = useState<number | null>(null);
   const seq = useRef(0);
   const [saveMsg, setSaveMsg] = useState<{ tone: "ok" | "pending" | "error"; text: string } | null>(null);
-  const [saving, setSaving] = useState(false);
+  const [, setSaving] = useState(false);
   const saveRef = useRef<() => Promise<void>>(async () => {});  // throws when the save fails (autosave shows the error)
   const savedVersion = useRef<number | undefined>(undefined);
   const loggedOverrides = useRef<Set<string>>(new Set());
   const saveChain = useRef<Promise<void>>(Promise.resolve());
-  /** Geneva's original proposal per bucket (before the Liquidity A-B clamp), for override detection. */
+  /** Geneva's original proposal per bucket (Liquidity is always NA), for override detection. */
   const proposedAllocation = useMemo(() => ({ ...(Object.fromEntries((generated?.allocation?.buckets ?? []).map((b) => [b.id, b.strategy])) as Partial<Record<"liquidity" | "longevity" | "legacy", string>>), ...proposed0 }), [generated, proposed0]);
   const allocationMeta = useMemo(() => ({ ...Object.fromEntries((generated?.allocation?.buckets ?? []).map((b) => [b.id, { strategy: b.strategy, reason: b.justification }])), ...allocationMeta0 }), [generated, allocationMeta0]);
-  // A saved backend version (generated or edited before) is autosaved in place; a client-side-only generated draft saves once at once.
-  const autosave = useIpsAutosave({ ready: hydrated.current && (!!generated || savedVersion.current !== undefined), signature: JSON.stringify([proportion, text, buckets, demo, risk, philosophy, allocation, allocationNotes, signatures, notIncluded, storeExtras.targets, storeExtras.rmSignedDate]), save: () => saveRef.current(), immediate: !!generated && !rec });
+  // Live document: every edit is autosaved (debounced) in place; a freshly generated draft saves once at once.
+  const autosave = useIpsAutosave({ ready: hydrated.current, signature: JSON.stringify([proportion, text, buckets, demo, risk, philosophy, allocation, allocationNotes, signatures, notIncluded, storeExtras.targets, storeExtras.rmSignedDate]), save: () => saveRef.current(), immediate: !!generated && !rec });
   useEffect(() => {
     if (!parts) return;
     // Part 5 once carried an appended "3L's Strategic Asset Allocations" (formerly "3L strategy allocation") block; keep it out of the review-rules editor.
@@ -93,7 +94,7 @@ export default function IpsDraft({ embedded = false, clientId: clientIdProp, bla
       setSignatures({ ...(x.signatures ?? {}), ...(sigRm && x.signatures?.rm === undefined ? { rm: sigRm } : {}) });
       setProportion(seed.proportion ?? generated?.proportion ?? null); setProportionNote({ message: seed.proportionMessage, missing: generated?.proportionMissing });
       setNotIncluded(seed.notIncluded); setAllocationMeta0(seed.allocationMeta); setProposed0(seed.proposed);
-      saveIpsDraftExtras(clientId, { targets: seed.targets, reviewRules: seed.reviewRules, ...(seed.rmSignedDate ? { rmSignedDate: seed.rmSignedDate } : {}), allocation: seed.allocation, allocationNotes: seed.allocationNotes });
+      saveIpsDraftExtras(clientId, { targets: seed.targets, reviewRules: seed.reviewRules, ...(seed.rmSignedDate ? { rmSignedDate: seed.rmSignedDate } : {}), allocation: seed.allocation && fixLiq(seed.allocation), allocationNotes: seed.allocationNotes && fixLiq(seed.allocationNotes) });
       if (Object.keys(seed.allocation).length) { setAllocation(seed.allocation); setAllocationNotes(seed.allocationNotes); }
       else { setAllocation({}); setAllocationNotes({}); }
     } else {
@@ -101,18 +102,17 @@ export default function IpsDraft({ embedded = false, clientId: clientIdProp, bla
     }
     if (!seed) { setProportion(generated?.proportion ?? null); setProportionNote({ missing: generated?.proportionMissing }); }
     if (!seed) {
-      const fixLiq = (a: { liquidity?: string; longevity?: string; legacy?: string }) => ({ ...a, ...(a.liquidity && !["A", "B"].includes(a.liquidity) ? { liquidity: "B" } : {}) });
-      const hasA = x.allocation && Object.values(x.allocation).some(Boolean);
-      if (hasA) { setAllocation(fixLiq(x.allocation!)); setAllocationNotes(x.allocationNotes ?? {}); }
+            const hasA = x.allocation && Object.values(x.allocation).some(Boolean);
+      if (hasA) { setAllocation(fixLiq(x.allocation!)); setAllocationNotes(fixLiq(x.allocationNotes ?? {})); }
       else {
         const a: Record<string, string> = {}, n: Record<string, string> = {};
         for (const b of generated?.allocation?.buckets ?? []) { a[b.id] = b.strategy; n[b.id] = b.justification; }
-        setAllocation(fixLiq(a)); setAllocationNotes(n);
+        setAllocation(fixLiq(a)); setAllocationNotes(fixLiq(n));
       }
     }
     hydrated.current = true;
   }, [buckets0, clientId, src, seed]);
-  useEffect(() => { if (hydrated.current && buckets.length) saveIpsDraftExtras(clientId, { buckets, demo, risk, philosophy, allocation, allocationNotes, signatures }); }, [buckets, demo, risk, philosophy, allocation, allocationNotes, signatures, clientId]);
+  useEffect(() => { if (hydrated.current && buckets.length) saveIpsDraftExtras(clientId, { buckets, demo, risk, philosophy, allocation: fixLiq(allocation), allocationNotes: fixLiq(allocationNotes), signatures, proportion }); }, [buckets, demo, risk, philosophy, allocation, allocationNotes, signatures, clientId]);
   /** Geneva's confirmed allocation change (written to the store by the chat) flows into the editor and is autosaved from there. */
   useEffect(() => {
     if (!hydrated.current) return;
@@ -131,13 +131,19 @@ export default function IpsDraft({ embedded = false, clientId: clientIdProp, bla
     allocation, allocationNotes, proposedAllocation, allocationMeta, notIncluded, setNotIncluded, outOfDate: seed?.outOfDate,
     proportion, proportionMessage: proportionNote.message, proportionMissing: proportionNote.missing,
     setProportionPct: (k, n) => setProportion((p) => p ? { ...p, [k]: { ...p[k], pct: Number.isFinite(n) ? Math.max(0, n) : 0 } } : p),
+    setProportionReason: (k, t) => setProportion((p) => p ? { ...p, [k]: { ...p[k], reason: t } } : p),
     setAllocationNote: (b, t) => setAllocationNotes((n) => ({ ...n, [b]: t })),
-    setAllocation: (b, c) => setAllocation((a) => ({ ...a, [b]: b === "liquidity" && !["A", "B"].includes(c) ? "B" : c })),
+    setAllocation: (b, c) => setAllocation((a) => ({ ...a, [b]: b === "liquidity" ? "NA" : c })),
     signatures, setSignature: (who, url) => setSignatures((g) => ({ ...g, [who]: url })),
   };
-  const previewVersion: IpsVersion = { ...version, parts: parts.map((p) => ({ ...p, body: [1, 3, 5].includes(p.part) ? (text[p.part] ?? p.body) : p.body })) };
+  /** Preview renders from structured data like a saved IPS, built from the live editor state so unsaved edits show too. */
+  const previewData = () => {
+    const x = getIpsDraftExtras(clientId);
+    return buildIpsData(rec?.data ?? version.data, { text, targets: x.targets, demo, risk, philosophy, allocation, allocationNotes, allocationMeta, notIncluded, proportion, rmSignedDate: x.rmSignedDate, rmSignature: signatures.rm });
+  };
+  const previewVersion: IpsVersion = { ...version, data: previewing ? previewData() : version.data, parts: parts.map((p) => ({ ...p, body: [1, 3, 5].includes(p.part) ? (text[p.part] ?? p.body) : p.body })) };
   const openPreview = () => {
-    saveIpsDraftExtras(clientId, { buckets, demo, risk, philosophy, allocation, allocationNotes, signatures });
+    saveIpsDraftExtras(clientId, { buckets, demo, risk, philosophy, allocation: fixLiq(allocation), allocationNotes: fixLiq(allocationNotes), signatures, proportion });
     setPreviewing(true);
   };
   const previewBtn = (
@@ -146,11 +152,15 @@ export default function IpsDraft({ embedded = false, clientId: clientIdProp, bla
   const subtitle = `You fill ${RM_PARTS.map((n) => parts.find((x) => x.part === n)?.title ?? "").filter(Boolean).join(", ")}.`;
 
   const STRAT: Record<string, string> = { A: "Fixed Income", B: "Income", C: "Yield", D: "Balanced", E: "Growth", F: "Equities" };
+  const edW = (b: "longevity" | "legacy", code: string) => {
+    const e = storeExtras.allocationWeights?.[b];
+    return e && e.strategy === code ? ` SAA weights: ${Object.entries(e.weights).filter(([, v]) => v > 0).map(([k, v]) => `${k} ${v}%`).join(", ")}.` : "";
+  };
   const allocationText = (): string => {
-    const lines = (["liquidity", "longevity", "legacy"] as const).filter((b) => allocation[b]).map((b) => {
+    const lines = (["longevity", "legacy"] as const).filter((b) => allocation[b]).map((b) => {
       const code = allocation[b]!;
       const name = generated?.allocation?.buckets.find((g) => g.id === b && g.strategy === code)?.strategyName ?? STRAT[code] ?? "";
-      return `${b[0].toUpperCase()}${b.slice(1)} portfolio: Strategy ${code} - ${name}.${allocationNotes[b] ? ` ${allocationNotes[b]}` : ""}`;
+      return `${b[0].toUpperCase()}${b.slice(1)} portfolio: Strategy ${code} - ${name}.${edW(b, code)}${allocationNotes[b] ? ` ${allocationNotes[b]}` : ""}`;
     });
     return lines.length ? `3L's Strategic Asset Allocations\n${lines.join("\n")}` : "";
   };
@@ -160,11 +170,11 @@ export default function IpsDraft({ embedded = false, clientId: clientIdProp, bla
   };
 
   /** Save the IPS to the database (a new version the first time, then the same version); the backend vectorizes it and tells us whether it is searchable yet.
-   *  Saves are chained, never parallel: an autosave and a click on Save IPS must not both create "the first version". */
+   *  Saves are chained, never parallel: an autosave and a send must not both create "the first version". */
   const saveIps = (): Promise<boolean> => {
     const run = async () => {
       // A strategy different from Geneva's proposal needs the RM's own reason; it is logged for future reference.
-      const overrides = (["liquidity", "longevity", "legacy"] as const).filter((b) => allocation[b] && proposedAllocation[b] && allocation[b] !== proposedAllocation[b]);
+      const overrides = (["liquidity", "longevity", "legacy"] as const).filter((b) => b !== "liquidity" && allocation[b] && proposedAllocation[b] && allocation[b] !== proposedAllocation[b]);
       const noReason = overrides.filter((b) => { const r = (allocationNotes[b] ?? "").trim(); return !r || r === (allocationMeta[b]?.reason ?? "").trim(); });
       if (noReason.length) {
         setSaveMsg({ tone: "error", text: `Give a reason before saving: ${noReason.map((b) => `${b} Strategy ${allocation[b]} instead of Geneva's Strategy ${proposedAllocation[b]}`).join("; ")}.` });
@@ -185,7 +195,7 @@ export default function IpsDraft({ embedded = false, clientId: clientIdProp, bla
         const x = getIpsDraftExtras(clientId);
         const table = await arcApi.getStrategies().then((r) => r.strategies).catch(() => []);
         const rateOfReturn = Object.fromEntries((["liquidity", "longevity", "legacy"] as const).flatMap((b) => {
-          const t = table.find((s) => s.code === allocation[b])?.rateOfReturnText?.trim();
+          const t = b === "liquidity" || allocation[b] === "NA" ? "" : table.find((s) => s.code === allocation[b])?.rateOfReturnText?.trim();
           return t ? [[b, t]] : [];
         }));
         const data = buildIpsData(rec?.data, {
@@ -293,7 +303,7 @@ export default function IpsDraft({ embedded = false, clientId: clientIdProp, bla
           getText={(n) => text[n] ?? ""} onApplied={(n, v) => api.setText(n, v)} onClose={() => setPop(null)} />
       )}
 
-      <p role="status" className="mx-auto mb-1 max-w-[1080px] text-right text-[12px] text-ink-muted">{autosave === "saving" ? "Saving…" : autosave === "saved" ? "Saved" : autosave === "error" ? "Not saved, press Save IPS" : ""}</p>
+      <p role="status" className="mx-auto mb-1 max-w-[1080px] text-right text-[12px] text-ink-muted">{autosave === "saving" ? "Saving…" : autosave === "saved" ? "Saved" : autosave === "error" ? "Not saved yet, see the message below. Your edits are kept and retried on the next change." : ""}</p>
       {saveMsg && <p role={saveMsg.tone === "error" ? "alert" : "status"} className={`mx-auto mb-3 max-w-[1080px] text-right text-sm ${saveMsg.tone === "error" ? "text-red-700" : "text-ink"}`}>{saveMsg.text}</p>}
       <div className="mx-auto flex max-w-[1080px] flex-wrap items-center justify-end gap-3">
         {noIps && !sent && <p role="status" className="mr-auto text-sm text-ink-muted">Generate an IPS first</p>}
@@ -301,7 +311,6 @@ export default function IpsDraft({ embedded = false, clientId: clientIdProp, bla
         {!embedded && !sent && <Button variant="secondary" onClick={() => nav(-1)}>Back</Button>}
         {sent && !embedded && <Button variant="secondary" to={`/rm/clients/${clientId}/ips-approval`}>Preview PM return</Button>}
         <Button variant="secondary" onClick={openPreview}><Eye size={16} className="mr-2" aria-hidden />Preview IPS document</Button>
-        <Button variant="secondary" onClick={saveIps} disabled={saving}>{saving ? "Saving…" : "Save IPS"}</Button>
         {sent && <Button variant="secondary" onClick={() => setDlg({ kind: "withdraw", empties: [] })}>Withdraw</Button>}
         {!sent && <Button onClick={openSend} disabled={noIps}>Send IPS draft to PM</Button>}
       </div>

@@ -179,6 +179,15 @@ class BucketContext(_Strict):
                     "appetite. Risk capacity still caps it.",
     )
     total_3l_amount: Optional[float] = Field(default=None, gt=0, description="All three buckets together")
+    preselected_strategy: Optional[Literal["A", "B", "C", "D", "E", "F"]] = Field(
+        default=None, description="Strategy letter chosen for this bucket in the RM-side IPS (same A-F as the options)")
+
+    @field_validator("preselected_strategy", mode="before")
+    @classmethod
+    def _upper_strategy(cls, v):
+        if isinstance(v, str):
+            return v.strip().upper() or None
+        return v
 
 
 class PortfolioGenerateRequest(_Strict):

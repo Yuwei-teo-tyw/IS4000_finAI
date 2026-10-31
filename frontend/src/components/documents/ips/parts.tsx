@@ -2,13 +2,13 @@ import { useLayoutEffect, useRef, useState, type HTMLAttributes, type ReactNode 
 import { toBulletItems } from "../../../utils/bullets";
 
 /**
- * IPS type scale (single source of truth): title 34 > HEADING (section h2) 24 > BODY 15 > SMALL 13 > LABEL 12 uppercase.
+ * IPS type scale (single source of truth): title 34 > HEADING (section h2) 24 > BODY 15 > SMALL 13 > LABEL 15 uppercase.
  * Body text must never exceed the section headings.
  */
 export const HEADING = "text-[24px] font-light leading-8 text-ink";
 export const BODY = "text-[15px] leading-6";
 export const SMALL = "text-[13px] leading-5";
-export const LABEL = "text-[12px] leading-4 uppercase tracking-[0.06em] font-normal text-ink-muted";
+export const LABEL = "text-[15px] leading-5 uppercase tracking-[0.06em] font-normal text-ink-muted";
 /** Shared frame + cell pattern: every IPS block (fields, goals, tables, bucket cards) uses these. */
 export const IPS_FRAME = "border border-hairline";
 export const CELL = "avoid-break min-w-0 px-5 py-4";
@@ -83,11 +83,12 @@ export function LockedTag({ children = "Locked" }: { children?: ReactNode }) {
   );
 }
 
-export function DocSection({ n, title, children }: { n: number; title: string; children: ReactNode }) {
+export function DocSection({ n, title, children, locked = false, highlight = false, headingClass = HEADING }: { n: number; title: string; children: ReactNode; locked?: boolean; highlight?: boolean; headingClass?: string }) {
   return (
-    <section className="avoid-break mt-12 min-w-0">
-      <h2 className={`border-b border-hairline pb-2 print:break-after-avoid ${HEADING}`}>{n}. {title}</h2>
-      <div className={`mt-6 space-y-6 ${BODY} ${WRAP}`}>{children}</div>
+    <section className={`avoid-break mt-12 min-w-0 ${highlight ? "-mx-6 border-l-2 border-ink bg-surface-200 px-6 py-6 sm:-mx-10 sm:px-10" : ""}`} data-pm-review={highlight || undefined}>
+      {highlight && <p className={`mb-2 ${LABEL}`}>PM review: 3L and SAA</p>}
+      <h2 className={`border-b border-hairline pb-2 print:break-after-avoid ${headingClass}`}>{n}. {title}</h2>
+      <div inert={locked} className={`mt-6 space-y-6 ${BODY} ${WRAP} ${locked ? "opacity-80" : ""}`}>{children}</div>
     </section>
   );
 }
@@ -130,12 +131,23 @@ export function GroupedBullets({ items }: { items: string[] }) {
 }
 
 /** Multi-line free-text field in the dashed editable style; grows with its content. */
-export function FreeText({ value, onChange, label, placeholder }: { value: string; onChange: (v: string) => void; label: string; placeholder?: string }) {
+/** Fit a textarea to its content; a textarea inside a hidden (display:none) page measures 0, so keep its natural rows height then. */
+export function fitTextarea(el: HTMLTextAreaElement) { el.style.height = "auto"; const h = el.scrollHeight; if (h > 0) el.style.height = `${h}px`; }
+/** Auto-grow that also re-fits when the textarea first becomes visible (tabs, pages). */
+export function useAutoGrow(ref: React.RefObject<HTMLTextAreaElement | null>, dep: unknown) {
+  useLayoutEffect(() => {
+    const el = ref.current; if (!el) return;
+    fitTextarea(el);
+    const ro = new ResizeObserver(() => { if (el.offsetParent !== null && Math.abs(el.scrollHeight - el.clientHeight) > 1) fitTextarea(el); });
+    ro.observe(el); return () => ro.disconnect();
+  }, [ref, dep]);
+}
+export function FreeText({ value, onChange, label, placeholder, rows = 3 }: { value: string; onChange: (v: string) => void; label: string; placeholder?: string; rows?: number }) {
   const ref = useRef<HTMLTextAreaElement>(null);
-  useLayoutEffect(() => { const el = ref.current; if (el) { el.style.height = "auto"; el.style.height = `${el.scrollHeight}px`; } }, [value]);
+  useAutoGrow(ref, value);
   return (
     <EditField>
-      <textarea ref={ref} rows={3} aria-label={label} placeholder={placeholder} value={value} onChange={(e) => onChange(e.target.value)}
+      <textarea ref={ref} rows={rows} aria-label={label} placeholder={placeholder} value={value} onChange={(e) => onChange(e.target.value)}
         className={`block w-full resize-none overflow-hidden px-2 py-1 text-[15px] leading-6 placeholder:text-ink-muted ${EDIT_BOX} print:p-0`} />
     </EditField>
   );

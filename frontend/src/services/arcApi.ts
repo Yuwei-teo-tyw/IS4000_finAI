@@ -113,10 +113,10 @@ const withEdits = (clientId: string, list: IpsVersion[]): IpsVersion[] =>
   list.map((v) => (ipsEdits[`${clientId}:${v.version}`] ? { ...v, parts: ipsEdits[`${clientId}:${v.version}`] } : v));
 
 export interface ProfessionaliseInput {
-  clientId: string; role: "rm" | "pm" | "ps"; context: "ips" | "pack" | "products";
+  clientId: string; role: "rm" | "pm"; context: "ips" | "pack" | "products";
   items: { id: string; label: string; text: string }[]; chat?: string[];
 }
-const ROLE_DESC = { rm: "Relationship Manager", pm: "Portfolio Manager", ps: "Product Specialist" } as const;
+const ROLE_DESC = { rm: "Relationship Manager", pm: "Portfolio Manager" } as const;
 const CTX_TAG = { ips: "IPS-v2", pack: "CIO-2026Q4-03", products: "MKT-0142" } as const;
 function professionaliseText(input: ProfessionaliseInput, it: { label: string; text: string }): string {
   const tag = CTX_TAG[input.context];
@@ -216,6 +216,37 @@ export const arcApi = {
    */
   askPortfolioAgent: (clientId: string, question: string, history: PaChatTurn[] = []): Promise<PaChatReply> =>
     askPortfolioAgent(clientId, question, history),
+  /** RM review pack generation (LangGraph backend): sections A-G, taa, products, holdings_shifts, sources, narrative_status, generated_at. Errors surface as the backend `detail`. */
+  generateReviewPack: async (clientId: string, rmContext?: string): Promise<{ sections: { id: string; body: string; [k: string]: unknown }[]; taa?: unknown; products?: unknown; holdings_shifts?: unknown; sources?: unknown; narrative_status?: unknown; generated_at?: string; [k: string]: unknown }> => {
+    let res: Response;
+    try {
+      res = await fetch(`${API_BASE}/review-pack/generate`, { method: "POST", headers: { "Content-Type": "application/json", ...rmHeaders() }, body: JSON.stringify({ client_id: clientId, rm_context: rmContext ?? "" }) });
+    } catch { throw new Error(`Cannot reach the backend at ${API_BASE}, so the pack could not be generated.`); }
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(typeof (json as { detail?: unknown }).detail === "string" ? (json as { detail: string }).detail : JSON.stringify((json as { detail?: unknown }).detail ?? `Request failed (${res.status})`));
+    return json;
+  },
+  /** Review pack persistence (backend source of truth): one opaque state object per client. */
+  getReviewPackStates: async (): Promise<Record<string, Record<string, unknown>>> => {
+    const res = await fetch(`${API_BASE}/review-pack/states`, { headers: rmHeaders() });
+    if (!res.ok) throw new Error(`Request failed (${res.status})`);
+    return ((await res.json()) as { states?: Record<string, Record<string, unknown>> }).states ?? {};
+  },
+  getReviewPackState: async (clientId: string): Promise<Record<string, unknown> | null> => {
+    const res = await fetch(`${API_BASE}/review-pack/state/${encodeURIComponent(clientId)}`, { headers: rmHeaders() });
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error(`Request failed (${res.status})`);
+    return ((await res.json()) as { state: Record<string, unknown> }).state;
+  },
+  putReviewPackState: async (clientId: string, state: Record<string, unknown>): Promise<{ state: Record<string, unknown>; updated_at: string }> => {
+    const res = await fetch(`${API_BASE}/review-pack/state/${encodeURIComponent(clientId)}`, { method: "PUT", headers: rmHeaders(), body: JSON.stringify({ state }) });
+    if (!res.ok) throw new Error(`Request failed (${res.status})`);
+    return res.json();
+  },
+  deleteReviewPackState: async (clientId: string): Promise<void> => {
+    const res = await fetch(`${API_BASE}/review-pack/state/${encodeURIComponent(clientId)}`, { method: "DELETE", headers: rmHeaders() });
+    if (!res.ok && res.status !== 404) throw new Error(`Request failed (${res.status})`);
+  },
   getAllocation: (clientId: string): Promise<AllocationRow[]> => delay(m.allocationByClient[clientId] ?? m.allocation),
   getSaaTemplates: () => delay(m.saaTemplates),
   /** Save an IPS (new version, or edit when `version` is set); the backend vectorizes it. Returns the confirmation text ("IPS v3 indexed" / "IPS saved, but not yet searchable"); throws the backend message (e.g. "Client is not in your book"). */
@@ -234,6 +265,12 @@ export const arcApi = {
     return r?.available && (r.status === "ok" || r.status === "no_holdings" || r.status === "no_priced_holdings") ? r : null;
   },
   /** IS-101: current send-to-PM status of the client's IPS (Draft / Sent to PM / Returned by PM / No IPS) and whether the PM's copy is older than the latest save. */
+  /** PM hand-over (DB-backed client): working 3L + SAA seeded from the RM-sent IPS. Liquidity never has an SAA. */
+  getPmIps: (clientId: string): Promise<PmIps> => cpJson<PmIps>(`/pm-ips/${encodeURIComponent(clientId)}`),
+  savePmIps: (clientId: string, edit: PmIpsEdit): Promise<PmIps> => cpJson<PmIps>(`/pm-ips/${encodeURIComponent(clientId)}`, { method: "PUT", body: JSON.stringify(edit) }),
+  returnPmIps: (clientId: string): Promise<{ status: string; version: number; returnedAt: string }> => cpJson(`/pm-ips/${encodeURIComponent(clientId)}/return`, { method: "POST" }),
+  /** G1: the backend sets IpsVersion.status = Active (older ones Superseded) and moves the client to Monitoring. Required before a pack can be generated. */
+  activateIpsVersion: (clientId: string, version: number): Promise<{ client_id: string; version: number; status: string; clientStatus: string }> => cpJson(`/ips/${encodeURIComponent(clientId)}/${version}/activate`, { method: "POST" }),
   getIpsSendStatus: (clientId: string): Promise<IpsSendStatus> => cpJson<IpsSendStatus>(`/ips-send/${encodeURIComponent(clientId)}`),
   /** Sends one IPS version (null = latest) to the PM. Throws IpsSendError (message is shown to the RM) when it is not sent. */
   sendIpsToPm: async (clientId: string, version: number | null): Promise<IpsSendResult> => {
@@ -378,13 +415,14 @@ export const arcApi = {
   /** Mock rewrite of lay-language text into professional bullets. Replace with a LangGraph run. */
   professionalise: (input: ProfessionaliseInput): Promise<{ id: string; text: string }[]> =>
     new Promise((res) => setTimeout(() => res(input.items.map((it) => ({ id: it.id, text: professionaliseText(input, it) }))), 1500)),
+  /** PM product questions in the Geneva chat: CIO house view and product tables (Product Recommender). Null = not a product question; ask the backend. */
+  answerProductsLocally: (clientId: string, text: string, ipsVersion: number | null = null): Promise<MarketAnswer | null> => answerProductsLocally(clientId, text, ipsVersion),
   /**
    * Geneva chat, local half: client-data and workflow intents answered from the workspace (IPS, goals, notes,
    * holdings/TAA, pack drafts, CIO house view, product tables). Returns null when the question is not one of
    * those; the chat then sends it to the LangGraph backend (`askBackend`).
    */
   answerLocally: async (role: Role, clientId: string, text: string, ipsVersion: number | null = null): Promise<MarketAnswer | null> => {
-    if (role === "ps") return answerPsLocally(clientId, text, ipsVersion);
     const r = await answerAsAgent(role, clientId, text);
     if (!r) return null;
     const reply = ipsVersion && !r.draft ? `Using IPS v${ipsVersion}.\n${r.reply}` : r.reply;
@@ -425,8 +463,8 @@ export const arcApi = {
 
 };
 
-/** PS research chat, local half: CIO house view and product tables (Product Recommender). Null = ask the backend. */
-async function answerPsLocally(clientId: string, question: string, ipsVersion: number | null): Promise<MarketAnswer | null> {
+/** PM product chat, local half: CIO house view and product tables (Product Recommender). Null = ask the backend. */
+async function answerProductsLocally(clientId: string, question: string, ipsVersion: number | null): Promise<MarketAnswer | null> {
   const t = question.toLowerCase();
   const ipsNote = ipsVersion ? ` Using IPS v${ipsVersion}.` : "";
   const houseView = /house view|cio view|what is the cio/.test(t) && !/product|fund|etf|note|suit|recommend|top 5|ranking/.test(t);
@@ -592,7 +630,7 @@ async function answerAsAgent(role: Role, clientId: string, message: string): Pro
     const pack = await arcApi.getPack(clientId);
     const sec = pack.find((x) => x.n === hit[1]);
     if (sec && sec.owner !== role) {
-      const who = sec.owner === "pm" ? "the Portfolio Manager (Wei Lun)" : sec.owner === "ps" ? "the Product Specialist (David)" : "the Relationship Manager (Isabel)";
+      const who = sec.owner === "pm" ? "the Portfolio Manager (Wei Lun)" : "the Relationship Manager (Isabel)";
       return { ...base, agent: "Orchestrator", reply: `Section ${sec.n}, ${sec.title}, belongs to ${who}. I can summarise it, but I cannot rewrite it for you.`, tags: [], steps: ["Checking section ownership…", "Drafting reply…"] };
     }
     if (sec) {
@@ -698,8 +736,21 @@ const CP_URL = `${API_BASE}/agents/client-profiling`;
 const CP_TIMEOUT_MS = 90_000;
 /** The RM whose IPS chat history and override audit rows are scoped by the backend (header X-RM-Id). No auth yet: the backend's default RM. */
 export const CURRENT_RM_ID = "rm_default";
-const rmHeaders = (): Record<string, string> => ({ "Content-Type": "application/json", "X-RM-Id": CURRENT_RM_ID });
+/** Chat history and audit rows are scoped by this id. The PM gets its own id so RM and PM never share chat histories. */
+export const chatOwnerId = (): string => (typeof window !== "undefined" && window.location.pathname.startsWith("/pm") ? "pm_default" : CURRENT_RM_ID);
+const rmHeaders = (): Record<string, string> => ({ "Content-Type": "application/json", "X-RM-Id": chatOwnerId() });
 /** IS-101 send-to-PM contract. */
+export type PmIpsBucketId = "liquidity" | "longevity" | "legacy";
+export interface PmIps {
+  client_id: string; clientName: string; status: string; version: number; returned: boolean; snapshotVersion: number; sentAt: string | null; total: number; edited: boolean; updatedAt: string;
+  threeL: Record<PmIpsBucketId, { pct: number | null; amount: number | null; reason: string }>;
+  saa: Record<"longevity" | "legacy", { strategy: string | null; optionId: string | null; source: "rm" | "pm"; weights: Record<string, number> | null; reason: string }>;
+}
+export interface PmIpsEdit {
+  threeL?: Partial<Record<PmIpsBucketId, { pct: number }>>;
+  saa?: Partial<Record<"longevity" | "legacy", { strategy: string; weights?: Record<string, number>; reason?: string }>>;
+  reason?: string;
+}
 export interface IpsSendStatus { sent: boolean; status: "Draft" | "Sent to PM" | "Returned by PM" | "No IPS"; sentVersion: number | null; sentAt: string | null; latestVersion: number | null; outdated: boolean; message: string }
 export interface IpsSendResult { status: "Sent to PM"; version: number; sentAt: string; emptySections: string[] }
 export class IpsSendError extends Error {}
@@ -949,7 +1000,7 @@ export async function validateThreeLProportion(v: { liquidity: number; longevity
 /** Strategy table A-F (asset-class mix, return, volatility, drawdown). */
 export async function getStrategies(): Promise<{ strategies: Strategy[]; liquidityAllowed: string[] }> {
   const r = await cpJson<{ strategies?: Strategy[]; liquidityAllowed?: string[] }>("/strategies");
-  return { strategies: r.strategies ?? [], liquidityAllowed: r.liquidityAllowed ?? ["A", "B"] };
+  return { strategies: r.strategies ?? [], liquidityAllowed: r.liquidityAllowed ?? [] };
 }
 
 /** RM challenges or asks about the 3L allocation; the agent agrees or disagrees with reasons from the notes. */
@@ -1277,7 +1328,7 @@ async function askPortfolioAgent(clientId: string, question: string, history: Pa
 const PR_URL = `${API_BASE}/agents/product-recommender`;
 const PR_TIMEOUT_MS = 30_000;
 
-/** No mock fallback: the PS must never approve a list the agent did not produce. */
+/** No mock fallback: the PM must never approve a list the agent did not produce. */
 export class ProductRecommenderError extends Error {
   kind: "UNREACHABLE" | "TIMEOUT" | "REJECTED" | "NOT_FOUND" | "SERVER" | "INVALID_RESPONSE";
   details: string[];
@@ -1419,7 +1470,7 @@ export interface PackCheckInput {
   sections: RcPackSection[];
   /** Allocation rows with the PM's saved new TAA applied. */
   allocation: AllocationRow[];
-  /** The Product Specialist's finalised list (names; matched to the shelf by the agent). */
+  /** The finalised product list (names; matched to the shelf by the agent). */
   products: { name: string; assetClass: string }[];
   gates: Partial<Record<GateId, GateState>>;
 }

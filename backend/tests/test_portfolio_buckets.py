@@ -42,39 +42,13 @@ def growth(o):
 HIGH_RISK = dict(risk_appetite="Growth", risk_tolerance_score=4, risk_capacity="High", maximum_acceptable_drawdown=30)
 
 
-# --- Liquidity ----------------------------------------------------------------------
+# --- Liquidity has no SAA and no strategy -------------------------------------------------
 
-def test_liquidity_bucket_holds_only_cash_and_short_bonds(client):
-    p = gen(client, "LIQ-1", "liquidity", 150_000, horizon=1, goals=[], **HIGH_RISK)
-    assert p["bucket"]["bucket"] == "liquidity"
-    assert [t.split(" · ")[1] for t in p["bucket"]["templates_considered"]] == ["Cash reserve", "Cash and short bonds", "Short-term income"]
-    assert offered(p)
-    for o in offered(p):
-        assert classes(o) <= {"Cash", "Fixed income"}
-        assert growth(o) == 0
-        for s in o["product_selections"]:
-            assert s["details"]["recommended_horizon"] is None or s["details"]["recommended_horizon"] <= 1
-
-
-def test_liquidity_bucket_excludes_products_it_could_not_get_back_in_time(client):
-    p = gen(client, "LIQ-2", "liquidity", 150_000, horizon=1, goals=[])
-    reasons = {e["product_id"]: e["reason"] for e in p["excluded_products"]}
-    assert "Liquidity bucket" in reasons["MOCK-GOVT-001"]  # 3-year recommended holding period
-    assert "Liquidity bucket" in reasons["MOCK-EQ-002"]
-
-
-def test_liquidity_horizon_is_capped_at_three_years(client):
-    p = gen(client, "LIQ-3", "liquidity", 150_000, horizon=10, goals=[])
-    assert p["bucket"]["horizon_years"] == 3
-    assert any("3 is used" in n["statement"] for n in p["bucket"]["notes"])
-
-
-def test_whole_bucket_amount_is_invested_with_no_second_reserve_carve_out(client):
-    p = gen(client, "LIQ-4", "liquidity", 150_000, horizon=2, goals=[])
-    assert p["liquidity_plan"]["eligible_portfolio_value"] == 150_000
-    assert p["liquidity_plan"]["reserve_carved_out"] == 0
-    for o in offered(p):
-        assert round(sum(a["investment_amount"] for a in o["asset_allocation"])) == 150_000
+def test_liquidity_generation_is_rejected(client):
+    req = request_with("LIQ-1")
+    req["bucket"] = {"bucket": "liquidity", "amount": 150_000, "horizon_years": 1, "total_3l_amount": 1_000_000}
+    r = client.post(GENERATE, json=req)
+    assert r.status_code == 422 and "Liquidity" in r.json()["detail"]
 
 
 # --- Longevity / Legacy: horizon and risk drive the options -----------------------------
@@ -129,19 +103,18 @@ def test_rationale_names_the_bucket_and_its_objective(client):
 
 
 def test_templates_endpoint_lists_bucket_templates(client):
-    assert [t["name"] for t in client.get(f"{BASE}/templates?bucket=liquidity").json()] == [
-        "Cash reserve", "Cash and short bonds", "Short-term income"]
+    assert client.get(f"{BASE}/templates?bucket=liquidity").json() == []
     assert len(client.get(f"{BASE}/templates").json()) == 6
 
 
 # --- Combined review and isolation -------------------------------------------------------
 
-def three(client, prefix="C", amounts=(100_000, 250_000, 150_000)):
+def three(client, prefix="C", amounts=(250_000, 150_000)):
+    """Liquidity has no SAA, so the combined review covers Longevity and Legacy only."""
     total = sum(amounts)
-    liq = gen(client, f"{prefix}-L", "liquidity", amounts[0], horizon=2, goals=[], total=total, **HIGH_RISK)
-    lon = gen(client, f"{prefix}-O", "longevity", amounts[1], horizon=15, total=total, **HIGH_RISK)
-    leg = gen(client, f"{prefix}-G", "legacy", amounts[2], horizon=20, goals=[], total=total, **HIGH_RISK)
-    return total, [("liquidity", liq), ("longevity", lon), ("legacy", leg)]
+    lon = gen(client, f"{prefix}-O", "longevity", amounts[0], horizon=15, total=total, **HIGH_RISK)
+    leg = gen(client, f"{prefix}-G", "legacy", amounts[1], horizon=20, goals=[], total=total, **HIGH_RISK)
+    return total, [("longevity", lon), ("legacy", leg)]
 
 
 def choice(bucket, p, weights=None):
@@ -157,7 +130,7 @@ def test_combined_review_reconciles_and_aggregates(client):
     assert body["total_amount"] == total
     assert round(sum(c["amount"] for c in body["classes"])) == total
     assert abs(sum(c["pct"] for c in body["classes"]) - 100) < 0.05
-    assert [b["bucket"] for b in body["buckets"]] == ["liquidity", "longevity", "legacy"]
+    assert [b["bucket"] for b in body["buckets"]] == ["longevity", "legacy"]
     assert body["checks"][0]["status"] == "PASS"
     assert body["execution_status"] == "NOT_EXECUTED"
 
@@ -171,16 +144,15 @@ def test_combined_review_fails_when_buckets_do_not_add_up(client):
 def test_editing_one_bucket_does_not_change_the_others(client):
     total, ps = three(client, "E")
     plain = client.post(COMBINED, json={"buckets": [choice(b, p) for b, p in ps]}).json()
-    _, lon = ps[1]
+    _, lon = ps[0]
     c = choice("longevity", lon)
     o = next(x for x in lon["portfolio_options"] if x["option_id"] == c["option_id"])
     w = {a["asset_class"]: a["allocation_percentage"] for a in o["asset_allocation"]}
     top, low = sorted(w, key=w.get, reverse=True)[:2]
     w[top] -= 3
     w[low] += 3
-    edited = client.post(COMBINED, json={"buckets": [choice(*ps[0]), {**c, "weights": w}, choice(*ps[2])]}).json()
+    edited = client.post(COMBINED, json={"buckets": [{**c, "weights": w}, choice(*ps[1])]}).json()
     by = lambda body, b: next(x for x in body["buckets"] if x["bucket"] == b)  # noqa: E731
-    assert by(edited, "liquidity") == by(plain, "liquidity")
     assert by(edited, "legacy") == by(plain, "legacy")
     assert by(edited, "longevity")["point"] != by(plain, "longevity")["point"]
     # the stored proposals are untouched
@@ -189,11 +161,11 @@ def test_editing_one_bucket_does_not_change_the_others(client):
 
 def test_combined_review_rejects_mismatches(client):
     total, ps = three(client, "F")
-    (_, liq), (_, lon) = ps[0], ps[1]
-    dup = client.post(COMBINED, json={"buckets": [choice("liquidity", liq), choice("liquidity", lon)]})
+    (_, lon), (_, leg) = ps[0], ps[1]
+    dup = client.post(COMBINED, json={"buckets": [choice("longevity", lon), choice("longevity", leg)]})
     assert dup.status_code == 422
-    wrong = client.post(COMBINED, json={"buckets": [choice("legacy", liq)]})
-    assert wrong.status_code == 409 and "Liquidity" in wrong.json()["detail"]
+    wrong = client.post(COMBINED, json={"buckets": [choice("legacy", lon)]})
+    assert wrong.status_code == 409 and "Longevity" in wrong.json()["detail"]
     missing = client.post(COMBINED, json={"buckets": [{"bucket": "legacy", "request_id": "NOPE", "option_id": "A"}]})
     assert missing.status_code == 404
     whole = client.post(GENERATE, json=request_with("WHOLE-1")).json()
@@ -203,30 +175,14 @@ def test_combined_review_rejects_mismatches(client):
 
 def test_combined_review_flags_a_bucket_failing_its_own_checks(client):
     total, ps = three(client, "G")
-    _, lon = ps[1]
+    _, lon = ps[0]
     c = choice("longevity", lon)
     o = next(x for x in lon["portfolio_options"] if x["option_id"] == c["option_id"])
     w = {a["asset_class"]: a["allocation_percentage"] for a in o["asset_allocation"]}
     w[next(iter(w))] += 20  # breaks 100% and the 5-point band
-    body = client.post(COMBINED, json={"buckets": [choice(*ps[0]), {**c, "weights": w}, choice(*ps[2])]}).json()
+    body = client.post(COMBINED, json={"buckets": [{**c, "weights": w}, choice(*ps[1])]}).json()
     assert body["valid"] is False
     assert any(ch["constraint"] == "Every bucket passes its own checks" and ch["status"] == "FAIL" for ch in body["checks"])
-
-
-def test_liquidity_bucket_carries_no_unhedged_currency_risk(client):
-    p = gen(client, "LIQ-FX", "liquidity", 300_000, horizon=1, goals=[])
-    for o in offered(p):
-        assert o["metrics"]["foreign_currency_exposure_pct"] == 0
-    reasons = {e["product_id"]: e["reason"] for e in p["excluded_products"]}
-    assert "currency risk" in reasons["MOCK-CASH-003"]  # USD money market fund
-
-
-def test_single_product_limit_scales_with_the_bucket_share(client):
-    small = gen(client, "CAP-1", "liquidity", 100_000, horizon=1, goals=[], total=1_000_000)  # 10% of the 3L
-    assert any("single-product limit" in n["statement"] for n in small["bucket"]["notes"])
-    assert offered(small)
-    whole = gen(client, "CAP-2", "liquidity", 100_000, horizon=1, goals=[], total=None)  # share unknown: client's 30% applies
-    assert not any("single-product limit" in n["statement"] for n in whole["bucket"]["notes"])
 
 
 AGGRESSIVE = dict(risk_appetite="Aggressive", risk_tolerance_score=5, risk_capacity="High", maximum_acceptable_drawdown=40,
@@ -266,3 +222,37 @@ def test_short_horizon_legacy_is_not_forced_into_growth(client):
     p = gen(client, "LEG-SHORT", "legacy", 300_000, horizon=4, goals=[], **AGGRESSIVE)
     assert offered(p)
     assert not any("Too cautious" in o["suitability_explanation"] for o in p["portfolio_options"])
+
+
+def _gen_pre(client, rid, strategy, **kw):
+    req = request_with(rid, **AGGRESSIVE)
+    req["bucket"] = {"bucket": "longevity", "amount": 600_000, "horizon_years": 20, "total_3l_amount": 1_000_000,
+                     "preselected_strategy": strategy, **kw}
+    r = client.post(GENERATE, json=req)
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+@pytest.mark.xfail(strict=True, reason="BUG: service never emits bucket.preselected although schema accepts preselected_strategy")
+def test_preselected_strategy_is_the_same_letter_and_offered(client):
+    p = _gen_pre(client, "PRE-1", "e")
+    pre = p["bucket"]["preselected"]
+    assert pre["requested"] == "E" and pre["offered"] is True and pre["effective"] == "E"
+    assert any(o["option_id"] == "E" and o["option_name"] == "Growth" for o in offered(p))
+
+
+@pytest.mark.xfail(strict=True, reason="BUG: service never emits bucket.preselected although schema accepts preselected_strategy")
+def test_preselected_strategy_not_offered_falls_back_with_reason(client):
+    p = _gen_pre(client, "PRE-2", "A")  # aggressive client: A is too cautious for a long-term bucket
+    pre = p["bucket"]["preselected"]
+    assert pre["requested"] == "A" and pre["offered"] is False
+    assert pre["effective"] in {o["option_id"] for o in offered(p)}
+    assert "Strategy A" in pre["reason"] and "Falling back" in pre["reason"]
+
+
+def test_preselected_strategy_must_be_a_to_f_and_liquidity_has_none(client):
+    req = request_with("PRE-3", **AGGRESSIVE)
+    req["bucket"] = {"bucket": "longevity", "amount": 1000, "preselected_strategy": "G"}
+    assert client.post(GENERATE, json=req).status_code == 422
+    req["bucket"] = {"bucket": "liquidity", "amount": 1000, "preselected_strategy": "A"}
+    assert client.post(GENERATE, json=req).status_code == 422

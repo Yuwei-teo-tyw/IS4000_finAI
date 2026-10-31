@@ -44,7 +44,7 @@ def _pad(lines: list[str]) -> list[str]:
 # --- IS-75 proportion on the allocation section -------------------------------------
 def _harmonise(res: dict, proportion: dict) -> list[str]:
     """A longevity/legacy portfolio the proportion sets to ~0% must not carry a high-risk strategy (E/F): hold it at D.
-    Liquidity is already limited to A/B. Returns the adjusted bucket ids (also recorded on the result)."""
+    Liquidity carries no strategy. Returns the adjusted bucket ids (also recorded on the result)."""
     adjusted = []
     for b in (res.get("allocation") or {}).get("buckets") or []:
         pct = (proportion.get(b["id"]) or {}).get("pct")
@@ -130,7 +130,7 @@ def _allocation_reasoning(res: dict, notes, profile: Optional[dict]) -> list[str
         src = (f"from the latest meeting ({conflict['latest']['date']})" if conflict
                else "on the boundary between two scores" if boundary else "from the client record or the stated risk view")
         lines.append(f"Risk score {score} of 5{f' ({cat})' if cat else ''}, taken {src}. Strategy cap: Longevity up to "
-                     f"{cap_for('longevity', score)}, Legacy up to {cap_for('legacy', score)}; Liquidity is limited to Strategy A or B.")
+                     f"{cap_for('longevity', score)}, Legacy up to {cap_for('legacy', score)}; Liquidity gets no strategy or SAA.")
         special = []
         if conflict:
             special.append(f"The meetings conflict ({conflict['dates'][0]} vs {conflict['dates'][1]}): the latest one is used.")

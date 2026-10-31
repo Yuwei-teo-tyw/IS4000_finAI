@@ -9,14 +9,29 @@ import { GenevaMark } from "../../components/documents/GenevaMark";
 import { PackDocument } from "./PackDocument";
 import { syncPackFromPm } from "../../components/pm/packSync";
 import { loadPackDrafts, loadSignatures, saveSignature, subscribePackDrafts, subscribeSignatures, type PackDrafts, type PackSignatures as Sigs } from "../../services/packDraftStore";
-import { sendReviewRequest, withdrawReviewRequest, useReviewRequest, useAllFinalised, useFinalised, usePmProgress, usePmHandover } from "../../services/workflowStore";
+import { useFinalised, usePmProgress, usePmHandover } from "../../services/workflowStore";
+import { NoteToPm } from "../../components/rm/NoteToPm";
+import { usePackHandover } from "../../services/packHandover";
 import { useRole } from "../../layouts/AppShell";
+import { PackHistory } from "./PackHistory";
 import { ExportActions } from "../../components/export/ExportActions";
 import type { RcPackReport } from "../../types/riskCompliance";
 
 type PackCheck = { running: boolean; report?: RcPackReport; error?: string } | null;
 
+/** RM entry: for a Monitoring client, AI generation first, then the generated pack in document style; otherwise the existing section review. */
 export default function PackReview({ embedded = false, clientId: clientIdProp }: { embedded?: boolean; clientId?: string }) {
+  const params = useParams();
+  const clientId = clientIdProp ?? params.clientId ?? "";
+  const role = useRole();
+  const client = useAsync(() => arcApi.getClient(clientId), [clientId]);
+  const canGenerate = role === "rm" && client?.status === "Monitoring Phase";
+  if (role === "rm" && !client) return <Loading />;
+  if (canGenerate) return <PackHistory clientId={clientId} clientName={client?.name ?? clientId} />;
+  return <PackReviewInner embedded={embedded} clientId={clientId} />;
+}
+
+function PackReviewInner({ embedded = false, clientId: clientIdProp }: { embedded?: boolean; clientId?: string }) {
   const params = useParams();
   const clientId = clientIdProp ?? params.clientId ?? "";
   const role = useRole();
@@ -32,12 +47,11 @@ export default function PackReview({ embedded = false, clientId: clientIdProp }:
   const progress = usePmProgress(clientId);
   const holdingsList = useAsync(() => arcApi.getHoldings(clientId), [clientId]);
   const [approved, setApproved] = useState(false);
-  const sent = useReviewRequest(clientId);
-  const finalisedByPs = useAllFinalised().some((f) => f.clientId === clientId);
-  /** 0 = RM updates, 1 = waiting on Product Specialist, 2 = with PM. */
-  const stage = finalisedByPs ? 2 : sent ? 1 : 0;
-  const status = usePackStatus(clientId);
+  const sent = usePackHandover(clientId);
   const pmHandover = usePmHandover(clientId);
+  /** 0 = RM updates, 1 = with the Portfolio Manager, 2 = PM handed back (G2). */
+  const stage = pmHandover ? 2 : sent ? 1 : 0;
+  const status = usePackStatus(clientId);
   // Keep sections 4 and 8 in step with the PM's saved values: on mount, on every PM save and when the PM hands over.
   useEffect(() => { if (progress.savedAt || pmHandover) syncPackFromPm(clientId); }, [progress.savedAt, pmHandover?.sentAt, clientId]);
   const [openMap, setOpenMap] = useState<Record<number, boolean>>({});
@@ -90,7 +104,7 @@ export default function PackReview({ embedded = false, clientId: clientIdProp }:
     );
   }
   const pos = (n: number) => pack.findIndex((x) => x.n === n) + 1;
-  const allSigned = ["ps", "pm", "rm"].every((r) => sigs[r]);
+  const allSigned = ["pm", "rm"].every((r) => sigs[r]);
   const signoffN = pack.find((x) => x.kind === "signoff")?.n;
   const sourcesN = pack.find(isSources)?.n;
   const touched = [...Object.keys(drafts).map(Number).filter((n) => n !== signoffN), ...(allSigned && signoffN ? [signoffN] : [])];
@@ -104,12 +118,11 @@ export default function PackReview({ embedded = false, clientId: clientIdProp }:
   const sections = packToSections(clientId, pack, drafts, touched, pageExtras).map((x) => ({ ...x, complete: !!status.complete[x.n], ...(isHiddenFor(x, role, status.complete) && !isSources(x) ? { body: <PendingBox owner={x.owner} /> } : {}) }));
   const steps = [
     { label: "RM Updates", owner: "rm" },
-    { label: "Product Specialist Recommendations", owner: "ps" },
-    { label: "PM Portfolio Allocation", owner: "pm" },
+    { label: "PM Products & Portfolio Allocation", owner: "pm" },
   ].map((st) => {
     const mine = sections.filter((x) => x.owner === st.owner && x.n !== signoffN);
     const done = mine.filter((x) => x.complete).length;
-    const gate = st.owner === "rm" ? sent || finalisedByPs : st.owner === "ps" ? finalisedByPs : !!pmHandover;
+    const gate = st.owner === "rm" ? !!sent || !!pmHandover : !!pmHandover;
     const finished = mine.length > 0 && done === mine.length && gate;
     return { ...st, done: finished ? mine.length : done, total: mine.length, finished };
   });
@@ -144,12 +157,12 @@ export default function PackReview({ embedded = false, clientId: clientIdProp }:
         <div className="mb-10 flex flex-wrap items-start justify-between gap-6">
           <div className="min-w-0">
             <h2 className="text-3xl">Review pack</h2>
-            <p className="mt-2 text-base text-ink-500">Edit the sections you own; the rest belong to {isPm ? "RM and PS" : "PM and PS"}.</p>
+            <p className="mt-2 text-base text-ink-500">Edit the sections you own; the rest belong to {isPm ? "RM" : "PM"}.</p>
           </div>
           <GateChip id="G4" state={approved ? "approved" : "pending"} />
         </div>
       ) : (
-        <PageHeader eyebrow="Gate G4" title="Review the pack" subtitle={`Edit the sections you own; the rest belong to ${isPm ? "RM and PS" : "PM and PS"}.`}
+        <PageHeader eyebrow="Gate G4" title="Review the pack" subtitle={`Edit the sections you own; the rest belong to ${isPm ? "RM" : "PM"}.`}
           actions={<GateChip id="G4" state={approved ? "approved" : "pending"} />} />
       )}
       {!isPm && <ol className="mb-12 grid gap-3 sm:grid-cols-3" aria-label="Review pack progress">
@@ -170,14 +183,6 @@ export default function PackReview({ embedded = false, clientId: clientIdProp }:
           );
         })}
       </ol>}
-      {!isPm && stage === 0 && !onboarding && (
-        <NextAction title="Send to Product Specialist" body={sendReady ? "Send this client to the Product Specialist for product research." : sendReason}
-          action={<Button disabled={!sendReady} onClick={() => sendReviewRequest(clientId)}>Send to Product Specialist</Button>} />
-      )}
-      {!isPm && stage === 1 && (
-        <NextAction title="Sent to Product Specialist" body="Waiting for the Product Specialist."
-          action={<Button variant="secondary" onClick={() => withdrawReviewRequest(clientId)}>Withdraw request</Button>} />
-      )}
       {!isPm && stage === 2 && (allComplete || approved) && (
         <NextAction title={approved ? "Pack approved" : "Approve the final pack"} body={approved ? "G4 is approved. You can export the PDF." : g4Body(check)}
           action={approved ? undefined : <Button disabled={!check?.report?.rm_signoff_allowed} onClick={() => setApproved(true)}>Approve G4</Button>} />
@@ -211,6 +216,9 @@ export default function PackReview({ embedded = false, clientId: clientIdProp }:
       </article>
 
       <div className="mt-10 flex flex-wrap justify-end">{exportActions}</div>
+      {!isPm && ((stage === 0 && !onboarding) || stage === 1) && (
+        <NoteToPm clientId={clientId} body={sendReady ? "Send this pack to the Portfolio Manager for product research and allocation." : sendReason} disabled={!sendReady} />
+      )}
     </div>
   );
 }

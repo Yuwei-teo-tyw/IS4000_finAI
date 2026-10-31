@@ -1,5 +1,5 @@
 /**
- * Frontend-only cross-role workflow state (RM -> PS -> PM), persisted in sessionStorage with in-tab pub/sub.
+ * Frontend-only cross-role workflow state (RM -> PM), persisted in sessionStorage with in-tab pub/sub.
  * Same seam style as packDraftStore: swap the bodies for a saved-state API later, keep the hooks.
  */
 import { useSyncExternalStore } from "react";
@@ -37,19 +37,10 @@ function createStore<T>(storageKey: string, initial: T) {
   return { read, write, use };
 }
 
-/* ---- 1. RM -> PS review requests (RM presses "Send to Product Specialist") ---- */
-export interface ReviewRequest { clientId: string; sentAt: string; priority: "normal" | "high" }
-const requests = createStore<ReviewRequest[]>("wf-review-requests", []);
-export const useReviewRequests = () => requests.use();
-export const useReviewRequest = (clientId: string) => requests.use().find((r) => r.clientId === clientId);
-export const sendReviewRequest = (clientId: string, priority: ReviewRequest["priority"] = "normal") => {
-  recordPackEdit(clientId, 0, "rm", "Handed over to Product Specialist");
-  requests.write([...requests.read().filter((r) => r.clientId !== clientId), { clientId, sentAt: new Date().toISOString(), priority }]);
-};
-export const withdrawReviewRequest = (clientId: string) => requests.write(requests.read().filter((r) => r.clientId !== clientId));
+/* ---- 1. RM -> PM review pack handover lives in packHandover.ts (sendPackToPm). ---- */
 
-/* ---- 2. PS ticked products (shared by the research chat and the Product Shelf; key = MarketRow.product, the product name) ---- */
-const selection = createStore<Record<string, MarketRow[]>>("wf-ps-selection", {});
+/* ---- 2. PM ticked products (shared by the research chat and the Product Shelf; key = MarketRow.product, the product name) ---- */
+const selection = createStore<Record<string, MarketRow[]>>("wf-product-selection", {});
 export const loadSelection = (clientId: string): MarketRow[] => selection.read()[clientId] ?? [];
 export const saveSelection = (clientId: string, rows: MarketRow[]) => selection.write({ ...selection.read(), [clientId]: rows });
 export const useSelection = (clientId: string): MarketRow[] => selection.use()[clientId] ?? [];
@@ -58,34 +49,34 @@ export const toggleSelection = (clientId: string, row: MarketRow) => {
   saveSelection(clientId, cur.some((r) => r.product === row.product) ? cur.filter((r) => r.product !== row.product) : [...cur, row]);
 };
 
-/* ---- 2b. PS reasons typed on the finalise page, kept until sent so navigating away does not lose them (key = product name) ---- */
-const psReasons = createStore<Record<string, Record<string, string>>>("wf-ps-reasons", {});
-export const usePsReasons = (clientId: string): Record<string, string> => psReasons.use()[clientId] ?? {};
-export const savePsReasons = (clientId: string, reasons: Record<string, string>) => psReasons.write({ ...psReasons.read(), [clientId]: reasons });
+/* ---- 2b. PM reasons typed on the finalise page, kept until sent so navigating away does not lose them (key = product name) ---- */
+const productReasons = createStore<Record<string, Record<string, string>>>("wf-product-reasons", {});
+export const useProductReasons = (clientId: string): Record<string, string> => productReasons.use()[clientId] ?? {};
+export const saveProductReasons = (clientId: string, reasons: Record<string, string>) => productReasons.write({ ...productReasons.read(), [clientId]: reasons });
 
-/* ---- 3. PS finalised list sent to PM (G3), each product with the PS's typed reason ---- */
+/* ---- 3. PM finalised product list (G3), each product with the PM's typed reason ---- */
 export interface FinalisedItem extends MarketRow { reason: string }
 export interface FinalisedList { clientId: string; sentAt: string; items: FinalisedItem[] }
 const finalised = createStore<Record<string, FinalisedList>>("wf-finalised", {});
 export const useFinalised = (clientId: string): FinalisedList | undefined => finalised.use()[clientId];
 export const useAllFinalised = (): FinalisedList[] => Object.values(finalised.use());
 export const sendFinalised = (clientId: string, items: FinalisedItem[]) => {
-  recordPackEdit(clientId, 0, "ps", "Handed over to Portfolio Manager");
+  recordPackEdit(clientId, 0, "pm", "Approved product list (G3)");
   finalised.write({ ...finalised.read(), [clientId]: { clientId, sentAt: new Date().toISOString(), items } });
 };
 /**
- * PS edits a list already sent: G3 reopens. Upstream edits reset downstream gates, so the PM handover (G2) is withdrawn,
- * which also puts G4 back to pending, and the PS signs again. The sent reasons are kept as the starting draft.
+ * The PM edits a list already approved: G3 reopens. Upstream edits reset downstream gates, so the PM handover (G2) is withdrawn,
+ * which also puts G4 back to pending, and the PM signs again. The sent reasons are kept as the starting draft.
  */
 export const reopenFinalised = (clientId: string) => {
   const cur = finalised.read()[clientId];
   if (!cur) return;
-  savePsReasons(clientId, { ...psReasons.read()[clientId], ...Object.fromEntries(cur.items.map((i) => [i.product, i.reason])) });
+  saveProductReasons(clientId, { ...productReasons.read()[clientId], ...Object.fromEntries(cur.items.map((i) => [i.product, i.reason])) });
   finalised.write(Object.fromEntries(Object.entries(finalised.read()).filter(([id]) => id !== clientId)));
   withdrawPmToRm(clientId);
-  saveSignature(clientId, "ps", null);
-  setSectionDone(clientId, 5, false, "ps");
-  recordPackEdit(clientId, 0, "ps", "Reopened product list (G3), G2 and G4 reset");
+  saveSignature(clientId, "pm", null);
+  setSectionDone(clientId, 5, false, "pm");
+  recordPackEdit(clientId, 0, "pm", "Reopened product list (G3), G2 and G4 reset");
 };
 
 /* ---- 4. Active IPS version per client (used by the chatbot: "Using IPS v2") ---- */
@@ -148,6 +139,10 @@ export interface IpsDraftExtras {
   /** Strategy code (A-F) chosen per 3L bucket, and the justification text per bucket. */
   allocation?: { liquidity?: string; longevity?: string; legacy?: string };
   allocationNotes?: Record<string, string>;
+  /** 3L proportion (% and reason per bucket) so the preview shows what the RM typed. */
+  proportion?: import("../types/arc").ThreeLProportion | null;
+  /** PM-edited SAA weights (% per asset class) per bucket; valid only while `strategy` is still the chosen one. */
+  allocationWeights?: Partial<Record<"longevity" | "legacy", { strategy: string; weights: Record<string, number> }>>;
   saaPortfolios?: Partial<Record<BucketId, SaaPortfolio>>;
   /** Structured IPS fields (backend JSON shape, read tolerantly). */
   targets?: import("../components/documents/ips/ipsTypes").IpsTarget[];
@@ -199,20 +194,37 @@ export const useActivated = (clientId: string): boolean => {
   const a = activated.use()[clientId]; const s = ipsSent.use()[clientId]; const r = ipsReturned.use()[clientId]; const v = activeIps.use()[clientId];
   return !!a && !!s && !!r && v !== undefined;
 };
+/**
+ * Tells open client pages (Client 360 header, phase badge, Review Pack tab) that the phase may have changed.
+ * Listeners re-read the client; they never store the phase themselves.
+ */
+export const notifyClientChanged = (clientId: string): void => {
+  if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("client-changed", { detail: { clientId } }));
+};
 /** G1 approval: needs the IPS sent to and returned by the PM. Sets the active IPS and activates the client in one step. Returns false if the steps are incomplete. */
-export const activateIps = (clientId: string, version: number): boolean => {
+export const activateIps = (clientId: string, version: number, opts: { skipBackend?: boolean } = {}): boolean => {
   if (!ipsSent.read()[clientId] || !ipsReturned.read()[clientId]) return false;
   setActiveIps(clientId, version);
   activated.write({ ...activated.read(), [clientId]: true });
+  notifyClientChanged(clientId);
+  // The Review Pack gate needs the IPS Active in the backend store too. Best effort: local-only (mock) clients are refused by the backend and keep working locally.
+  if (!opts.skipBackend) void import("./arcApi").then(({ arcApi }) => arcApi.activateIpsVersion(clientId, version)).then(() => notifyClientChanged(clientId)).catch(() => {});
   return true;
 };
+/** Mirror the backend send/return status into the browser cache (backend stays the source of truth). */
+export const mirrorIpsStatus = (clientId: string, status: "Draft" | "Sent to PM" | "Returned by PM"): void => {
+  const at = new Date().toISOString();
+  if (status === "Draft") { withdrawIpsFromPm(clientId); return; }
+  if (!ipsSent.read()[clientId]) ipsSent.write({ ...ipsSent.read(), [clientId]: { sentAt: at } });
+  if (status === "Returned by PM") ipsReturned.write({ ...ipsReturned.read(), [clientId]: { sentAt: at } });
+};
 
-/* ---- 8. Asset-class views the PS accepted (or edited, then accepted), per client; key "_" when no client ---- */
+/* ---- 8. Asset-class views the PM accepted (or edited, then accepted), per client; key "_" when no client ---- */
 export interface AcceptedAssetView { text: string; agentView: string; cioView: string; acceptedAt: string; edited: boolean }
 const assetViews = createStore<Record<string, Record<string, AcceptedAssetView>>>("wf-asset-views", {});
 export const useAcceptedAssetView = (clientId: string | null, assetClass: string): AcceptedAssetView | undefined =>
   assetViews.use()[clientId ?? "_"]?.[assetClass];
-/** Stores the PS's accepted text for reuse (pack section 5, product reasons). Sends nothing anywhere. */
+/** Stores the PM accepted text for reuse (pack section 5, product reasons). Sends nothing anywhere. */
 export const acceptAssetView = (clientId: string | null, assetClass: string, view: Omit<AcceptedAssetView, "acceptedAt">) => {
   const key = clientId ?? "_";
   const all = assetViews.read();

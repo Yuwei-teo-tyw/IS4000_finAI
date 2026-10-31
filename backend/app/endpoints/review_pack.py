@@ -1,7 +1,13 @@
-from fastapi import APIRouter, HTTPException
+import json
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Path, Request
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
+from app.agents.client_profiling.store import StoreUnavailableError, get_default_store
+from app.agents.product_recommender.service import ProductRecommenderService
+from app.reports.pack_generator import RM_CONTEXT_MAX, PackGenerationError, generate_review_pack
 from app.reports.render import render_review_pack, template_version
 
 router = APIRouter(prefix="/review-pack", tags=["review-pack"])
@@ -53,3 +59,88 @@ async def render(req: RenderRequest):
     except KeyError as e:  # unknown chart placeholder
         raise HTTPException(status_code=422, detail=str(e))
     return HTMLResponse(html, headers={"X-Template-Version": template_version()})
+
+
+def get_service(request: Request) -> ProductRecommenderService:
+    service = getattr(request.app.state, "product_recommender", None)
+    if service is None:
+        service = ProductRecommenderService()
+        request.app.state.product_recommender = service
+    return service
+
+
+class GenerateRequest(BaseModel):
+    client_id: str = Field(pattern=r"^[A-Za-z0-9_-]{1,64}$")
+    rm_context: Optional[str] = Field(default=None, max_length=RM_CONTEXT_MAX)
+
+
+@router.post("/generate")
+async def generate(req: GenerateRequest, service: ProductRecommenderService = Depends(get_service)):
+    """Generate Review Pack sections A-G for a client. Requires an Active IPS (409 otherwise)."""
+    try:
+        return await generate_review_pack(req.client_id, req.rm_context, service=service)
+    except PackGenerationError as e:
+        raise HTTPException(status_code=e.status, detail=e.message)
+
+
+# --- Review Pack state: shared server-side copy for RM and PM (whole document, last write wins) ---
+REVIEW_STATE_MAX_BYTES = 2_000_000
+CLIENT_ID_PATTERN = r"^[A-Za-z0-9_-]{1,64}$"
+
+
+def _reject_constant(name: str):
+    raise ValueError(f"non-standard JSON constant {name}")
+
+
+def _unavailable(e: StoreUnavailableError) -> HTTPException:
+    return HTTPException(status_code=503, detail=str(e))
+
+
+@router.get("/states")
+async def list_review_pack_states():
+    """All clients' Review Pack states (used by the PM inbox)."""
+    try:
+        return {"states": get_default_store().list_review_pack_states()}
+    except StoreUnavailableError as e:
+        raise _unavailable(e)
+
+
+@router.get("/state/{client_id}")
+async def get_review_pack_state(client_id: str = Path(pattern=CLIENT_ID_PATTERN)):
+    try:
+        state = get_default_store().get_review_pack_state(client_id)
+    except StoreUnavailableError as e:
+        raise _unavailable(e)
+    if state is None:
+        raise HTTPException(status_code=404, detail="No review pack state.")
+    return {"state": state}
+
+
+@router.put("/state/{client_id}")
+async def put_review_pack_state(request: Request, client_id: str = Path(pattern=CLIENT_ID_PATTERN)):
+    declared = request.headers.get("content-length")
+    if declared and declared.isdigit() and int(declared) > REVIEW_STATE_MAX_BYTES:
+        raise HTTPException(status_code=413, detail="Review pack state too large.")
+    raw = await request.body()
+    if len(raw) > REVIEW_STATE_MAX_BYTES:
+        raise HTTPException(status_code=413, detail="Review pack state too large.")
+    try:
+        body = json.loads(raw, parse_constant=_reject_constant)
+    except (ValueError, UnicodeDecodeError):
+        raise HTTPException(status_code=422, detail="Body must be JSON.")
+    if not isinstance(body, dict) or not isinstance(body.get("state"), dict):
+        raise HTTPException(status_code=422, detail="Body must be {\"state\": <object>}.")
+    state = body["state"]
+    try:
+        updated_at = get_default_store().put_review_pack_state(client_id, state)
+    except StoreUnavailableError as e:
+        raise _unavailable(e)
+    return {"state": state, "updated_at": updated_at}
+
+
+@router.delete("/state/{client_id}")
+async def delete_review_pack_state(client_id: str = Path(pattern=CLIENT_ID_PATTERN)):
+    try:
+        return {"deleted": get_default_store().delete_review_pack_state(client_id)}
+    except StoreUnavailableError as e:
+        raise _unavailable(e)

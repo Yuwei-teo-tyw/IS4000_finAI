@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { Lock } from "lucide-react";
 import { arcApi } from "../../services/arcApi";
+import { activateIpsAtBackend } from "../../services/ipsHandover";
 import { activateIps, useIpsReturned, useIpsSent } from "../../services/workflowStore";
 import { Badge, BulletList, Button, Card, GateChip, Loading, NextAction, PageHeader, Stepper, useAsync } from "../../components/ui";
 import { onboardingSteps, ipsToSections, fmtDate } from "./rmShared";
@@ -18,6 +19,21 @@ export default function IpsApproval() {
   const [confirming, setConfirming] = useState(false);
   const [name, setName] = useState("");
   const [approvedBy, setApprovedBy] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  /** Backend-book client: activate the version actually sent to and returned by the PM. Local-only (mock) clients keep the local flow. */
+  const confirm = async () => {
+    setError(null); setBusy(true);
+    const stamp = `${name.trim()} on ${new Date().toLocaleString("en-SG")}`;
+    try {
+      let st: Awaited<ReturnType<typeof arcApi.getIpsSendStatus>> | null = null;
+      try { st = await arcApi.getIpsSendStatus(clientId); } catch { st = null; }
+      if (st && st.sentVersion != null) { await activateIpsAtBackend(clientId, st.sentVersion); setApprovedBy(stamp); }
+      else if (activateIps(clientId, 1)) setApprovedBy(stamp);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "The IPS could not be activated at the backend.");
+    } finally { setBusy(false); }
+  };
   if (!parts) return <Loading />;
   const sections = ipsToSections(parts);
 
@@ -42,9 +58,10 @@ export default function IpsApproval() {
           <div className="flex flex-wrap gap-3">
             <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your full name"
               className="min-w-64 flex-1 rounded-md border border-ink-200 px-4 py-3 text-sm outline-none focus:border-ink" />
-            <Button disabled={!name.trim()} onClick={() => { if (activateIps(clientId, 1)) setApprovedBy(`${name.trim()} on ${new Date().toLocaleString("en-SG")}`); }}>Confirm</Button>
+            <Button disabled={!name.trim() || busy} onClick={confirm}>Confirm</Button>
             <Button variant="secondary" onClick={() => setConfirming(false)}>Cancel</Button>
           </div>
+          {error && <p className="mt-3 text-sm text-negative" role="alert">{error}</p>}
         </Card>
       )}
 

@@ -11,7 +11,7 @@ export interface ClassAlloc {
 /**
  * The single transform every portfolio view uses: classes exactly as the backend
  * returned them (largest first), each with its sub-classes. No asset-class list is
- * hard-coded, so a new class from the Product Specialist shows up everywhere.
+ * hard-coded, so a new class from the product shelf shows up everywhere.
  */
 export function allocationOf(o: PaOption): ClassAlloc[] {
   return [...o.asset_allocation]

@@ -120,6 +120,7 @@ function BucketPanel({ clientId, input, inputs, draft, drafts, clientName, sent,
     else select(response, id);
   };
   const run = async () => {
+    if (input.id === "liquidity") return; // Liquidity has no SAA (NA): never call /portfolio/generate for it.
     setAgent({ phase: "running" });
     try {
       const r = await arcApi.generatePortfolioProposals({
@@ -252,7 +253,7 @@ function BucketPanel({ clientId, input, inputs, draft, drafts, clientName, sent,
               <Section title={`Compare ${input.label} portfolios`} hint="Every asset class held by any proposed portfolio, with risk, return, liquidity, costs and fit with this bucket's goals.">
                 <PortfolioCompare response={response} />
               </Section>
-              <Section title="Products behind the portfolios" hint="Every candidate from the Product Specialist, with why it was used or excluded for this bucket.">
+              <Section title="Products behind the portfolios" hint="Every candidate from the product recommender, with why it was used or excluded for this bucket.">
                 <ProductCompare response={response} />
               </Section>
             </>

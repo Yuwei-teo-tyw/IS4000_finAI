@@ -88,12 +88,12 @@ export function SaaRows({ rows }: { rows: AllocationRow[] }) {
 
 /* ---------- Strategy donut: one strategy's strategic asset allocation with % legend ---------- */
 
-const STRAT_COLOR: Record<string, string> = {
+export const STRAT_COLOR: Record<string, string> = {
   Bonds: "var(--chart-bonds)", Liquidity: "var(--chart-liquidity)", Equities: "var(--chart-equities)",
   "Alternative Investments": "var(--chart-alternatives)", Other: "var(--ink-muted)",
 };
 
-export function StrategyDonut({ allocation, label }: { allocation?: Record<string, number>; label: string }) {
+export function StrategyDonut({ allocation, label, hideLegend = false }: { allocation?: Record<string, number>; label: string; hideLegend?: boolean }) {
   const r = 60, c = 2 * Math.PI * r;
   const rows = Object.entries(allocation ?? {}).filter(([, v]) => v > 0);
   const total = rows.reduce((s, [, v]) => s + v, 0) || 1;
@@ -112,11 +112,11 @@ export function StrategyDonut({ allocation, label }: { allocation?: Record<strin
         </g>
         {!rows.length && <text x="80" y="84" textAnchor="middle" fontSize="12" fill="var(--ink-muted)">No strategy</text>}
       </svg>
-      <ul className="min-w-0 flex-1 space-y-1 self-stretch text-[13px]">
+      {!hideLegend && <ul className="min-w-0 flex-1 space-y-1 self-stretch text-[13px]">
         {rows.map(([k, v]) => (
           <li key={k} className="flex items-center gap-2"><i className="inline-block h-3 w-3 shrink-0" style={{ background: STRAT_COLOR[k] ?? "var(--ink-muted)" }} />{k}<span className="ml-auto">{v}%</span></li>
         ))}
-      </ul>
+      </ul>}
     </div>
   );
 }

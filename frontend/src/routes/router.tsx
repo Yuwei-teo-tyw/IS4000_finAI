@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate } from "react-router-dom";
+import { createBrowserRouter, Navigate, useParams } from "react-router-dom";
 import LegacyIcRedirect from "./LegacyIcRedirect";
 import AppShell from "../layouts/AppShell";
 import { ChatContainer } from "../components/Chat/ChatContainer";
@@ -11,25 +11,14 @@ import IpsDraft from "../pages/rm/IpsDraft";
 import IpsApproval from "../pages/rm/IpsApproval";
 import QuarterlyReviewStart from "../pages/rm/QuarterlyReviewStart";
 import PackReview from "../pages/rm/PackReview";
+import PmReview from "../pages/pm/PmReview";
 import PmInbox from "../pages/pm/PmInbox";
-import ThreeLBuilder from "../pages/pm/ThreeLBuilder";
-import SaaBuilder from "../pages/pm/SaaBuilder";
-import SaaWeights from "../pages/pm/SaaWeights";
-import SaaReview from "../pages/pm/SaaReview";
-import ProductRecommendations from "../pages/pm/ProductRecommendations";
-import PmMarketHealth from "../pages/pm/PmMarketHealth";
-import TaaWorkspace from "../pages/pm/TaaWorkspace";
-import PmHoldings from "../pages/pm/PmHoldings";
-import PmPack from "../pages/pm/PmPack";
-import PsInbox from "../pages/ps/PsInbox";
-import MarketResearch from "../pages/ps/MarketResearch";
-import FinaliseProducts from "../pages/ps/FinaliseProducts";
-import HouseViewRecords from "../pages/ps/HouseViewRecords";
-import ProductShelfPage from "../pages/ps/ProductShelfPage";
-import AssetClassViews from "../pages/ps/AssetClassViews";
-import AssetClassViewPage from "../pages/ps/AssetClassViewPage";
+import PmIpsReview from "../pages/pm/PmIpsReview";
+import HouseViewRecords from "../pages/pm/HouseViewRecords";
+import ProductShelfPage from "../pages/pm/ProductShelfPage";
+import AssetClassViews from "../pages/pm/AssetClassViews";
+import AssetClassViewPage from "../pages/pm/AssetClassViewPage";
 import ClientLayout from "../pages/client/ClientLayout";
-import ClientOverview from "../pages/client/ClientOverview";
 import ClientDocuments from "../pages/client/ClientDocuments";
 import ClientUploadNotes from "../pages/client/ClientUploadNotes";
 import ClientPortfolio from "../pages/client/ClientPortfolio";
@@ -39,10 +28,10 @@ const client360 = {
   path: "clients/:clientId",
   element: <ClientLayout />,
   children: [
-    { index: true, element: <ClientOverview /> },
+    { index: true, element: <ClientPortfolio /> },
     { path: "documents", element: <ClientDocuments /> },
     { path: "upload-notes", element: <ClientUploadNotes /> },
-    { path: "portfolio", element: <ClientPortfolio /> },
+    { path: "portfolio", element: <Navigate to=".." relative="path" replace /> },
     { path: "review-pack", element: <PackReview embedded /> },
     ...["dashboard", "ips", "3l", "allocation", "notes", "history"].map((path) => ({
       path,
@@ -51,9 +40,14 @@ const client360 = {
   ],
 };
 
+/** Old PM 3L / SAA deep links (/3l, /saa, /saa/:bucket, /saa/review) land on the single IPS review page. */
+function OldPmCase() { const { clientId = "" } = useParams(); return <Navigate to={`/pm/cases/${clientId}/review`} replace />; }
+function OldPmRequest() { const { clientId = "" } = useParams(); return <Navigate to={`/pm/requests/${clientId}/ips`} replace />; }
+
 export const router = createBrowserRouter([
   { path: "/", element: <Navigate to="/rm/clients" replace /> },
   { path: "/ic/*", element: <LegacyIcRedirect /> },
+  { path: "/ps/*", element: <Navigate to="/pm/inbox" replace /> }, // the Product Specialist role was removed; old URLs land on the PM inbox
   { path: "/legacy-chat", element: <ChatContainer /> },
   {
     path: "/rm",
@@ -82,36 +76,15 @@ export const router = createBrowserRouter([
       { path: "clients", element: <ClientBook /> },
       { path: "assistant", element: <PmAssistant /> },
       client360,
-      { path: "requests/:clientId/3l", element: <ThreeLBuilder /> },
-      { path: "requests/:clientId/saa", element: <SaaBuilder /> },
-      // Before the 3L split there was one Edit weights page; send old links to the bucket picker.
-      { path: "requests/:clientId/saa/weights", element: <Navigate to=".." relative="path" replace /> },
-      { path: "requests/:clientId/saa/review", element: <SaaReview /> },
-      { path: "requests/:clientId/saa/:bucket", element: <SaaBuilder /> },
-      { path: "requests/:clientId/saa/:bucket/weights", element: <SaaWeights /> },
-      { path: "cases/:clientId/products", element: <ProductRecommendations /> },
-      { path: "cases/:clientId/insights", element: <Navigate to="../products" relative="path" replace /> },
-      { path: "cases/:clientId/market-health", element: <PmMarketHealth /> },
-      { path: "cases/:clientId/taa", element: <TaaWorkspace /> },
-      { path: "cases/:clientId/holdings", element: <PmHoldings /> },
-      { path: "cases/:clientId/pack", element: <PmPack /> },
-    ],
-  },
-  {
-    path: "/ps",
-    element: <AppShell />,
-    children: [
-      { index: true, element: <Navigate to="inbox" replace /> },
-      { path: "inbox", element: <PsInbox /> },
-      { path: "clients", element: <ClientBook /> },
-      { path: "assistant", element: <MarketResearch /> },
-      { path: "house-views", element: <HouseViewRecords /> },
+      { path: "requests/:clientId/ips", element: <PmIpsReview /> },
+      // Old 3L / SAA deep links land on the single IPS review page.
+      { path: "requests/:clientId/3l", element: <OldPmRequest /> },
+      { path: "requests/:clientId/saa/*", element: <OldPmRequest /> },
       { path: "shelf", element: <ProductShelfPage /> },
       { path: "asset-views", element: <AssetClassViews /> },
       { path: "asset-views/:assetClass", element: <AssetClassViewPage /> },
-      client360,
-      { path: "cases/:clientId/market", element: <Navigate to="/ps/assistant" replace /> },
-      { path: "cases/:clientId/finalise", element: <FinaliseProducts /> },
+      { path: "cases/:clientId/review", element: <PmReview /> },
+      { path: "cases/:clientId/*", element: <OldPmCase /> }, // old research/products/taa/holdings/pack deep links
     ],
   },
 ]);

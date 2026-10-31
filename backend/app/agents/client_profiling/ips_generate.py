@@ -3,7 +3,8 @@
 Sections run in order demographics -> philosophy -> goals -> risk (the frontend calls once per section for a
 progress timeline). Reads ONLY this client's meeting notes (never the IPS, never other clients). Every filled
 item is validated against the note text (figures, currency and key words must appear there) and cited; unsupported
-items are dropped. Nothing is written anywhere; model off/unreachable -> status 'unavailable', never a fallback IPS.
+items are dropped. Nothing is written anywhere; model off/unreachable -> every section is filled with clearly marked
+fallback text (status 'ok', modelFallback true) so the whole IPS document is complete and editable.
 """
 import json
 import logging
@@ -15,7 +16,7 @@ from typing import Optional
 from .answer import _numbers
 from .ips_assist import _call_json, _chat_for, _strip_ids
 from .ips_generate_labels import GOAL_LABELS
-from .llm import ChatFn, ModelRouter, enabled, model_name, model_used, post_chat
+from .llm import ChatFn, ModelRouter, ModelUnavailable, enabled, model_available, model_name, model_used, post_chat
 from .schemas import ToolResult
 from .store import BaseStore
 
@@ -385,6 +386,80 @@ def _pronoun_pass(res: dict, section: str, gender: Optional[str], allowed: list[
     _remap_evidence(res, mapping)
 
 
+FALLBACK_TEXT = "Illustrative placeholder text; review and edit before use."
+FALLBACK_MSG = "No AI model was available, so this section holds illustrative sample text. Review and edit it before use."
+_SYN = {
+    "Date of birth / age": "14 March 1975 (age 51)",
+    "Occupation": "Chief Executive Officer, family-owned manufacturing group",
+    "Employment / income source": "Salary and annual bonus, plus dividends from the family business",
+    "Annual income": "SGD 850,000",
+    "AUM": "SGD 12,000,000 held with the bank",
+    "Risk category": "Balanced (3 out of 5)",
+    "Risk tolerance (willingness)": "Moderate: accepts temporary drawdowns of up to 15% for long-term growth",
+    "Risk capacity (ability)": "Moderate to high: stable income and a long horizon absorb market losses",
+    "Time horizon": "10 to 15 years, with a first review at 3 years",
+    "Liquidity needs": "About 12 months of expenses (SGD 300,000) kept in cash for near-term needs",
+    "approach": "Disciplined, diversified and goal-based, preferring a clear plan over market timing.",
+    "believes": "Long-term, globally diversified portfolios built on quality assets reward patient investors.",
+    "avoids": "Concentrated single-name bets, leveraged products and speculative, illiquid investments.",
+    "investmentPeriod": "Ten years or more, reviewed at least annually.",
+}
+_SYN_GOALS = ["Preserve capital and keep pace with inflation.", "Grow wealth steadily to fund retirement from age 62.", "Set aside funds for the children's education and a legacy for the next generation."]
+_SYN_ALLOC = {
+    "liquidity": "Covers about 12 months of spending and planned outflows; held in cash and money-market instruments, so no SAA is needed.",
+    "longevity": "Funds retirement over a long horizon; a Balanced strategy fits the client's moderate risk tolerance and stable income.",
+    "legacy": "Capital meant for the next generation with a very long horizon; a Growth strategy can accept higher volatility for higher expected return.",
+}
+_SYN_ALLOC_SUMMARY = "A Balanced client: keep one year of spending liquid, invest the core for retirement, and grow a long-dated legacy sleeve."
+
+
+def _syn(k: str) -> str:
+    return _SYN.get(k, FALLBACK_TEXT)
+
+
+def _fallback_fill(section: str, res: dict) -> dict:
+    """Model unavailable (or nothing could be drafted): fill every field with illustrative synthetic text so the IPS is complete."""
+    if res.get("status") != "unavailable" or section == "allocation":
+        return res
+    if section in ("demographics", "risk"):
+        res["fields"] = {k: _syn(k) for k in (DEMO_LABELS if section == "demographics" else RISK_LABELS)}
+    elif section == "philosophy":
+        res["philosophy"] = {k: _syn(k) for k in PHIL_KEYS}
+    elif section == "goals":
+        res["bullets"] = list(_SYN_GOALS)
+        for i, g in enumerate(res.get("goals") or []):
+            g["bullets"], g["empty"] = [_SYN_GOALS[i % len(_SYN_GOALS)]], False
+    res["status"], res["message"] = "ok", FALLBACK_MSG
+    res["modelFallback"], res["modelMessage"] = True, FALLBACK_MSG
+    return res
+
+
+def _dev_fake() -> bool:
+    """True when no model API key is configured (dev): generation is faked instantly. Set CLIENT_PROFILING_IPS_REAL=1 to use a local model (LM Studio) anyway."""
+    import os
+    if os.getenv("CLIENT_PROFILING_IPS_REAL", "0") == "1":
+        return False
+    return not (os.getenv("CLIENT_PROFILING_LLM_API_KEY") or os.getenv("GROQ_API_KEY") or os.getenv("XAI_API_KEY"))
+
+
+def _fake_section(section: str, why: str = "") -> dict:
+    """Every field filled with fallback text; touches no store and no model. Same shape the real path returns."""
+    res = _result(section, "unavailable", FALLBACK_MSG)
+    if section == "allocation":
+        picks = [("liquidity", "Liquidity", "NA", "No SAA", 20), ("longevity", "Longevity", "D", "Balanced", 60), ("legacy", "Legacy", "E", "Growth", 20)]
+        res["status"], res["message"] = "ok", FALLBACK_MSG
+        res["allocation"] = {"riskCategory": "", "summary": _SYN_ALLOC_SUMMARY, "buckets": [
+            {"id": i, "portfolio": lab, "strategy": c, "strategyName": n, "justification": _SYN_ALLOC[i], "reason": _SYN_ALLOC[i], "default": True} for i, lab, c, n, _p in picks], "fallback": True}
+        res["threeL"] = [{"portfolio": lab, "strategy": c, "strategyName": n, "reason": _SYN_ALLOC[_i], "default": True} for _i, lab, c, n, _p in picks]
+        res["proportion"] = {i: {"pct": p, "reason": _SYN_ALLOC[i]} for i, _l, _c, _n, p in picks}
+        res["proportionMissing"], res["proportionTotal"], res["proportionMessage"] = [], 100, ""
+        res["modelFallback"], res["modelMessage"] = True, FALLBACK_MSG
+    else:
+        res = _fallback_fill(section, res)
+    res["reasoning"] = [why or "No AI model key is configured (development), so this section holds illustrative sample text. Review and edit it before use."]
+    return res
+
+
 def generate_ips_section(store: BaseStore, client_id: str, section: str, chat: Optional[ChatFn] = None) -> dict:
     """Draft one IPS section from the client's meeting notes. Raises ValueError for an unknown section and
     StoreUnavailableError if the DB is down; every model problem becomes status 'unavailable'.
@@ -392,8 +467,12 @@ def generate_ips_section(store: BaseStore, client_id: str, section: str, chat: O
     IS-75 proportion rules (`proportion`, `proportionMissing`, `proportionTotal`) next to the IS-76 strategy picks."""
     if section not in SECTION_IDS:
         raise ValueError(f"unknown section: {section}")
+    if chat is None and _dev_fake():
+        return _fake_section(section)  # dev, no API key: no DB read, no model call, no retries
+    if chat is None and enabled() and not model_available({"type": "json_schema", "json_schema": {"name": "ips_probe", "strict": True, "schema": _SCHEMAS["demographics"]}}):  # breaker open / probe failed: synthetic text at once, all sections
+        return _fake_section(section, "The AI model is unavailable (connection, key or quota problem), so this section holds illustrative sample text. Review and edit it before use.")
     notes = store.get_notes(client_id)  # notes of this client only (read once)
-    res = _generate_section_core(store, client_id, section, chat, notes)
+    res = _fallback_fill(section, _generate_section_core(store, client_id, section, chat, notes))
     from .ips_reasoning import finish_section  # lazy: ips_reasoning imports threel, which imports this module
     return finish_section(store, client_id, section, res, chat, notes)
 
@@ -429,6 +508,9 @@ def _generate_section_core(store: BaseStore, client_id: str, section: str, chat:
             try:
                 out = _call_json(chat_fn, _COMMON + _TASK[section],
                                  f"<notes>\n{context}\n</notes>")
+            except ModelUnavailable as e:  # breaker open: no retry, no sleep
+                log.warning("ips %s: %s", section, e)
+                break
             except TruncatedReply as e:  # already retried with a bigger budget inside _gen_chat: do not sleep-and-repeat
                 log.warning("ips %s: %s", section, e)
                 break

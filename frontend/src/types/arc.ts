@@ -1,8 +1,7 @@
-export type Role = "rm" | "pm" | "ps";
+export type Role = "rm" | "pm";
 export const ROLE_LABEL: Record<Role, string> = {
   rm: "Relationship Manager",
   pm: "Portfolio Manager",
-  ps: "Product Specialist",
 };
 
 export type GateId = "G1" | "G2" | "G3" | "G4";

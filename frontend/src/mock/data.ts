@@ -84,7 +84,7 @@ export const allocationGroupsFor = (clientId: string): AllocationGroup[] => {
 export const caseTimelineByClient: Record<string, CaseStep[]> = {
   ser: [
     { who: "RM", what: "Case opened", by: "Isabel", state: "done" },
-    { who: "PS", what: "Product list sent (G3)", by: "David", state: "done" },
+    { who: "PM", what: "Product list approved (G3)", by: "Wei Lun", state: "done" },
     { who: "PM", what: "New TAA approved (G2)", by: "Wei Lun", state: "waiting" },
     { who: "RM", what: "Final review pack (G4)", by: "Isabel", state: "not_started" },
   ],
@@ -98,7 +98,7 @@ export const caseTimelineByClient: Record<string, CaseStep[]> = {
   ],
   teo: [
     { who: "RM", what: "Case opened, IPS v1 active", by: "Isabel", state: "done" },
-    { who: "PS", what: "Product list sent (G3)", by: "David", state: "waiting" },
+    { who: "PM", what: "Product list approved (G3)", by: "Wei Lun", state: "waiting" },
     { who: "PM", what: "TAA for Q1 review (G2)", by: "Wei Lun", state: "not_started" },
   ],
   sha: [
@@ -156,22 +156,17 @@ export const meetingNotes: MeetingNote[] = [
 
 export const gates: Gate[] = [
   { id: "G1", label: "IPS approval", approver: "rm", state: "approved", approvedAt: "2026-09-20" },
-  { id: "G3", label: "Product list", approver: "ps", state: "approved", approvedAt: "2026-10-14 11:20" },
+  { id: "G3", label: "Product list", approver: "pm", state: "approved", approvedAt: "2026-10-14 11:20" },
   { id: "G2", label: "TAA and sections 2–5", approver: "pm", state: "pending" },
   { id: "G4", label: "Final pack and PDF", approver: "rm", state: "not_started" },
 ];
 
-export const inboxes: Record<"pm" | "ps", InboxItem[]> = {
+export const inboxes: Record<"pm", InboxItem[]> = {
   pm: [
     { id: "ic1", clientId: "jfr", clientName: "Jane Fraser", kind: "IPS SAA request", from: "rm", receivedAt: "2026-10-16 09:12", summary: "Onboarding IPS sent. Fill 3L and SAA (parts 2 and 4).", priority: "high", trigger: 1 },
-    { id: "ic2", clientId: "ser", clientName: "Sergio Ermotti", kind: "Portfolio adjustment request", from: "ps", receivedAt: "2026-10-14 11:20", summary: "PS approved 4 fixed income products. Propose and approve the TAA.", priority: "high", trigger: 3 },
+    { id: "ic2", clientId: "ser", clientName: "Sergio Ermotti", kind: "Portfolio adjustment request", from: "rm", receivedAt: "2026-10-14 11:20", summary: "Quarterly review sent by the RM. Shortlist products, then propose and approve the TAA.", priority: "high", trigger: 3 },
     { id: "ic3", clientId: "dso", clientName: "David Solomon", kind: "IPS SAA request", from: "rm", receivedAt: "2026-10-12 15:40", summary: "Life event: retirement brought forward. Redo 3L and SAA.", priority: "normal", trigger: 2 },
     { id: "ic4", clientId: "sha", clientName: "Shane", kind: "IPS SAA request", from: "rm", receivedAt: "2026-10-15 14:25", summary: "Onboarding IPS sent. Fill 3L and SAA (parts 2 and 4).", priority: "normal", trigger: 1 },
-  ],
-  ps: [
-    { id: "ps1", clientId: "ser", clientName: "Sergio Ermotti", kind: "Product-review request", from: "rm", receivedAt: "2026-10-14 08:30", summary: "Quarterly review opened. Research the market and shortlist products.", priority: "high", trigger: 3 },
-    { id: "ps2", clientId: "dso", clientName: "David Solomon", kind: "Product-review request", from: "rm", receivedAt: "2026-10-13 10:05", summary: "New CIO House View landed. Check fixed income shelf.", priority: "normal", trigger: 3 },
-    { id: "ps3", clientId: "teo", clientName: "Teo Yuwei", kind: "Product-review request", from: "rm", receivedAt: "2026-10-15 09:45", summary: "Concentration in US tech. Shortlist diversifying equity and alternatives products.", priority: "normal", trigger: 3 },
   ],
 };
 
@@ -181,8 +176,8 @@ export const packSections: PackSection[] = [
   { n: 2, order: 2, title: "Market view", owner: "pm", gate: "G2", status: "ready", body: "• Macro regime assessed as late expansion [MKT-0142].\n• CIO stance: buy fixed income, hold equities and gold, sell cash [CIO-2026Q4-03].\n• Growth is moderating while corporate earnings remain resilient [MKT-0142].\n• Policy rate reductions are anticipated, supporting duration [MKT-0142].\n• Equity valuations are elevated, which limits the margin of safety for further index gains [CIO-2026Q4-05].\n• Falling cash yields reduce the carry on liquidity held in deposits [CIO-2026Q4-02]." },
   { n: 3, order: 3, title: "Portfolio current health", owner: "pm", gate: "G2", status: "flagged", body: "• Sharpe ratio of 0.82 [CALC-sharpe-v1].\n• Diversification score of 71 [CALC-sharpe-v1].\n• Technology concentration of 31% is elevated and flagged for PM review [HLD-20261013].\n• Microsoft Corp and Apple Inc together account for 26% of the portfolio and move closely in sell-offs [HLD-20261013].\n• Singapore rate-sensitive income holdings total 26% and share exposure to a rise in rates [HLD-20261013].\n• Current weights are within the tactical bands set by IPS v2 for all asset classes [IPS-v2]." },
   { n: 4, order: 4, title: "Old vs new TAA", owner: "pm", gate: "G2", status: "ready", chart: "taa", body: "• Fixed income: increase to 40% (+5 points), at the upper edge of the tactical band [CALC-taa-v1].\n• Equities: reduce to 28% (-5 points from current), reflecting elevated valuations [CIO-2026Q4-05].\n• Cash: reduce to 12% (-1 point from current) as cash yields decline [CIO-2026Q4-02].\n• Hedge funds, private markets, real estate and gold remain at their strategic weights [IPS-v2].\n• Revised TAA is subject to PM approval at G2 [CALC-taa-v1]." },
-  { n: 5, order: 6, title: "Product recommendations", owner: "ps", gate: "G3", status: "approved", body: "• Four fixed income products shortlisted by Product Specialist [PRD-FI-007].\n• Shortlist is consistent with the overweight fixed income position [CIO-2026Q4-03].\n• Lead candidate is the SGD Investment Grade Bond Fund, offering diversified credit exposure [PRD-FI-007].\n• Products fit the Longevity bucket and the client Balanced risk profile [IPS-v2].\n• Recommendations are subject to G3 approval [PRD-FI-007]." },
-  { n: 6, order: 7, title: "Sign-off", owner: "rm", gate: null, status: "draft", kind: "signoff", body: "• Product Specialist sign-off covers the product shortlist.\n• Investment Committee sign-off covers market view and TAA.\n• Relationship Manager sign-off covers client suitability and presentation.\n• Each sign-off is recorded with name, role and timestamp.\n• The pack is released to the client only after all sign-offs are complete." },
+  { n: 5, order: 6, title: "Product recommendations", owner: "pm", gate: "G3", status: "approved", body: "• Four fixed income products shortlisted by the Portfolio Manager [PRD-FI-007].\n• Shortlist is consistent with the overweight fixed income position [CIO-2026Q4-03].\n• Lead candidate is the SGD Investment Grade Bond Fund, offering diversified credit exposure [PRD-FI-007].\n• Products fit the Longevity bucket and the client Balanced risk profile [IPS-v2].\n• Recommendations are subject to G3 approval [PRD-FI-007]." },
+  { n: 6, order: 7, title: "Sign-off", owner: "rm", gate: null, status: "draft", kind: "signoff", body: "• Portfolio Manager sign-off covers the product shortlist, market view and TAA.\n• Relationship Manager sign-off covers client suitability and presentation.\n• Each sign-off is recorded with name, role and timestamp.\n• The pack is released to the client only after all sign-offs are complete." },
   { n: 7, order: 8, title: "Sources and citations", owner: "rm", gate: null, status: "ready", body: "Sources for this pack are listed on the Sources view; every citation tag in the sections above resolves to a registered source." },
   { n: 8, order: 5, title: "Individual holding adjustments", owner: "pm", gate: "G2", status: "draft", chart: "holdings", body: "• Microsoft Corp: 16% to 13% (-3 points), trimmed to ease US large-cap technology concentration [HLD-20261013].\n• Apple Inc: 10% to 8% (-2 points), as it moves closely with Microsoft Corp in sell-offs [HLD-20261013].\n• DBS Group Holdings: 7% to 9% (+2 points) to diversify away from US technology into local financials [CIO-2026Q4-05].\n• Singapore Government Bond 10Y: 22% to 25% (+3 points), supporting the overweight fixed income stance [CALC-taa-v1].\n• All other holdings, including US Treasury Bills 3M and the PIMCO Income Fund, are unchanged, so total weight remains 100% [CALC-taa-v1].\n• All adjustments remain within the IPS v2 tactical bands and are subject to PM approval at G2 [IPS-v2]." },
 ];
@@ -198,8 +193,8 @@ export const citations: Citation[] = [
 
 export const activity: ActivityEvent[] = [
   { id: "a1", at: "2026-10-14 17:05", actor: "RM", role: "rm", text: "Opened quarterly review for Sergio Ermotti" },
-  { id: "a2", at: "2026-10-14 11:20", actor: "PS", role: "ps", text: "Approved product list (G3) and sent to PM" },
-  { id: "a3", at: "2026-10-14 08:30", actor: "System", role: "system", text: "Notified PS of new CIO House View" },
+  { id: "a2", at: "2026-10-14 11:20", actor: "PM", role: "pm", text: "Approved product list (G3)" },
+  { id: "a3", at: "2026-10-14 08:30", actor: "System", role: "system", text: "Notified PM of new CIO House View" },
   { id: "a4", at: "2026-09-20 10:00", actor: "RM", role: "rm", text: "Approved IPS v2 (G1)" },
 ];
 

@@ -6,17 +6,17 @@ import { Badge, Loading, RiskScale, sgd, useAsyncResult } from "../../components
 import { fmtDate } from "../rm/rmShared";
 import { arcApi } from "../../services/arcApi";
 import type { ClientPortfolio as Portfolio } from "../../types/arc";
+import { PackBackBubble } from "../../components/rm/PackBackBubble";
 import { useClient } from "../../components/client/useClient";
 
 const TABS = [
-  { to: "", label: "Overview (To Remove)", end: true, rmOnly: false },
+  { to: "", label: "Portfolio", end: true, rmOnly: false },
   { to: "upload-notes", label: "Meeting Notes", end: false, rmOnly: true },
   { to: "documents", label: "IPS", end: false, rmOnly: false },
   { to: "review-pack", label: "Review Pack", end: false, rmOnly: true },
-  { to: "portfolio", label: "Portfolio", end: false, rmOnly: false },
 ];
 export type PortfolioCtx = { portfolio: { data: Portfolio | null; error?: Error; loading: boolean; retry: () => void } };
-const BACK = { rm: ["clients", "Back to Client Book"], pm: ["inbox", "Back to Inbox"], ps: ["inbox", "Back to Inbox"] } as const;
+const BACK = { rm: ["clients", "Back to Client Book"], pm: ["inbox", "Back to Inbox"] } as const;
 export default function ClientLayout() {
   const role = useRole();
   const { state, pathname } = useLocation() as { state: { from?: string; fromLabel?: string } | null; pathname: string };
@@ -67,7 +67,7 @@ export default function ClientLayout() {
         ) : (
           <NavLink key={t.label} to={`/${role}/clients/${clientId}/${t.to}`} end={t.end} state={state}
             className={({ isActive }) => `-mb-px border-b-2 px-5 py-3 text-sm font-semibold ${isActive ? "border-hairline-strong text-ink" : "border-transparent text-ink-500 hover:text-ink"}`}>
-            {t.label}
+            {t.label}{t.to === "review-pack" && <PackBackBubble clientId={clientId} text="Returned" className="ml-2" />}
           </NavLink>
         ))}
       </nav>

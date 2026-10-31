@@ -109,7 +109,7 @@ def strategy_context(query: str, store=None, max_chars: int = MAX_CONTEXT_CHARS)
     if store is None:
         from .store import get_default_store
         store = get_default_store()
-    head = (THREE_L + "\n[S] Strategy table (Liquidity portfolio may only use A or B; Longevity and Legacy may use A-F):\n"
+    head = (THREE_L + "\n[S] Strategy table (only Longevity and Legacy use a strategy, A-F; the Liquidity portfolio gets no strategy or SAA):\n"
             + "\n".join(_strategy_line(s) for s in _strategies(store)))
     parts = [head]
     room = max_chars - len(head)

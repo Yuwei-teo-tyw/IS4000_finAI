@@ -22,6 +22,7 @@ import logging
 import os
 import re
 import threading
+import time
 import urllib.parse
 from typing import Callable, Optional
 
@@ -76,6 +77,15 @@ def _primary_base() -> str:
     return os.getenv("CLIENT_PROFILING_LLM_URL", "http://localhost:1234/v1").rstrip("/")
 
 
+def auth_headers(url: str) -> dict:
+    """Content-Type plus a Bearer token when a key is configured (hosted APIs such as Groq need one; LM Studio does not)."""
+    h = {"Content-Type": "application/json"}
+    key = os.getenv("CLIENT_PROFILING_LLM_API_KEY") or (os.getenv("GROQ_API_KEY") if "groq.com" in url else None)
+    if key:
+        h["Authorization"] = f"Bearer {key}"
+    return h
+
+
 def fallback_enabled() -> bool:
     return os.getenv("CLIENT_PROFILING_FALLBACK_ENABLED", "true").lower() not in ("0", "false", "no")
 
@@ -125,7 +135,7 @@ def _http_post_json(url: str, payload: dict, timeout: float, connect_timeout: fl
             raise ConnectionError(f"connect timeout to {u.hostname}:{u.port}") from e
         conn.sock.settimeout(timeout)
         conn.request("POST", u.path + (f"?{u.query}" if u.query else ""), body=json.dumps(payload).encode(),
-                     headers={"Content-Type": "application/json"})
+                     headers=auth_headers(url))
         r = conn.getresponse()
         raw = r.read()
         if r.status >= 400:
@@ -182,13 +192,102 @@ def parse_fallback_reply(d: dict, json_mode: bool = False) -> dict:
                       "reasoning_tokens": st.get("reasoning_output_tokens")}}
 
 
+class ModelUnavailable(ConnectionError):
+    """Circuit breaker open: a recent call failed (connection / auth / quota / server error), so no new call is attempted."""
+
+
+_brk = {"until": 0.0, "reason": ""}  # process-wide circuit breaker: monotonic time until which model calls are skipped
+_brk_lock = threading.Lock()
+_probe = {"ok_until": 0.0, "bad_until": 0.0}
+_probe_lock = threading.Lock()
+
+
+def cooldown_s() -> float:
+    return float(os.getenv("CLIENT_PROFILING_LLM_COOLDOWN_S", "60"))
+
+
+def breaker_open() -> bool:
+    return time.monotonic() < _brk["until"]
+
+
+def trip_breaker(e: BaseException) -> None:
+    with _brk_lock:
+        _brk["until"], _brk["reason"] = time.monotonic() + cooldown_s(), f"{type(e).__name__}: {e}"[:200]
+        _probe["ok_until"] = 0.0
+    log.warning("model circuit breaker open for %.0fs (%s)", cooldown_s(), _brk["reason"])
+
+
+def _trips_breaker(e: BaseException) -> bool:
+    """Model is down for every caller: connection failure, read/connect timeout, auth / quota / not found / server error.
+    A 400 (bad request) or a bad reply says nothing about availability and never trips it."""
+    if isinstance(e, LLMHTTPError):
+        return e.status in (401, 402, 403, 404, 429) or e.status >= 500
+    return isinstance(e, (OSError, http.client.HTTPException))
+
+
+def model_available(response_format: Optional[dict] = None) -> bool:
+    """False while the breaker is open. Otherwise (at most once per cooldown, single-flight) a tiny probe call confirms the model
+    accepts our kind of request (pass the real `response_format` so a schema the provider rejects is caught too). Any probe failure
+    marks the model unavailable for the cooldown (a connection/auth/quota failure also opens the global breaker). Used to
+    short-circuit to synthetic text before any real work."""
+    now = time.monotonic()
+    if breaker_open() or now < _probe["bad_until"]:
+        return False
+    with _probe_lock:
+        now = time.monotonic()
+        if breaker_open() or now < _probe["bad_until"]:
+            return False
+        if now < _probe["ok_until"]:
+            return True
+        body = {"model": model_name(), "temperature": 0, "max_tokens": 512,
+                "messages": [{"role": "user", "content": "Reply with an empty JSON object."}]}
+        if response_format:
+            body["response_format"] = response_format
+        try:
+            post_chat(body, float(os.getenv("CLIENT_PROFILING_PROBE_TIMEOUT_S", "15")))
+        except Exception as e:  # noqa: BLE001
+            _probe["bad_until"] = time.monotonic() + cooldown_s()
+            log.warning("model probe failed, using synthetic text for %.0fs (%s: %s)", cooldown_s(), type(e).__name__, str(e)[:200])
+            return False
+        _probe["ok_until"] = time.monotonic() + cooldown_s()
+        return True
+
+
+def _strictify(node):
+    """Strict structured output (Groq, OpenAI) needs `additionalProperties: false` and every property in `required` on each object; add both."""
+    if isinstance(node, dict):
+        out = {k: _strictify(v) for k, v in node.items()}
+        if isinstance(out.get("properties"), dict) and out.get("type") == "object":
+            out["additionalProperties"] = False
+            out["required"] = list(dict.fromkeys([*(out.get("required") or []), *out["properties"]]))
+        return out
+    return [_strictify(v) for v in node] if isinstance(node, list) else node
+
+
 def post_chat(body: dict, timeout: float) -> dict:
+    """Circuit-breaker wrapper around `_post_chat`: while the breaker is open raise ModelUnavailable at once; a connection /
+    auth / quota / server / timeout failure opens it for CLIENT_PROFILING_LLM_COOLDOWN_S (default 60)."""
+    _record(None, False)
+    js = (body.get("response_format") or {}).get("json_schema")
+    if js and js.get("strict") and isinstance(js.get("schema"), dict):
+        body = {**body, "response_format": {**body["response_format"], "json_schema": {**js, "schema": _strictify(js["schema"])}}}
+    if breaker_open():
+        raise ModelUnavailable(f"model skipped (circuit breaker open: {_brk['reason']})")
+    try:
+        return _post_chat(body, timeout)
+    except Exception as e:  # noqa: BLE001
+        if _trips_breaker(e):
+            trip_breaker(e)
+        raise
+
+
+def _post_chat(body: dict, timeout: float) -> dict:
     """POST an OpenAI chat-completions body to the primary model and return the OpenAI-shaped reply dict.
     If the primary is unreachable / not loaded (see is_unavailable) retry ONCE on LM Studio's native chat endpoint with the
     fallback model; the returned dict then carries fallback=True and the fallback model name. Never falls back for a
     reachable-but-bad reply. Records which model answered (last_model / fallback_active)."""
     _record(None, False)
-    connect = float(os.getenv("CLIENT_PROFILING_CONNECT_TIMEOUT_S", "3"))
+    connect = float(os.getenv("CLIENT_PROFILING_CONNECT_TIMEOUT_S", "2"))
     try:
         d = _http_post_json(f"{_primary_base()}/chat/completions", body, timeout, connect)
     except Exception as e:  # noqa: BLE001

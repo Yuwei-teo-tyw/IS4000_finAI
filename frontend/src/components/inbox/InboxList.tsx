@@ -49,9 +49,11 @@ interface Props {
   kindColumn?: boolean;
   /** Opt-in: show the shared welcome banner at the top (replaces the page header). */
   welcomeRole?: Role;
+  /** Opt-in: requests already handled, shown in a separate "Completed" section below the open list. */
+  completed?: InboxItem[];
 }
 
-export default function InboxList({ items, eyebrow, title, subtitle, listTitle, openTo, onOpen, openedNote, highNote, showFilter, finishedLabel = "Finished", kindColumn = false, welcomeRole }: Props) {
+export default function InboxList({ items, eyebrow, title, subtitle, listTitle, openTo, onOpen, openedNote, highNote, showFilter, finishedLabel = "Finished", kindColumn = false, welcomeRole, completed }: Props) {
   const cols = kindColumn ? COLS_KIND : COLS;
   const [leastFirst, setLeastFirst] = useState(false);
   const [filter, setFilter] = useState<"open" | "finished" | "all">("open");
@@ -105,6 +107,23 @@ export default function InboxList({ items, eyebrow, title, subtitle, listTitle, 
         ))}
         {sorted.length === 0 && <Card><p className="text-ink-500">No requests waiting. New ones appear here as soon as they are sent.</p></Card>}
       </div>
+
+      {completed && completed.length > 0 && (
+        <section className="mt-16 border-t border-hairline pt-10" aria-label="Completed requests">
+          <div className="mb-6 flex flex-wrap items-center gap-3"><h2 className="text-2xl">Completed</h2><Badge tone="green">{completed.length}</Badge></div>
+          <div className="flex flex-col gap-4">
+            {[...completed].sort(byUrgency).map((i) => (
+              <Card key={i.id} className={`grid gap-y-4 !px-8 !py-6 ${cols}`}>
+                <div className="flex flex-wrap items-center gap-3"><p className="text-xl text-ink">{i.clientName}</p><Badge tone="green">Completed</Badge>{!kindColumn && i.kind && <Badge tone="grey">{i.kind}</Badge>}</div>
+                {kindColumn && <div>{i.kind && <Badge tone="grey">{i.kind}</Badge>}</div>}
+                <div className="whitespace-nowrap"><Badge tone="grey">Returned to RM</Badge></div>
+                <p className="text-sm font-semibold">{fmtDate(i.nextMeeting)}</p>
+                <div><Link to={openTo(i)} onClick={() => onOpen?.(i)} className="inline-flex min-h-12 items-center rounded-sm border border-ink px-6 text-[15px] font-semibold text-ink transition hover:bg-surface-300">View</Link></div>
+              </Card>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

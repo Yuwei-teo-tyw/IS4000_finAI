@@ -11,7 +11,7 @@ export interface BulletOptions {
 
 /** Normalise any text to clean items: strip markers per line, split unmarked prose into sentences, drop empties. */
 export function toBulletItems(text: string, opts: BulletOptions = {}): string[] {
-  const split = opts.splitSemicolon ? /(?<=[.!?;])\s+(?=[A-Z0-9])/ : /(?<=[.!?])\s+(?=[A-Z0-9])/;
+  const split = opts.splitSemicolon ? /(?<=[.!?;](?:\s*\[[A-Za-z0-9-]+\])*)\s+(?=[A-Z0-9])/ : /(?<=[.!?](?:\s*\[[A-Za-z0-9-]+\])*)\s+(?=[A-Z0-9])/;
   const out: string[] = [];
   for (const raw of (text ?? "").split(/\r?\n/)) {
     const marked = MARK.test(raw);

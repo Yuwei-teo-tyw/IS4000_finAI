@@ -26,7 +26,6 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app.agents.portfolio_agent.engine.adjust import EvaluationError, evaluate_weights
-from app.agents.portfolio_agent.engine.buckets import LIQUIDITY_TEMPLATES
 from app.agents.portfolio_agent.engine.combined import CombinedError, combine
 from app.agents.portfolio_agent.engine.construction import TEMPLATES, template_growth
 from app.agents.portfolio_agent.explain.chat import answer_question
@@ -35,7 +34,7 @@ from app.agents.portfolio_agent.schemas.chat import PortfolioAnswer, PortfolioQu
 from app.agents.portfolio_agent.schemas.combined import CombinedReview, CombinedReviewRequest
 from app.agents.portfolio_agent.schemas.client import PortfolioGenerateRequest
 from app.agents.portfolio_agent.schemas.response import PortfolioResponse
-from app.agents.portfolio_agent.service import DuplicateRequestError, PortfolioService
+from app.agents.portfolio_agent.service import DuplicateRequestError, LiquiditySaaNotApplicableError, PortfolioService
 from app.agents.portfolio_agent.upstream.market_analysis import MARKET_ANALYSIS_SOURCE
 from app.agents.portfolio_agent.upstream.product_specialist import PRODUCT_CANDIDATES_SOURCE
 
@@ -68,8 +67,10 @@ async def health(service: PortfolioService = Depends(get_service)):
 
 @router.get("/templates")
 async def templates(bucket: Optional[str] = Query(default=None, pattern="^(liquidity|longevity|legacy)$")):
-    """The SAA templates a proposal starts from, cautious first. The Liquidity bucket has its own
-    (cash and short bonds); Longevity, Legacy and whole-portfolio proposals use A-F."""
+    """The SAA templates a proposal starts from, cautious first (A-F for Longevity, Legacy and whole-portfolio
+    proposals). The Liquidity portfolio gets no SAA, so bucket=liquidity returns an empty list."""
+    if bucket == "liquidity":
+        return []
     return [
         {
             "option_id": t.option_id,
@@ -80,7 +81,7 @@ async def templates(bucket: Optional[str] = Query(default=None, pattern="^(liqui
             "min_risk_level": t.min_risk_level,
             "min_horizon_years": t.min_horizon_years,
         }
-        for t in (LIQUIDITY_TEMPLATES if bucket == "liquidity" else TEMPLATES)
+        for t in TEMPLATES
     ]
 
 
@@ -91,6 +92,8 @@ async def generate_portfolio(
     """Construct and compare portfolio options for review. Never executes trades."""
     try:
         return await service.generate(body)
+    except LiquiditySaaNotApplicableError as e:
+        raise HTTPException(status_code=422, detail=str(e))
     except DuplicateRequestError:
         raise HTTPException(
             status_code=409,

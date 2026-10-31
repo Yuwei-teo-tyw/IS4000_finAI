@@ -1,5 +1,5 @@
 import { Card, Loading, PageHeader, Section, Table, useAsyncResult } from "../../components/ui";
-import { AgreementBadge, ViewBadge } from "../../components/ps/AssetViewParts";
+import { AgreementBadge, ViewBadge } from "../../components/product/AssetViewParts";
 import { arcApi, assetClassSlug, ProductRecommenderError } from "../../services/arcApi";
 import { Link } from "react-router-dom";
 
@@ -19,7 +19,7 @@ export default function AssetClassViews() {
             <span className="flex flex-wrap items-center gap-2"><ViewBadge view={r.cio_view} /><span className="text-ink-muted">{r.cio_term}</span></span>,
             r.agent_view ? <span className="flex flex-wrap items-center gap-2"><ViewBadge view={r.agent_view} /><span className="text-ink-muted">{r.agent_confidence} confidence</span></span> : "Unavailable",
             r.agreement ? <AgreementBadge status={r.agreement} /> : "–",
-            <Link to={`/ps/asset-views/${assetClassSlug(r.asset_class)}`} className="font-semibold text-ink underline underline-offset-4">Open</Link>,
+            <Link to={`/pm/asset-views/${assetClassSlug(r.asset_class)}`} className="font-semibold text-ink underline underline-offset-4">Open</Link>,
           ])} />
         </Section>
       )}
