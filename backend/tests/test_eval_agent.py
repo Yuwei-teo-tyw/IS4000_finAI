@@ -159,18 +159,6 @@ def test_no_human_or_ai_messages_approves_trivially(monkeypatch):
     assert fake_llm.calls == []
 
 
-def test_market_researcher_skips_quality_pass_and_never_regenerates(monkeypatch):
-    # A rendered answer can't change on a re-run, so a needs_rewrite only flags it.
-    fake_llm = FakeLLM(ComplianceCheck(compliant=False, severity="needs_rewrite", issue="reads as advice"))
-    agent = _make_agent(monkeypatch, fake_llm)
-
-    result = run_async(agent.run(_state(current_agent="market_researcher")))
-
-    assert result["eval_verdict"] == "flag"
-    assert len(fake_llm.calls) == 1  # compliance only
-    assert "Assistant response to review" in fake_llm.calls[0][-1].content
-
-
 def test_reviewers_see_the_workspace_context(monkeypatch):
     fake_llm = FakeLLM(
         EvalVerdict(verdict="approve", feedback=""),

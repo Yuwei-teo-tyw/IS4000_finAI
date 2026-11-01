@@ -24,10 +24,12 @@ Two parts, both deterministic (no LLM):
    (any check failed), else `ok`.
 """
 import re
+import time
 from typing import Iterable
 
 from app.agents.market_researcher import config as cfg
 from app.agents.market_researcher.schemas import EventExplanation, MarketResearchOutput, QualityReport
+from app.agents.market_researcher.tracing import record_attempt
 
 # Recommendation / guarantee wording. Kept narrow so descriptive market
 # language ("selloff", "buyers", "the risk-free rate") is not flagged.
@@ -39,6 +41,11 @@ ADVICE_PATTERNS: dict[str, re.Pattern] = {
         r"rotating|overweighting|underweighting|accumulating)\b", re.IGNORECASE),
     "positioning call": re.compile(r"\b(?:overweight|underweight)\b", re.IGNORECASE),
     "buy/sell call": re.compile(r"\b(?:buy|sell)\s+(?:now|signal|rating|the dip)\b", re.IGNORECASE),
+    "preference call": re.compile(r"\b(?:should|could|may|might|better to|best to)\s+(?:want to\s+)?(?:favou?r|prefer)\b",
+                                  re.IGNORECASE),
+    "soft recommendation": re.compile(r"\b(?:may|might) want to\b|\blooks? (?:attractive|compelling)\b|"
+                                      r"\battractive (?:entry|valuations?|opportunit(?:y|ies))\b", re.IGNORECASE),
+    "imperative call": re.compile(r"(?:^|[.!?]\s+)(?:Favou?r|Prefer|Avoid)\s"),
     "guarantee": re.compile(r"\bguarantee(?:d|s)?\b|\brisk[- ]free\b(?!\s+(?:rate|yield|asset))|\bcan(?:not|'t) lose\b",
                             re.IGNORECASE),
 }
@@ -59,6 +66,7 @@ def screen_explanations(explanations: list[EventExplanation]) -> tuple[list[Even
             out.append(EventExplanation(event_id=x.event_id, status="unavailable", decomposition=x.decomposition,
                                         queries_run=x.queries_run))
             notes.append(f"Event explanation for {x.event_id} withheld: advice-like wording ({', '.join(found)}).")
+            record_attempt("explanation_screen", time.monotonic(), found, x.explanation)
         else:
             out.append(x)
     return out, notes
@@ -78,6 +86,7 @@ def screen_narrative(output: MarketResearchOutput) -> list[str]:
     if found:
         from app.agents.market_researcher.synthesis import use_template
 
+        record_attempt("narrative_screen", time.monotonic(), found, output.narrative)
         use_template(output, f"the LLM draft had advice-like wording ({', '.join(found)})")
     return found
 

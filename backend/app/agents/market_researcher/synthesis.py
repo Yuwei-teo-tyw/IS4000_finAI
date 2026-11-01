@@ -16,12 +16,15 @@ failure the model gets one retry with the problems listed and its draft
 quoted in the same user turn (not replayed as a plain-text assistant turn,
 which led the model to answer the retry in plain JSON instead of the tool
 call - Groq's 400 tool_use_failed). Each call is re-asked once if that 400
-still happens. If the retry fails validation too, a deterministic template
-narrative is used and `data_quality.notes` says so.
+still happens. If the retry fails validation too, or the calls run past the
+time limit, a deterministic template narrative is used and
+`data_quality.notes` says so.
 """
+import asyncio
 import json
 import logging
 import re
+import time
 from typing import Any, Iterable, Optional
 
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -29,10 +32,14 @@ from pydantic import BaseModel, Field
 
 from app.agents.market_researcher.news_tagging import with_max_tokens
 from app.agents.market_researcher.schemas import MarketResearchOutput
+from app.agents.market_researcher.tracing import record_attempt, record_failure, trace_config
 from app.core import get_groq_model
 from app.prompts.prompt_builder import get_prompt
 
 SYNTHESIS_MAX_TOKENS = 6000
+_PROMPT_KEYS = ("market_researcher.synthesis_system", "market_researcher.synthesis_label_reminder",
+                "market_researcher.synthesis_retry_note")
+TEMPLATE_NOTE_PREFIX = "Narrative is a deterministic template"
 
 logger = logging.getLogger("market_researcher")
 
@@ -189,6 +196,9 @@ _UNSUPPORTED_LABELS = {
     "YTD / year-to-date (the data has trailing-window changes only)": re.compile(r"\bYTD\b|year[- ]to[- ]date", re.IGNORECASE),
     "record / all-time / near-record (the data gives 10-year percentiles and 'highest since' events)":
         re.compile(r"\ball[- ]time\b|\brecord\b|near[- ]record", re.IGNORECASE),
+    "superlative (the data ranks a series against its own history, not against other series)":
+        re.compile(r"\bmost (?:elevated|extreme|severe|significant)\b|\bunprecedented\b|\b(?:biggest|largest|worst)\b",
+                   re.IGNORECASE),
 }
 
 
@@ -201,9 +211,40 @@ def unsupported_labels(texts: Iterable[str], payload: dict) -> list[str]:
     ]
 
 
+_LINK = re.compile(r"https?://[^\s)\]>\"']+|www\.[^\s)\]>\"']+|(?<=\]\()[^)\s]+")
+_IMAGE = re.compile(r"!\[[^\]]*\]\(")
+_URL_KEYS = ("url", "cited_urls")
+
+
+def known_urls(obj: Any) -> set[str]:
+    """Only the fields code wrote: a URL inside a news title or summary is article text, not a source."""
+    urls: set[str] = set()
+    if isinstance(obj, dict):
+        for key, value in obj.items():
+            if key in _URL_KEYS:
+                urls.update(u.rstrip("/") for u in ([value] if isinstance(value, str) else value or []))
+            else:
+                urls |= known_urls(value)
+    elif isinstance(obj, (list, tuple)):
+        for value in obj:
+            urls |= known_urls(value)
+    return urls
+
+
+def unknown_links(texts: Iterable[str], payload: dict) -> list[str]:
+    known = known_urls(payload)
+    links = {link.rstrip(".,;:/") for text in texts for link in _LINK.findall(text)}
+    return sorted(link for link in links if link not in known and link.rstrip("/") not in known)
+
+
 def problems(texts: list[str], allowed: set[float], payload: dict) -> list[str]:
     bad = invalid_numbers(texts, allowed)
     found = [f"numbers not in the data: {', '.join(bad)}"] if bad else []
+    links = unknown_links(texts, payload)
+    if links:
+        found.append(f"links not in the data: {', '.join(links)}")
+    if any(_IMAGE.search(text) for text in texts):
+        found.append("images are not allowed")
     return found + [f"unsupported wording: {label}" for label in unsupported_labels(texts, payload)]
 
 
@@ -219,7 +260,7 @@ def template_synthesis(output: MarketResearchOutput) -> SynthesisOut:
     if r.phase:
         probs = ", ".join(f"{k} {v * 100:.0f}%" for k, v in sorted(r.probabilities.items(), key=lambda kv: -kv[1]))
         parts.append(f"the rule-based classifier places the {output.region} cycle in {r.phase} "
-                     f"with {r.confidence} confidence ({probs}).")
+                     f"with {r.confidence} confidence (uncalibrated model scores: {probs}).")
     else:
         parts.append("there is not enough macro data to classify the cycle phase.")
     if r.recession_prob_12m is not None:
@@ -255,17 +296,43 @@ async def _invoke(writer, messages: list) -> SynthesisOut:
     """One structured call, re-asked once if Groq rejects the output because the
     model answered in plain text instead of the tool call (400 tool_use_failed).
     Other errors are not retried here."""
+    config = trace_config("synthesis", _PROMPT_KEYS)
     try:
-        return await writer.ainvoke(messages)
+        return await writer.ainvoke(messages, config=config)
     except Exception as e:
         if "tool_use_failed" not in str(e):
             raise
-        logger.info("stage=synthesis re-asking after tool_use_failed")
-        return await writer.ainvoke(messages)
+        logger.debug("stage=synthesis re-asking after tool_use_failed")
+        return await writer.ainvoke(messages, config=config)
 
 
-async def synthesize(output: MarketResearchOutput) -> None:
-    """Fill the narrative fields on `output` in place."""
+async def _draft(writer, messages: list, allowed: set[float], payload: dict) -> tuple[SynthesisOut, list[str]]:
+    """A validated draft, with one retry; returns the last draft and its problems."""
+    async def attempt() -> tuple[SynthesisOut, list[str]]:
+        started = time.monotonic()
+        try:
+            draft = await _invoke(writer, messages)
+        except Exception as e:
+            record_failure("synthesis", started, e)
+            raise
+        found = problems(_texts(draft), allowed, payload)
+        record_attempt("synthesis", started, found, draft.model_dump_json() if found else None)
+        return draft, found
+
+    draft, found = await attempt()
+    if found:
+        note = "; ".join(found)
+        # The draft goes inside the user turn so the model revises it rather
+        # than starting over, without a plain-JSON assistant turn to imitate.
+        messages.append(HumanMessage(content=get_prompt(
+            "market_researcher.synthesis_retry_note",
+            problems=note, numbers=note, draft=draft.model_dump_json())))
+        draft, found = await attempt()
+    return draft, found
+
+
+async def synthesize(output: MarketResearchOutput, timeout: Optional[float] = None) -> None:
+    """Fill the narrative fields on `output` in place, within `timeout` seconds."""
     payload = build_payload(output)
     allowed = allowed_numbers(payload)
     messages = [
@@ -273,23 +340,17 @@ async def synthesize(output: MarketResearchOutput) -> None:
         HumanMessage(content=json.dumps(payload, default=str)
                      + "\n\n" + get_prompt("market_researcher.synthesis_label_reminder")),
     ]
+    started = time.monotonic()
     try:
         writer = with_max_tokens(get_groq_model(), SYNTHESIS_MAX_TOKENS).with_structured_output(SynthesisOut)
-        draft = await _invoke(writer, messages)
-        found = problems(_texts(draft), allowed, payload)
-        if found:
-            note = "; ".join(found)
-            # The draft goes inside the user turn so the model revises it rather
-            # than starting over, without a plain-JSON assistant turn to imitate.
-            messages.append(HumanMessage(content=get_prompt(
-                "market_researcher.synthesis_retry_note",
-                problems=note, numbers=note, draft=draft.model_dump_json())))
-            draft = await _invoke(writer, messages)
-            found = problems(_texts(draft), allowed, payload)
+        draft, found = await asyncio.wait_for(_draft(writer, messages, allowed, payload), timeout=timeout)
         if not found:
             _apply(output, draft, {i.area: i.text for i in draft.implications})
             return
         reason = "had " + "; ".join(found)
+    except TimeoutError as e:
+        record_failure("synthesis", started, e)  # the cancelled attempt can't record itself
+        reason = f"LLM call failed ({type(e).__name__})"
     except Exception as e:
         reason = f"LLM call failed ({type(e).__name__})"
     use_template(output, f"the LLM draft {reason}")
@@ -298,4 +359,4 @@ async def synthesize(output: MarketResearchOutput) -> None:
 def use_template(output: MarketResearchOutput, reason: str) -> None:
     """Replace the narrative fields with the deterministic template and say why."""
     _apply(output, template_synthesis(output), None)
-    output.data_quality.notes.append(f"Narrative is a deterministic template: {reason}.")
+    output.data_quality.notes.append(f"{TEMPLATE_NOTE_PREFIX}: {reason}.")

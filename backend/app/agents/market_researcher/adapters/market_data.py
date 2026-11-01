@@ -8,6 +8,7 @@ rather than raising, so one bad ticker doesn't sink the whole snapshot.
 """
 import asyncio
 import math
+import warnings
 from datetime import date, timedelta
 from typing import Protocol
 
@@ -24,6 +25,10 @@ class MarketDataProvider(Protocol):
 
 def _download_closes(symbols: list[str], start: date, end: date) -> dict[str, list[SeriesPoint]]:
     import yfinance as yf
+
+    # yfinance's own pandas calls warn once per symbol on every download. Set here,
+    # after the import, because importing yfinance adds a filter that overrides an earlier one.
+    warnings.filterwarnings("ignore", message="The inplace keyword", module=r"yfinance\.")
 
     df = yf.download(
         symbols,

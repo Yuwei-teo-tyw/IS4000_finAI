@@ -83,7 +83,7 @@ def test_fallback_to_heuristic(monkeypatch, failure):
     assert record.plan_source == "heuristic" and notes and "keyword heuristic" in notes[0]
     assert record.plan.extra_series and all(s in {c.id for c in cfg.EXTRA_SERIES_CATALOG} for s in record.plan.extra_series)
     assert "MORTGAGE30US" in record.plan.extra_series
-    assert record.plan.news_queries == ["housing market news", request.query]   # today's behavior
+    assert record.plan.news_queries == ["housing market news"]   # focus terms, not the raw message
     if failure == "all_invalid":
         assert any("NOPE" in d for d in record.dropped)
 
@@ -111,3 +111,10 @@ def test_prompt_lists_catalogs_and_core(monkeypatch):
 def test_heuristic_tags():
     p = heuristic_plan(MarketResearchRequest(query="Impact of a stronger yen on US markets?"), *CATS)
     assert "fx" in p.areas and "DEXJPUS" in p.extra_series and "FXY" in p.extra_symbols
+
+
+def test_heuristic_only_searches_the_raw_message_without_focus_terms():
+    with_focus = MarketResearchRequest(query="How is the Tan family's oil position?", focus=["oil"])
+    assert heuristic_plan(with_focus, (), ()).news_queries == ["oil market news"]
+    without = MarketResearchRequest(query="How is oil?")
+    assert heuristic_plan(without, (), ()).news_queries == ["How is oil?"]

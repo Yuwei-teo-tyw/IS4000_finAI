@@ -33,6 +33,7 @@ class RawNewsItem:
     query: str
     provider_score: float = 0.0
     relevance: float = 0.0
+    retrieved_at: Optional[datetime] = None
 
 
 class NewsProvider(Protocol):
@@ -66,6 +67,7 @@ def normalize_url(url: str) -> str:
 
 def parse_tavily(payload: dict, query: str) -> list[RawNewsItem]:
     items = []
+    retrieved_at = datetime.now(timezone.utc)
     for r in payload.get("results", []):
         url, title = r.get("url"), (r.get("title") or "").strip()
         if not url or not title:
@@ -78,6 +80,7 @@ def parse_tavily(payload: dict, query: str) -> list[RawNewsItem]:
             snippet=(r.get("content") or "").strip()[:500],
             query=query,
             provider_score=float(r.get("score") or 0.0),
+            retrieved_at=retrieved_at,
         ))
     return items
 

@@ -85,10 +85,10 @@ async def request_with_retry(
             response = await client.request(method, url, params=params, json=json, timeout=timeout)
         except (httpx.TimeoutException, httpx.TransportError) as e:
             last_error = f"{type(e).__name__}"
-            logger.info("source=%s attempt=%d error=%s", source, attempt + 1, last_error)
+            logger.debug("source=%s attempt=%d error=%s", source, attempt + 1, last_error)
         else:
             elapsed_ms = int((time.monotonic() - started) * 1000)
-            logger.info("source=%s attempt=%d status=%d latency_ms=%d", source, attempt + 1, response.status_code, elapsed_ms)
+            logger.debug("source=%s attempt=%d status=%d latency_ms=%d", source, attempt + 1, response.status_code, elapsed_ms)
             if response.status_code < 400:
                 return response
             last_error = f"HTTP {response.status_code}"

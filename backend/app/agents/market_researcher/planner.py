@@ -20,6 +20,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from app.agents.market_researcher import config as cfg
 from app.agents.market_researcher.news_tagging import with_max_tokens
 from app.agents.market_researcher.schemas import MarketResearchRequest, PlanArea, PlanRecord, QueryPlan
+from app.agents.market_researcher.tracing import record_attempt, record_failure, trace_config
 from app.core import get_groq_model
 from app.prompts.prompt_builder import get_prompt
 
@@ -31,7 +32,11 @@ _URLISH = re.compile(r"https?://|www\.|\.com\b|\.org\b", re.IGNORECASE)
 
 def default_news_queries(request: MarketResearchRequest) -> list[str]:
     """Today's caller-specific news queries (also the `planning="off"` behavior)."""
-    return [f"{term} market news" for term in request.focus] + ([request.query] if request.query else [])
+    return _focus_queries(request) + ([request.query] if request.query else [])
+
+
+def _focus_queries(request: MarketResearchRequest) -> list[str]:
+    return [f"{term} market news" for term in request.focus]
 
 
 def _catalog_lines(series: tuple[cfg.SeriesSpec, ...], symbols: tuple[cfg.SymbolSpec, ...]) -> str:
@@ -132,7 +137,8 @@ def heuristic_plan(request: MarketResearchRequest, series: tuple[cfg.SeriesSpec,
         areas=[t for t in tags if t in get_args(PlanArea)],
         extra_series=[s.id for s in series if set(s.tags) & set(tags)][:n],
         extra_symbols=[s.symbol for s in symbols if set(s.tags) & set(tags)][:n],
-        news_queries=default_news_queries(request),
+        # Extracted terms are preferred: the raw message can name a client, and these go to external search.
+        news_queries=_focus_queries(request) or default_news_queries(request),
         rationale="Keyword fallback: catalog entries whose tags match the request's terms.",
     )
 
@@ -155,15 +161,18 @@ async def make_plan(
         raw = await asyncio.wait_for(planner.ainvoke([
             SystemMessage(content=get_prompt("market_researcher.planner_system")),
             HumanMessage(content=build_prompt_input(request, catalog_series, catalog_symbols)),
-        ]), timeout=budget_s)
+        ], config=trace_config("planner", ["market_researcher.planner_system"])), timeout=budget_s)
         plan, dropped = validate_plan(raw, catalog_series, catalog_symbols)
         had_items = bool(raw.extra_series or raw.extra_symbols or raw.news_queries)
         if had_items and not (plan.extra_series or plan.extra_symbols or plan.news_queries):
             reason = "every planned item failed validation"
-    except asyncio.TimeoutError:
+        record_attempt("planner", started, dropped if reason else (), raw.model_dump_json() if reason else None)
+    except asyncio.TimeoutError as e:
         reason = f"timed out after {budget_s:.0f}s"
+        record_failure("planner", started, e)
     except Exception as e:
         reason = f"failed ({type(e).__name__})"
+        record_failure("planner", started, e)
 
     latency = int((time.monotonic() - started) * 1000)
     if reason is None:

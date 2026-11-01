@@ -136,10 +136,24 @@ async def init_market_tables(pool) -> None:
                 json_path TEXT,
                 error TEXT,
                 created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-                finished_at TIMESTAMPTZ
+                finished_at TIMESTAMPTZ,
+                quality TEXT
             )
             """
         )
+        await conn.execute("ALTER TABLE market_research_runs ADD COLUMN IF NOT EXISTS quality TEXT")
+        await conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS market_audit_events (
+                id BIGSERIAL PRIMARY KEY,
+                run_id TEXT NOT NULL,
+                event TEXT NOT NULL,
+                details TEXT NOT NULL,
+                at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+            """
+        )
+        await conn.execute("CREATE INDEX IF NOT EXISTS market_audit_events_run ON market_audit_events (run_id)")
         await conn.execute("DELETE FROM market_cache WHERE expires_at < now()")
 
 

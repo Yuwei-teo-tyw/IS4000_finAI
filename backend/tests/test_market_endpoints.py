@@ -7,6 +7,7 @@ no Postgres, no network, no LLM.
 import asyncio
 import dataclasses
 import time
+from datetime import timedelta
 
 import pytest
 from fastapi import FastAPI
@@ -20,7 +21,7 @@ from app.agents.market_researcher.schemas import MarketResearchOutput, output_js
 from app.endpoints.market_researcher import router
 
 from conftest import FakeLLM
-from test_market_service import make_service, quiet_planner_and_explainer
+from test_market_service import TODAY, StubFred, make_service, quiet_planner_and_explainer
 
 BASE = "/agents/market-researcher"
 
@@ -100,7 +101,7 @@ def test_unknown_run_and_output_not_ready(tmp_path):
         def __init__(self, inner):
             self.inner, self.settings, self.cache = inner, inner.settings, inner.cache
 
-        async def run(self, request, run_id=None):
+        async def run(self, request, run_id=None, origin=None):
             await asyncio.sleep(0.5)
             return await self.inner.run(request, run_id=run_id)
 
@@ -119,7 +120,7 @@ def test_queue_full_returns_429(tmp_path):
         def __init__(self, inner):
             self.settings, self.cache = inner.settings, inner.cache
 
-        async def run(self, request, run_id=None):
+        async def run(self, request, run_id=None, origin=None):
             await asyncio.sleep(30)
 
     with build_client(tmp_path, service=BlockingService(make_service(tmp_path)), max_concurrent=1, max_queued=0) as client:
@@ -134,7 +135,7 @@ def test_failed_run_reports_error(tmp_path):
         def __init__(self, inner):
             self.settings, self.cache = inner.settings, inner.cache
 
-        async def run(self, request, run_id=None):
+        async def run(self, request, run_id=None, origin=None):
             raise RuntimeError("disk full")
 
     with build_client(tmp_path, service=BrokenService(make_service(tmp_path))) as client:
@@ -172,3 +173,45 @@ def test_new_request_fields_round_trip(tmp_path):
         out = client.post(f"{BASE}/runs?wait=true", json=body).json()
         assert out["request"]["planning"] == "off" and out["request"]["explain_events"] is False
         assert out["plan"] is None and out["event_explanations"] == [] and out["schema_version"] == SCHEMA_VERSION
+
+
+def test_latest_skips_replays_of_a_past_as_of(tmp_path):
+    with build_client(tmp_path) as client:
+        replay = {"as_of": (TODAY - timedelta(days=30)).isoformat()}
+        client.post(f"{BASE}/runs?wait=true", json=replay)
+        assert client.get(f"{BASE}/latest").status_code == 404
+
+        run_id = client.post(f"{BASE}/runs?wait=true", json={"as_of": TODAY.isoformat()}).json()["run_id"]
+        client.post(f"{BASE}/runs?wait=true", json=replay)
+        assert client.get(f"{BASE}/latest").json()["run_id"] == run_id
+
+
+def test_latest_skips_unusable_runs(tmp_path):
+    with build_client(tmp_path, service=make_service(tmp_path, fred=StubFred(fail_all=True))) as client:
+        run_id = client.post(f"{BASE}/runs?wait=true", json={}).json()["run_id"]
+        status = client.get(f"{BASE}/runs/{run_id}").json()
+        assert status["status"] == "partial" and status["quality"] == "unusable"
+        assert client.get(f"{BASE}/latest").status_code == 404
+
+
+def test_audit_endpoint_returns_a_runs_events(tmp_path):
+    with build_client(tmp_path) as client:
+        assert client.get(f"{BASE}/runs/mr_unknown/audit").status_code == 404
+        run_id = client.post(f"{BASE}/runs?wait=true", json={}).json()["run_id"]
+        body = client.get(f"{BASE}/runs/{run_id}/audit").json()
+    [event] = body["events"]
+    assert event["event"] == "run_finished" and event["details"]["origin"]["channel"] == "http"
+
+
+@pytest.mark.parametrize("body", [{"query": "x" * 501}, {"focus": ["a"] * 9}, {"focus": ["a" * 81]}])
+def test_oversized_requests_are_rejected(tmp_path, body):
+    with build_client(tmp_path) as client:
+        assert client.post(f"{BASE}/runs", json=body).status_code == 422
+
+
+def test_runner_warns_when_no_token_is_set(tmp_path, caplog):
+    service = make_service(tmp_path)
+    service.settings = dataclasses.replace(service.settings, api_token=None)
+    with caplog.at_level("WARNING", logger="market_researcher"):
+        MarketResearchRunner(InMemoryRunRegistry(), service)
+    assert "MARKET_RESEARCH_API_TOKEN is not set" in caplog.text

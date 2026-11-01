@@ -17,11 +17,16 @@ is optional (not every news result carries a date).
 import json
 from datetime import date, datetime
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Annotated, Literal, Optional
 
 from pydantic import BaseModel, Field
 
-from app.agents.market_researcher.config import SCHEMA_VERSION
+from app.agents.market_researcher.config import (
+    MAX_FOCUS_TERM_CHARS,
+    MAX_FOCUS_TERMS,
+    MAX_QUERY_CHARS,
+    SCHEMA_VERSION,
+)
 
 Phase = Literal["early_expansion", "late_expansion", "recession", "late_recession"]
 SignalLiteral = Literal[
@@ -33,9 +38,11 @@ SCHEMA_PATH = Path(__file__).parent / "market_research_output.schema.json"
 
 
 class MarketResearchRequest(BaseModel):
-    query: Optional[str] = Field(default=None, description="The main agent's question or focus, if any.")
+    query: Optional[str] = Field(default=None, max_length=MAX_QUERY_CHARS,
+                                 description="The main agent's question or focus, if any.")
     region: Literal["US", "EU", "SG", "GLOBAL"] = Field(default="US", description="Only 'US' is supported in v1.")
-    focus: list[str] = Field(default_factory=list, description='Extra focus terms, e.g. ["rates", "energy"].')
+    focus: list[Annotated[str, Field(max_length=MAX_FOCUS_TERM_CHARS)]] = Field(
+        default_factory=list, max_length=MAX_FOCUS_TERMS, description='Extra focus terms, e.g. ["rates", "energy"].')
     lookback_days_news: int = Field(default=3, ge=1, le=14)
     as_of: Optional[date] = Field(default=None, description="None = now; set for replays/backtests.")
     include_narrative: bool = Field(default=False, description="Also produce an LLM narrative (validated against the data).")
@@ -144,6 +151,8 @@ class CitedSource(BaseModel):
     title: str
     source: str
     published_at: Optional[datetime] = None
+    snippet: Optional[str] = Field(default=None, description="The article text the model was shown.")
+    retrieved_at: Optional[datetime] = Field(default=None, description="When the search returned this article.")
 
 
 class EventExplanation(BaseModel):
@@ -176,6 +185,22 @@ class DataQuality(BaseModel):
     notes: list[str] = Field(default_factory=list)
 
 
+class RunOrigin(BaseModel):
+    """Where a run came from. `session_id` identifies a chat session, not a verified person."""
+    channel: Literal["chat", "http"]
+    session_id: Optional[str] = None
+    client_id: Optional[str] = None
+
+
+class LlmAttempt(BaseModel):
+    stage: str
+    attempt: int
+    outcome: Literal["accepted", "rejected", "error", "timeout"]
+    latency_ms: int
+    problems: list[str] = Field(default_factory=list, description="Why it was rejected or failed, if it was.")
+    rejected_text: Optional[str] = Field(default=None, description="The text that was rejected, kept for review.")
+
+
 class MarketResearchOutput(BaseModel):
     schema_version: str = SCHEMA_VERSION
     agent: Literal["market_researcher"] = "market_researcher"
@@ -203,6 +228,11 @@ class MarketResearchOutput(BaseModel):
     data_quality: DataQuality = Field(default_factory=DataQuality)
     quality: Optional[QualityReport] = Field(
         default=None, description="Overall verdict from the final quality gate; read this first.")
+    llm_model: Optional[str] = Field(default=None, description="Model configured for this run's LLM-written fields.")
+    prompt_versions: dict[str, str] = Field(
+        default_factory=dict, description="Prompt key -> version resolved for this run, for audit.")
+    origin: Optional[RunOrigin] = Field(default=None, description="Who started the run, when known.")
+    llm_attempts: list[LlmAttempt] = Field(default_factory=list, description="Every LLM attempt in this run, in order.")
 
 
 def output_json_schema() -> dict:

@@ -1,3 +1,5 @@
+import logging
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 from dotenv import load_dotenv
@@ -30,6 +32,23 @@ from app.endpoints.client_portfolio import router as client_portfolio_router  # 
 from app.agents.market_researcher.cache import PostgresCache, init_market_tables  # noqa: E402
 from app.agents.market_researcher.runs import MarketResearchRunner, PostgresRunRegistry  # noqa: E402
 from app.agents.market_researcher.service import MarketResearchService  # noqa: E402
+
+
+def configure_market_logging() -> None:
+    """Show the market researcher's checkpoints (run start and finish, source
+    and LLM failures), which the root logger's default WARNING level would drop.
+    Set MARKET_RESEARCH_LOG_LEVEL=DEBUG for per-request and per-stage detail."""
+    logger = logging.getLogger("market_researcher")
+    if logger.handlers:
+        return
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter("%(asctime)s %(name)s %(levelname)s %(message)s"))
+    logger.addHandler(handler)
+    logger.setLevel(os.getenv("MARKET_RESEARCH_LOG_LEVEL", "INFO").upper())
+    logger.propagate = False
+
+
+configure_market_logging()
 
 
 @asynccontextmanager

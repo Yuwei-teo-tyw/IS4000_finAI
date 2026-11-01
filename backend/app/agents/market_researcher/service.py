@@ -31,6 +31,7 @@ from typing import Optional
 from app.agents.market_researcher import config as cfg
 from app.agents.market_researcher import features as f
 from app.agents.market_researcher import quality
+from app.agents.market_researcher.audit import AuditLog, default_audit, sha256_of
 from app.agents.market_researcher.adapters.base import SeriesPoint, SourceError
 from app.agents.market_researcher.adapters.fred import FredClient
 from app.agents.market_researcher.adapters.market_data import MarketDataProvider, get_market_data_provider
@@ -54,7 +55,11 @@ from app.agents.market_researcher.schemas import (
     MarketResearchOutput,
     MarketResearchRequest,
     NewsItem,
+    RunOrigin,
 )
+from app.agents.market_researcher.tracing import RunTrace, record_failure, run_label, run_trace
+from app.core.constants import CURRENT_MODEL
+from app.prompts.prompt_builder import get_prompt_version
 
 logger = logging.getLogger("market_researcher")
 
@@ -105,7 +110,8 @@ class _CachedNewsProvider:
         if hit is not None:
             return [_raw_from_json(x) for x in hit]
         items = await self._inner.search(query, days, max_results)
-        await self._cache.set(key, [_raw_to_json(x) for x in items], cfg.NEWS_TTL_SECONDS)
+        if items:
+            await self._cache.set(key, [_raw_to_json(x) for x in items], cfg.NEWS_TTL_SECONDS)
         return items
 
 
@@ -114,12 +120,15 @@ def _raw_to_json(item: RawNewsItem) -> dict:
         "title": item.title, "url": item.url, "source": item.source,
         "published_at": item.published_at.isoformat() if item.published_at else None,
         "snippet": item.snippet, "query": item.query, "provider_score": item.provider_score,
+        "retrieved_at": item.retrieved_at.isoformat() if item.retrieved_at else None,
     }
 
 
 def _raw_from_json(d: dict) -> RawNewsItem:
     published = datetime.fromisoformat(d["published_at"]) if d.get("published_at") else None
-    return RawNewsItem(d["title"], d["url"], d["source"], published, d["snippet"], d["query"], d.get("provider_score", 0.0))
+    retrieved = datetime.fromisoformat(d["retrieved_at"]) if d.get("retrieved_at") else None
+    return RawNewsItem(d["title"], d["url"], d["source"], published, d["snippet"], d["query"],
+                       d.get("provider_score", 0.0), retrieved_at=retrieved)
 
 
 class MarketResearchService:
@@ -135,9 +144,11 @@ class MarketResearchService:
         market: Optional[MarketDataProvider] = None,
         news: Optional[NewsProvider] = None,
         out_dir: Optional[Path] = None,
+        audit: Optional[AuditLog] = None,
     ):
         self.settings = settings or cfg.load_settings()
         self.cache = cache or default_cache()
+        self.audit = audit or default_audit()
         self._fred = fred
         self._market = market
         self._news = news
@@ -183,29 +194,35 @@ class MarketResearchService:
             points = await fred.get_series(spec.id, start, end)
             dq.notes.append(f"{spec.id}: no ALFRED vintage for {as_of}; used revised data.")
         ttl = cfg.SERIES_TTL_SECONDS[spec.frequency] if live else cfg.HISTORICAL_TTL_SECONDS
-        await self.cache.set(key, points_to_json(points), ttl)
+        if points:  # an empty response may be transient, so it isn't kept for the whole TTL
+            await self.cache.set(key, points_to_json(points), ttl)
         return points
 
     async def _fetch_fred(self, specs: tuple[cfg.SeriesSpec, ...], as_of: date, live: bool,
                           dq: DataQuality, prefix: str = "") -> dict[str, list[SeriesPoint]]:
         self._fred_client()  # fail fast on a missing key
         wanted = [s for s in specs if not s.backtest_only]
+        per_series = self._source_timeout * cfg.FRED_SERIES_TIMEOUT_SHARE
         results = await asyncio.gather(
-            *(self._fetch_series(s, as_of, live, dq) for s in wanted), return_exceptions=True
+            *(asyncio.wait_for(self._fetch_series(s, as_of, live, dq), per_series) for s in wanted),
+            return_exceptions=True,
         )
         series, failed = {}, []
         for spec, res in zip(wanted, results):
             if isinstance(res, Exception):
                 failed.append(spec.id)
-                logger.info("source=FRED:%s failed: %s", spec.id, res)
+                logger.warning("run=%s source=%sFRED:%s failed: %r", run_label(), prefix, spec.id, res)
             elif res:
                 series[spec.id] = res
+            else:
+                dq.notes.append(f"{prefix}FRED:{spec.id}: no observations returned.")
         if not series:
             raise SourceError(f"all {len(wanted)} FRED series failed")
         dq.failed_sources.extend(f"{prefix}FRED:{sid}" for sid in failed)
         return series
 
-    async def _fetch_prices(self, symbols: list[str], as_of: date, live: bool) -> dict[str, list[SeriesPoint]]:
+    async def _fetch_prices(self, symbols: list[str], as_of: date, live: bool,
+                            dq: DataQuality, prefix: str = "") -> dict[str, list[SeriesPoint]]:
         provider = self._market_provider()
         tag = "latest" if live else as_of.isoformat()
         prices: dict[str, list[SeriesPoint]] = {}
@@ -220,10 +237,14 @@ class MarketResearchService:
             fetched = await provider.get_histories(missing, as_of - timedelta(days=cfg.PRICE_HISTORY_DAYS), as_of)
             ttl = cfg.QUOTE_TTL_SECONDS if live else cfg.HISTORICAL_TTL_SECONDS
             for sym, pts in fetched.items():
-                prices[sym] = pts
-                await self.cache.set(f"prices:{sym}:{tag}", points_to_json(pts), ttl)
+                if pts:
+                    prices[sym] = pts
+                    await self.cache.set(f"prices:{sym}:{tag}", points_to_json(pts), ttl)
         if not prices:
             raise SourceError(f"{provider.name}: no prices returned")
+        absent = [sym for sym in missing if sym not in prices]
+        if absent:
+            dq.notes.append(f"{prefix}Market data: no prices returned for {', '.join(absent)}.")
         return prices
 
     def _cached_news(self) -> NewsProvider:
@@ -240,7 +261,7 @@ class MarketResearchService:
         started = time.monotonic()
         record, notes = await make_plan(request, budget_s=cfg.PLANNER_TIMEOUT_S)
         dq.notes.extend(notes)
-        logger.info("stage=planner source=%s planner_ms=%d", record.plan_source, int((time.monotonic() - started) * 1000))
+        logger.debug("stage=planner source=%s planner_ms=%d", record.plan_source, int((time.monotonic() - started) * 1000))
         plan = record.plan
         if plan is None:
             return record, {}, {}, ([], [])
@@ -251,12 +272,12 @@ class MarketResearchService:
         series, prices, news = await asyncio.gather(
             self._guarded(f"{p}FRED", self._fetch_fred(specs, as_of, live, dq, prefix=p), dq, {})
             if specs else _const({}),
-            self._guarded(f"{p}Market data", self._fetch_prices(plan.extra_symbols, as_of, live), dq, {})
+            self._guarded(f"{p}Market data", self._fetch_prices(plan.extra_symbols, as_of, live, dq, prefix=p), dq, {})
             if plan.extra_symbols else _const({}),
             self._guarded(f"{p}News", self._search_news(plan.news_queries, request.lookback_days_news), dq, ([], []))
             if plan.news_queries and news_ok else _const(([], [])),
         )
-        logger.info("stage=extra_fetch extra_fetch_ms=%d", int((time.monotonic() - started) * 1000))
+        logger.debug("stage=extra_fetch extra_fetch_ms=%d", int((time.monotonic() - started) * 1000))
         return record, series, prices, news
 
     async def _explain(self, explain: bool, events, series, prices, raw_news, as_of: date,
@@ -271,22 +292,26 @@ class MarketResearchService:
             return await explain_events(events, series, prices, raw_news, as_of,
                                         min(cfg.EXPLAIN_TIMEOUT_S, budget_s), provider)
         except Exception as e:
-            logger.info("stage=explain failed: %s", e)
+            logger.warning("run=%s stage=explain failed: %r", run_label(), e)
             return [], [f"Event explanations unavailable ({type(e).__name__})."]
+
+    @property
+    def _source_timeout(self) -> float:
+        return min(self.settings.source_timeout_seconds, self.settings.run_budget_seconds)
 
     async def _guarded(self, label: str, coro, dq: DataQuality, default):
         """Run one source under its timeout; record failure and return `default`."""
-        timeout = min(self.settings.source_timeout_seconds, self.settings.run_budget_seconds)
+        timeout = self._source_timeout
         started = time.monotonic()
         try:
             result = await asyncio.wait_for(coro, timeout=timeout)
-            logger.info("stage=%s ok latency_ms=%d", label, int((time.monotonic() - started) * 1000))
+            logger.debug("stage=%s ok latency_ms=%d", label, int((time.monotonic() - started) * 1000))
             return result
         except asyncio.TimeoutError:
             dq.failed_sources.append(f"{label} (timed out after {timeout:.0f}s)")
         except Exception as e:
             dq.failed_sources.append(f"{label} ({e})")
-        logger.info("stage=%s failed", label)
+        logger.warning("run=%s source failed: %s", run_label(), dq.failed_sources[-1])
         return default
 
     # --- assembly ----------------------------------------------------------
@@ -339,11 +364,43 @@ class MarketResearchService:
             ))
         return out
 
-    async def run(self, request: MarketResearchRequest, run_id: Optional[str] = None) -> MarketResearchResult:
+    async def _audit(self, run_id: str, event: str, details: dict) -> None:
+        """An audit-store failure is logged loudly but doesn't take down the answer."""
+        try:
+            await self.audit.record(run_id, event, details)
+        except Exception as e:
+            logger.warning("audit event %s for run %s not recorded: %r", event, run_id, e)
+
+    async def record_rendered(self, run_id: str, content: str) -> None:
+        """Record the hash of the text a chat answer was rendered to."""
+        await self._audit(run_id, "response_rendered", {"sha256": sha256_of(content.encode("utf-8"))})
+
+    async def run(self, request: MarketResearchRequest, run_id: Optional[str] = None,
+                  origin: Optional[RunOrigin] = None) -> MarketResearchResult:
         if request.region not in cfg.SUPPORTED_REGIONS:
             raise UnsupportedRegionError(
                 f"region {request.region!r} is not supported yet (supported: {', '.join(cfg.SUPPORTED_REGIONS)})"
             )
+        run_id = run_id or new_run_id()
+        who = origin.model_dump() if origin else None
+        logger.info("run=%s started channel=%s", run_id, origin.channel if origin else "-")
+        with run_trace(run_id, origin) as trace:
+            try:
+                result = await self._pipeline(request, run_id, origin, trace)
+            except Exception as e:
+                logger.error("run=%s failed: %s: %s", run_id, type(e).__name__, e)
+                await self._audit(run_id, "run_failed", {
+                    "origin": who, "query": request.query, "error": f"{type(e).__name__}: {e}"[:500]})
+                raise
+        output = result.output
+        await self._audit(run_id, "run_finished", {
+            "origin": who, "sha256": sha256_of(result.json_path.read_bytes()), "quality": output.quality.status,
+            "schema_version": output.schema_version, "llm_model": output.llm_model,
+        })
+        return result
+
+    async def _pipeline(self, request: MarketResearchRequest, run_id: str, origin: Optional[RunOrigin],
+                        trace: RunTrace) -> MarketResearchResult:
         started = time.monotonic()
         now = datetime.now(timezone.utc)
         today = now.date()
@@ -369,7 +426,7 @@ class MarketResearchService:
                 "News", self._search_news(list(cfg.NEWS_QUERIES) + own, request.lookback_days_news), dq, ([], []))
         series, prices, news_result, planned = await asyncio.gather(
             self._guarded("FRED", self._fetch_fred(specs, as_of, live, dq), dq, {}),
-            self._guarded("Market data", self._fetch_prices([s.symbol for s in cfg.WATCHLIST], as_of, live), dq, {}),
+            self._guarded("Market data", self._fetch_prices([s.symbol for s in cfg.WATCHLIST], as_of, live, dq), dq, {}),
             news_task if news_task is not None else _const(([], [])),
             self._planned(request, as_of, live, news_ok, dq) if plan_wanted else _const((None, {}, {}, ([], []))),
         )
@@ -435,7 +492,7 @@ class MarketResearchService:
         dq.notes.extend(tag_notes + explain_notes + screen_notes)
 
         output = MarketResearchOutput(
-            run_id=run_id or new_run_id(now),
+            run_id=run_id,
             generated_at=now,
             as_of=as_of,
             region=request.region,
@@ -450,12 +507,16 @@ class MarketResearchService:
             planned_market=planned_market,
             event_explanations=event_explanations,
             data_quality=dq,
+            llm_model=CURRENT_MODEL,
+            prompt_versions={key: get_prompt_version(key) for key in cfg.PIPELINE_PROMPT_KEYS},
+            origin=origin,
         )
 
         if request.include_narrative:
             from app.agents.market_researcher.synthesis import synthesize
 
-            await synthesize(output)
+            elapsed = time.monotonic() - started
+            await synthesize(output, timeout=max(cfg.SYNTHESIS_MIN_BUDGET_S, self.settings.run_budget_seconds - elapsed))
 
         # Quality gate, part 2: screen the narrative, then the final verdict both
         # consumers (HTTP orchestrator and chat) read before using the output.
@@ -464,10 +525,14 @@ class MarketResearchService:
             [f"narrative replaced by the template (advice-like wording: {', '.join(narrative_flags)})"]
             if narrative_flags else [])
         output.quality = quality.assess(output, news_expected=news_ok, screened=screened)
-        logger.info("stage=quality status=%s issues=%d", output.quality.status, len(output.quality.issues))
+        output.llm_attempts = trace.attempts
 
         path = write_json_atomic(output, self.out_dir)
-        logger.info("run=%s done in %.1fs -> %s", output.run_id, time.monotonic() - started, path)
+        retried = sum(a.outcome != "accepted" for a in trace.attempts)
+        logger.info("run=%s finished in %.1fs quality=%s llm_problems=%d", run_id, time.monotonic() - started,
+                    output.quality.status, retried)
+        if output.quality.issues:
+            logger.warning("run=%s quality issues: %s", run_id, "; ".join(output.quality.issues))
         return MarketResearchResult(output=output, json_path=path)
 
 
@@ -475,9 +540,11 @@ class MarketResearchService:
         if not raw_news:
             return [], []
         # Keep tagging inside the run budget, falling back to keyword tags if it runs long.
+        started = time.monotonic()
         try:
             return await asyncio.wait_for(tag_news(raw_news), timeout=max(10.0, remaining))
-        except asyncio.TimeoutError:
+        except asyncio.TimeoutError as e:
+            record_failure("news_tagging", started, e)
             return ([keyword_tag(item) for item in raw_news],
                     ["News tags are keyword-based (LLM tagging exceeded the run budget)."])
 

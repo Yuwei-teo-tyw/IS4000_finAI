@@ -5,7 +5,8 @@ orchestrates it.
     POST /agents/market-researcher/runs            start a run (202 + run_id; ?wait=true blocks for the output)
     GET  /agents/market-researcher/runs/{run_id}   status
     GET  /agents/market-researcher/runs/{run_id}/output   the run's JSON output file
-    GET  /agents/market-researcher/latest?region=US&max_age_minutes=60   freshest finished output
+    GET  /agents/market-researcher/runs/{run_id}/audit   the run's audit events (chat and HTTP runs)
+    GET  /agents/market-researcher/latest?region=US&max_age_minutes=60   freshest current, usable output
     GET  /agents/market-researcher/schema          JSON Schema of the output (the contract)
     GET  /agents/market-researcher/health          configured keys + storage reachability
     GET  /agents/market-researcher/articles?run_id=&url=   reader view of one cited news article (chat UI)
@@ -124,6 +125,14 @@ async def get_run_output(run_id: str, runner: MarketResearchRunner = Depends(get
     if record.status == "failed":
         raise HTTPException(status_code=409, detail=f"Run {run_id} failed: {record.error}")
     return _output_file(record)
+
+
+@router.get("/runs/{run_id}/audit")
+async def get_run_audit(run_id: str, runner: MarketResearchRunner = Depends(get_runner)):
+    events = await runner.service.audit.events(run_id)
+    if not events:
+        raise HTTPException(status_code=404, detail=f"No audit events for run {run_id}")
+    return {"run_id": run_id, "events": events}
 
 
 @router.get("/latest")

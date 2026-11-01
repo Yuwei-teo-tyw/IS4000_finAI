@@ -5,6 +5,7 @@ import json
 from datetime import date, datetime, timedelta, timezone
 
 import app.agents.market_researcher.event_explainer as explainer_module
+from app.agents.market_researcher import config as cfg
 from app.agents.market_researcher.adapters.base import SeriesPoint
 from app.agents.market_researcher.adapters.news import RawNewsItem
 from app.agents.market_researcher.event_explainer import (
@@ -16,6 +17,7 @@ from app.agents.market_researcher.event_explainer import (
 )
 from app.agents.market_researcher.features import shift_months
 from app.agents.market_researcher.schemas import Event, MarketResearchRequest
+from app.agents.market_researcher.tracing import run_trace
 
 from conftest import run_async
 from test_market_service import TODAY, make_service, quiet_planner_and_explainer
@@ -67,7 +69,7 @@ class ScriptLLM:
     def with_structured_output(self, schema):
         return self
 
-    async def ainvoke(self, messages):
+    async def ainvoke(self, messages, config=None):
         self.calls.append(list(messages))
         step = self.steps.pop(0)
         if isinstance(step, BaseException):
@@ -236,3 +238,41 @@ def test_past_as_of_defaults_off_and_live_defaults_on(monkeypatch, tmp_path):
     forced = run_async(make_service(tmp_path).run(
         MarketResearchRequest(as_of=TODAY - timedelta(days=60), explain_events=True))).output
     assert any("today's news index" in n for n in forced.data_quality.notes)
+
+
+def test_retry_quotes_the_draft_in_a_user_turn(monkeypatch):
+    text = "Reports tie the move to a 9.9% jump in issuance."
+    llm = use_llm(monkeypatch,
+                  lambda m: ExplainBatch(items=[draft([n_of(m, SUPPLY.title)], text=text)]),
+                  lambda m: ExplainBatch(items=[draft([n_of(m, SUPPLY.title)])]))
+    [x], _ = run(Provider(SUPPLY))
+
+    assert x.status == "explained" and len(llm.calls) == 2
+    assert not any(m.type == "ai" for m in llm.calls[1])
+    assert llm.calls[1][-1].type == "human" and "9.9% jump" in llm.calls[1][-1].content
+
+
+def test_cited_source_keeps_the_text_the_model_saw(monkeypatch):
+    use_llm(monkeypatch, lambda m: ExplainBatch(items=[draft([n_of(m, SUPPLY.title)])]))
+    [x], _ = run(Provider(SUPPLY))
+    assert x.cited_sources[0].snippet == SUPPLY.snippet[:cfg.EXPLAIN_SNIPPET_CHARS]
+
+
+def test_foreign_link_in_an_explanation_is_rejected(monkeypatch):
+    text = "Reports tie the move to supply, see https://evil.example/x for more."
+    use_llm(monkeypatch,
+            lambda m: ExplainBatch(items=[draft([n_of(m, SUPPLY.title)], text=text)]),
+            lambda m: ExplainBatch(items=[draft([n_of(m, SUPPLY.title)], text=text)]))
+    [x], notes = run(Provider(SUPPLY))
+    assert x.status == "unavailable" and "links not in the data" in notes[-1]
+
+
+def test_explainer_attempts_are_logged(monkeypatch):
+    text = "Reports tie the move to a 9.9% jump in issuance."
+    use_llm(monkeypatch,
+            lambda m: ExplainBatch(items=[draft([n_of(m, SUPPLY.title)], text=text)]),
+            lambda m: ExplainBatch(items=[draft([n_of(m, SUPPLY.title)])]))
+    with run_trace("mr_test") as trace:
+        run(Provider(SUPPLY))
+    assert [a.outcome for a in trace.attempts] == ["rejected", "accepted"]
+    assert "9.9%" in trace.attempts[0].rejected_text

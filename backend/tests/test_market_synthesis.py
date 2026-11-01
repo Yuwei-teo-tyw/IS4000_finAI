@@ -1,5 +1,6 @@
 """Optional narrative: the number validator, the single retry, and the
 deterministic template fallback."""
+import asyncio
 from datetime import date, datetime, timezone
 
 import app.agents.market_researcher.synthesis as synthesis_module
@@ -21,7 +22,9 @@ from app.agents.market_researcher.synthesis import (
     problems,
     synthesize,
     template_synthesis,
+    unknown_links,
 )
+from app.agents.market_researcher.tracing import run_trace
 
 from app.prompts.prompt_builder import get_prompt
 
@@ -176,3 +179,69 @@ def test_validator_accepts_explanation_and_decomposition_numbers():
 
 def test_template_includes_decomposition_lines():
     assert DECOMP["description"] in template_synthesis(with_explanation()).narrative
+
+
+def test_synthesize_uses_the_template_when_the_llm_hangs(monkeypatch):
+    class HangingLLM:
+        def with_structured_output(self, schema):
+            return self
+
+        async def ainvoke(self, messages, config=None):
+            await asyncio.sleep(60)
+
+    monkeypatch.setattr(synthesis_module, "get_groq_model", HangingLLM)
+    out = make_output()
+    run_async(synthesize(out, timeout=0.01))
+    assert "late_expansion" in out.narrative
+    assert "uncalibrated model scores" in out.narrative
+    assert any("TimeoutError" in n for n in out.data_quality.notes)
+
+
+LINK_PAYLOAD = {"news": [{"url": "https://news.example/a", "title": "See https://evil.example/x now"}],
+                "event_explanations": [{"cited_urls": ["https://news.example/b/"]}]}
+
+
+def test_links_must_come_from_url_fields():
+    assert unknown_links(["See [https://news.example/a] and https://news.example/b."], LINK_PAYLOAD) == []
+    assert unknown_links(["Read https://evil.example/x today."], LINK_PAYLOAD) == ["https://evil.example/x"]
+    assert unknown_links(["[click](evil.example/x) or www.evil.example"], LINK_PAYLOAD) == ["evil.example/x", "www.evil.example"]
+
+
+def test_images_and_foreign_links_are_problems():
+    found = problems(["![x](https://evil.example/p.png)"], set(), LINK_PAYLOAD)
+    assert "images are not allowed" in found and any(p.startswith("links not in the data") for p in found)
+
+
+def test_superlatives_need_support_in_the_data():
+    text = ["Energy CPI is the most elevated component in the basket."]
+    assert any("superlative" in p for p in problems(text, set(), {}))
+    assert not any("superlative" in p for p in problems(text, set(), {"note": "the most elevated reading"}))
+
+
+def test_common_superlatives_are_checked():
+    for word in ("biggest", "largest", "worst", "unprecedented"):
+        assert any("superlative" in p for p in problems([f"This is the {word} move."], set(), {})), word
+
+
+def test_rejected_draft_is_kept_in_the_attempt_log(monkeypatch):
+    fake = FakeLLM(draft("Yields at 6.75%."), draft("Yields at 7.1%."))
+    monkeypatch.setattr(synthesis_module, "get_groq_model", lambda: fake)
+    out = make_output()
+    with run_trace("mr_test") as trace:
+        run_async(synthesize(out))
+    assert [(a.attempt, a.outcome) for a in trace.attempts] == [(1, "rejected"), (2, "rejected")]
+    assert "6.75" in trace.attempts[0].rejected_text and "6.75" in trace.attempts[0].problems[0]
+
+
+def test_timeout_is_kept_in_the_attempt_log(monkeypatch):
+    class HangingLLM:
+        def with_structured_output(self, schema):
+            return self
+
+        async def ainvoke(self, messages, config=None):
+            await asyncio.sleep(60)
+
+    monkeypatch.setattr(synthesis_module, "get_groq_model", HangingLLM)
+    with run_trace("mr_test") as trace:
+        run_async(synthesize(make_output(), timeout=0.01))
+    assert [a.outcome for a in trace.attempts] == ["timeout"]

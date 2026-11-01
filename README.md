@@ -19,14 +19,14 @@ The system is built on a real **LangGraph `StateGraph`** with conditional edges 
 Two subagents wrap the core flow:
 
 - **🧹 Context Manager**: runs at the start of every turn; once the conversation gets large, it summarizes the older portion and drops it from state (via LangGraph's `RemoveMessage`), keeping a fixed window of recent messages verbatim - so long conversations don't blow past the model's context window.
-- **✅ Eval Agent**: reviews every specialist/triage response before it ships. It can `approve` it, `flag` it with a visible caveat, or `regenerate` it with feedback (capped retries, so it never loops forever). For General Assistant and Market Researcher responses, it also runs a **compliance pass** - see below. Market Researcher answers skip the quality verdict and are never regenerated, since they are a deterministic render that a re-run can't change.
+- **✅ Eval Agent**: reviews General Assistant and triage responses before they ship (Market Researcher answers rely on the pipeline's own quality gate). It can `approve` it, `flag` it with a visible caveat, or `regenerate` it with feedback (capped retries, so it never loops forever). For General Assistant and Market Researcher responses, it also runs a **compliance pass** - see below. Market Researcher answers skip the quality verdict and are never regenerated, since they are a deterministic render that a re-run can't change.
 
 Several more pieces are in as functional placeholders, ready to harden before this handles anything beyond a demo:
 
 - **🔒 PII Guard**: scans every incoming user message for likely SSNs, emails, and account/card numbers (credit cards are Luhn-validated to cut down false positives) and redacts them *before* they ever reach an LLM call or get persisted to state. This is a regex-based first pass - swap in something like Microsoft Presidio or a hosted DLP API before relying on it for real compliance guarantees. See `nodes/pii_guard.py`.
-- **⚖️ Compliance check**: a second structured check inside the eval agent, for General Assistant and Market Researcher responses - looks for unqualified "guaranteed returns" language, missing disclaimers, or responses that read as personalized advice rather than general education. Can force a regenerate (rewrite needed) or a flag (just needs a disclaimer). This is an LLM judgment call, not a substitute for a real compliance review process (licensed-advisor sign-off, a maintained rules engine, an audit trail) before production use. See `nodes/eval_agent.py`.
+- **⚖️ Compliance check**: a second structured check inside the eval agent, for General Assistant responses - looks for unqualified "guaranteed returns" language, missing disclaimers, or responses that read as personalized advice rather than general education. Can force a regenerate (rewrite needed) or a flag (just needs a disclaimer). This is an LLM judgment call, not a substitute for a real compliance review process (licensed-advisor sign-off, a maintained rules engine, an audit trail) before production use. See `nodes/eval_agent.py`.
 
-> **Observability**: Langfuse tracing is wired in (`app/core/tracing.py`) - every turn is traced as one tree per session (triage/general/market-researcher/eval/context-manager LLM calls all nest under it automatically via LangGraph's callback propagation, no per-node code needed). Configure via the standard env vars (`LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_HOST`); with them unset, tracing silently no-ops rather than breaking anything.
+> **Observability**: Langfuse tracing is wired in (`app/core/tracing.py`) - every turn is traced as one tree per session (triage/general/market-researcher/eval/context-manager LLM calls all nest under it automatically via LangGraph's callback propagation, no per-node code needed). The Market Researcher also attaches a trace config to its own LLM calls, because its HTTP runs happen outside the graph. Configure via the standard env vars (`LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_HOST`); with them unset, tracing silently no-ops rather than breaking anything.
 
 > **Prompt versioning**: every prompt in this project lives in `app/prompts/prompts.yaml`, loaded through `app/prompts/prompt_builder.py` (`get_prompt("agent.key")`) instead of being hardcoded in each node file. Each key keeps every version it's ever had plus a `latest` pointer; pin a specific key to an older/newer version without a code change via `PROMPT_VERSION_OVERRIDES='{"general.system": "v2"}'` - useful for rollback or an A/B test tied to `get_prompt_version(key)` in your eval/tracing metadata.
 
@@ -51,7 +51,7 @@ flowchart TD
     general_tools --> general
 
     market_researcher -->|now out of scope| triage
-    market_researcher -->|rendered result| eval
+    market_researcher -->|rendered result| END2
 
     eval -->|regenerate| general
     eval -->|regenerate| triage
@@ -106,23 +106,24 @@ Deleting a session (`DELETE /sessions/{id}`) has to clean up both halves separat
 
 ## 📈 Market Researcher Agent
 
-A data agent for a **main agent (orchestrator)** to call over HTTP. It is separate from the chat flow above. Each run does the following:
+A data agent with two entry points: a **main agent (orchestrator)** calls it over HTTP, and advisers reach it through the chat. Both run the same pipeline. Each run does the following:
 
 1. Pulls current macro, rates, credit and financial-conditions series from **FRED**, prices for about 25 ETFs, indices and futures from **yfinance**, and macro news from **Tavily**. In parallel, a **query planner** picks extra series, symbols and news queries for the caller's question, choosing only from curated catalogs.
 2. Detects notable events, such as "10Y at multi-year high", a curve un-inversion, a Sahm rule trigger, or credit stress. It then **explains** the notable ones with targeted news searches and code-computed decompositions (e.g. how much of a yield move came from real yields vs breakevens), producing short explanations with cited sources.
-3. Classifies the **economic cycle phase** (`early_expansion` / `late_expansion` / `recession` / `late_recession`), with probabilities, confidence, drivers and conflicting signals. It also reports the NY Fed yield-curve recession probability.
-4. Writes everything to a **JSON file** that the main agent synthesizes later.
+3. Classifies the **economic cycle phase** (`early_expansion` / `late_expansion` / `recession` / `late_recession`), with phase scores, confidence, drivers and conflicting signals. The scores in `regime.probabilities` are uncalibrated, so the chat and the template narrative label them "uncalibrated model scores". It also reports the NY Fed yield-curve recession probability.
+4. Runs a code-only **quality gate**, then writes everything to a **JSON file** that the main agent synthesizes later.
 
-**Numbers come from code or cited sources, not the LLM.** The LLM chooses extras only from allowlists, tags news, and writes event explanations. Every number in an explanation must appear in the event's data, its decomposition or the articles it cites; code maps article numbers to URLs, so sources can't be invented. An optional narrative (`include_narrative: true`) is checked so that every number in it appears in the data; it falls back to a deterministic template if not. The regime, events, indicators, market snapshot and backtest are unaffected by the planner and explainer: planned extras go to separate fields (`planned_indicators`, `planned_market`) and never feed the regime or event rules. Full documentation (data sources, parsing, analytics, output format) is in [`backend/app/agents/market_researcher/market_research_explain.md`](backend/app/agents/market_researcher/market_research_explain.md); design notes and deviations from the original spec (`market_researcher_agent.md`) are in `NOTES.md` next to it.
+**Numbers come from code or cited sources, not the LLM.** The LLM chooses extras only from allowlists, tags news, and writes event explanations. Every number in an explanation must appear in the event's data, its decomposition or the articles it cites; code maps article numbers to URLs, so sources can't be invented. An optional narrative (`include_narrative: true`) is checked so that every number in it appears in the data, every link is a recorded source, and it contains no images or wording the data can't support ("YTD", "record", unsupported superlatives). It gets one retry, then falls back to a deterministic template. Text from news articles is treated as data, never as instructions. The regime, events, indicators, market snapshot and backtest are unaffected by the planner and explainer: planned extras go to separate fields (`planned_indicators`, `planned_market`) and never feed the regime or event rules. Full documentation (data sources, parsing, analytics, output format) is in [`backend/app/agents/market_researcher/market_research_explain.md`](backend/app/agents/market_researcher/market_research_explain.md); design notes and deviations from the original spec (`market_researcher_agent.md`) are in `NOTES.md` next to it.
 
 ### Endpoints
 
 | Method & path | Purpose |
 |---|---|
-| `POST /agents/market-researcher/runs` | Start a run. The body is a `MarketResearchRequest` (`query`, `region`, `focus`, `lookback_days_news`, `as_of`, `include_narrative`, `planning` = `"auto"`/`"off"`, `explain_events` = `null`/`true`/`false`). Returns **202** with `run_id`, `status_url` and `output_url`. `?wait=true` blocks and returns the output (**200**) |
-| `GET /agents/market-researcher/runs/{run_id}` | Status: `queued` / `running` / `succeeded` / `partial` (some sources failed, output still produced) / `failed` |
+| `POST /agents/market-researcher/runs` | Start a run. The body is a `MarketResearchRequest` (`query` up to 500 characters, `region`, `focus` up to 8 terms, `lookback_days_news`, `as_of`, `include_narrative`, `planning` = `"auto"`/`"off"`, `explain_events` = `null`/`true`/`false`). Returns **202** with `run_id`, `status_url` and `output_url`. `?wait=true` blocks and returns the output (**200**) |
+| `GET /agents/market-researcher/runs/{run_id}` | Status: `queued` / `running` / `succeeded` / `partial` (some sources failed, output still produced) / `failed`, plus the run's `quality` |
 | `GET /agents/market-researcher/runs/{run_id}/output` | The run's JSON output (409 while still running) |
-| `GET /agents/market-researcher/latest?region=US&max_age_minutes=60` | Freshest finished output, so a new run can be skipped |
+| `GET /agents/market-researcher/latest?region=US&max_age_minutes=60` | Freshest current, usable output, so a new run can be skipped. Replays of a past `as_of` and `unusable` runs are excluded |
+| `GET /agents/market-researcher/runs/{run_id}/audit` | The run's audit events, for chat and HTTP runs (404 if there are none) |
 | `GET /agents/market-researcher/schema` | JSON Schema of the output (the contract; also committed as `market_research_output.schema.json`) |
 | `GET /agents/market-researcher/health` | Configured keys and storage reachability |
 
@@ -136,9 +137,10 @@ curl localhost:8000/agents/market-researcher/runs/mr_20261016T063145Z_0aa2fb/out
 Operational details:
 
 - **Cold runs** take about 35s, mostly the FRED fan-out of 35 series. **Warm runs** take about 20–25s with the planner and explanations (LLM calls: planner 1, tagging 1, explanations 1 + 1 retry, narrative 1–2 if requested), or about 5s with `planning: "off"` and `explain_events: false`. The run budget is 90s (`MARKET_RESEARCH_RUN_BUDGET`).
-- **Query planner:** extras come only from `EXTRA_SERIES_CATALOG` (35 FRED series) and `EXTRA_SYMBOL_CATALOG` (26 symbols) in `config.py`. Anything else is dropped and listed in `plan.dropped`. Caps are 8 series, 8 symbols and 4 news queries. If the LLM fails, a keyword heuristic takes over. To add an option, append a spec with a `description` and `tags`. A failed extra (`planned:...`) does not make the run `partial`.
-- **Quality gate:** every output carries `quality.status` (`ok` / `degraded` / `unusable`), with `checks` and `issues`. It comes from a final code-only stage (`quality.py`) that screens LLM-written text for advice wording and checks consistency, completeness, freshness and sources. Callers should read it first. It runs inside the pipeline, so the HTTP orchestrator gets the same verdict as the chat.
-- **Event explanations:** the top 4 major/notable events get `event_explanations` (`explained` / `insufficient_evidence` / `unavailable` / `skipped`) with `cited_urls` and an optional code-derived `decomposition`. They are on by default for live runs and off for a past `as_of`. Per-event context, search templates and lookbacks are in `EVENT_EXPLAIN_SPECS`.
+- **Timeouts:** each FRED series has its own timeout inside the 45s source limit, so one slow series fails alone and the others are kept. The narrative runs inside the remaining run budget, with a 20s minimum, and falls back to the template if it runs out.
+- **Query planner:** extras come only from `EXTRA_SERIES_CATALOG` (35 FRED series) and `EXTRA_SYMBOL_CATALOG` (26 symbols) in `config.py`. Anything else is dropped and listed in `plan.dropped`. Caps are 8 series, 8 symbols and 4 news queries. If the LLM fails, a keyword heuristic takes over. News queries go to external search, so the planner prompt bans person and client names, and the heuristic prefers focus terms over the raw message. This reduces the risk but isn't a guarantee. To add an option, append a spec with a `description` and `tags`. A failed extra (`planned:...`) does not make the run `partial`.
+- **Quality gate:** every output carries `quality.status` (`ok` / `degraded` / `unusable`), with `checks` and `issues`. It comes from a final code-only stage (`quality.py`) that screens LLM-written text for advice wording and checks consistency, completeness, freshness and sources. Callers should read it first. It runs inside the pipeline, so the HTTP orchestrator gets the same verdict as the chat. Neither path goes through the eval agent, so the advice screen is the only check on tone.
+- **Event explanations:** the top 4 major/notable events get `event_explanations` (`explained` / `insufficient_evidence` / `unavailable` / `skipped`) with `cited_urls`, `cited_sources` (including the snippet the model saw and when it was retrieved) and an optional code-derived `decomposition`. They are on by default for live runs and off for a past `as_of`. Per-event context, search templates and lookbacks are in `EVENT_EXPLAIN_SPECS`.
 - **Caches:**
 
   | Data | Cache TTL |
@@ -148,10 +150,25 @@ Operational details:
   | Prices | 5 min |
   | News | 15 min |
 
-- **Postgres tables:** the cache, the last regime (used for hysteresis) and the run registry live in three tables: `market_cache`, `market_regime_state` and `market_research_runs`.
+- **Empty results** from FRED, prices or news are not cached. Empty series and missing symbols are listed in `data_quality.notes`.
+- **Postgres tables:** the cache, the last regime (used for hysteresis), the run registry and the audit log live in four tables: `market_cache`, `market_regime_state`, `market_research_runs` and `market_audit_events`. They are created or updated at startup.
 - **Output files:** written to `backend/data/market_research/` (gitignored).
+- **Access:** if `MARKET_RESEARCH_API_TOKEN` is unset, the endpoints are open and the runner logs a warning at startup.
 - **Limits:** concurrency is capped (`MARKET_RESEARCH_MAX_CONCURRENT_RUNS`, default 2). Identical in-flight requests share one run.
 - **Regions:** only `US` is supported for now; other regions return 422.
+
+### Traceability and logging
+
+| Record | What it holds |
+|---|---|
+| **Run JSON** | The output, plus `origin` (channel, session, client), `llm_model`, `prompt_versions` and `llm_attempts` (every attempt with its outcome, problems and rejected text) |
+| **Audit log** (`market_audit_events`) | Append-only `run_finished` and `response_rendered` events with SHA-256 hashes, and `run_failed` events with the error |
+| **Langfuse** | One trace per LLM call, with the run ID, stage, attempt and prompt versions, for chat and HTTP runs. On HTTP runs the session ID is the run ID |
+| **Server log** | Checkpoints only |
+
+A session ID identifies a chat session, not a verified person, because the chat has no login.
+
+A healthy run logs two INFO lines: `run=... started` and `run=... finished in ...s quality=... llm_problems=...`. WARNING lines cover failed sources, LLM attempts that weren't accepted, and quality issues. ERROR means the run failed. Set `MARKET_RESEARCH_LOG_LEVEL=DEBUG` for per-request and per-stage detail, or use `-v` on the CLI.
 
 ### Geneva chat (adviser workspace)
 
@@ -161,7 +178,8 @@ The Geneva chat in the RM / PM / PS workspace (`frontend/src/components/geneva/G
 
 The same pipeline is also reachable from the chat:
 
-- **Triage** has a `market` route. Questions about current macro or market conditions go to a **📈 Market Researcher** node. The node runs the pipeline with the validated narrative and renders the result as Markdown: the phase, events (each with a cited "Why:" line and decomposition when available), a headline table, sources and a disclaimer. The answer still passes through `eval`, including the compliance pass.
+- **Triage** has a `market` route. Questions about current macro or market conditions go to a **📈 Market Researcher** node. The node runs the pipeline with the validated narrative and renders the result as Markdown: a warning if the run is `degraded` or `unusable`, the phase, the narrative, risks and implications, events (each with a cited "Why:" line and decomposition when available), a "Relevant to your question" table of the planner's extras, headline tables, sources and a disclaimer. The answer goes straight to the user after the pipeline's quality gate, without the eval agent.
+- **Follow-ups work.** The scope check sees the last few messages and rewrites a follow-up such as "why is that?" into a standalone question before the run. A first message is used as typed. Every follow-up still runs the full pipeline.
 - **Source links open a side panel.** Clicking a news link in a Market Researcher reply opens a reader view of the article (extracted text, plus the agent's summary and tags) instead of leaving the chat. Sites that block this fall back to the summary and an "Open original" button.
 - **The General Assistant is separate.** It has no access to the market researcher's tools or data. Its scope check hands questions about current macro or market conditions back to triage, which routes them to the Market Researcher.
 
@@ -177,7 +195,7 @@ RUN_LIVE_MARKET_TESTS=1 pytest -m live                                # live smo
 RUN_BACKTEST=1 pytest -m slow                                         # backtest acceptance test
 ```
 
-The regime classifier is score-based and transparent. Every weight and threshold lives in `market_researcher/config.py`, so tune it there and re-run the backtest. The current backtest covers 1980 to the present. It catches **6/6** NBER recessions and makes 2 sustained false recession calls: the 2003 jobless recovery and the 2024 Sahm-rule trigger. See `backtest_report.md`.
+The regime classifier is score-based and transparent. Every weight and threshold lives in `market_researcher/config.py`, so tune it there and re-run the backtest. The current backtest covers 1980 to the present. The last recorded result, from before the walk-forward settings now in `RegimeConfig`, caught **6/6** NBER recessions with 2 sustained false recession calls: the 2003 jobless recovery and the 2024 Sahm-rule trigger. `backtest_report.md` is generated, not committed, so re-run the backtest for current figures. The phase scores are not calibrated yet (`RegimeConfig.calibration` is unset).
 
 ## 📊 Portfolio Agent
 
@@ -401,7 +419,10 @@ Data goes through `recommendProducts` and the asset-view calls in `frontend/src/
 │   │   │   │   ├── service.py           # Pipeline: fetch -> features -> events -> regime -> JSON file
 │   │   │   │   ├── adapters/            # FRED, yfinance, Tavily news (retry/backoff/rate limits)
 │   │   │   │   ├── features.py / events.py / regime.py   # Deterministic analytics
+│   │   │   │   ├── planner.py / event_explainer.py        # LLM query plan + cited event explanations
 │   │   │   │   ├── news_tagging.py / synthesis.py         # LLM tagging + optional validated narrative
+│   │   │   │   ├── quality.py           # Code-only quality gate and advice screen
+│   │   │   │   ├── tracing.py / audit.py                  # Per-run LLM trace + append-only audit log
 │   │   │   │   ├── runs.py              # Run registry + background runner behind the endpoint
 │   │   │   │   ├── config.py            # Series, watchlist, thresholds, regime weights, TTLs
 │   │   │   │   └── backtest.py          # Regime backtest vs NBER -> backtest_report.md
@@ -428,7 +449,7 @@ Data goes through `recommendProducts` and the asset-view calls in `frontend/src/
 │   │   │   └── prompt_builder.py        # get_prompt()/get_prompt_version() loader
 │   │   └── endpoints/
 │   │       ├── __init__.py              # WebSocket route + /sessions REST routes
-│   │       ├── market_researcher.py     # /agents/market-researcher/* (runs, latest, schema, health)
+│   │       ├── market_researcher.py     # /agents/market-researcher/* (runs, audit, latest, schema, health)
 │   │       └── product_recommender.py   # /agents/product-recommender/* (recommend, asset-class views)
 │   └── requirements.txt                 # Python dependencies
 ├── frontend/
@@ -485,6 +506,7 @@ Data goes through `recommendProducts` and the asset-view calls in `frontend/src/
    # optional
    MARKET_RESEARCH_API_TOKEN=               # if set, its endpoints require "Authorization: Bearer <token>"
    MARKET_RESEARCH_OUTPUT_DIR=              # default: backend/data/market_research
+   MARKET_RESEARCH_LOG_LEVEL=INFO           # DEBUG adds per-request and per-stage detail
    MARKET_DATA_PROVIDER=yfinance
    NEWS_PROVIDER=tavily                     # reuses TAVILY_API_KEY
    ```
@@ -544,7 +566,8 @@ The General Assistant has `tavily_search` bound as a real tool via `bind_tools()
 ```
 User: "Are recession risks rising?"
 Market Researcher: Pulls live FRED, market and news data, then replies with the cycle phase and confidence,
-the yield-curve recession probability, notable events, a headline indicator table, and source links
+the yield-curve recession probability, a written read with risks and implications, notable events,
+indicator tables, and source links
 ```
 
 #### 💰 Financial Questions
@@ -601,7 +624,7 @@ Restart the whole app       -> reopen the browser, your last active session and 
 - **Multi-turn Dialogues**: Specialists can handle follow-up questions in their domain without re-routing through triage
 - **Intelligent Routing**: LLM-based intent analysis (structured output, not string-matching) ensures accurate agent selection
 - **Real-time Web Search**: Tavily integration, model-decided per turn, for current information and market data
-- **Response Review**: every final answer passes through an eval agent (approve/flag/regenerate) before it ships, with an extra compliance pass for General Assistant and Market Researcher answers
+- **Response Review**: General Assistant and triage answers pass through an eval agent (approve/flag/regenerate) before they ship, with an extra compliance pass for General Assistant answers. Market Researcher answers rely on the pipeline's own quality gate
 - **PII Redaction**: likely SSNs, emails, and card/account numbers are stripped from incoming messages before they reach any LLM call
 - **Real-time Updates**: WebSocket notifications for agent transitions and search status
 - **Error Handling**: Graceful fallbacks and error recovery

@@ -4,6 +4,7 @@ in the agent's own words - one batched structured LLM call for all items
 (guide §3.3). Falls back to a keyword tagger if the LLM call fails, so a
 Groq outage degrades the tags instead of dropping the news.
 """
+import time
 from typing import Literal
 
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -11,6 +12,7 @@ from pydantic import BaseModel, Field
 
 from app.agents.market_researcher.adapters.news import RawNewsItem
 from app.agents.market_researcher.schemas import NewsItem
+from app.agents.market_researcher.tracing import record_attempt, record_failure, trace_config
 from app.core import get_groq_model
 from app.prompts.prompt_builder import get_prompt
 
@@ -76,15 +78,17 @@ async def tag_news(items: list[RawNewsItem]) -> tuple[list[NewsItem], list[str]]
     listing = "\n\n".join(
         f"[{i}] {it.title}\nSource: {it.source}\nSnippet: {it.snippet[:300]}" for i, it in enumerate(items)
     )
+    started = time.monotonic()
     try:
         tagger = with_max_tokens(get_groq_model(), TAGGING_MAX_TOKENS).with_structured_output(NewsTagBatch)
         batch = await tagger.ainvoke([
             SystemMessage(content=get_prompt("market_researcher.news_tagging_system")),
             HumanMessage(content=listing),
-        ])
+        ], config=trace_config("news_tagging", ["market_researcher.news_tagging_system"]))
         tags = {t.index: t for t in batch.items}
+        record_attempt("news_tagging", started)
     except Exception as e:
-        print(f"MARKET_RESEARCHER: news tagging LLM call failed, using keyword tags: {e}")
+        record_failure("news_tagging", started, e)
         return [keyword_tag(it) for it in items], ["News tags are keyword-based (LLM tagging failed)."]
 
     out, missing = [], 0

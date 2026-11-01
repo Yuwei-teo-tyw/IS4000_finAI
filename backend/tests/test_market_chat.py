@@ -1,6 +1,6 @@
 """
 Optional chat trigger for the market researcher: the MarketResearcher
-graph node, the end-to-end triage -> market_researcher -> eval path, the
+graph node, the end-to-end triage -> market_researcher path, the
 deterministic renderer, and the General Assistant staying separate (it
 has no access to the market researcher).
 The pipeline runs for real against the stubbed providers from
@@ -8,7 +8,7 @@ test_market_service; every LLM is a FakeLLM.
 """
 import json
 
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langgraph.checkpoint.memory import InMemorySaver
 
 import app.agents.market_researcher.news_tagging as tagging_module
@@ -17,16 +17,18 @@ import app.agents.nodes.market_researcher as node_module
 import app.agents.nodes.general as general_module
 import app.agents.tools as tools_module
 from app.agents.graph import build_graph
+from app.agents.market_researcher.audit import InMemoryAuditLog, sha256_of
 from app.agents.market_researcher.news_tagging import NewsTagBatch
 from app.agents.market_researcher.render import render_markdown
-from app.agents.market_researcher.schemas import Event, EventExplanation, MarketResearchRequest
-from app.agents.nodes.eval_agent import ComplianceCheck
+from app.agents.market_researcher.schemas import Event, EventExplanation, Indicator, MarketResearchRequest, QualityReport
+from app.agents.market_researcher.synthesis import use_template
 from app.agents.nodes.market_researcher import MarketResearcher, MarketScope
 from app.agents.nodes.triage import RoutingDecision
 
 from conftest import FakeLLM, run_async
 from test_graph_integration import _patch_all_llms
 from test_market_service import make_service, quiet_planner_and_explainer
+from test_market_synthesis import make_output
 
 
 def _quiet_pipeline_llms(monkeypatch):
@@ -73,7 +75,7 @@ def test_node_reports_pipeline_failure(monkeypatch, tmp_path):
     monkeypatch.setattr(node_module, "get_groq_model", lambda: FakeLLM(MarketScope(in_scope=True)))
 
     class Broken:
-        async def run(self, request):
+        async def run(self, request, origin=None):
             raise RuntimeError("FRED down")
 
     result = run_async(MarketResearcher(service=Broken()).run({"messages": [HumanMessage(content="rates?")]}))
@@ -87,7 +89,6 @@ def test_triage_to_market_researcher_end_to_end(monkeypatch, tmp_path):
     monkeypatch.setattr(node_module, "MarketResearchService", lambda: make_service(tmp_path))
     fakes["triage"].queue(RoutingDecision(destination="market"))
     fakes["market_researcher"].queue(MarketScope(in_scope=True, focus=["recession"]))
-    fakes["eval"].queue(ComplianceCheck(compliant=True, severity="none"))  # no quality pass for a rendered answer
 
     app = build_graph(InMemorySaver())
     config = {"configurable": {"thread_id": "market-e2e"}}
@@ -97,8 +98,11 @@ def test_triage_to_market_researcher_end_to_end(monkeypatch, tmp_path):
     assert "Cycle phase" in final_ai.content
     assert result["current_agent"] == "market_researcher"
     assert result["market_research_response"]["data"]["query_type"] == "market_research"
-    # compliance pass ran on the market researcher's answer
-    assert any("Assistant response to review" in str(call) for call in fakes["eval"].calls)
+    assert not fakes["eval"].calls  # the eval agent doesn't review market answers
+    # the graph hands the node its config, so the run knows its chat session
+    run_id = result["market_research_response"]["data"]["run_id"]
+    saved = json.loads((tmp_path / f"{run_id}.json").read_text())
+    assert saved["origin"]["channel"] == "chat" and saved["origin"]["session_id"] == "market-e2e"
 
 
 def test_general_has_no_access_to_market_researcher(monkeypatch):
@@ -147,3 +151,87 @@ def test_renderer_shows_explanations_and_decompositions(monkeypatch, tmp_path):
     assert "  - Of the +31bp rise, +24bp came from real yields." in md
     assert "  - Why: Cause unclear from recent coverage." in md
     assert md.count("Why:") == 2                                    # unavailable shows nothing
+
+
+def test_render_warns_when_quality_is_not_ok():
+    out = make_output()
+    assert "Data warning" not in render_markdown(out, "d")
+    out.quality = QualityReport(status="degraded")
+    assert "read it with care" in render_markdown(out, "d")
+    out.quality = QualityReport(status="unusable")
+    assert "Do not rely on" in render_markdown(out, "d")
+    out.quality = QualityReport(status="ok")
+    assert "Data warning" not in render_markdown(out, "d")
+
+
+def test_render_shows_risks_implications_and_planned_extras():
+    out = make_output()
+    out.narrative, out.risks, out.implications = "Summary.", ["Oil keeps rising."], {"usd": "Dollar firm.", "equities": "Mixed."}
+    out.planned_indicators = [Indicator(id="DCOILWTICO", name="WTI crude", category="energy", value=71.5, unit="$/bbl",
+                                        observation_date=out.as_of, changes={"1m": 2.5}, source="FRED", source_url="u")]
+    content = render_markdown(out, "d")
+    assert "**Risks**\n- Oil keeps rising." in content
+    assert "- **USD:** Dollar firm." in content and "- **Equities:** Mixed." in content
+    assert "**Relevant to your question**" in content and "| WTI crude | 71.50 $/bbl |" in content
+    assert "uncalibrated model scores" in content
+
+
+def test_render_flags_a_template_narrative_and_drops_its_risks():
+    out = make_output()
+    use_template(out, "the LLM call failed")
+    content = render_markdown(out, "d")
+    assert "written analysis was unavailable" in content and "**Risks**" not in content
+
+
+def test_follow_up_is_rewritten_with_the_earlier_conversation(monkeypatch, tmp_path):
+    _quiet_pipeline_llms(monkeypatch)
+    fake = FakeLLM(MarketScope(in_scope=True, standalone_query="Why are Treasury yields rising?"))
+    monkeypatch.setattr(node_module, "get_groq_model", lambda: fake)
+    node = MarketResearcher(service=make_service(tmp_path))
+    state = {"messages": [HumanMessage(content="what are treasury yields doing?"), AIMessage(content="Yields are rising."),
+                          HumanMessage(content="why is that?")]}
+
+    result = run_async(node.run(state))
+
+    run_id = result["market_research_response"]["data"]["run_id"]
+    assert json.loads((tmp_path / f"{run_id}.json").read_text())["request"]["query"] == "Why are Treasury yields rising?"
+    context = [m.content for m in fake.calls[0] if isinstance(m, SystemMessage)][-1]
+    assert "User: what are treasury yields doing?" in context and "Assistant: Yields are rising." in context
+    assert "why is that?" not in context and fake.calls[0][-1].content == "why is that?"
+
+
+def test_first_message_is_not_rewritten(monkeypatch, tmp_path):
+    _quiet_pipeline_llms(monkeypatch)
+    fake = FakeLLM(MarketScope(in_scope=True, standalone_query="something else"))
+    monkeypatch.setattr(node_module, "get_groq_model", lambda: fake)
+
+    result = run_async(MarketResearcher(service=make_service(tmp_path)).run({"messages": [HumanMessage(content="rates?")]}))
+
+    data = result["market_research_response"]["data"]
+    assert json.loads((tmp_path / f"{data['run_id']}.json").read_text())["request"]["query"] == "rates?"
+    assert data["quality_status"] in ("ok", "degraded", "unusable") and len(fake.calls[0]) == 2
+
+
+def test_chat_run_records_origin_and_rendered_hash(monkeypatch, tmp_path):
+    _quiet_pipeline_llms(monkeypatch)
+    monkeypatch.setattr(node_module, "get_groq_model", lambda: FakeLLM(MarketScope(in_scope=True)))
+    service = make_service(tmp_path)
+    service.audit = InMemoryAuditLog()
+    state = {"messages": [HumanMessage(content="rates?")], "client_id": "c9"}
+
+    result = run_async(MarketResearcher(service=service).run(state, {"configurable": {"thread_id": "s1"}}))
+
+    run_id = result["market_research_response"]["data"]["run_id"]
+    saved = json.loads((tmp_path / f"{run_id}.json").read_text())
+    assert saved["origin"] == {"channel": "chat", "session_id": "s1", "client_id": "c9"}
+    finished, rendered = run_async(service.audit.events(run_id))
+    assert finished["event"] == "run_finished"
+    assert rendered["details"]["sha256"] == sha256_of(result["messages"][0].content.encode("utf-8"))
+
+
+def test_long_chat_input_is_clipped_not_crashed(monkeypatch, tmp_path):
+    _quiet_pipeline_llms(monkeypatch)
+    monkeypatch.setattr(node_module, "get_groq_model", lambda: FakeLLM(MarketScope(in_scope=True, focus=["f" * 200])))
+    node = MarketResearcher(service=make_service(tmp_path))
+    result = run_async(node.run({"messages": [HumanMessage(content="rates " * 200)]}))
+    assert result["market_research_response"]["data"]["run_id"]

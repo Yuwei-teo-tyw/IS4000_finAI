@@ -5,23 +5,36 @@ interface is HTTP for a main agent; this node lets a chat user reach the
 same pipeline via triage.
 
 Mirrors the other specialists: a structured scope check (which here also
-parses the request's focus terms) hands off-topic messages back to triage;
-in-scope messages run the pipeline with the validated narrative on, and the
+parses the request's focus terms, and rewrites a follow-up as a standalone
+question) hands off-topic messages back to triage; in-scope messages run the
+pipeline with the validated narrative on, and the
 result is rendered deterministically (render.py) - no free-form LLM answer,
 so every number shown comes from the data.
 
 All prompt text lives in app/prompts/prompts.yaml, loaded via prompt_builder.
 """
+import logging
 from typing import Any, Dict, Optional
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.runnables import RunnableConfig
 from pydantic import BaseModel, Field
 
 from app.agents.market_researcher import MarketResearchRequest, MarketResearchService
+from app.agents.market_researcher.config import MAX_FOCUS_TERM_CHARS
 from app.agents.market_researcher.render import render_markdown
+from app.agents.market_researcher.schemas import RunOrigin
 from app.agents.state import AgentState
 from app.core import get_groq_model
 from app.prompts.prompt_builder import get_prompt
+
+
+logger = logging.getLogger("market_researcher")
+
+# Earlier messages shown to the scope check, so a follow-up can be understood.
+MAX_CONTEXT_MESSAGES = 4
+CONTEXT_MESSAGE_CHARS = 400
+MAX_QUERY_CHARS = 300
 
 
 class MarketScope(BaseModel):
@@ -32,6 +45,21 @@ class MarketScope(BaseModel):
     focus: list[str] = Field(
         default_factory=list,
         description='0-3 short focus terms from the message, e.g. ["treasury yields", "oil prices"].',
+    )
+    standalone_query: Optional[str] = Field(
+        default=None,
+        description="The latest message rewritten to make sense on its own, using the earlier conversation. "
+                    "Market topics only: no client names or personal details.",
+    )
+
+
+def _earlier_turns(messages: list) -> str:
+    """The messages before the latest human one, clipped, oldest first."""
+    last_human = max((i for i, m in enumerate(messages) if m.type == "human"), default=0)
+    earlier = [m for m in messages[:last_human] if m.type in ("human", "ai") and m.content]
+    return "\n".join(
+        f"{'User' if m.type == 'human' else 'Assistant'}: {str(m.content)[:CONTEXT_MESSAGE_CHARS]}"
+        for m in earlier[-MAX_CONTEXT_MESSAGES:]
     )
 
 
@@ -50,17 +78,20 @@ class MarketResearcher:
             self._service = MarketResearchService()
         return self._service
 
-    async def run(self, state: AgentState) -> Dict[str, Any]:
+    async def run(self, state: AgentState, config: Optional[RunnableConfig] = None) -> Dict[str, Any]:
         human_messages = [m for m in state["messages"] if m.type == "human"]
         latest_message = human_messages[-1].content if human_messages else ""
 
         prompt = [SystemMessage(content=get_prompt("market_researcher.scope_check_system"))]
         if state.get("client_context"):
             prompt.append(SystemMessage(content=state["client_context"]))
+        earlier = _earlier_turns(state["messages"])
+        if earlier:
+            prompt.append(SystemMessage(content=get_prompt("market_researcher.conversation_context", turns=earlier)))
         try:
             scope = await self.scope_checker.ainvoke(prompt + [HumanMessage(content=latest_message)])
         except Exception as e:
-            print(f"MARKET_RESEARCHER: scope check failed: {e}")
+            logger.warning("scope check failed, assuming in scope: %r", e)
             scope = MarketScope(in_scope=True)
 
         # The call still runs once routing is settled (it also extracts the focus
@@ -73,12 +104,20 @@ class MarketResearcher:
                 "handoff_message": "That's outside my area - let me hand you back to the triage agent.",
             }
 
-        request = MarketResearchRequest(query=latest_message, focus=scope.focus[:3], include_narrative=True)
+        # Only a real follow-up is rewritten: a first message goes through as the user typed it.
+        rewritten = (scope.standalone_query or "").strip()[:MAX_QUERY_CHARS] if earlier else ""
+        request = MarketResearchRequest(
+            query=(rewritten or str(latest_message))[:MAX_QUERY_CHARS],
+            focus=[term[:MAX_FOCUS_TERM_CHARS] for term in scope.focus[:3]], include_narrative=True,
+        )
+        session_id = ((config or {}).get("configurable") or {}).get("thread_id")
+        origin = RunOrigin(channel="chat", session_id=session_id, client_id=state.get("client_id"))
         disclaimer = get_prompt("market_researcher.disclaimer")
         try:
-            result = await self.service.run(request)
+            result = await self.service.run(request, origin=origin)
             output = result.output
             content = render_markdown(output, disclaimer)
+            await self.service.record_rendered(output.run_id, content)
             response_data = {
                 "message_result": content[:150],
                 "data": {
@@ -89,11 +128,11 @@ class MarketResearcher:
                     "recession_prob_12m": output.regime.recession_prob_12m,
                     "events": [e.id for e in output.events],
                     "failed_sources": output.data_quality.failed_sources,
+                    "quality_status": output.quality.status if output.quality else None,
                     "disclaimer": disclaimer,
                 },
             }
         except Exception as e:
-            print(f"MARKET_RESEARCHER: pipeline failed: {type(e).__name__}: {e}")
             content = "I couldn't pull current market data right now - please try again in a moment."
             response_data = {"message_result": content, "data": {"query_type": "market_research", "error": str(e)}}
 
@@ -105,5 +144,4 @@ class MarketResearcher:
             "conversation_ended": False,
             "market_research_response": response_data,
             "handoff_message": None,
-            "skip_eval": False,
         }
