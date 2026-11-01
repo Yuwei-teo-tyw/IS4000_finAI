@@ -13,8 +13,11 @@ Rules that hold everywhere in this module:
     and is scanned only to report computed facts about the issuers, sectors and asset classes it names
     (`rm_context_response`, section A). No allocation, limit, suitability check, figure or product ranking reads it,
     so it can never override the IPS, risk profile or suitability.
-  - The market stance (portfolio_agent/upstream/market_analysis.py) is still a MOCK and is
-    labelled as such in the sources and in section B.
+  - Market data comes from the Market Analysis Agent's newest finished run (portfolio_agent/upstream/
+    market_analysis.py; live in the running app). Without a run the market is reported as unavailable.
+  - Stages: the RM's pack (stage "rm") never proposes a new TAA or holding shifts; sections D and F show the
+    previous approved review's TAA and shifts, or say there is none. The PM's proposals (stage "pm", when the PM
+    opens the pack) compute the new TAA and holding shifts.
   - Facts the data does not contain are stated as unknown, never invented.
 """
 from __future__ import annotations
@@ -25,7 +28,8 @@ import logging
 import re
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Any, Callable, Optional
+from zoneinfo import ZoneInfo
+from typing import Any, Callable, Literal, Optional
 
 from pydantic import BaseModel, Field, ValidationError
 
@@ -39,7 +43,7 @@ from app.agents.portfolio_agent.taxonomy import parse_risk_capacity
 from app.agents.client_profiling.strategies import get_strategy
 from app.agents.portfolio_agent.explain.llm_client import LLMUnavailable
 from app.agents.portfolio_agent.schemas.client import ClientProfile
-from app.agents.portfolio_agent.upstream.market_analysis import MARKET_ANALYSIS_SOURCE
+from app.agents.portfolio_agent.upstream.market_analysis import market_source
 from app.agents.product_recommender import guardrails
 from app.agents.product_recommender.house_view import HouseViewError
 from app.agents.product_recommender.llm import _coerce
@@ -101,6 +105,45 @@ CONFIDENCE_FACTOR = {"High": 1.0, "Medium": 0.6, "Low": 0.3}
 VIEW_SCORE = {"Buy": 1.0, "Hold": 0.0, "Sell": -1.0}
 MOCK_NOTE = ("The market stance behind the agent views and the macro read is MOCK data "
              "(the Market Researcher is not yet connected), so treat it as illustrative.")
+Stage = Literal["rm", "pm"]
+
+
+def _parse(v, default):
+    if isinstance(v, str):
+        try:
+            return json.loads(v)
+        except ValueError:
+            return default
+    return v if v is not None else default
+
+
+def prior_review(store, client_id: str) -> Optional[dict]:
+    """The most recent APPROVED review pack in the client's saved pack state (current or history), with the TAA and
+    holding shifts as finally approved (the PM's edits win over the generated values). None = no earlier review."""
+    try:
+        st = store.get_review_pack_state(client_id) or {}
+    except Exception:  # noqa: BLE001 - no state store: treated as no earlier review
+        return None
+    entries = list(st.get("history") or [])
+    if st.get("pack"):
+        entries.append({"pack": st["pack"], "edits": st.get("edits"), "approvedAt": st.get("approvedAt")})
+    done = [e for e in entries if e.get("approvedAt") and isinstance(e.get("pack"), dict)]
+    if not done:
+        return None
+    last = max(done, key=lambda e: str(e["approvedAt"]))
+    edits = last.get("edits") or {}
+    taa = _parse(edits.get("D.taa"), None) or last["pack"].get("taa") or {}
+    shifts = _parse(edits.get("F.shifts"), None) or last["pack"].get("holdings_shifts") or []
+    return {"approved_at": str(last["approvedAt"]), "generated_at": last["pack"].get("generated_at"),
+            "taa": {b: list(taa.get(b) or []) for b in BUCKETS}, "holdings_shifts": list(shifts)}
+
+
+def _day(iso: Optional[str]) -> str:
+    try:
+        # The bank works in Singapore time; the frontend shows the same date.
+        return datetime.fromisoformat(str(iso).replace("Z", "+00:00")).astimezone(ZoneInfo("Asia/Singapore")).strftime("%d %b %Y")
+    except ValueError:
+        return str(iso or "an earlier date")
 
 
 class PackGenerationError(Exception):
@@ -369,7 +412,7 @@ def _taa_reason(cat: str, saa: float, proposed: float, existing: Optional[float]
     else:
         lines.append("Macro backdrop: the macro read is not available, so this view rests on the house view alone.")
         lines.append(f"{cat} is a {'risk' if risk_asset else 'defensive'} asset class.")
-    if MARKET_ANALYSIS_SOURCE == "MOCK":
+    if ctx.get("market_source") == "MOCK":
         lines.append("Note: the market data behind the macro and agent reads is MOCK, so treat it as illustrative.")
     lines.append("CIO house view: " + "; ".join(
         f"{v['asset_class']}: {v['cio_term']} ({v['view']}, {v['confidence']} confidence) [{v['citation_id']}]" for v in cv["views"]) + ".")
@@ -837,8 +880,9 @@ def _money(v) -> str:
 
 
 async def generate_review_pack(client_id: str, rm_context: Optional[str] = None, *, service: ProductRecommenderService,
-                               store=None, portfolio: Optional[dict] = None,
+                               store=None, portfolio: Optional[dict] = None, stage: Stage = "rm",
                                clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc)) -> dict:
+    """stage "rm": the RM's pack, with no new TAA or holding shifts (see the module notes). stage "pm": also proposes them."""
     rm_context = (rm_context or "").strip()[:RM_CONTEXT_MAX] or None
     try:
         store = store or get_default_store()
@@ -871,6 +915,8 @@ async def generate_review_pack(client_id: str, rm_context: Optional[str] = None,
     except HouseViewError as e:
         raise PackGenerationError(503, str(e))
     market = market_res.data if market_res.status != "UNAVAILABLE" else None
+    msrc = market_source() if market is not None else "UNAVAILABLE"
+    market_issue = " ".join(market_res.issues) if market is None else ""
 
     cat_views = _category_views(hv, headlines)
     _reg = getattr(market, "regime", None)
@@ -879,7 +925,7 @@ async def generate_review_pack(client_id: str, rm_context: Optional[str] = None,
                "phase": (_reg.phase.replace("_", " ") if _reg and _reg.phase else ""), "confidence": getattr(_reg, "confidence", None),
                "recession_prob": getattr(_reg, "recession_prob_12m", None),
                "themes": list(getattr(market, "key_themes", None) or []),
-               "implications": dict(getattr(market, "implications", None) or {})}
+               "implications": dict(getattr(market, "implications", None) or {}), "market_source": msrc}
     taa: dict[str, dict] = {}
     for b in BUCKETS:
         saa = ipsd["saa"].get(b)
@@ -926,7 +972,7 @@ async def generate_review_pack(client_id: str, rm_context: Optional[str] = None,
     headwinds = [f"{v.asset_class} ({v.cio_term}, {v.view})" for v in hv.views if v.view == "Sell"]
     for h in headlines.values():
         if h.agent_view == "Sell" and h.asset_class not in [v.asset_class for v in hv.views if v.view == "Sell"]:
-            headwinds.append(f"{h.asset_class} (agent view Sell, {MARKET_ANALYSIS_SOURCE} market data)")
+            headwinds.append(f"{h.asset_class} (agent view Sell, {msrc} market data)")
     implications = dict(getattr(market, "implications", None) or {})
 
     weaknesses_d, strengths_d = [], []
@@ -965,11 +1011,12 @@ async def generate_review_pack(client_id: str, rm_context: Optional[str] = None,
                    "annual_income_sgd": facts.get("annual_income_sgd"), "monthly_cash_need_sgd": facts.get("monthly_cash_need_sgd"),
                    "liquidity_need_sgd": facts.get("liquidity_need_sgd")},
         "three_l_proportion_pct": ipsd["proportion"], "strategies": ipsd["strategy"],
-        "macro": macro, "market_data_label": MARKET_ANALYSIS_SOURCE, "key_themes": themes, "risks": concerns,
+        "macro": macro, "market_data_label": msrc, "key_themes": themes, "risks": concerns,
         "favoured_by_house_view": favoured, "headwinds": headwinds, "market_implications": implications,
         "portfolio_findings": {"strengths": strengths_d, "weaknesses": weaknesses_d},
-        "taa": {b: [{k: r[k] for k in ("asset_class", "existing", "saa", "proposed")} for r in taa[b]["rows"]] for b in BUCKETS},
-        "taa_reasons": {b: [r["reason"] for r in taa[b]["rows"]] for b in BUCKETS},
+        # The RM's pack never proposes a TAA, so the narrative does not see one.
+        "taa": {b: [{k: r[k] for k in ("asset_class", "existing", "saa", "proposed")} for r in taa[b]["rows"]] for b in BUCKETS} if stage == "pm" else {},
+        "taa_reasons": {b: [r["reason"] for r in taa[b]["rows"]] for b in BUCKETS} if stage == "pm" else {},
     }
     allowed = guardrails.numbers_in(json.dumps(nfacts, default=str)) | {1.0, 2.0, 3.0}
     ips_passages = await asyncio.to_thread(retrieve_ips_passages, ips, store, client_id, rm_context)
@@ -1025,15 +1072,29 @@ async def generate_review_pack(client_id: str, rm_context: Optional[str] = None,
         a_lines.append("RM context response (computed from the data above):")
         a_lines += [f"- {b}" for b in rm_response or []]
 
-    b_lines = [macro, f"Source: {MARKET_ANALYSIS_SOURCE} market data. " + (MOCK_NOTE if MARKET_ANALYSIS_SOURCE == "MOCK" else ""),
+    b_lines = [macro, (f"Source: Market Analysis Agent run {getattr(market, 'run_id', '')}, as of {getattr(market, 'as_of', '')}."
+                       if msrc == "LIVE" else f"Source: {msrc} market data. " + (MOCK_NOTE if msrc == "MOCK" else market_issue)),
                "Main concerns: " + ("; ".join(concerns) if concerns else "not available"),
                "Favoured by the CIO house view: " + (", ".join(favoured) or "none"),
                "Headwinds: " + (", ".join(headwinds) if headwinds else "no asset class is rated Sell"),
                "Implications: " + mkt,
                f"House view: {hv.source_document}, as of {hv.as_of}."]
     c_lines = ["Strengths:"] + [f"- {s}" for s in strengths] + ["Weaknesses:"] + [f"- {w}" for w in weaknesses]
-    d_lines = []
-    for b in BUCKETS:
+    prior = prior_review(store, client_id) if stage == "rm" else None
+    if stage == "rm":
+        when = f"the review approved on {_day(prior['approved_at'])}" if prior else ""
+        taa_note = (f"Previous TAA, from {when}. The new TAA is set by the Portfolio Manager when the pack is sent to them; "
+                    "the RM's pack does not propose one." if prior else
+                    "No prior TAA: this is the client's first review since onboarding, so no tactical allocation has been set yet. "
+                    "The Portfolio Manager proposes the TAA when the pack is sent to them.")
+        shift_note = (f"Holding shifts from {when}, shown for reference. New holding shifts are proposed by the Portfolio Manager "
+                      "when the pack is sent to them." if prior and prior["holdings_shifts"] else
+                      f"No holding shifts were recorded at {when}. New holding shifts are proposed by the Portfolio Manager "
+                      "when the pack is sent to them." if prior else
+                      "No prior holdings recommendation: this is the client's first review since onboarding, so no holding shifts "
+                      "have been made yet. The Portfolio Manager proposes them when the pack is sent to them.")
+    d_lines = [taa_note] if stage == "rm" else []
+    for b in BUCKETS if stage == "pm" else ():
         d_lines.append(f"{BUCKET_LABEL[b]}: {taa_text[b]}")
         for r in taa[b]["rows"]:
             d_lines.append(f"- {r['asset_class']}: existing {_pp(r['existing'])}, SAA {r['saa']:.1f}%, proposed {r['proposed']:.1f}%")
@@ -1052,8 +1113,8 @@ async def generate_review_pack(client_id: str, rm_context: Optional[str] = None,
         e_lines += products.get("limitations") or []
     else:
         e_lines = [product_note or "Product recommendations are unavailable."]
-    f_lines = [f"{s['holding']} ({BUCKET_LABEL[s['bucket']]}): {s['action']}. {s['proposed']}. {s['rationale']} Risks: {' '.join(s['risks'])}"
-               for s in shifts] or ["No holding shifts: no priced holdings in the Longevity or Legacy buckets."]
+    f_lines = ([f"{s['holding']} ({BUCKET_LABEL[s['bucket']]}): {s['action']}. {s['proposed']}. {s['rationale']} Risks: {' '.join(s['risks'])}"
+                for s in shifts] or ["No holding shifts: no priced holdings in the Longevity or Legacy buckets."]) if stage == "pm" else [shift_note]
     g_lines = ["Relationship Manager: ____ (name, signature, date)", "Portfolio Manager: ____ (name, signature, date)"]
 
     sources = [
@@ -1061,9 +1122,9 @@ async def generate_review_pack(client_id: str, rm_context: Optional[str] = None,
         {"id": "holdings", "label": "Client portfolio holdings (client_portfolio store)", "status": portfolio.get("status", "ok")},
         {"id": "meeting_notes", "label": f"Meeting notes ({len(notes)} on file)", "status": "ok" if notes else "none"},
         {"id": "house_view", "label": f"{hv.source_document}, as of {hv.as_of}", "status": "CURATED"},
-        {"id": "market_stance", "label": "Market Researcher output (portfolio_agent upstream market_analysis)",
-         "status": MARKET_ANALYSIS_SOURCE, "run_id": getattr(market, "run_id", None),
-         "note": MOCK_NOTE if MARKET_ANALYSIS_SOURCE == "MOCK" else ""},
+        {"id": "market_stance", "label": "Market Analysis Agent run" + (f" {market.run_id}, as of {market.as_of}" if market is not None else ""),
+         "status": msrc, "run_id": getattr(market, "run_id", None),
+         "note": MOCK_NOTE if msrc == "MOCK" else market_issue},
         {"id": "shelf", "label": "Product shelf", "status": (products or {}).get("sources", {}).get("shelf", "unavailable")},
     ]
     if rm_context:
@@ -1074,19 +1135,24 @@ async def generate_review_pack(client_id: str, rm_context: Optional[str] = None,
         "sections": [
             {"id": "A", "title": "Client Summary", "body": "\n".join(a_lines), "blocks": [{"type": "saa", "items": saa_blocks}]},
             {"id": "B", "title": "Market View", "body": "\n".join(b_lines),
-             "blocks": [{"type": "market", "source": MARKET_ANALYSIS_SOURCE, "concerns": concerns, "favoured": favoured, "headwinds": headwinds,
-                         "rationales": _class_rationales(hv, headlines, implications, MARKET_ANALYSIS_SOURCE)}]},
+             "blocks": [{"type": "market", "source": msrc, "concerns": concerns, "favoured": favoured, "headwinds": headwinds,
+                         "rationales": _class_rationales(hv, headlines, implications, msrc)}]},
             {"id": "C", "title": "Current Portfolio: Strengths and Weaknesses", "body": "\n".join(c_lines), "blocks": []},
             {"id": "D", "title": "Existing vs Proposed TAA", "body": "\n".join(d_lines), "blocks": [{"type": "taa", "buckets": list(BUCKETS)}]},
             {"id": "E", "title": "Product Recommendations", "body": "\n".join(e_lines), "blocks": []},
             {"id": "F", "title": "Individual Holdings Shifts", "body": "\n".join(f_lines), "blocks": []},
             {"id": "G", "title": "Sign-off", "body": "\n".join(g_lines), "blocks": [{"type": "signoff", "roles": ["RM", "PM"]}]},
         ],
-        "taa": {b: [{k: r[k] for k in ("asset_class", "existing", "proposed", "reason", "saa", "tilt_pp", "band_low", "band_high")}
-                    for r in taa[b]["rows"]] for b in BUCKETS},
+        "taa": ({b: [{k: r[k] for k in ("asset_class", "existing", "proposed", "reason", "saa", "tilt_pp", "band_low", "band_high")}
+                     for r in taa[b]["rows"]] for b in BUCKETS} if stage == "pm" else (prior["taa"] if prior else {b: [] for b in BUCKETS})),
+        # pm: proposed by the agents for the PM; previous: the last approved review's TAA (read-only); none: no earlier review.
+        "taa_stage": "pm" if stage == "pm" else ("previous" if prior else "none"),
+        "taa_note": None if stage == "pm" else taa_note,
+        "prior_review": {"approved_at": prior["approved_at"], "generated_at": prior["generated_at"]} if prior else None,
         "products": products,
         "holdings_shifts": [{k: s[k] for k in ("holding", "action", "proposed", "rationale", "risks")} | {
-            "bucket": s["bucket"], "ticker": s["ticker"], "asset_class": s["asset_class"], "industry": s["industry"], "current_pct": s["current_pct"], "proposed_pct": s["proposed_pct"]} for s in shifts],
+            "bucket": s["bucket"], "ticker": s["ticker"], "asset_class": s["asset_class"], "industry": s["industry"], "current_pct": s["current_pct"], "proposed_pct": s["proposed_pct"]}
+            for s in shifts] if stage == "pm" else (prior["holdings_shifts"] if prior else []),
         "sources": sources,
         "narrative_status": {"llm_texts_accepted": sum(oks), "llm_texts_total": len(oks),
                              "detail": "Figures come from code; the LLM wrote only the commentary, and any text that failed the guardrail was replaced by rule-based text."},

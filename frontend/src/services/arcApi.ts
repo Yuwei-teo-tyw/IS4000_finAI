@@ -155,12 +155,25 @@ export function bookToClient(b: BookClient): Client {
     ipsVersion: null, sharpe: 0, diversificationScore: 0,
   };
 }
-/** Mock clients first; otherwise the RM's backend book (e.g. Jane Fraser `jft`). Undefined when neither has the id. */
+/** The book is read by many pages at once; share one request for a few seconds. */
+let bookCache: { at: number; p: Promise<BookResult> } | null = null;
+const cachedBook = (): Promise<BookResult> => {
+  if (!bookCache || Date.now() - bookCache.at > 5000) bookCache = { at: Date.now(), p: listBook() };
+  return bookCache.p;
+};
+/** For a client in the RM's book the database phase wins over the mock seed (e.g. an IPS deactivated to redo onboarding). */
+const withBookPhase = (c: Client, rows: BookClient[]): Client => {
+  const row = rows.find((r) => r.id === c.id);
+  return row ? { ...c, status: bookToClient(row).status } : c;
+};
+const bookRows = (): Promise<BookClient[]> => cachedBook().then((b) => b.clients).catch(() => []);
+
+/** Mock clients first (with the database phase when the client is in the RM's book); otherwise the RM's backend book (e.g. Jane Fraser `jft`). Undefined when neither has the id. */
 async function getClient(id: string): Promise<Client | undefined> {
   const mock = m.clients.filter((c) => c.id === id).map(effective)[0];
-  if (mock) return delay(mock);
+  if (mock) return delay(withBookPhase(mock, await bookRows()));
   try {
-    const row = (await listBook()).clients.find((c) => c.id === id);
+    const row = (await cachedBook()).clients.find((c) => c.id === id);
     return row ? bookToClient(row) : undefined;
   } catch {
     return undefined;
@@ -175,7 +188,7 @@ export const arcApi = {
   listIpsChatPage: (c: string) => listIpsChatPage(c),
   appendIpsChat: (c: string, m: Parameters<typeof appendIpsChat>[1]) => appendIpsChat(c, m),
   clearIpsChat: (c: string) => clearIpsChat(c),
-  listClients: (): Promise<Client[]> => delay(m.clients.map(effective)),
+  listClients: async (): Promise<Client[]> => { const rows = await bookRows(); return delay(m.clients.map(effective).map((c) => withBookPhase(c, rows))); },
   getClient,
   getHoldings: (clientId: string): Promise<Holding[]> => delay(m.holdingsByClient[clientId] ?? m.holdings),
   getCorrelation: (_clientId: string): Promise<CorrelationMatrix> => delay({ labels: [...m.holdingLabels], matrix: m.holdingsCorrelation }),
@@ -226,6 +239,16 @@ export const arcApi = {
     } catch { throw new Error(`Cannot reach the backend at ${API_BASE}, so the pack could not be generated.`); }
     const json = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(typeof (json as { detail?: unknown }).detail === "string" ? (json as { detail: string }).detail : JSON.stringify((json as { detail?: unknown }).detail ?? `Request failed (${res.status})`));
+    return json;
+  },
+  /** When the PM opens a pack sent to them: the new TAA and holding shifts proposed by the agents (sections D and F). */
+  reviewPackPmProposals: async (clientId: string): Promise<{ taa: Record<string, unknown[]>; taa_stage: "pm"; holdings_shifts: unknown[]; sections: { id: string; title: string; body: string; blocks?: unknown[] }[]; generated_at: string }> => {
+    let res: Response;
+    try {
+      res = await fetch(`${API_BASE}/review-pack/pm-proposals`, { method: "POST", headers: { "Content-Type": "application/json", ...rmHeaders() }, body: JSON.stringify({ client_id: clientId }) });
+    } catch { throw new Error(`Cannot reach the backend at ${API_BASE}, so the TAA could not be proposed.`); }
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(typeof (json as { detail?: unknown }).detail === "string" ? (json as { detail: string }).detail : `Request failed (${res.status})`);
     return json;
   },
   /** Review pack persistence (backend source of truth): one opaque state object per client. */

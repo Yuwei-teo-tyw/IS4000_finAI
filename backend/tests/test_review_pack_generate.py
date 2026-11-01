@@ -18,8 +18,11 @@ from app.reports.pack_generator import NarrativeOut, PackGenerationError, genera
 
 
 class StubStore:
-    def __init__(self, threel=True):
-        self.threel = threel
+    def __init__(self, threel=True, pack_state=None):
+        self.threel, self.pack_state = threel, pack_state
+
+    def get_review_pack_state(self, cid):
+        return self.pack_state
 
     def get_client(self, cid):
         return Client(id=cid, name="Test Client", risk_category="Balanced", risk_cap=3, aum_sgd=5_000_000) if cid == "tst" else None
@@ -80,9 +83,10 @@ def svc(model):
 
 
 def gen(model=None, rm_context=None, **kw):
+    """Default stage "pm": the TAA and holding-shift tests below are about the PM's proposals."""
     model = model or FakeModel(GOOD)
     return asyncio.run(generate_review_pack("tst", rm_context, service=svc(model), store=kw.pop("store", StubStore()),
-                                            portfolio=kw.pop("portfolio", PORT), **kw))
+                                            portfolio=kw.pop("portfolio", PORT), stage=kw.pop("stage", "pm"), **kw))
 
 
 def test_contract_shape_and_sections():
@@ -203,3 +207,53 @@ def test_endpoint(monkeypatch):
     assert r.status_code == 200 and len(r.json()["sections"]) == 7
     assert c.post("/review-pack/generate", json={"client_id": "nope"}).status_code == 404
     assert c.post("/review-pack/generate", json={"client_id": "bad id!"}).status_code == 422
+
+
+# --- stages: the RM never proposes a TAA or holding shifts --------------------------------------------------------------
+
+PRIOR_TAA = {"longevity": [{"asset_class": "Bonds", "existing": 40.0, "saa": 35.0, "proposed": 38.0, "reason": "PM kept bonds"}], "legacy": []}
+
+
+def _state(approved="2026-07-01T09:00:00+00:00"):
+    pack = {"generated_at": "2026-06-30T10:00:00+00:00", "taa": {"longevity": [{"asset_class": "Bonds", "existing": 40.0, "saa": 35.0, "proposed": 30.0}], "legacy": []},
+            "holdings_shifts": [{"holding": "Alpha Bond ETF", "action": "retain", "proposed": "Keep", "rationale": "r", "risks": []}]}
+    return {"history": [{"id": "h1", "pack": pack, "edits": {"D.taa": json.dumps(PRIOR_TAA)}, "approvedAt": approved}]}
+
+
+def test_rm_first_review_has_no_taa_or_shifts_and_says_why():
+    out = gen(stage="rm")
+    assert out["taa_stage"] == "none" and out["taa"] == {"longevity": [], "legacy": []} and out["holdings_shifts"] == []
+    d, f = out["sections"][3]["body"], out["sections"][5]["body"]
+    assert d.startswith("No prior TAA") and "Portfolio Manager" in d
+    assert f.startswith("No prior holdings recommendation")
+    assert out["products"]["shortlist"] is not None  # the other agents' data is still there
+
+
+def test_rm_later_review_shows_the_previous_approved_taa_never_a_new_one():
+    out = gen(stage="rm", store=StubStore(pack_state=_state()))
+    assert out["taa_stage"] == "previous" and out["prior_review"]["approved_at"].startswith("2026-07-01")
+    assert out["taa"]["longevity"] == PRIOR_TAA["longevity"]  # the PM's approved edits, not the generated values
+    assert out["holdings_shifts"][0]["holding"] == "Alpha Bond ETF"
+    assert "Previous TAA, from the review approved on 01 Jul 2026" in out["sections"][3]["body"]
+    assert "New holding shifts are proposed by the Portfolio Manager" in out["sections"][5]["body"]
+
+
+def test_rm_ignores_a_previous_pack_that_was_never_approved():
+    out = gen(stage="rm", store=StubStore(pack_state=_state(approved=None)))
+    assert out["taa_stage"] == "none" and out["holdings_shifts"] == []
+
+
+def test_pm_proposals_endpoint(monkeypatch):
+    app = FastAPI()
+    app.include_router(review_pack.router)
+    s = svc(FakeModel(GOOD))
+    app.dependency_overrides[review_pack.get_service] = lambda: s
+    monkeypatch.setattr(pg, "get_default_store", lambda: StubStore(pack_state=_state()))
+    monkeypatch.setattr(pg, "get_client_portfolio", lambda cid, profiling_store=None: PORT)
+    c = TestClient(app)
+    assert c.post("/review-pack/generate", json={"client_id": "tst"}).json()["taa_stage"] == "previous"
+    r = c.post("/review-pack/pm-proposals", json={"client_id": "tst"})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["taa_stage"] == "pm" and body["taa"]["longevity"] and [x["id"] for x in body["sections"]] == ["D", "F"]
+    assert all("proposed" in row for row in body["taa"]["longevity"])

@@ -43,7 +43,7 @@ from app.agents.portfolio_agent.schemas.combined import CombinedReview, Combined
 from app.agents.portfolio_agent.schemas.client import PortfolioGenerateRequest
 from app.agents.portfolio_agent.schemas.response import PortfolioResponse
 from app.agents.portfolio_agent.service import DuplicateRequestError, LiquiditySaaNotApplicableError, PortfolioService
-from app.agents.portfolio_agent.upstream.market_analysis import MARKET_ANALYSIS_SOURCE
+from app.agents.portfolio_agent.upstream.market_analysis import market_source
 from app.agents.portfolio_agent.upstream.product_specialist import PRODUCT_CANDIDATES_SOURCE
 
 PREFIX = "/agents/portfolio-agent"
@@ -65,7 +65,7 @@ async def health(service: PortfolioService = Depends(get_service)):
         "status": "ok",
         "agent": "portfolio_agent",
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "market_research_source": MARKET_ANALYSIS_SOURCE,
+        "market_research_source": market_source(),
         "product_source": PRODUCT_CANDIDATES_SOURCE,
         "llm_enabled": service.settings.llm_enabled and bool(service.settings.groq_api_key),
         "llm_model": service.settings.llm_model,

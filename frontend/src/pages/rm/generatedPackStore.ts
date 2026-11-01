@@ -13,6 +13,12 @@ export interface GeneratedPack {
   sources?: { id: string; label: string; status: string }[];
   narrative_status?: { llm_texts_accepted?: number; llm_texts_total?: number; detail?: string };
   generated_at?: string;
+  /** Whose TAA and holding shifts the pack holds: "pm" = proposed for the PM (made when the PM opens the pack); "previous" = the last
+   *  approved review's, read-only; "none" = first review, nothing yet. Packs from before this field count as "pm". */
+  taa_stage?: "pm" | "previous" | "none";
+  /** Why there is no new TAA yet (stages "previous" and "none"). */
+  taa_note?: string | null;
+  prior_review?: { approved_at: string; generated_at?: string | null } | null;
   /** RM edits: section id -> replacement text (A, B, C, G) or RM commentary (D, E, F). */
   edits: Record<string, string>;
   rmContext?: string;
@@ -97,13 +103,6 @@ export const getPackState = (clientId: string): PackState | undefined => states[
  * no hedge funds / private markets, and lean to Fixed income (house view: Buy) plus a cash buffer. Not agent output.
  * Applied only to the "jfr" pack (backend book id "jft") while it has no agent shortlist and no added products at all.
  */
-const SEED_CLIENT_IDS = ["jfr", "jft"]; // frontend mock id and backend book id
-const SEED_ADDED_PRODUCTS: NonNullable<GeneratedPack["addedProducts"]> = [
-  { id: "MOCK-GOVT-001", name: "Illustrative Singapore Government Bond ETF", assetClass: "Fixed income", riskLevel: "2", rationale: "Seeded (illustrative): SGD government bonds fit the capital-safety and steady-income priorities; fixed income is a house-view Buy." },
-  { id: "MOCK-CORP-001", name: "Illustrative Asia Investment-Grade Bond Fund (SGD-Hedged)", assetClass: "Fixed income", riskLevel: "2", rationale: "Seeded (illustrative): high-grade bonds with SGD hedging, within her risk cap, for income." },
-  { id: "MOCK-GOVT-003", name: "Illustrative US Treasury Bond Fund (SGD-Hedged)", assetClass: "Fixed income", riskLevel: "2", rationale: "Seeded (illustrative): covers the up-to-20% USD exposure she accepts, hedged back to SGD." },
-  { id: "MOCK-CASH-001", name: "Illustrative SGD Money Market Fund", assetClass: "Cash", riskLevel: "1", rationale: "Seeded (illustrative): liquid cash buffer toward the S$30m reserve she wants." },
-];
 
 const packCache = new Map<string, { st: PackState; value: GeneratedPack | null }>();
 export function loadGeneratedPack(clientId: string): GeneratedPack | null {
@@ -112,7 +111,6 @@ export function loadGeneratedPack(clientId: string): GeneratedPack | null {
   const hit = packCache.get(clientId);
   if (hit && hit.st === st) return hit.value;
   const value = { ...st.pack, edits: st.edits ?? {} } as GeneratedPack;
-  if (SEED_CLIENT_IDS.includes(clientId) && !value.addedProducts?.length && !(value.products?.shortlist ?? []).some((_, i) => !(JSON.parse(value.edits["E.removed"] || "[]") as string[]).includes(`s${i}`))) value.addedProducts = SEED_ADDED_PRODUCTS;
   packCache.set(clientId, { st, value });
   return value;
 }

@@ -74,13 +74,41 @@ class GenerateRequest(BaseModel):
     rm_context: Optional[str] = Field(default=None, max_length=RM_CONTEXT_MAX)
 
 
+async def _fresh_market(request: Request, purpose: str) -> None:
+    """Make sure the Market Analysis Agent has a run from the last 24h (reused, or started and awaited) before the pack
+    reads market data. A failure is not fatal: the pack then reports the market as unavailable."""
+    from app.agents.market_researcher.ips_context import ensure_market_run
+    await ensure_market_run(getattr(request.app.state, "market_research", None), purpose=purpose)
+
+
 @router.post("/generate")
-async def generate(req: GenerateRequest, service: ProductRecommenderService = Depends(get_service)):
-    """Generate Review Pack sections A-G for a client. Requires an Active IPS (409 otherwise)."""
+async def generate(req: GenerateRequest, request: Request, service: ProductRecommenderService = Depends(get_service)):
+    """The RM's Review Pack, sections A-G. Requires an Active IPS (409 otherwise). It never proposes a new TAA or
+    holding shifts: D and F show the previous approved review's, or say there is none (the PM proposes new ones)."""
+    await _fresh_market(request, "Review pack generation")
     try:
-        return await generate_review_pack(req.client_id, req.rm_context, service=service)
+        return await generate_review_pack(req.client_id, req.rm_context, service=service, stage="rm")
     except PackGenerationError as e:
         raise HTTPException(status_code=e.status, detail=e.message)
+
+
+class PmProposalsRequest(BaseModel):
+    client_id: str = Field(pattern=r"^[A-Za-z0-9_-]{1,64}$")
+
+
+@router.post("/pm-proposals")
+async def pm_proposals(req: PmProposalsRequest, request: Request, service: ProductRecommenderService = Depends(get_service)):
+    """When the PM opens a pack sent to them: the new TAA (from the IPS SAA, the CIO house view and the Market Analysis
+    Agent's run) and holding shifts (from the Client Portfolio Agent's holdings and the Product Specialist's shortlist).
+    Proposals only; the PM edits and approves them in the pack."""
+    await _fresh_market(request, "Review pack PM proposals")
+    try:
+        full = await generate_review_pack(req.client_id, None, service=service, stage="pm")
+    except PackGenerationError as e:
+        raise HTTPException(status_code=e.status, detail=e.message)
+    by = {s["id"]: s for s in full["sections"]}
+    return {"client_id": req.client_id, "taa": full["taa"], "taa_stage": "pm", "holdings_shifts": full["holdings_shifts"],
+            "sections": [by["D"], by["F"]], "sources": full["sources"], "generated_at": full["generated_at"]}
 
 
 # --- Review Pack state: shared server-side copy for RM and PM (whole document, last write wins) ---

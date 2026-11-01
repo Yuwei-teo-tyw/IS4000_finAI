@@ -316,6 +316,10 @@ export function GeneratedPackDocument({ clientId, clientName, pack, role, previe
   // D: TAA
   const taa = parse<{ longevity?: GenTaaRow[]; legacy?: GenTaaRow[] }>(pack.edits["D.taa"], {});
   const taaRows = (b: "longevity" | "legacy") => taa[b] ?? pack.taa?.[b] ?? [];
+  // The RM's pack never holds a new TAA: "previous" = the last approved review's (read-only), "none" = first review.
+  const stage = pack.taa_stage ?? "pm";
+  const pmStage = stage === "pm";
+  const prevDay = pack.prior_review?.approved_at ? new Date(pack.prior_review.approved_at).toLocaleDateString("en-SG", { day: "numeric", month: "short", year: "numeric" }) : "";
   const setTaa = (b: "longevity" | "legacy", rows: GenTaaRow[]) => set("D.taa", JSON.stringify({ longevity: taaRows("longevity"), legacy: taaRows("legacy"), [b]: rows }));
   // C: strengths and weaknesses, scoped per bucket where a line names it. Lines naming no bucket (or Liquidity) are shown once, under Longevity.
   const swDefault = (() => {
@@ -336,18 +340,21 @@ export function GeneratedPackDocument({ clientId, clientName, pack, role, previe
           : <FreeText value={v} onChange={(x) => set(key, x)} label={`${title} for the ${b} portfolio`} placeholder="Add points, one per line" />}
       </div>);
   };
-  const taaAlloc = (b: "longevity" | "legacy", label: string, roM: boolean) => {
+  const taaAlloc = (b: "longevity" | "legacy", label: string, roM0: boolean) => {
+    const roM = roM0 || !pmStage;
     const rows = taaRows(b);
+    const cols = pmStage ? ([["Client SAA", "saa"], ["Existing TAA (old)", "existing"], ["Proposed TAA (new)", "proposed"]] as const)
+      : ([["Client SAA", "saa"], ["TAA before that review", "existing"], [`TAA set at the review of ${prevDay}`, "proposed"]] as const);
     const total = rows.reduce((t, r) => t + (r.proposed || 0), 0);
     const ok = Math.abs(total - 100) < 0.05;
     const upd = (i: number, patch: Partial<GenTaaRow>) => setTaa(b, rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
     return (<>
-        {rows.length === 0 ? <p className={`${SMALL} italic text-ink-muted`}>No SAA is saved for this bucket, so no TAA is proposed.</p> : (
+        {rows.length === 0 ? <p className={`${SMALL} italic text-ink-muted`}>{pmStage ? "No SAA is saved for this bucket, so no TAA is proposed." : stage === "none" ? "No prior TAA for this bucket: first review since onboarding." : "No TAA was recorded for this bucket at the previous review."}</p> : (
           <div className="avoid-break space-y-4">
-            <p className={LABEL}>Client SAA, existing TAA and proposed (new) TAA</p>
+            <p className={LABEL}>{pmStage ? "Client SAA, existing TAA and proposed (new) TAA" : `Previous review (${prevDay}): client SAA and TAA, read only`}</p>
             <div className="grid grid-cols-1 gap-8 @xl:grid-cols-3">
-              {([["Client SAA", "saa"], ["Existing TAA (old)", "existing"], ["Proposed TAA (new)", "proposed"]] as const).map(([t, k]) => (
-                <div key={k} className="min-w-0 space-y-2"><p className={`${SMALL} text-ink-muted`}>{t}{roM && k === "proposed" && <span className="block text-[12px] italic text-negative">{allPages ? "Derived from section 3, Current Portfolio and TAA" : "Derived from the previous page (3. Current Portfolio and TAA)"}</span>}</p><StrategyDonut hideLegend allocation={dist(rows, k)} label={`${label} ${t}`} />
+              {cols.map(([t, k]) => (
+                <div key={k} className="min-w-0 space-y-2"><p className={`${SMALL} text-ink-muted`}>{t}{roM && pmStage && k === "proposed" && <span className="block text-[12px] italic text-negative">{allPages ? "Derived from section 3, Current Portfolio and TAA" : "Derived from the previous page (3. Current Portfolio and TAA)"}</span>}</p><StrategyDonut hideLegend allocation={dist(rows, k)} label={`${label} ${t}`} />
                   <ul className={`space-y-1 ${SMALL}`} aria-label={`${t} weights`}>{rows.filter((r) => k === "proposed" ? !roM || r.proposed > 0 : (r[k] ?? 0) > 0).map((r) => {
                     const i = rows.indexOf(r), d = r.existing == null ? 0 : r.proposed - r.existing, tone = k === "proposed" ? (d > 0.049 ? "text-up" : d < -0.049 ? "text-down" : "") : "";
                     return (
@@ -367,6 +374,7 @@ export function GeneratedPackDocument({ clientId, clientName, pack, role, previe
     return (
       <div key={b} className="@container min-w-0 space-y-8 border-t border-hairline pt-8 first:border-t-0 first:pt-0">
         <CollapsiblePortfolio title={`${label} Portfolio`} ro={ro}>
+        {!pmStage && pack.taa_note && b === "longevity" && <p className={`${BODY} ${WRAP} border-l-2 border-hairline-strong pl-3 text-ink-muted`} data-testid="taa-note">{pack.taa_note}</p>}
         {taaAlloc(b, label, ro)}
         <div className="space-y-4">
           <p className={LABEL}>Current Portfolio Strengths and Weaknesses</p>
@@ -374,13 +382,13 @@ export function GeneratedPackDocument({ clientId, clientName, pack, role, previe
         </div>
         {rows.length > 0 && (
           <div className="space-y-4">
-            <p className={LABEL}>Reasons for the proposed allocation</p>
+            <p className={LABEL}>{pmStage ? "Reasons for the proposed allocation" : "Reasons recorded at the previous review"}</p>
             <div className="grid grid-cols-1 gap-6 @xl:grid-cols-2">
               {rows.map((r, i) => { const up = r.existing != null && r.proposed > r.existing + 0.049;
-                if (ro && !(r.reason ?? "").trim() && !up) return null;
+                if ((ro || !pmStage) && !(r.reason ?? "").trim() && !up) return null;
                 return (
                   <div key={r.asset_class} className="avoid-break min-w-0 space-y-2"><p className={`${BODY} font-semibold`}>{r.asset_class}</p>
-                    {ro ? ((r.reason ?? "").trim() ? <div className="avoid-break border border-hairline-strong px-3 py-2"><Paras text={r.reason ?? ""} /></div> : <p className={`${BODY} italic ${MISSING}`}>No reason recorded</p>)
+                    {ro || !pmStage ? ((r.reason ?? "").trim() ? <div className="avoid-break border border-hairline-strong px-3 py-2"><Paras text={r.reason ?? ""} /></div> : <p className={`${BODY} italic ${MISSING}`}>No reason recorded</p>)
                       : <FreeText value={r.reason ?? ""} onChange={(v) => upd(i, { reason: v })} label={`${label} ${r.asset_class} reason`} placeholder={up ? "No reason recorded: add one for this increase" : "Add a reason, one point per line"} />}
                   </div>); })}
             </div>
@@ -466,6 +474,8 @@ export function GeneratedPackDocument({ clientId, clientName, pack, role, previe
   const saaItems = ((sec("A")?.blocks?.[0] as { items?: { bucket: string; strategy?: { code: string; name: string } | null; weights?: Record<string, number> | null }[] } | undefined)?.items) ?? [];
   const threeL = ipsRec?.data?.threeL ?? [];
   const base3L = useAsync(() => arcApi.get3L(clientId), [clientId]);
+  // 3L amounts = the client book AUM (database) x the IPS split, not the mock bucket amounts.
+  const bookAum = useAsync(() => arcApi.listBook().then((bk) => bk.clients.find((c) => c.id === clientId)?.aum_sgd ?? null).catch(() => null), [clientId]);
   const propSrc = (ipsExtras.proportion ?? ipsRec?.data?.threeLProportion ?? null) as ThreeLProportion | null;
   const reasonOf = (b: string) => (ipsExtras.allocationNotes?.[b] ?? threeL.find((t) => t.portfolio?.toLowerCase() === b)?.reason ?? "").trim();
   const splitPct = Object.fromEntries(split) as Record<string, number>;
@@ -503,7 +513,7 @@ export function GeneratedPackDocument({ clientId, clientName, pack, role, previe
         <SubHead>3L and SAA</SubHead>
         <div className="@container min-w-0 space-y-6">
           <div className="avoid-break space-y-2 border-t border-hairline pt-5"><p className={BODY}>3L allocation</p>
-            <BucketAllocation buckets={buckets3L} proportion={proportion3L} /></div>
+            <BucketAllocation buckets={buckets3L} proportion={proportion3L} totalWealth={bookAum} /></div>
           {(["longevity", "legacy"] as const).map((b) => {
             const it = saaItems.find((x) => x.bucket === b);
             const w = Object.fromEntries(Object.entries(it?.weights ?? {}).filter(([, v]) => v > 0));
@@ -582,7 +592,8 @@ export function GeneratedPackDocument({ clientId, clientName, pack, role, previe
       </SecView>)}
 
       {pg("F", <SecView n={5} id="F" title={sec("F")?.title ?? "Individual Holdings Shifts"}>
-        {shifts.length === 0 && cards.length === 0 && prosef({ k: "F", fb: secBody("F").join("\n"), label: "Holdings shifts narrative" })}
+        {pmStage ? shifts.length === 0 && cards.length === 0 && prosef({ k: "F", fb: secBody("F").join("\n"), label: "Holdings shifts narrative" })
+          : <p className={`${BODY} ${WRAP} border-l-2 border-hairline-strong pl-3 text-ink-muted`} data-testid="shifts-note">{secBody("F").join(" ")}</p>}
         {(["longevity", "legacy"] as const).map((b) => {
           const label = b === "longevity" ? "Longevity" : "Legacy";
           const bRows = taaRows(b);
@@ -597,7 +608,8 @@ export function GeneratedPackDocument({ clientId, clientName, pack, role, previe
             return raw || "Other"; };
           shifts.forEach((s, i) => { if (!inB(s)) return; const n = nums(s);
             rowsB.push({ k: `s${i}`, cls: cn(s.asset_class?.trim() || guess(s), s.holding), holding: s.holding, industry: (s.industry?.trim() && s.industry.trim().toLowerCase() !== "n/a") ? s.industry.trim() : "-", cur: n.cur, prop: s.proposed_pct ?? n.prop, rationale: s.rationale, isNew: false, setProp: (v) => setShift(i, { proposed_pct: v }), setRat: (v) => setShift(i, { rationale: v }) }); });
-          cards.forEach((c) => { if (b !== "longevity") return; // products carry no bucket field: default to Longevity
+          if (!pmStage && shifts.length === 0) return null; // nothing earlier to show; the note above says why
+          (pmStage ? cards : []).forEach((c) => { if (b !== "longevity") return; // products carry no bucket field: default to Longevity; never new holdings in the RM's pack
             const v = prodNew[c.key];
             rowsB.push({ k: `p${c.key}`, cls: cn(c.assetClass || "Other", c.name), holding: c.name, industry: "-", cur: 0, prop: v ?? 0, rationale: c.rationale, isNew: true, setProp: (n) => set("F.prodNew", JSON.stringify({ ...prodNew, [c.key]: n })), setRat: c.setRationale }); });
           const rank = (k: string) => { const x = order.findIndex((o) => o.toLowerCase() === k.toLowerCase()); return x < 0 ? order.length : x; };
@@ -608,8 +620,8 @@ export function GeneratedPackDocument({ clientId, clientName, pack, role, previe
           return (
             <div key={b} className="@container min-w-0 border-t border-hairline pt-8 first:border-t-0 first:pt-0"><CollapsiblePortfolio title={`${label} Portfolio`} ro={ro}>
               {taaAlloc(b, label, true)}
-              <HoldingsTable rows={rowsB} ro={ro} classes={taaNames} tagColor={tagColor} />
-              {rowsB.length > 0 && <p className={`${SMALL} tabular-nums ${tally ? "text-up" : "!text-negative"}`} role={tally ? undefined : "alert"}>Sum of new proportion: {sum.toFixed(1)}% (new TAA total {target.toFixed(1)}%){tally ? ", tallies with new TAA" : `, differs by ${diff > 0 ? "+" : "\u2212"}${Math.abs(diff).toFixed(1)} pp`}</p>}
+              <HoldingsTable rows={rowsB} ro={ro || !pmStage} classes={taaNames} tagColor={tagColor} />
+              {pmStage && rowsB.length > 0 && <p className={`${SMALL} tabular-nums ${tally ? "text-up" : "!text-negative"}`} role={tally ? undefined : "alert"}>Sum of new proportion: {sum.toFixed(1)}% (new TAA total {target.toFixed(1)}%){tally ? ", tallies with new TAA" : `, differs by ${diff > 0 ? "+" : "\u2212"}${Math.abs(diff).toFixed(1)} pp`}</p>}
             </CollapsiblePortfolio></div>);
         })}
         <div className="avoid-break space-y-4 border-t border-hairline pt-8">

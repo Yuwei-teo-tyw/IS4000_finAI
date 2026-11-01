@@ -70,6 +70,9 @@ async def lifespan(app: FastAPI):
             PostgresRunRegistry(pool), MarketResearchService(cache=PostgresCache(pool))
         )
         await app.state.market_research.registry.mark_interrupted()
+        # Every agent that reads market data (review pack, Product Recommender views, Portfolio Agent) now reads live runs.
+        from app.agents.portfolio_agent.upstream.market_analysis import use_live_registry
+        use_live_registry(app.state.market_research.registry)
 
         yield
 

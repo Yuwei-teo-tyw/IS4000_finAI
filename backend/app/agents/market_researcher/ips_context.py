@@ -63,25 +63,38 @@ def _read(record) -> MarketResearchOutput:
     return MarketResearchOutput.model_validate(json.loads(Path(record.json_path or "").read_text(encoding="utf-8")))
 
 
-async def ips_market_context(runner: Any, max_age_hours: int = IPS_MARKET_MAX_AGE_HOURS) -> dict:
-    """Never raises: every failure becomes an "unavailable" block that says why."""
+async def ensure_market_run(runner: Any, max_age_hours: int = IPS_MARKET_MAX_AGE_HOURS, purpose: str = "IPS generation"):
+    """(record, reused, None) for a finished run from the last `max_age_hours` (one is started and awaited when there is
+    none), or (None, False, reason). Never raises. Used by Generate IPS and the review pack, so both read the same run."""
     if runner is None:
-        return unavailable("The Market Analysis Agent is not running in this backend.")
+        return None, False, "The Market Analysis Agent is not running in this backend."
     from app.agents.market_researcher.runs import MissingConfigurationError, QueueFullError
     try:
         rec = await runner.registry.latest_success(IPS_MARKET_REGION, datetime.now(timezone.utc) - timedelta(hours=max_age_hours))
-        reused = rec is not None
-        if rec is None:
-            started = await runner.submit(IPS_MARKET_REQUEST)
-            logger.info("IPS generation started market run %s", started.run_id)
-            rec = await runner.wait(started.run_id, timeout=runner.service.settings.run_budget_seconds + 60) or started
-            if rec.status not in ("succeeded", "partial"):
-                return unavailable(f"The market run {rec.run_id} did not finish ({rec.status}{': ' + rec.error if rec.error else ''}).", rec.run_id)
-        return ips_market_block(_read(rec), reused)
+        if rec is not None:
+            return rec, True, None
+        started = await runner.submit(IPS_MARKET_REQUEST)
+        logger.info("%s started market run %s", purpose, started.run_id)
+        rec = await runner.wait(started.run_id, timeout=runner.service.settings.run_budget_seconds + 60) or started
+        if rec.status not in ("succeeded", "partial"):
+            return None, False, f"The market run {rec.run_id} did not finish ({rec.status}{': ' + rec.error if rec.error else ''})."
+        return rec, False, None
     except MissingConfigurationError as e:
-        return unavailable(f"The Market Analysis Agent is not configured: {e}.")
+        return None, False, f"The Market Analysis Agent is not configured: {e}."
     except QueueFullError:
-        return unavailable("The Market Analysis Agent is busy; generate again in a minute.")
+        return None, False, "The Market Analysis Agent is busy; try again in a minute."
+    except Exception as e:  # noqa: BLE001 - network, storage: report, never fake
+        logger.warning("%s market run failed: %s", purpose, type(e).__name__)
+        return None, False, f"The Market Analysis Agent failed ({type(e).__name__})."
+
+
+async def ips_market_context(runner: Any, max_age_hours: int = IPS_MARKET_MAX_AGE_HOURS) -> dict:
+    """Never raises: every failure becomes an "unavailable" block that says why."""
+    rec, reused, why = await ensure_market_run(runner, max_age_hours)
+    if rec is None:
+        return unavailable(why or "No market run is available.")
+    try:
+        return ips_market_block(_read(rec), reused)
     except (OSError, json.JSONDecodeError, ValidationError):
         return unavailable("The market run's output could not be read.")
     except Exception as e:  # noqa: BLE001 - network, storage: report, never fake
