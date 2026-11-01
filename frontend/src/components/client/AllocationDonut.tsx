@@ -1,4 +1,5 @@
 import { SliceTooltip, useSliceTooltip } from "../ui";
+import { ringPath } from "../../utils/ringPath";
 
 export interface DonutSlice { label: string; value: number; color: string }
 const toVar = (c: string) => (c.startsWith("var(") ? c : `var(--${c.replace(/^--/, "")})`);
@@ -13,13 +14,12 @@ export function AllocationDonut({ slices, title }: { slices: DonutSlice[]; title
     <div className="flex flex-wrap items-center gap-10">
       <div ref={tt.containerRef} className="relative shrink-0">
       <svg viewBox="0 0 200 200" className="h-[200px] w-[200px] shrink-0" role="img" aria-label={title ? `${title[0]} ${title[1]}` : "Current allocation"}>
-        <g transform="rotate(-90 100 100)">
-          <circle cx="100" cy="100" r={r} fill="none" stroke="var(--scale-track)" strokeWidth="28" />
+        <g>
+          <path d={ringPath(100, 100, r + 14, r - 14, 0, 1)} fill="var(--scale-track)" fillRule="evenodd" />
           {slices.map((s) => {
             const len = (s.value / total) * c;
             const el = (
-              <circle key={s.label} cx="100" cy="100" r={r} fill="none" stroke={toVar(s.color)} strokeWidth="28"
-                strokeDasharray={`${len} ${c - len}`} strokeDashoffset={-offset}
+              <path key={s.label} d={ringPath(100, 100, r + 14, r - 14, offset / c, (offset + len) / c)} fill={toVar(s.color)} fillRule="evenodd"
                 {...tt.bind(s.label, (s.value / total) * 100)} style={tt.sliceStyle(s.label)} />
             );
             offset += len;

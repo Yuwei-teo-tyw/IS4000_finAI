@@ -286,7 +286,10 @@ def render_parts(data: dict) -> list[dict]:
     demo = "; ".join(f"{k}: {v}" for k, v in ((d.get("demographics") or {}).get("fields") or {}).items())
     # Part numbers are a stable contract with the frontend (part 1 goals, 2 3L, 3 risk, 5 review rules, 6 signature); never renumber.
     saa = d.get("saa") if isinstance(d.get("saa"), dict) else {}
-    saa_txt = "\n".join(f"{lab}: Strategy {saa[k]['strategy']} ({(get_strategy(saa[k]['strategy']) or {}).get('name', '')})."
+    saa_txt = "\n".join((f"{lab}: Model {saa[k]['modelId']} {saa[k].get('modelName', '')} (Strategy {saa[k]['strategy']}), weights "
+                         + ", ".join(f"{a} {w:g}%" for a, w in (saa[k].get("weights") or {}).items()) + ".")
+                        if saa[k].get("modelId") else
+                        f"{lab}: Strategy {saa[k]['strategy']} ({(get_strategy(saa[k]['strategy']) or {}).get('name', '')})."
                         for k, lab in (("longevity", "Longevity"), ("legacy", "Legacy"))
                         if isinstance(saa.get(k), dict) and saa[k].get("strategy"))
     return [{"part": 1, "title": "Client goals and objectives", "owner": "rm", "status": "filled", "body": "\n".join(goals)},

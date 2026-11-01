@@ -78,7 +78,7 @@ async function run(clientId: string, clientName: string) {
   let model: string | undefined; let modelMessage = "";
   let saved = false; let savedVersion: number | undefined;
   const label = (id: string) => IPS_GEN_SECTIONS.find((s) => s.id === id)?.label ?? id;
-  const waiting = () => { const l = steps.filter((x) => x.state === "active").map((x) => label(x.id)); return l.length ? `Reading meeting notes · Filling ${l.join(", ")}` : "Finishing up"; };
+  const waiting = () => { const l = steps.filter((x) => x.state === "active").map((x) => label(x.id)); return l.length ? `Reading meeting notes · Filling ${l.join(", ")}` : "Getting the market environment from the Market Analysis Agent"; };
   const snap = (message: string) => set(clientId, { steps: steps.map((x) => ({ ...x })), message, model, modelMessage, saved, savedVersion });
   const fail = (message: string, unavailable?: boolean) => {
     set(clientId, { steps: steps.map((x) => ({ ...x })), status: "error", error: message, message: "", model, modelMessage, unavailable, finishedAt: Date.now() });
@@ -112,7 +112,8 @@ async function run(clientId: string, clientName: string) {
     snap(waiting());
   };
   let final: Awaited<ReturnType<typeof streamIpsGeneration>> = null;
-  try { final = await streamIpsGeneration(clientId, { onSection }, ctrl.signal); }
+  const onMarket = (m: { status: string; message?: string }) => snap(m.status === "unavailable" ? `Market environment unavailable (${m.message ?? "no reason given"}) · Saving` : "Market environment added · Saving");
+  try { final = await streamIpsGeneration(clientId, { onSection, onMarket }, ctrl.signal); }
   catch (e) {
     flush();
     controllers.delete(clientId);

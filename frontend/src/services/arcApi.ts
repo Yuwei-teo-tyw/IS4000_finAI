@@ -5,6 +5,7 @@
  * Pages must NEVER import from src/mock directly.
  */
 import { registerCitations } from "./citationRegistry";
+import type { SaaBucketId, SaaCheckResponse, SaaRecommendationResponse } from "../types/modelSaa";
 import * as m from "../mock/data";
 import type { ClientPortfolio, ThreeLValidation } from "../types/arc";
 import { getActiveIps, isActivated, isIpsReturned, loadPmProgress } from "./workflowStore";
@@ -270,6 +271,12 @@ export const arcApi = {
   /** PM hand-over (DB-backed client): working 3L + SAA seeded from the RM-sent IPS. Liquidity never has an SAA. */
   getPmIps: (clientId: string): Promise<PmIps> => cpJson<PmIps>(`/pm-ips/${encodeURIComponent(clientId)}`),
   savePmIps: (clientId: string, edit: PmIpsEdit): Promise<PmIps> => cpJson<PmIps>(`/pm-ips/${encodeURIComponent(clientId)}`, { method: "PUT", body: JSON.stringify(edit) }),
+  /** Portfolio Agent: best-fit model SAA for one bucket, built server-side from the client's IPS, holdings, market run and product shelf. */
+  getSaaRecommendation: (clientId: string, bucket: SaaBucketId): Promise<SaaRecommendationResponse> =>
+    paJson(`/clients/${encodeURIComponent(clientId)}/saa-recommendation?bucket=${bucket}`, {}) as Promise<SaaRecommendationResponse>,
+  /** Portfolio Agent: check the PM's amended weights for one bucket against the client's constraints. Calculation only. */
+  checkSaaWeights: (clientId: string, bucket: SaaBucketId, modelId: string, weights: Record<string, number>, signal?: AbortSignal): Promise<SaaCheckResponse> =>
+    paJson(`/clients/${encodeURIComponent(clientId)}/saa-check`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ bucket, model_id: modelId, weights }) }, PA_TIMEOUT_MS, signal) as Promise<SaaCheckResponse>,
   returnPmIps: (clientId: string): Promise<{ status: string; version: number; returnedAt: string }> => cpJson(`/pm-ips/${encodeURIComponent(clientId)}/return`, { method: "POST" }),
   /** G1: the backend sets IpsVersion.status = Active (older ones Superseded) and moves the client to Monitoring. Required before a pack can be generated. */
   activateIpsVersion: (clientId: string, version: number): Promise<{ client_id: string; version: number; status: string; clientStatus: string }> => cpJson(`/ips/${encodeURIComponent(clientId)}/${version}/activate`, { method: "POST" }),
@@ -751,11 +758,13 @@ export type PmIpsBucketId = "liquidity" | "longevity" | "legacy";
 export interface PmIps {
   client_id: string; clientName: string; status: string; version: number; returned: boolean; snapshotVersion: number; sentAt: string | null; total: number; edited: boolean; updatedAt: string;
   threeL: Record<PmIpsBucketId, { pct: number | null; amount: number | null; reason: string }>;
-  saa: Record<"longevity" | "legacy", { strategy: string | null; optionId: string | null; source: "rm" | "pm"; weights: Record<string, number> | null; reason: string }>;
+  saa: Record<"longevity" | "legacy", { strategy: string | null; optionId: string | null; source: "rm" | "pm"; weights: Record<string, number> | null; reason: string } & Partial<PmModelSaaSaved>>;
 }
+/** A library model the PM saved for a bucket (Portfolio Agent model SAA). */
+export interface PmModelSaaSaved { modelId: string; modelName: string; modelWeights: Record<string, number>; recommendedModelId: string | null; recommendedWeights: Record<string, number> | null; recommendationId: string | null; overrideReason: string | null; checkedAt: string }
 export interface PmIpsEdit {
   threeL?: Partial<Record<PmIpsBucketId, { pct: number }>>;
-  saa?: Partial<Record<"longevity" | "legacy", { strategy: string; weights?: Record<string, number>; reason?: string }>>;
+  saa?: Partial<Record<"longevity" | "legacy", { strategy?: string; weights?: Record<string, number>; reason?: string; modelId?: string; recommendedModelId?: string | null; recommendedWeights?: Record<string, number> | null; recommendationId?: string | null; overrideReason?: string }>>;
   reason?: string;
 }
 export interface IpsSendStatus { sent: boolean; status: "Draft" | "Sent to PM" | "Returned by PM" | "No IPS"; sentVersion: number | null; sentAt: string | null; latestVersion: number | null; outdated: boolean; message: string }
@@ -889,7 +898,7 @@ export interface IpsGenStreamDone { saved: boolean; version: number | null; ips:
  */
 export async function streamIpsGeneration(
   clientId: string,
-  handlers: { onStart?: (sections: IpsGenSectionId[]) => void; onSection: (r: IpsGenSectionResult) => void },
+  handlers: { onStart?: (sections: IpsGenSectionId[]) => void; onSection: (r: IpsGenSectionResult) => void; onMarket?: (m: { status: string; message?: string }) => void },
   signal?: AbortSignal,
 ): Promise<IpsGenStreamDone | null> {
   let res: Response;
@@ -919,7 +928,8 @@ export async function streamIpsGeneration(
     else if (o.type === "section" && typeof o.section === "string") {
       const { type: _t, ...r } = o;
       handlers.onSection({ fields: {}, bullets: [], sources: [], message: "", status: "error", ...r } as unknown as IpsGenSectionResult);
-    } else if (o.type === "done") done = o as unknown as IpsGenStreamDone;
+    } else if (o.type === "market") handlers.onMarket?.((o.market ?? { status: "unavailable" }) as { status: string; message?: string });
+    else if (o.type === "done") done = o as unknown as IpsGenStreamDone;
   };
   const reader = res.body.getReader();
   const dec = new TextDecoder();

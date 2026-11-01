@@ -12,7 +12,8 @@ import { GenevaMark } from "./GenevaMark";
 import { Bullets, Cell, DocSection, FreeText, Dashes, InlineText, IpsGrid, KV, LABEL, SignatureBlock, WRAP, toBullets } from "./ips/parts";
 import type { Bucket3L } from "../../types/arc";
 import { BucketAllocation } from "./ips/ProportionTable";
-import { AllocationBuckets, type AllocBucketId, type AllocWeights } from "./ips/Allocation";
+import { MarketEnvironment, type IpsMarket } from "./ips/MarketEnvironment";
+import { AllocationBuckets, type AllocBucketId, type AllocWeights, type SavedModelSaa } from "./ips/Allocation";
 import { BulletEditor } from "./ips/edit";
 import { GoalsSection } from "./ips/GoalsSection";
 import { groupsFromBackend } from "./ips/goals";
@@ -52,6 +53,12 @@ export interface IpsEditApi {
   proportion?: ThreeLProportion | null; proportionMessage?: string; proportionMissing?: string[]; setProportionPct?: (k: ThreeLBucketKey, pct: number) => void; setProportionReason?: (k: ThreeLBucketKey, text: string) => void;
   /** Message when the stored 3L recommendation is out of date. */
   outOfDate?: string;
+  /** PM review: the Portfolio Agent model SAA panel per Longevity/Legacy bucket (replaces the A-F boxes). */
+  saaFor?: (bucket: "longevity" | "legacy") => ReactNode;
+  /** 3L total wealth (client book AUM) so amounts are AUM x % and the unallocated remainder shows. */
+  totalWealth?: number | null;
+  /** Model SAA per bucket as the PM has it now (preview); otherwise read from the version's data.saa. */
+  modelSaa?: SavedModelSaa;
 }
 /** `blank`: a brand-new IPS. Same template, but nothing is prefilled from mock/client data (empty fields for the RM to fill). */
 interface Props { version: IpsVersion; clientName: string; clientId?: string; mode?: "view" | "edit"; edit?: IpsEditApi; blank?: boolean; aiGenerated?: boolean; wide?: boolean; /** PM vetting view: sections other than 3L/SAA are read-only, 3L/SAA highlighted. */ pmReview?: boolean; /** Extra content under the SAA boxes (PM: Run Geneva 3L recommendation). */ saaSlot?: ReactNode; /** PM signature slot (PM review page); read-only elsewhere from the saved draft. */ pmSign?: PmSign }
@@ -63,6 +70,8 @@ export function IpsDocument({ version: v, clientName, clientId, mode = "view", e
   const cid = clientId ?? params.clientId ?? "";
   const client = useAsync(() => arcApi.getClient(cid), [cid]);
   const fetched = useAsync(() => arcApi.get3L(cid), [cid]);
+  // Total wealth for the 3L amounts: the client book's AUM (database), never the mock bucket amounts.
+  const bookAum = useAsync(() => arcApi.listBook().then((b) => b.clients.find((c) => c.id === cid)?.aum_sgd ?? null).catch(() => null), [cid]);
   const extras = useIpsDraftExtras(cid);
   /** A saved backend version carries structured `data`; the read-only view renders from it instead of the lossy text parts. */
   const bd = !edit && v.data ? v.data : undefined;
@@ -87,6 +96,10 @@ export function IpsDocument({ version: v, clientName, clientId, mode = "view", e
   const rmSigned = fmt((seed?.rmSignedDate ?? ex?.rmSignedDate ?? v.issuedOn ?? new Date().toISOString()));
   const pmSaved = (extras?.pmOpened ? (liveDraft?.signatures ?? extras?.signatures) : undefined) as { pm?: string; pmSignedAt?: string } | undefined;
   const pmShown = pmSign ?? { image: pmSaved?.pm, signedAt: pmSaved?.pmSignedAt };
+  // The SAA is the PM's part: the RM sees it only once the PM has worked on it (PM review, a PM-approved model, a returned or active IPS).
+  const modelSaa = edit?.modelSaa ?? ((v.data as { saa?: unknown } | undefined)?.saa as SavedModelSaa | undefined);
+  const pmDone = !!(v.data as { pmReturn?: unknown } | undefined)?.pmReturn || v.status !== "Draft";
+  const showSaa = !!edit?.saaFor || pmReview || pmDone || Object.values(modelSaa ?? {}).some((m) => m?.modelId);
   const rmImage = sigs.rm === undefined ? (seed?.rmSignatureImage || RM_SIGNATURE) : sigs.rm || undefined;
 
   const part = (n: number) => v.parts.find((p) => p.part === n)?.body ?? "";
@@ -186,13 +199,25 @@ export function IpsDocument({ version: v, clientName, clientId, mode = "view", e
       </DocSection>
 
       <DocSection n={5} highlight={pmReview} title="3L Bucket Allocation">
-        <BucketAllocation buckets={editing ? bucketList : buckets} onBuckets={editing ? edit.setBuckets : undefined}
+        <BucketAllocation buckets={editing ? bucketList : buckets} onBuckets={editing ? edit.setBuckets : undefined} totalWealth={blank ? null : edit?.totalWealth ?? bookAum}
           proportion={edit ? edit.proportion : seed?.proportion ?? saved?.proportion} message={edit ? edit.proportionMessage : seed?.proportionMessage}
           missing={edit?.proportionMissing} onPct={edit?.setProportionPct} onReason={edit?.setProportionReason} />
-        <AllocationBuckets editing={editing} blank={blank} allocation={edit?.allocation ?? seed?.allocation ?? saved?.allocation ?? {}}
+        {!blank && (
+          <div className="mt-8 min-w-0">
+            <p className={`${LABEL} mb-3`}>Market environment</p>
+            <MarketEnvironment market={(v.data as { market?: IpsMarket } | undefined)?.market} />
+          </div>
+        )}
+        {!showSaa ? (
+          <div className="space-y-3" data-testid="saa-pending">
+            <p className="text-sm italic text-brand">Liquidity Portfolio has no SAA, due to immediate funding requirements for the client.</p>
+            <p className="text-ink-muted">3L's Strategic Asset Allocations (Longevity and Legacy): pending. The Portfolio Manager proposes them with the Portfolio Agent after the RM sends this IPS.</p>
+          </div>
+        ) : <AllocationBuckets editing={editing} blank={blank} allocation={edit?.allocation ?? seed?.allocation ?? saved?.allocation ?? {}}
           notes={edit?.allocationNotes ?? seed?.allocationNotes ?? saved?.allocationNotes} onPick={edit?.setAllocation} clientId={cid}
           weights={edit?.allocationWeights ?? saved?.allocationWeights} onWeights={edit?.setAllocationWeights}
-          outOfDate={edit?.outOfDate ?? seed?.outOfDate} onNote={edit?.setAllocationNote} proposed={edit?.proposedAllocation ?? seed?.proposed} meta={edit?.allocationMeta ?? seed?.allocationMeta} />
+          outOfDate={edit?.outOfDate ?? seed?.outOfDate} onNote={edit?.setAllocationNote} proposed={edit?.proposedAllocation ?? seed?.proposed} meta={edit?.allocationMeta ?? seed?.allocationMeta}
+          saaFor={editing ? edit?.saaFor : undefined} modelSaa={modelSaa} />}
         {saaSlot}
       </DocSection>
 

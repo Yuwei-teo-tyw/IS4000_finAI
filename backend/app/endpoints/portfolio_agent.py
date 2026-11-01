@@ -9,6 +9,11 @@ HTTP interface for the Portfolio Agent.
                                                               re-check adjusted weights + efficient frontier
     POST /agents/portfolio-agent/portfolio/combined           the 3L buckets' chosen portfolios checked together
     POST /agents/portfolio-agent/portfolio/{request_id}/ask  answer a chat question about that proposal
+    GET  /agents/portfolio-agent/model-saa?bucket=           the Longevity / Legacy model SAA library
+    GET  /agents/portfolio-agent/clients/{client_id}/saa-recommendation?bucket=
+                                                              best-fit model SAA for one bucket, from the client's
+                                                              IPS, holdings, market run and product shelf
+    POST /agents/portfolio-agent/clients/{client_id}/saa-check  check the PM's amended weights for one bucket
 
 Proposal-only: nothing here executes trades or changes client holdings. The
 service lives on `app.state.portfolio_agent`; without it - e.g. a bare test
@@ -29,6 +34,9 @@ from app.agents.portfolio_agent.engine.adjust import EvaluationError, evaluate_w
 from app.agents.portfolio_agent.engine.combined import CombinedError, combine
 from app.agents.portfolio_agent.engine.construction import TEMPLATES, template_growth
 from app.agents.portfolio_agent.explain.chat import answer_question
+from app.agents.portfolio_agent.model_saa.library import LibraryError, load_library
+from app.agents.portfolio_agent.model_saa.schemas import SaaRecommendationResponse, WeightCheckRequest, WeightCheckResponse
+from app.agents.portfolio_agent.model_saa.service import UnknownModelError, check_saa, recommend_saa
 from app.agents.portfolio_agent.schemas.adjust import WeightEvaluation, WeightEvaluationRequest
 from app.agents.portfolio_agent.schemas.chat import PortfolioAnswer, PortfolioQuestion
 from app.agents.portfolio_agent.schemas.combined import CombinedReview, CombinedReviewRequest
@@ -177,3 +185,53 @@ def install_validation_handler(app: FastAPI, extra_prefixes: tuple[str, ...] = (
             for e in exc.errors()
         ]
         return JSONResponse(status_code=422, content={"detail": errors})
+
+
+_CLIENT_ID = Path(pattern=r"^[A-Za-z0-9_-]{1,40}$")
+
+
+def _market_registry(request: Request):
+    runner = getattr(request.app.state, "market_research", None)
+    return getattr(runner, "registry", None)
+
+
+@router.get("/model-saa")
+async def model_saa_library(bucket: str = Query(pattern="^(longevity|legacy)$")):
+    """The reference model SAAs for one bucket (configuration, not client data). Liquidity has no SAA."""
+    try:
+        lib = load_library()
+    except LibraryError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    b = lib.bucket(bucket)  # type: ignore[arg-type]
+    return {"bucket": bucket, "label": b.label, "purpose": b.purpose, "version": lib.version, "asset_classes": lib.asset_classes,
+            "framework": lib.framework.model_dump(), "models": [m.model_dump() for m in b.models]}
+
+
+@router.get("/clients/{client_id}/saa-recommendation", response_model=SaaRecommendationResponse)
+async def saa_recommendation(request: Request, client_id: str = _CLIENT_ID,
+                             bucket: str = Query(pattern="^(longevity|legacy)$")) -> SaaRecommendationResponse:
+    """Evaluate the bucket's model library against the client and recommend the best fit (or say none fits).
+    Read-only and deterministic: nothing is saved, approved or executed, and no LLM or paid data call is made."""
+    from app.agents.client_profiling.store import StoreUnavailableError
+    try:
+        return await recommend_saa(client_id, bucket, market_registry=_market_registry(request))  # type: ignore[arg-type]
+    except StoreUnavailableError:
+        raise HTTPException(status_code=503, detail="The Client Profiling Agent's database is unavailable, so the client profile cannot be read.")
+    except LibraryError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Unknown client")
+
+
+@router.post("/clients/{client_id}/saa-check", response_model=WeightCheckResponse)
+async def saa_check(body: WeightCheckRequest, client_id: str = _CLIENT_ID) -> WeightCheckResponse:
+    """Check amended weights against the client's constraints. Calculation only."""
+    from app.agents.client_profiling.store import StoreUnavailableError
+    try:
+        return check_saa(client_id, body)
+    except StoreUnavailableError:
+        raise HTTPException(status_code=503, detail="The Client Profiling Agent's database is unavailable.")
+    except UnknownModelError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Unknown client")

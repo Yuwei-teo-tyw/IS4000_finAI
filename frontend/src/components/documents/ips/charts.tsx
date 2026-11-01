@@ -3,6 +3,7 @@ import { NumberInput } from "../../../components/ui/NumberInput";
 import { EDIT_BOX } from "./parts";
 import type { AllocationRow, Bucket3L } from "../../../types/arc";
 import { sgd, SliceTooltip, useSliceTooltip } from "../../ui";
+import { ringPath } from "../../../utils/ringPath";
 
 export const BUCKET_BG = { liquidity: "bg-chart-liquidity", longevity: "bg-chart-equities", legacy: "bg-chart-alternatives" } as const;
 export const BUCKET_VAR = { liquidity: "var(--chart-liquidity)", longevity: "var(--chart-equities)", legacy: "var(--chart-alternatives)" } as const;
@@ -39,7 +40,7 @@ export function BucketBar({ buckets }: { buckets: Bucket3L[] }) {
 }
 
 export function SaaDonut({ rows }: { rows: AllocationRow[] }) {
-  const r = 70, c = 2 * Math.PI * r;
+  const r = 70; // ring centre line; the ring is 28 wide (r ± 14)
   const total = rows.reduce((s, x) => s + x.saa, 0) || 1;
   const groups = [
     { label: "Cash", v: 0, col: CLASS_COLOR.Cash }, { label: "Fixed income", v: 0, col: CLASS_COLOR["Fixed income"] },
@@ -53,12 +54,12 @@ export function SaaDonut({ rows }: { rows: AllocationRow[] }) {
       <div className="space-y-4">
         <div ref={tt.containerRef} className="relative h-[200px] w-[200px]">
         <svg viewBox="0 0 200 200" className="h-[200px] w-[200px]" role="img" aria-label="Strategic asset allocation">
-          <g transform="rotate(-90 100 100)">
-            <circle cx="100" cy="100" r={r} fill="none" stroke="var(--scale-track)" strokeWidth="28" />
+          <g>
+            <path d={ringPath(100, 100, r + 14, r - 14, 0, 1)} fill="var(--scale-track)" fillRule="evenodd" />
             {groups.filter((g) => g.v > 0).map((g) => {
-              const len = (g.v / total) * c;
-              const el = <circle key={g.label} cx="100" cy="100" r={r} fill="none" stroke={g.col} strokeWidth="28" strokeDasharray={`${len} ${c - len}`} strokeDashoffset={-offset} {...tt.bind(g.label, (g.v / total) * 100)} style={tt.sliceStyle(g.label)} />;
-              offset += len;
+              const f = g.v / total;
+              const el = <path key={g.label} d={ringPath(100, 100, r + 14, r - 14, offset, offset + f)} fill={g.col} fillRule="evenodd" {...tt.bind(g.label, f * 100)} style={tt.sliceStyle(g.label)} />;
+              offset += f;
               return el;
             })}
           </g>
@@ -94,24 +95,27 @@ export function SaaRows({ rows }: { rows: AllocationRow[] }) {
 export const STRAT_COLOR: Record<string, string> = {
   Bonds: "var(--chart-bonds)", Liquidity: "var(--chart-liquidity)", Equities: "var(--chart-equities)",
   "Alternative Investments": "var(--chart-alternatives)", Other: "var(--ink-muted)",
+  // Portfolio Agent model SAA classes (same tones as components/portfolio/allocation.ts).
+  Cash: "var(--chart-liquidity)", "Fixed income": "var(--chart-bonds)", Gold: "var(--chart-alternatives)",
+  "Hedge funds": "var(--scale-fill)", "Private markets": "var(--ink-muted)", "Real estate": "var(--hairline-strong)",
 };
 
 /** `editable`: the legend percentages become number inputs (one per asset class in `keys`); the value is clamped by `onCommit` on blur. */
 export function StrategyDonut({ allocation, label, hideLegend = false, editable }: { allocation?: Record<string, number>; label: string; hideLegend?: boolean; editable?: { keys: string[]; onCommit: (k: string, raw: string) => void } }) {
   const [draft, setDraft] = useState<Record<string, string>>({});
-  const r = 60, c = 2 * Math.PI * r;
+  const r = 60; // ring centre line; the ring is 26 wide (r ± 13)
   const rows = Object.entries(allocation ?? {}).filter(([, v]) => v > 0);
   const total = rows.reduce((s, [, v]) => s + v, 0) || 1;
   let offset = 0;
   return (
     <div className="flex min-w-0 flex-col items-center gap-4 sm:flex-row" data-testid="strategy-donut">
       <svg viewBox="0 0 160 160" className="h-[160px] w-[160px] shrink-0" role="img" aria-label={label}>
-        <g transform="rotate(-90 80 80)">
-          <circle cx="80" cy="80" r={r} fill="none" stroke="var(--scale-track)" strokeWidth="26" />
+        <g>
+          <path d={ringPath(80, 80, r + 13, r - 13, 0, 1)} fill="var(--scale-track)" fillRule="evenodd" />
           {rows.map(([k, v]) => {
-            const len = (v / total) * c;
-            const el = <circle key={k} data-slice={k} cx="80" cy="80" r={r} fill="none" stroke={STRAT_COLOR[k] ?? "var(--ink-muted)"} strokeWidth="26" strokeDasharray={`${len} ${c - len}`} strokeDashoffset={-offset}><title>{`${k} ${v}%`}</title></circle>;
-            offset += len;
+            const f = v / total;
+            const el = <path key={k} data-slice={k} d={ringPath(80, 80, r + 13, r - 13, offset, offset + f)} fill={STRAT_COLOR[k] ?? "var(--ink-muted)"} fillRule="evenodd"><title>{`${k} ${v}%`}</title></path>;
+            offset += f;
             return el;
           })}
         </g>

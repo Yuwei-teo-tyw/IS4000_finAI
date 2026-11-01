@@ -136,6 +136,8 @@ export interface IpsDraftExtras {
   /** Investment philosophy statement blanks (RM-filled). */
   philosophy?: { approach?: string; believes?: string; avoids?: string; statement?: string; investmentPeriod?: string };
   signatures?: { client?: string; rm?: string; pm?: string; pmSignedAt?: string };
+  /** PM review: the Portfolio Agent model SAA per bucket as the PM is editing it (also saved to the backend once it passes its checks). */
+  modelSaa?: Partial<Record<"longevity" | "legacy", import("../types/modelSaa").PmModelSaa>>;
   /** Set when the Portfolio Manager opens the IPS; the PM signature is shown only after this. Reset when the RM (re)sends. */
   pmOpened?: boolean;
   /** Strategy code (A-F) chosen per 3L bucket, and the justification text per bucket. */

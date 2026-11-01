@@ -6,6 +6,7 @@ import { BulletEditor } from "./edit";
 import { Bullets, CELL, EDIT_BOX, IPS_FRAME, LABEL, SMALL, SubHead } from "./parts";
 import type { Bucket3L } from "../../../types/arc";
 import type { PaBucketInputs } from "../../../types/portfolio";
+import { ringPath } from "../../../utils/ringPath";
 
 export type BucketId = "liquidity" | "longevity" | "legacy";
 export interface SaaPortfolio { /** Portfolio Agent request id, needed by the combined check. */ requestId?: string; optionId: string; optionName?: string; weights: Record<string, number> }
@@ -22,11 +23,11 @@ function Pie({ weights, label }: { weights?: Record<string, number>; label: stri
   let offset = 0;
   return (
     <svg viewBox="0 0 160 160" className="h-[160px] w-[160px] shrink-0" role="img" aria-label={label}>
-      <g transform="rotate(-90 80 80)">
-        <circle cx="80" cy="80" r={r} fill="none" stroke="var(--scale-track)" strokeWidth="26" />
+      <g>
+        <path d={ringPath(80, 80, r + 13, r - 13, 0, 1)} fill="var(--scale-track)" fillRule="evenodd" />
         {rows.map(([k, v]) => {
           const len = (v / total) * c;
-          const el = <circle key={k} cx="80" cy="80" r={r} fill="none" stroke={classColor(k)} strokeWidth="26" strokeDasharray={`${len} ${c - len}`} strokeDashoffset={-offset}><title>{`${k} ${v}%`}</title></circle>;
+          const el = <path key={k} d={ringPath(80, 80, r + 13, r - 13, offset / c, (offset + len) / c)} fill={classColor(k)} fillRule="evenodd"><title>{`${k} ${v}%`}</title></path>;
           offset += len;
           return el;
         })}

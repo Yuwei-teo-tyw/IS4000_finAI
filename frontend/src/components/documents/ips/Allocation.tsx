@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { arcApi } from "../../../services/arcApi";
 import { Badge, useAsync } from "../../ui";
 import type { Strategy } from "../../../types/arc";
@@ -23,6 +23,8 @@ const FALLBACK: Strategy[] = [
   ["A", "Fixed Income"], ["B", "Income"], ["C", "Yield"], ["D", "Balanced"], ["E", "Growth"], ["F", "Equities"],
 ].map(([code, name]) => ({ code, name, allocation: {} }));
 export type AllocWeights = Partial<Record<"longevity" | "legacy", { strategy: string; weights: Record<string, number> }>>;
+/** A Portfolio Agent library model the PM approved for a bucket (IPS data.saa), shown read-only. */
+export type SavedModelSaa = Partial<Record<"longevity" | "legacy", { modelId?: string; modelName?: string; weights?: Record<string, number>; recommendedModelId?: string | null; overrideReason?: string | null }>>;
 /** Max deviation (percentage points) from the chosen strategy's model weight, per asset class. */
 export const SAA_TOL = 10;
 export const sumW = (w: Record<string, number>) => Math.round(Object.values(w).reduce((s, v) => s + (Number(v) || 0), 0) * 100) / 100;
@@ -106,7 +108,10 @@ export function StrategyBoxes({ bucket, label, strategies, value, editing, onPic
  * Three 3L portfolios. Per portfolio: row 1 = strategy boxes + donut of the selected strategy, row 2 = reason box.
  * Same layout in preview (read-only) and editor. `proposed` is Geneva's strategy; a different pick requires a reason, which is logged.
  */
-export function AllocationBuckets({ allocation, notes, editing, blank, onPick, onNote, proposed, meta, outOfDate, weights, onWeights }: {
+export function AllocationBuckets({ allocation, notes, editing, blank, onPick, onNote, proposed, meta, outOfDate, weights, onWeights, saaFor, modelSaa }: {
+  /** PM review: replaces the strategy boxes and donut of Longevity/Legacy with the Portfolio Agent model SAA panel. */
+  saaFor?: (bucket: "longevity" | "legacy") => ReactNode;
+  modelSaa?: SavedModelSaa;
   weights?: AllocWeights; onWeights?: (bucket: AllocBucketId, w: Record<string, number> | undefined) => void;
   allocation: Partial<Record<AllocBucketId, string>>; notes?: Record<string, string>;
   editing: boolean; blank: boolean; onPick?: (bucket: AllocBucketId, code: string) => void;
@@ -131,6 +136,28 @@ export function AllocationBuckets({ allocation, notes, editing, blank, onPick, o
       )}
       {BUCKETS.map(({ id, label }) => {
         if (id === "liquidity") return <p key={id} data-bucket={id} className="text-sm italic text-brand">Liquidity Portfolio has no SAA, due to immediate funding requirements for the client.</p>;
+        const saved = modelSaa?.[id];
+        if (saaFor || saved?.modelId) {
+          return (
+            <section key={id} data-bucket={id} className={`@container ${CELL} ${IPS_FRAME}`}>
+              <SubHead>{label} portfolio{saved?.modelId ? <span className="font-light"> · {saved.modelId} - {saved.modelName ?? ""}</span> : null}</SubHead>
+              <div className="mt-4">
+                {saaFor ? saaFor(id) : (
+                  <div className="grid min-w-0 grid-cols-1 gap-6 @xl:grid-cols-2">
+                    <div className={`${SMALL} space-y-1`}>
+                      <p><Badge tone="grey">Portfolio Agent model, PM approved</Badge></p>
+                      {saved?.recommendedModelId && saved.recommendedModelId !== saved.modelId && <p className="text-ink-muted">Recommended: {saved.recommendedModelId}. PM reason: {saved.overrideReason || "not recorded"}</p>}
+                    </div>
+                    <StrategyDonut allocation={saved?.weights} label={`${label} strategic asset allocation, model ${saved?.modelId}`} />
+                  </div>
+                )}
+              </div>
+              {(notes?.[id] || meta?.[id]?.reason) && !saaFor && (
+                <div className="mt-6 min-w-0"><p className={LABEL}>Reason for {label} strategy</p><p className={`mt-1 whitespace-pre-wrap ${WRAP}`}>{notes?.[id] ?? meta?.[id]?.reason}</p></div>
+              )}
+            </section>
+          );
+        }
         const m = meta?.[id];
         const code = blank && !editing ? undefined : allocation[id] ?? m?.strategy;
         const s = strategies.find((x) => x.code === code);

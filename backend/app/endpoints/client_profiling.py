@@ -174,8 +174,9 @@ async def ips_generate_sections() -> list[dict]:
     return [{"id": i, "label": l} for i, l in IPS_GEN_SECTIONS]
 
 
-def _autosave(store, client_id: str, results: list[dict], version: Optional[int]) -> Optional[dict]:
+def _autosave(store, client_id: str, results: list[dict], version: Optional[int], extra: Optional[dict] = None) -> Optional[dict]:
     """Merge generated section results into the structured IPS and persist it (new Draft version, or `version` in place).
+    `extra`: top-level IPS data set alongside (e.g. the Market Analysis Agent's `market` block).
     Returns None when nothing was generated (no notes / no model): no empty version is created."""
     if not any(r.get("status") == "ok" for r in results):
         return None
@@ -185,6 +186,7 @@ def _autosave(store, client_id: str, results: list[dict], version: Optional[int]
     data = normalize_data(cur.data if cur and cur.data else new_ips_data())
     for r in results:
         merge_section(data, r)
+    data.update(extra or {})
     from app.agents.client_profiling.store import IpsPartDoc
     parts = [IpsPartDoc(**p) for p in render_parts(data)]
     saved = store.save_ips(client_id, parts, version=version, summary="AI-generated draft from meeting notes",
@@ -219,6 +221,9 @@ def ips_generate_all(body: IpsGenerateAllRequest) -> dict:
             "saved": ips is not None, "version": ips["version"] if ips else None, "ips": ips, "saved_ips": ips}
 
 
+MARKET_WAIT_SECONDS = 180  # a fresh market run has a 90s budget plus queueing
+
+
 def _stream_workers() -> int:
     """Concurrent section generations. LM Studio (4 parallel slots) measured ~1.5x faster with 2-4 concurrent requests."""
     try:
@@ -240,14 +245,26 @@ def _safe_generate(store, client_id: str, section: str) -> dict:
 
 
 @router.post("/ips-generate/stream")
-def ips_generate_stream(body: IpsGenerateAllRequest) -> StreamingResponse:
+async def ips_generate_stream(body: IpsGenerateAllRequest, request: Request) -> StreamingResponse:
     """Generate all sections concurrently (bounded pool) and stream one NDJSON line per section as it finishes:
-    `{"type":"start","sections":[...]}`, then `{"type":"section", ...section result}` lines (any order), then ONE autosave of a
-    single new Draft version and a final `{"type":"done","saved","version","ips","model","modelMessage"}` line."""
+    `{"type":"start","sections":[...]}`, then `{"type":"section", ...section result}` lines (any order), then the Market Analysis
+    Agent's `{"type":"market","market":{...}}` line, then ONE autosave of a single new Draft version (with the market block
+    as `data.market`) and a final `{"type":"done","saved","version","ips","model","modelMessage"}` line.
+    The market block is fetched alongside the sections: a run from the last 24h is reused, else one run is started."""
+    from app.agents.market_researcher.ips_context import ips_market_context, unavailable
     store = get_default_store()
     _require_in_book(store, body.client_id)
     ids = [sid for sid, _l in IPS_GEN_SECTIONS]
     order = sorted(ids, key=lambda s: s != "allocation")  # the slowest section first so it overlaps the narrative ones
+    loop = asyncio.get_running_loop()
+    market_fut = asyncio.run_coroutine_threadsafe(ips_market_context(getattr(request.app.state, "market_research", None)), loop)
+
+    def market_block() -> dict:
+        try:
+            return market_fut.result(timeout=MARKET_WAIT_SECONDS)
+        except Exception:  # noqa: BLE001 - a slow or failed market run never blocks the IPS
+            market_fut.cancel()
+            return unavailable("The Market Analysis Agent did not finish in time; regenerate the IPS to try again.")
 
     def gen():
         yield _ndjson({"type": "start", "sections": ids, "workers": _stream_workers()})
@@ -263,14 +280,18 @@ def ips_generate_stream(body: IpsGenerateAllRequest) -> StreamingResponse:
             finished = True
         finally:
             ex.shutdown(wait=False, cancel_futures=True)  # client went away: stop queued work, skip the save
+            if not finished:
+                market_fut.cancel()
         if not finished:
             return
+        market = market_block()
+        yield _ndjson({"type": "market", "market": market})
         ordered = [results[s] for s in ids if s in results]
         model = next((r["model"] for r in ordered if r.get("model")), None)
         out: dict = {"type": "done", "model": model,
                      "modelMessage": "" if model else next((r.get("modelMessage", "") for r in ordered if r.get("modelMessage")), "")}
         try:
-            ips = _autosave(store, body.client_id, ordered, None)
+            ips = _autosave(store, body.client_id, ordered, None, extra={"market": market})
             out.update({"saved": ips is not None, "version": ips["version"] if ips else None, "ips": ips})
         except Exception:
             out.update({"saved": False, "version": None, "ips": None, "error": "The generated draft could not be saved."})

@@ -4,6 +4,7 @@ import type { Bucket3L } from "../../../types/arc";
 import { sgd } from "../../ui";
 import { WRAP, EDIT_BOX, EditField } from "./parts";
 import { BUCKET_BG, BUCKET_VAR } from "./charts";
+import { ringPath } from "../../../utils/ringPath";
 
 /* ---------- Word-like bullet editor (contentEditable ul/li) ---------- */
 
@@ -194,11 +195,11 @@ export function BucketPie({ buckets }: { buckets: Bucket3L[] }) {
   return (
     <div className="space-y-4">
       <svg viewBox="0 0 200 200" className="h-[200px] w-[200px]" role="img" aria-label="Placeholder pie of 3L buckets">
-        <g transform="rotate(-90 100 100)">
-          <circle cx="100" cy="100" r={r} fill="none" stroke="var(--scale-track)" strokeWidth="100" />
+        <g>
+          <path d={ringPath(100, 100, r * 2, 0, 0, 1)} fill="var(--scale-track)" />
           {buckets.filter((b) => b.pct > 0).map((b) => {
             const len = (Math.max(0, b.pct) / denom) * c;
-            const el = <circle key={b.id} cx="100" cy="100" r={r} fill="none" stroke={BUCKET_VAR[b.id]} strokeWidth="100" strokeDasharray={`${len} ${c - len}`} strokeDashoffset={-offset} />;
+            const el = <path key={b.id} d={ringPath(100, 100, r * 2, 0, offset / c, (offset + len) / c)} fill={BUCKET_VAR[b.id]} />;
             offset += len;
             return el;
           })}

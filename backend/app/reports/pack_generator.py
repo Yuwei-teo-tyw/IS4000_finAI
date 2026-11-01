@@ -145,6 +145,21 @@ def _saa_from_strategy(code: str) -> Optional[dict[str, float]]:
     return _apportion({k: float(v) for k, v in kept.items()})
 
 
+MODEL_CLASS_CATEGORY = {"Fixed income": "Bonds", "Equities": "Equities", "Hedge funds": "Alternative Investments",
+                        "Private markets": "Alternative Investments", "Real estate": "Alternative Investments", "Gold": "Alternative Investments"}
+
+
+def _saa_from_model_weights(weights: dict) -> Optional[dict[str, float]]:
+    """The PM's model SAA weights (Portfolio Agent asset classes) folded into the pack's SAA categories; Cash is
+    dropped and the rest renormalised to 100, as for a strategy (Liquidity has no SAA)."""
+    kept = {c: 0.0 for c in CATEGORIES}
+    for ac, v in weights.items():
+        cat = MODEL_CLASS_CATEGORY.get(ac)
+        if cat:
+            kept[cat] += float(v)
+    return _apportion(kept) if sum(kept.values()) > 0 else None
+
+
 # --- data gathering ---------------------------------------------------------
 
 def _facts_by_field(profile_facts) -> dict[str, Any]:
@@ -243,6 +258,10 @@ def _read_ips(ips, current: bool) -> dict:
         meta = get_strategy(code) if code else None
         out["strategy"][k] = {"code": code, "name": (meta or {}).get("name")} if meta else None
         out["saa"][k] = _saa_from_strategy(code) if meta else None
+        pm = (data.get("saa") or {}).get(k) if isinstance(data.get("saa"), dict) else None
+        if isinstance(pm, dict) and pm.get("modelId") and isinstance(pm.get("weights"), dict):  # the PM's approved model SAA
+            out["strategy"][k] = {"code": code, "name": pm.get("modelName") or (meta or {}).get("name"), "model_id": pm["modelId"]}
+            out["saa"][k] = _saa_from_model_weights(pm["weights"])
     return out
 
 

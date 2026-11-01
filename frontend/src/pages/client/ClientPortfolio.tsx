@@ -4,6 +4,7 @@ import { Link, useOutletContext } from "react-router-dom";
 import { Button, Section, Loading, MockTag } from "../../components/ui";
 import { BUCKET_BG } from "../../components/documents/ips/charts";
 import type { PortfolioCtx } from "./ClientLayout";
+import { ringPath } from "../../utils/ringPath";
 import type { ClientPortfolio as Portfolio, PortfolioHolding, PortfolioThreeLRow } from "../../types/arc";
 
 const n2 = (v: number | null | undefined) => (v == null ? "" : v.toLocaleString("en-SG", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
@@ -164,20 +165,19 @@ function DonutSvg({ title, slices, active, onActive }: { title: string; slices: 
     <svg viewBox="0 0 140 140" className="mx-auto my-3 h-[150px] w-[150px] shrink-0" role="group"
       aria-label={`${title}: ${slices.filter((s) => s.pct > 0).map((s) => `${s.key} ${s.pct.toFixed(1)} percent`).join(", ")}`}>
       <title>{title}</title>
-      <circle cx="70" cy="70" r={r} fill="none" stroke="var(--surface-300)" strokeWidth="22" />
+      <path d={ringPath(70, 70, r + 11, r - 11, 0, 1)} fill="var(--surface-300)" fillRule="evenodd" />
       {slices.filter((s) => s.pct > 0).map((s) => {
         const len = (s.pct / total) * c;
         const ang = (off / c) * 2 * Math.PI - Math.PI / 2;
         const sep = <line key={s.key + "-sep"} x1={70 + (r - 12) * Math.cos(ang)} y1={70 + (r - 12) * Math.sin(ang)} x2={70 + (r + 12) * Math.cos(ang)} y2={70 + (r + 12) * Math.sin(ang)} stroke="var(--surface-100)" strokeWidth="1.5" />;
         const el = (
-          <circle cx="70" cy="70" r={r} fill="none" stroke={CLASSES.find((x) => x.key === s.key)!.color} strokeWidth="22"
-            strokeDasharray={`${len} ${c - len}`} strokeDashoffset={-off} transform="rotate(-90 70 70)"
+          <path d={ringPath(70, 70, r + 11, r - 11, off / c, (off + len) / c)} fill={CLASSES.find((x) => x.key === s.key)!.color} fillRule="evenodd"
             tabIndex={onActive ? 0 : undefined} role="img" aria-label={`${title}: ${s.key} ${s.pct.toFixed(1)} percent`}
             opacity={active && active !== s.key ? 0.3 : 1}
             onMouseEnter={() => onActive?.(s.key)} onMouseLeave={() => onActive?.(null)}
             onFocus={() => onActive?.(s.key)} onBlur={() => onActive?.(null)}>
             <title>{`${s.key} ${s.pct.toFixed(1)}%`}</title>
-          </circle>
+          </path>
         );
         off += len;
         return <g key={s.key}>{el}{sep}</g>;

@@ -11,12 +11,15 @@ const clampPct = (raw: string) => Math.min(100, Math.max(0, Number.isFinite(Numb
  * Section 5 in one block: stacked bar, then one row per bucket (colour key, horizon, amount, editable %), each with its AI-written reason in an editable box.
  * Editing a % rescales the bar and the amounts. Read-only when `onBuckets` is absent.
  */
-export function BucketAllocation({ buckets, onBuckets, proportion, message, missing, onPct, onReason }: {
+export function BucketAllocation({ buckets, onBuckets, proportion, message, missing, onPct, onReason, totalWealth }: {
   buckets?: Bucket3L[]; onBuckets?: (b: Bucket3L[]) => void;
+  /** The client's total wealth (client book AUM). When known, each amount is wealth x % and the unallocated remainder is shown. */
+  totalWealth?: number | null;
   proportion?: ThreeLProportion | null; message?: string; missing?: string[];
   onPct?: (k: ThreeLBucketKey, pct: number) => void; onReason?: (k: ThreeLBucketKey, text: string) => void;
 }) {
-  const list = buckets ?? [];
+  const wealth = totalWealth && totalWealth > 0 ? totalWealth : null;
+  const list = (buckets ?? []).map((b) => (wealth ? { ...b, amountSgd: Math.round((wealth * b.pct) / 100) } : b));
   const total = list.reduce((s, b) => s + b.pct, 0);
   const amount = list.reduce((s, b) => s + b.amountSgd, 0);
   const portfolio = useRef(amount);
@@ -26,7 +29,7 @@ export function BucketAllocation({ buckets, onBuckets, proportion, message, miss
   const editing = !!onBuckets;
   const setPct = (id: Bucket3L["id"], raw: string) => {
     const pct = clampPct(raw);
-    onBuckets?.(list.map((b) => (b.id === id ? { ...b, pct, amountSgd: Math.round((portfolio.current * pct) / 100) } : b)));
+    onBuckets?.(list.map((b) => (b.id === id ? { ...b, pct, amountSgd: Math.round(((wealth ?? portfolio.current) * pct) / 100) } : b)));
     onPct?.(id, pct);
   };
   const ok = Math.abs(total - 100) < 0.005;
@@ -75,6 +78,19 @@ export function BucketAllocation({ buckets, onBuckets, proportion, message, miss
             <td colSpan={3} className={`py-2 pr-2 text-right ${LABEL}`}>Total</td>
             <td className={`py-2 pr-4 text-right ${ok ? "text-ink" : "text-negative"}`} data-testid="proportion-total">{total}%</td><td />
           </tr>
+          {wealth && (
+            <>
+              <tr data-testid="proportion-wealth">
+                <td colSpan={2} className={`py-1 pr-2 text-right ${LABEL}`}>Total wealth (client book)</td>
+                <td className="py-1 pr-2 text-right">{sgd(wealth)}</td><td className="py-1 pr-4 text-right text-ink-muted">100%</td><td />
+              </tr>
+              <tr data-testid="proportion-unallocated">
+                <td colSpan={2} className={`py-1 pr-2 text-right ${LABEL}`}>Unallocated</td>
+                <td className={`py-1 pr-2 text-right ${ok ? "text-ink-muted" : "text-negative"}`}>{sgd(Math.max(0, wealth - amount))}{amount > wealth ? ` (over by ${sgd(amount - wealth)})` : ""}</td>
+                <td className={`py-1 pr-4 text-right ${ok ? "text-ink-muted" : "text-negative"}`}>{Math.round((100 - total) * 100) / 100}%</td><td />
+              </tr>
+            </>
+          )}
         </tfoot>
       </table>
       {!ok && <p role="alert" className={`mt-1 text-right text-negative ${SMALL}`} data-testid="proportion-warning">Total is {total}%, not 100%.</p>}

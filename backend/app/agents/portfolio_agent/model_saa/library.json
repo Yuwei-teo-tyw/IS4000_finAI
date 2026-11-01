@@ -1,0 +1,100 @@
+{
+  "_notice": "Reference model SAAs the Portfolio Agent evaluates for each 3L bucket. These are strategic starting allocations configured by the investment office, not client data and not agent output. Add a model by appending an entry to a bucket's list: give it a unique id, a risk level 1-5, objectives from the vocabulary below, a minimum horizon and weights that add to 100. `strategy_code` is the closest IPS strategy A-F, kept so the IPS and the review pack can still name a strategy.",
+  "version": "2026-11-01",
+  "asset_classes": ["Cash", "Fixed income", "Equities", "Hedge funds", "Private markets", "Real estate", "Gold"],
+  "objective_vocabulary": ["preservation", "income", "growth", "inflation_protection", "transfer", "philanthropy"],
+  "framework": {
+    "description": "Hard checks first: a model above the client's risk ceiling, needing a longer horizon than the bucket has, or breaking the growth cap for the client's risk level is not suitable. Suitable models are then scored out of 100 on five weighted criteria and ranked; the highest score is recommended. Market views and existing holdings are reported but never change the ranking: client suitability takes priority.",
+    "weights": {"risk_alignment": 35, "objective_alignment": 25, "horizon_fit": 15, "loss_tolerance": 15, "liquidity_fit": 10},
+    "horizon_comfort_years": 5,
+    "growth_classes": ["Equities", "Hedge funds", "Private markets"],
+    "illiquid_classes": ["Hedge funds", "Private markets"],
+    "max_illiquid_pct": 25,
+    "growth_cap_by_risk_level": {"1": 15, "2": 35, "3": 55, "4": 75, "5": 90},
+    "max_change_pp_warning": 15
+  },
+  "buckets": {
+    "longevity": {
+      "label": "Longevity",
+      "purpose": "Money for medium- to long-term needs such as retirement income: it must grow ahead of inflation while supporting planned withdrawals.",
+      "models": [
+        {
+          "id": "LON-1", "name": "Capital Preservation Income", "risk_level": 1, "strategy_code": "A",
+          "objectives": ["preservation", "income"], "min_horizon_years": 3,
+          "purpose": "Protect capital that will fund retirement spending soon, with modest income.",
+          "rationale": "High-grade bonds carry the bucket; a small equity and gold sleeve offsets some inflation without exposing near-term withdrawals to large falls.",
+          "weights": {"Cash": 5, "Fixed income": 80, "Equities": 10, "Gold": 5}
+        },
+        {
+          "id": "LON-2", "name": "Conservative Retirement Income", "risk_level": 2, "strategy_code": "B",
+          "objectives": ["income", "preservation", "inflation_protection"], "min_horizon_years": 5,
+          "purpose": "Steady income for retirement with limited growth to keep pace with inflation.",
+          "rationale": "Bond income funds withdrawals; a quarter in equities and real assets keeps purchasing power over a five-year-plus horizon.",
+          "weights": {"Cash": 5, "Fixed income": 62, "Equities": 23, "Real estate": 5, "Gold": 5}
+        },
+        {
+          "id": "LON-3", "name": "Balanced Retirement", "risk_level": 3, "strategy_code": "C",
+          "objectives": ["income", "growth", "inflation_protection"], "min_horizon_years": 7,
+          "purpose": "Balance income today with growth for a retirement that is still some years away.",
+          "rationale": "An even split between defensive and growth assets, diversified with hedge funds and real assets, for clients who accept moderate swings.",
+          "weights": {"Cash": 5, "Fixed income": 45, "Equities": 35, "Hedge funds": 5, "Real estate": 5, "Gold": 5}
+        },
+        {
+          "id": "LON-4", "name": "Growth for Retirement", "risk_level": 4, "strategy_code": "D",
+          "objectives": ["growth", "inflation_protection"], "min_horizon_years": 10,
+          "purpose": "Build the retirement pot over a decade or more, accepting larger interim falls.",
+          "rationale": "Equities lead; bonds remain the shock absorber so withdrawals can be met from the defensive sleeve in a downturn.",
+          "weights": {"Cash": 3, "Fixed income": 30, "Equities": 50, "Hedge funds": 7, "Real estate": 5, "Gold": 5}
+        },
+        {
+          "id": "LON-5", "name": "Long-Horizon Growth", "risk_level": 5, "strategy_code": "E",
+          "objectives": ["growth"], "min_horizon_years": 12,
+          "purpose": "Maximise long-run growth of retirement capital for a client with a long horizon and high risk capacity.",
+          "rationale": "Mostly growth assets including a private-markets sleeve; only suitable when no material withdrawals are expected for many years.",
+          "weights": {"Cash": 2, "Fixed income": 15, "Equities": 65, "Hedge funds": 8, "Private markets": 5, "Real estate": 5}
+        }
+      ]
+    },
+    "legacy": {
+      "label": "Legacy",
+      "purpose": "Wealth to preserve and pass on: protect real value across generations and keep enough liquidity for estate costs.",
+      "models": [
+        {
+          "id": "LEG-1", "name": "Wealth Preservation", "risk_level": 1, "strategy_code": "A",
+          "objectives": ["preservation", "transfer"], "min_horizon_years": 5,
+          "purpose": "Keep the capital intact for heirs, with liquidity for estate expenses.",
+          "rationale": "High-grade bonds and gold protect real value; growth assets are kept small so the estate is not exposed to large falls.",
+          "weights": {"Cash": 5, "Fixed income": 75, "Equities": 10, "Gold": 10}
+        },
+        {
+          "id": "LEG-2", "name": "Conservative Endowment", "risk_level": 2, "strategy_code": "B",
+          "objectives": ["preservation", "income", "transfer"], "min_horizon_years": 8,
+          "purpose": "Preserve wealth for the next generation while producing income that beneficiaries can draw.",
+          "rationale": "Bond income with a measured equity and real-asset sleeve to offset inflation over a long holding period.",
+          "weights": {"Cash": 5, "Fixed income": 55, "Equities": 25, "Real estate": 5, "Gold": 10}
+        },
+        {
+          "id": "LEG-3", "name": "Balanced Legacy", "risk_level": 3, "strategy_code": "C",
+          "objectives": ["preservation", "growth", "transfer", "inflation_protection"], "min_horizon_years": 10,
+          "purpose": "Grow the estate moderately in real terms while protecting it in downturns.",
+          "rationale": "A balanced mix with gold and real estate as diversifiers, suited to clients who want the estate to keep its real value.",
+          "weights": {"Cash": 5, "Fixed income": 40, "Equities": 35, "Hedge funds": 5, "Real estate": 5, "Gold": 10}
+        },
+        {
+          "id": "LEG-4", "name": "Multi-Generational Growth", "risk_level": 4, "strategy_code": "D",
+          "objectives": ["growth", "transfer"], "min_horizon_years": 15,
+          "purpose": "Grow wealth for heirs over 15 years or more, accepting interim volatility.",
+          "rationale": "Equity-led with private markets for long-run return; the long horizon allows illiquid assets.",
+          "weights": {"Cash": 3, "Fixed income": 25, "Equities": 47, "Hedge funds": 7, "Private markets": 8, "Real estate": 5, "Gold": 5}
+        },
+        {
+          "id": "LEG-5", "name": "Endowment Growth", "risk_level": 5, "strategy_code": "E",
+          "objectives": ["growth", "transfer", "philanthropy"], "min_horizon_years": 20,
+          "purpose": "Endowment-style growth for a foundation or a very long multi-generational horizon.",
+          "rationale": "Heavy in equities and private markets; only for very long horizons where estate liquidity needs are small.",
+          "weights": {"Cash": 2, "Fixed income": 13, "Equities": 55, "Hedge funds": 8, "Private markets": 15, "Real estate": 5, "Gold": 2}
+        }
+      ]
+    }
+  }
+}

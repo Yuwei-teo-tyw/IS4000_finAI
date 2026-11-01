@@ -121,7 +121,7 @@ export default function IpsDraft({ embedded = false, clientId: clientIdProp, bla
     if (n) setAllocationNotes((c) => JSON.stringify(c) === JSON.stringify(n) ? c : n);
   }, [storeExtras.allocation, storeExtras.allocationNotes]);
   const version = useMemo<IpsVersion | null>(() => parts ? {
-    version: rec?.version ?? 0, issuedOn: rec?.issuedOn ?? new Date().toISOString(), status: "Draft", author: "Relationship Manager", summary: "Onboarding draft", parts,
+    version: rec?.version ?? 0, issuedOn: rec?.issuedOn ?? new Date().toISOString(), status: "Draft", author: "Relationship Manager", summary: "Onboarding draft", parts, data: rec?.data,
   } : null, [parts, rec]);
   if (!parts || !version || !buckets0 || !hydrated.current) return <Loading />;
   const api: IpsEditApi = { text, setText: (n, v) => setText((t) => ({ ...t, [n]: v })), buckets, setBuckets,

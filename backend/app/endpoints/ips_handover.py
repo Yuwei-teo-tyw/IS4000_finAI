@@ -97,10 +97,17 @@ class BucketPct(BaseModel):
 
 
 class SaaEdit(BaseModel):
+    """Either a strategy A-F (the original picker), or a model from the Portfolio Agent's library (modelId): then the
+    strategy is the model's closest A-F code, and the agent's recommendation and the PM's override reason are kept."""
     model_config = ConfigDict(extra="forbid")
-    strategy: str = Field(min_length=1, max_length=1)
+    strategy: Optional[str] = Field(default=None, min_length=1, max_length=1)
     weights: Optional[dict[str, float]] = None  # PM-adjusted asset-class weights (% of the bucket); omit for the strategy's own
     reason: Optional[str] = Field(default=None, max_length=2000)
+    modelId: Optional[str] = Field(default=None, max_length=20)
+    recommendedModelId: Optional[str] = Field(default=None, max_length=20)
+    recommendedWeights: Optional[dict[str, float]] = None
+    recommendationId: Optional[str] = Field(default=None, max_length=80)
+    overrideReason: Optional[str] = Field(default=None, max_length=2000)
 
 
 class PmIpsEdit(BaseModel):
@@ -136,6 +143,15 @@ async def put_pm_ips(client_id: str, body: PmIpsEdit, x_rm_id: Optional[str] = H
             raise HTTPException(status_code=422, detail="Liquidity has no SAA or strategy")
         if b not in SAA_BUCKETS:
             raise HTTPException(status_code=422, detail="SAA buckets are longevity and legacy")
+        if e.modelId:
+            prev, new = w["saa"][b], _model_saa(client_id, b, e, w["saa"][b])
+            rec_id = new.get("recommendedModelId")
+            if rec_id and rec_id != new["modelId"] and prev.get("modelId") != new["modelId"]:  # logged once per override
+                store.log_strategy_override(client_id, LABEL[b], rec_id, new["modelId"], new["overrideReason"] or "PM override", _rm(x_rm_id, rm_id))
+            w["saa"][b] = new
+            continue
+        if not e.strategy:
+            raise HTTPException(status_code=422, detail="Give a strategy A-F or a model from the Portfolio Agent's library")
         s = _strategy_or_422(e.strategy)
         if e.weights is not None:
             _check_weights(e.weights)
@@ -149,6 +165,30 @@ async def put_pm_ips(client_id: str, body: PmIpsEdit, x_rm_id: Optional[str] = H
     w["updatedAt"] = _now()
     store.put_pm_working(client_id, w)
     return _out(store, client_id, rec, w)
+
+
+def _model_saa(client_id: str, bucket: str, e: SaaEdit, prev: dict) -> dict:
+    """A library model chosen by the PM: weights re-checked server-side (a FAIL is refused), override reason required."""
+    from app.agents.portfolio_agent.model_saa.library import load_library
+    from app.agents.portfolio_agent.model_saa.schemas import WeightCheckRequest
+    from app.agents.portfolio_agent.model_saa.service import check_saa
+    lib = load_library()
+    model = lib.model(bucket, e.modelId)
+    if model is None:
+        raise HTTPException(status_code=422, detail=f"Model {e.modelId} is not in the {LABEL[bucket]} library")
+    weights = {k: float(v) for k, v in (e.weights if e.weights is not None else model.weights).items() if float(v) != 0}
+    _check_weights(weights)
+    res = check_saa(client_id, WeightCheckRequest(bucket=bucket, model_id=model.id, weights=weights))
+    fails = [c.detail for c in res.checks if c.status == "FAIL"]
+    if fails:
+        raise HTTPException(status_code=422, detail=f"{LABEL[bucket]} SAA fails the client checks: " + " ".join(fails))
+    if e.recommendedModelId and e.recommendedModelId != model.id and not (e.overrideReason or "").strip():
+        raise HTTPException(status_code=422, detail=f"Give a reason for choosing {model.id} instead of the recommended {e.recommendedModelId}")
+    return {"strategy": model.strategy_code, "optionId": model.strategy_code, "source": "pm",
+            "modelId": model.id, "modelName": model.name, "modelWeights": dict(model.weights),
+            "recommendedModelId": e.recommendedModelId, "recommendedWeights": e.recommendedWeights, "recommendationId": e.recommendationId,
+            "overrideReason": (e.overrideReason or "").strip() or None, "weights": weights,
+            "reason": e.reason if e.reason is not None else prev.get("reason", ""), "checkedAt": _now()}
 
 
 def _apply_to_ips(data: dict, w: dict) -> dict:
@@ -170,7 +210,9 @@ def _apply_to_ips(data: dict, w: dict) -> dict:
                 cur["reason"] = w["saa"][b].get("reason") or cur.get("reason", "")
         rows.append(cur)
     d["threeL"] = rows
-    d["saa"] = {b: {"strategy": w["saa"][b]["strategy"], "weights": w["saa"][b]["weights"], "amount": w["threeL"][b]["amount"]} for b in SAA_BUCKETS}
+    keep = ("modelId", "modelName", "modelWeights", "recommendedModelId", "recommendedWeights", "overrideReason")
+    d["saa"] = {b: {"strategy": w["saa"][b]["strategy"], "weights": w["saa"][b]["weights"], "amount": w["threeL"][b]["amount"],
+                    **{k: w["saa"][b][k] for k in keep if w["saa"][b].get(k) is not None}} for b in SAA_BUCKETS}
     d["pmReturn"] = {"at": _now(), "edited": bool(w.get("edited"))}
     return normalize_data(d)
 
