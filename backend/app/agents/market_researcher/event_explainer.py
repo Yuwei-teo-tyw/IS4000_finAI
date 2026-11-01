@@ -23,7 +23,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from typing import Literal, Optional
 
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
 
 from app.agents.market_researcher import config as cfg
@@ -34,6 +34,7 @@ from app.agents.market_researcher.decompositions import DECOMPOSITIONS
 from app.agents.market_researcher.news_tagging import keyword_tag, with_max_tokens
 from app.agents.market_researcher.schemas import CitedSource, Event, EventExplanation
 from app.agents.market_researcher.synthesis import allowed_numbers, problems
+from app.agents.market_researcher.tracing import record_attempt, record_failure, trace_config
 from app.core import get_groq_model
 from app.prompts.prompt_builder import get_prompt
 
@@ -214,7 +215,8 @@ def validate(draft: ExplanationDraft, case: _Case) -> tuple[EventExplanation, li
 
 
 def _source(item: RawNewsItem) -> CitedSource:
-    return CitedSource(url=item.url, title=item.title, source=item.source, published_at=item.published_at)
+    return CitedSource(url=item.url, title=item.title, source=item.source, published_at=item.published_at,
+                       snippet=item.snippet[:cfg.EXPLAIN_SNIPPET_CHARS], retrieved_at=item.retrieved_at)
 
 
 def _unavailable(case: _Case) -> EventExplanation:
@@ -222,19 +224,25 @@ def _unavailable(case: _Case) -> EventExplanation:
                             decomposition=case.decomposition, queries_run=case.queries)
 
 
+_PROMPT_KEYS = ("market_researcher.event_explainer_system", "market_researcher.event_explainer_retry_note")
+
+
 async def _invoke(writer, messages: list, deadline: float) -> ExplainBatch:
     """One structured call, re-asked once if the provider rejects the output
     (Groq returns 400 when the model answers in prose / a bare list instead of
     the tool call). Timeouts are not retried."""
+    config = trace_config("event_explainer", _PROMPT_KEYS)
     try:
-        return await asyncio.wait_for(writer.ainvoke(messages), timeout=max(1.0, deadline - time.monotonic()))
+        return await asyncio.wait_for(writer.ainvoke(messages, config=config),
+                                      timeout=max(1.0, deadline - time.monotonic()))
     except asyncio.TimeoutError:
         raise
     except Exception as e:
         if deadline - time.monotonic() < 2.0:
             raise
-        logger.info("stage=explain_llm re-asking after %s", type(e).__name__)
-        return await asyncio.wait_for(writer.ainvoke(messages), timeout=max(1.0, deadline - time.monotonic()))
+        logger.debug("stage=explain_llm re-asking after %s", type(e).__name__)
+        return await asyncio.wait_for(writer.ainvoke(messages, config=config),
+                                      timeout=max(1.0, deadline - time.monotonic()))
 
 
 async def _write(cases: list[_Case], timeout: float) -> tuple[dict[str, EventExplanation], list[str]]:
@@ -262,15 +270,26 @@ async def _write(cases: list[_Case], timeout: float) -> tuple[dict[str, EventExp
                 results[eid] = explanation
         return failing
 
-    batch = await _invoke(writer, messages, deadline)
-    failing = check(batch, set(by_id))
+    async def attempt(wanted: set[str]) -> tuple[ExplainBatch, dict[str, list[str]]]:
+        started = time.monotonic()
+        try:
+            batch = await _invoke(writer, messages, deadline)
+        except Exception as e:
+            record_failure("event_explainer", started, e)
+            raise
+        failing = check(batch, wanted)
+        record_attempt("event_explainer", started, [f"{eid}: {', '.join(p)}" for eid, p in failing.items()],
+                       batch.model_dump_json() if failing else None)
+        return batch, failing
+
+    batch, failing = await attempt(set(by_id))
     if failing:
         listing = "; ".join(f"{eid}: {', '.join(p)}" for eid, p in failing.items())
-        messages.append(AIMessage(content=batch.model_dump_json()))
+        # The draft goes inside the user turn, as in synthesis.py: a plain-JSON
+        # assistant turn leads the model to skip the tool call (Groq's 400).
         messages.append(HumanMessage(content=get_prompt("market_researcher.event_explainer_retry_note",
-                                                        problems=listing)))
-        batch = await _invoke(writer, messages, deadline)
-        failing = check(batch, set(failing))
+                                                        problems=listing, draft=batch.model_dump_json())))
+        batch, failing = await attempt(set(failing))
     notes = []
     for eid, found in failing.items():
         results[eid] = _unavailable(by_id[eid])
@@ -329,7 +348,7 @@ async def explain_events(
             case.articles = rank_news(reusable_news(news_items, case.spec), case.queries, case.spec.lookback_days,
                                       cfg.EXPLAIN_MAX_ARTICLES, cfg.NEWS_TITLE_SIMILARITY,
                                       focus_terms=[case.event.description], now=now)
-    logger.info("stage=explain_search explain_search_ms=%d", int((time.monotonic() - started) * 1000))
+    logger.debug("stage=explain_search explain_search_ms=%d", int((time.monotonic() - started) * 1000))
 
     # Nothing to cite -> no LLM call needed.
     for case in cases:
@@ -348,9 +367,9 @@ async def explain_events(
             out.update({c.event.id: _unavailable(c) for c in to_write})
             notes.append("Event explanations unavailable: the LLM call exceeded the budget.")
         except Exception as e:
-            logger.info("stage=explain_llm failed: %s: %.500s", type(e).__name__, e)
+            logger.debug("stage=explain_llm failed: %s: %.500s", type(e).__name__, e)
             out.update({c.event.id: _unavailable(c) for c in to_write})
             notes.append(f"Event explanations unavailable: the LLM call failed ({type(e).__name__}).")
-        logger.info("stage=explain_llm explain_llm_ms=%d", int((time.monotonic() - started) * 1000))
+        logger.debug("stage=explain_llm explain_llm_ms=%d", int((time.monotonic() - started) * 1000))
 
     return [out[e.id] for e in selected], notes

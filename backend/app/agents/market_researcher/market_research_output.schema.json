@@ -26,6 +26,33 @@
           ],
           "default": null,
           "title": "Published At"
+        },
+        "snippet": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The article text the model was shown.",
+          "title": "Snippet"
+        },
+        "retrieved_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "When the search returned this article.",
+          "title": "Retrieved At"
         }
       },
       "required": [
@@ -355,11 +382,67 @@
       "title": "Indicator",
       "type": "object"
     },
+    "LlmAttempt": {
+      "properties": {
+        "stage": {
+          "title": "Stage",
+          "type": "string"
+        },
+        "attempt": {
+          "title": "Attempt",
+          "type": "integer"
+        },
+        "outcome": {
+          "enum": [
+            "accepted",
+            "rejected",
+            "error",
+            "timeout"
+          ],
+          "title": "Outcome",
+          "type": "string"
+        },
+        "latency_ms": {
+          "title": "Latency Ms",
+          "type": "integer"
+        },
+        "problems": {
+          "description": "Why it was rejected or failed, if it was.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Problems",
+          "type": "array"
+        },
+        "rejected_text": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The text that was rejected, kept for review.",
+          "title": "Rejected Text"
+        }
+      },
+      "required": [
+        "stage",
+        "attempt",
+        "outcome",
+        "latency_ms"
+      ],
+      "title": "LlmAttempt",
+      "type": "object"
+    },
     "MarketResearchRequest": {
       "properties": {
         "query": {
           "anyOf": [
             {
+              "maxLength": 500,
               "type": "string"
             },
             {
@@ -385,8 +468,10 @@
         "focus": {
           "description": "Extra focus terms, e.g. [\"rates\", \"energy\"].",
           "items": {
+            "maxLength": 80,
             "type": "string"
           },
+          "maxItems": 8,
           "title": "Focus",
           "type": "array"
         },
@@ -789,11 +874,53 @@
       },
       "title": "Regime",
       "type": "object"
+    },
+    "RunOrigin": {
+      "description": "Where a run came from. `session_id` identifies a chat session, not a verified person.",
+      "properties": {
+        "channel": {
+          "enum": [
+            "chat",
+            "http"
+          ],
+          "title": "Channel",
+          "type": "string"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Session Id"
+        },
+        "client_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Client Id"
+        }
+      },
+      "required": [
+        "channel"
+      ],
+      "title": "RunOrigin",
+      "type": "object"
     }
   },
   "properties": {
     "schema_version": {
-      "default": "1.4",
+      "default": "1.6",
       "title": "Schema Version",
       "type": "string"
     },
@@ -962,6 +1089,47 @@
       ],
       "default": null,
       "description": "Overall verdict from the final quality gate; read this first."
+    },
+    "llm_model": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Model configured for this run's LLM-written fields.",
+      "title": "Llm Model"
+    },
+    "prompt_versions": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "Prompt key -> version resolved for this run, for audit.",
+      "title": "Prompt Versions",
+      "type": "object"
+    },
+    "origin": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/RunOrigin"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Who started the run, when known."
+    },
+    "llm_attempts": {
+      "description": "Every LLM attempt in this run, in order.",
+      "items": {
+        "$ref": "#/$defs/LlmAttempt"
+      },
+      "title": "Llm Attempts",
+      "type": "array"
     }
   },
   "required": [

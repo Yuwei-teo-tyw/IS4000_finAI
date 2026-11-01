@@ -512,7 +512,7 @@ Conditions that confirm a phase **add to that phase's score**: +0.35 each, or +0
 
 ### 6.5 Step 4: probabilities and confidence
 
-- **Probabilities:** softmax of the four scores with temperature 0.6, giving `regime.probabilities`, which sum to 1.
+- **Probabilities:** softmax of the four scores with temperature 1.0, giving `regime.probabilities`, which sum to 1.
 - **Confidence** comes from the margin between the top two probabilities:
 
   | Margin | Confidence |
@@ -614,7 +614,7 @@ Off by default, because the main agent normally writes the synthesis. Turn it on
 
 ### 8.1 Final quality gate (`quality.py`)
 
-The last stage before the JSON is written. Because it runs inside the pipeline, the HTTP orchestrator and the chat get the **same verdict**. The orchestrator path never goes through the chat's eval agent. It is all code, with no LLM call.
+The last stage before the JSON is written. Because it runs inside the pipeline, the HTTP orchestrator and the chat get the **same verdict**. Neither path goes through the chat's eval agent. It is all code, with no LLM call.
 
 **1. Advice-language screen.** The number validators check figures, not tone. Every LLM-written text is matched against narrow patterns: direct instructions ("you should…"), recommendations ("we recommend…"), trade suggestions ("consider rotating into…"), positioning calls ("overweight"), buy/sell calls, and guarantees ("guaranteed", "risk-free" except the risk-free *rate*). Descriptive words like "selloff" or "buyers" are not flagged.
 - A flagged **event explanation** becomes `unavailable`, keeping its decomposition. Explanations are screened *before* the narrative is written, so the narrative never builds on a flagged one.
@@ -787,7 +787,7 @@ Triage routes questions about **current macro or market conditions** to the **�
 1. Runs a structured scope check that also extracts up to 3 focus terms. Off-topic messages go back to triage.
 2. Runs the pipeline with `include_narrative=True`.
 3. Renders the result as Markdown (`render.py`): the phase with probabilities, the probit, the main conflict, the narrative, notable events, a table of 9 headline indicators, a table of 5 market prices, the top 5 news links, any data gaps, the run id and a disclaimer.
-4. Passes the answer through the graph's `eval` node, including the compliance check.
+4. Sends the answer straight to the user. The graph's `eval` node doesn't review market answers; `quality.py` is the check.
 
 Clicking a source link opens the **article side panel** (§3.4) instead of leaving the chat.
 
@@ -808,7 +808,7 @@ The **Finance Expert is deliberately separate**: it has no tool access to this a
 | **Timeouts** | Per HTTP request 10s; per source (FRED / prices / news) 45s; planner 8s (in parallel with the core fetch); overall run budget 90s. News tagging (at least 10s) and event explanations (min(20s, remaining), skipped below 8s) share whatever budget remains, running concurrently |
 | **Graceful degradation** | News fails: macro data, prices and the regime are still produced. Prices fail: macro, regime and news are produced. FRED fails: prices and news are produced, with `regime.phase = null` and `confidence = "low"`. Every failure is listed in `data_quality.failed_sources`, and the API status becomes `partial`, except failures prefixed `planned:` (planner extras), which only add a note |
 | **Staleness** | Per-frequency grace periods (§4.3). Stale series are listed in `data_quality.stale_series` and flagged on the indicator |
-| **Logging** | `market_researcher` logger: per-source attempt, status, latency and stage timings (`planner_ms`, `extra_fetch_ms`, `explain_search_ms`, `explain_llm_ms`). No API keys, no request params |
+| **Logging** | `market_researcher` logger: run start and finish plus warnings at INFO; per-request and per-stage detail at DEBUG (`MARKET_RESEARCH_LOG_LEVEL`). The API key is never logged |
 
 ---
 
@@ -985,7 +985,7 @@ python tests/evals/run_market_researcher_evals.py               # 17-case live e
 | `test_market_decompositions.py` | Hand-computed yield split (with residual and 1w/1m window), all curve labels, core CPI momentum, missing data → `None` |
 | `test_market_event_explainer.py` | Query templating, per-event lookback, news reuse, number → URL mapping, invented citations dropped, cited vs uncited snippet numbers, retry → `unavailable`, `insufficient_evidence`, budget skip, replay default off |
 | `test_market_endpoints.py` | Full HTTP lifecycle, `wait=true`, `/latest`, 404/409/422/429/502/503, bearer auth, health |
-| `test_market_chat.py` | Chat node, triage → market researcher → eval end-to-end, renderer, Finance having no access |
+| `test_market_chat.py` | Chat node, triage → market researcher end-to-end, renderer, Finance having no access |
 | `test_market_article_reader.py` | Article reader: cited-URL allowlist and run-id validation, robots.txt, extraction, unavailable cases (403/500/video/non-HTML), SSRF guard, caching, `/articles` endpoint without token |
 | `test_market_quality.py` | Advice patterns (flagged and not flagged), withheld explanations keep their decomposition, narrative replaced by the template, every check and status (`ok` / `degraded` / `unusable`) |
 | `test_market_live.py` | Opt-in live smoke tests, plus a planned run with explanations and a check that every catalog id exists on FRED |

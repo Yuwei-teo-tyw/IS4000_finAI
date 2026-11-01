@@ -33,7 +33,7 @@ This note goes with `market_researcher_agent.md` at the repo root. It records wh
 ## Tuning and findings
 
 - **Backtest** (`backtest_report.md`) covers 1980 to the present, monthly:
-  - **Tuning:** with a 3-month momentum window, all 6 NBER recessions were caught but 5 sustained false recession calls appeared, in post-recession recoveries. Moving to `momentum_months=6` cut that to 2: the 2003 jobless recovery and the 2024 Sahm-rule trigger, both genuine scares at the time. That change held across hysteresis, temperature and strong-adjustment weights. This is the only weight changed from the starting values.
+  - **Tuning:** with a 3-month momentum window, all 6 NBER recessions were caught but 5 sustained false recession calls appeared, in post-recession recoveries. Moving to `momentum_months=6` cut that to 2: the 2003 jobless recovery and the 2024 Sahm-rule trigger, both genuine scares at the time. That change held across hysteresis, temperature and strong-adjustment weights. The walk-forward config below later replaced these values.
   - **Known limitation:** 2010 to 2017 classifies as `early_expansion` throughout, because 10-year z-scores carry the 2008 trough. A `mid_expansion` phase (v1.1) would address this.
 - **Percentiles are mid-rank**, so ties count half. A plain "≤ latest" percentile reported a flat series at the 100th percentile and fired false credit-stress events.
 - **The narrative validator checks labels as well as numbers.** In live runs the model kept calling trailing 1-year returns "YTD" and 10-year-percentile yields "near-record". The payload now uses explicit `trailing_1y_pct` keys, and "YTD" or "record" wording the data doesn't support fails validation.
@@ -44,7 +44,9 @@ This note goes with `market_researcher_agent.md` at the repo root. It records wh
 - **The chat's article side panel uses extracted text, not an iframe.** Probing one run's 15 news URLs, 8 refused embedding (`X-Frame-Options` / CSP `frame-ancestors`), and others block bots or are paywalled. `article_reader.py` therefore fetches only URLs the run cited, honours robots.txt and blocks non-public addresses, then extracts the main text with trafilatura: 10 of 15 sources produced readable text. It is the one place outside the API sources where a web page is fetched.
 - **The backtest now runs the live model's exact inputs:** `BAA10Y` credit (spliced to `BAA − GS10` before 1986) and S&P 500 for the equity rule. Before this, credit was absent pre-2023 and equities were absent entirely, so those parts of the live model were untested. With matched inputs it is still 6/6 caught with 2 sustained false calls.
 - **New metrics show where the model is weak:** Brier skill is −0.47 (the phase "probabilities" are uncalibrated), and it makes 84 phase changes vs 14 for the Sahm rule. It does call earlier, with far fewer false-call months than Sahm (14 vs 38).
-- **Walk-forward:** a config tuned only on 1980–2005 (`momentum_months=9, hysteresis_margin=0.1, temperature=1.0, adjustment_weight=0.5, strong_adjustment_weight=0.5`) beats the current defaults on 2006+ (0 vs 1 sustained false calls, 2 vs 5 false-call months, 12 vs 18 phase changes). The defaults are unchanged pending a decision.
+- **Walk-forward:** a config tuned only on 1980–2005 (`momentum_months=9, hysteresis_margin=0.1, temperature=1.0, adjustment_weight=0.5, strong_adjustment_weight=0.5`) beats the current defaults on 2006+ (0 vs 1 sustained false calls, 2 vs 5 false-call months, 12 vs 18 phase changes). `RegimeConfig` now uses this config, so the figures earlier in this section describe the earlier defaults.
+- **`backtest_report.md` is generated, not committed.** Run `python -m app.agents.market_researcher.backtest` to produce it.
+- **Regime calibration is not set yet.** `RegimeConfig.calibration` is `None`, so chat and the template label the phase percentages "uncalibrated model scores". Once it is fitted from the backtest, remove that label from `render.py`, `synthesis.py` and `synthesis_system`.
 
 ## Query planner and event explanations
 
@@ -73,9 +75,38 @@ Findings from the live runs (2026-10-17):
 - **Sample plan.** For "How is oil affecting the inflation outlook?" the planner chose DCOILWTICO, DCOILBRENTEU, CPIENGSL and BZ=F, with nothing dropped. Both detected events (`core_inflation_reaccelerating`, `fed_raised`) were explained with two cited URLs each and passed the number validator on the first try.
 - **Evals: 17/17 pass**, but the first run showed a gap. In 3 cases both explanations were `unavailable` because Groq returned 400 (`tool_use_failed` / `output_parse_failed`). The model had answered with a bare JSON list or with prose reasoning instead of the structured tool call. Two fixes: `event_explainer_system` v2 names the `{"items": [...]}` wrapper and forbids prose or bare lists, and `_invoke` re-asks once when the provider rejects the output. With the fix, all three cases were explained on the first attempt.
 
+## Reliability and chat fixes (schema 1.5)
+
+- **FRED timeouts are per series.** Each series gets `FRED_SERIES_TIMEOUT_SHARE` of the source timeout. A single series retrying through its 4 attempts used to reach the source timeout, which threw away every series already fetched.
+- **`/latest` only serves current, usable runs.** It skips replays of a past `as_of` and runs whose quality is `unusable`. `market_research_runs.quality` stores the verdict; `init_market_tables` adds the column to existing databases, and older rows (NULL) are treated as usable.
+- **The narrative has a time limit:** the remaining run budget, with a floor of `SYNTHESIS_MIN_BUDGET_S`. If it runs out, the template is used.
+- **Empty results are not cached.** Empty FRED, price and news responses can be transient. Empty series and missing symbols appear in `data_quality.notes`.
+- **Chat shows more of the run.** The render now includes the quality warning, risks, implications and the planner's extras. Follow-ups are rewritten into a standalone query by the scope check, and only when there are earlier messages. That query reaches external search, so the prompt forbids client names and personal details.
+- **Each output records `llm_model` and `prompt_versions`** for audit.
+
+## Logging: checkpoints only
+
+- **INFO and above are checkpoints.** A healthy run logs two lines: `run=... started` and `run=... finished in ...s quality=... llm_problems=...`.
+- **WARNING means something needs a look:** a failed source or series, an LLM attempt that was rejected, failed or timed out, or quality issues. ERROR means the run failed. Each line carries the run id.
+- **DEBUG holds the detail:** per-request status, per-stage latency and re-asks. Set `MARKET_RESEARCH_LOG_LEVEL=DEBUG` on the server, or use `-v` on the CLI.
+- **The full record stays in the output and Langfuse.** `llm_attempts`, `data_quality` and the audit log are unchanged.
+
+## Traceability and guardrails (schema 1.6)
+
+- **`tracing.py` carries a `RunTrace` in a context variable,** so concurrent stages reach it without signature changes. Every LLM call passes a `trace_config` with the run id, stage, attempt and prompt versions. HTTP runs had no Langfuse callback before this, because they run as background tasks outside the chat graph.
+- **`output.origin`** records the channel, session and client. A session is not a verified person: the chat has no login.
+- **`output.llm_attempts`** lists every attempt with its outcome, problems and rejected text. `explanation_screen` and `narrative_screen` entries record what the advice screen removed.
+- **`CitedSource.snippet` and `retrieved_at`** keep the text the model saw, so an explanation can be checked after the article changes.
+- **`audit.py` is append-only** (`market_audit_events`): `run_finished` and `response_rendered` hold SHA-256 hashes, and `run_failed` holds the error. Read it at `GET /runs/{run_id}/audit`. An audit write failure logs a warning and doesn't fail the run.
+- **No eval agent review.** Chat answers go straight to the user after `quality.py`, so `response_rendered` is the exact text they receive. The LLM compliance pass no longer runs on them, and the advice screen is the only check on tone.
+- **The link check only trusts `url` and `cited_urls` fields.** A URL inside a news title or summary is article text, so it can't vouch for itself. Explanations have no URL fields, so any link in one fails: code maps citations to URLs.
+- **The advice screen stays narrow on purpose.** "Investors favor energy" passes as description; "could favor" and a sentence opening with "Favor" do not.
+- **Superlatives fail the wording check unless the payload uses them,** which can raise retries and template fallbacks. Check `llm_attempts` if template use rises.
+- **Client names:** the agent never receives the name as a separate field, so the protection is partial: the heuristic plan prefers focus terms over the raw message, and `planner_system` v2 bans names in news queries.
+
 ## Quality gate and explanation-source fix (schema 1.4)
 
-- **Quality gate (`quality.py`).** Added because the chat's eval agent never sees HTTP/orchestrator runs, so the pipeline has to judge itself. It is code-only:
+- **Quality gate (`quality.py`).** Added so the pipeline judges itself on every path, since neither HTTP nor chat runs go through the eval agent. It is code-only:
   - **Advice-language screen:** a narrow set of regex patterns, chosen so descriptive words like "selloff" or "risk-free rate" pass. A flagged explanation becomes `unavailable`; a flagged narrative is replaced by the template.
   - **Assessment:** `output.quality.status` is `ok` / `degraded` / `unusable`, with per-check booleans and issues. `planned:` failures and replays without news don't degrade the status.
 - **"Why: … [source]" links returned 404 in the chat's side panel.** `article_reader.find_news_item` allowed only `news[].url`, but explanation sources come from the explainer's own searches. `EventExplanation.cited_sources` now records each cited article's title, domain and date, and the reader accepts those URLs. For older run files it falls back to `cited_urls`.

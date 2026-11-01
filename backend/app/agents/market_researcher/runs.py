@@ -12,14 +12,17 @@ by cache.init_market_tables) and in-memory for tests. On startup, runs
 left queued/running by a previous process are marked failed.
 """
 import asyncio
-from datetime import datetime, timezone
+import logging
+from datetime import date, datetime, timezone
 from typing import Literal, Optional, Protocol
 
 from pydantic import BaseModel
 
 from app.agents.market_researcher.config import SUPPORTED_REGIONS
-from app.agents.market_researcher.schemas import MarketResearchRequest
+from app.agents.market_researcher.schemas import MarketResearchRequest, RunOrigin
 from app.agents.market_researcher.service import MarketResearchService, UnsupportedRegionError, new_run_id
+
+logger = logging.getLogger("market_researcher")
 
 RunStatus = Literal["queued", "running", "succeeded", "partial", "failed"]
 FINISHED: tuple[str, ...] = ("succeeded", "partial", "failed")
@@ -34,6 +37,7 @@ class RunRecord(BaseModel):
     error: Optional[str] = None
     created_at: datetime
     finished_at: Optional[datetime] = None
+    quality: Optional[str] = None  # output.quality.status, once finished
 
 
 class QueueFullError(RuntimeError):
@@ -50,6 +54,12 @@ class RunRegistry(Protocol):
     async def get(self, run_id: str) -> Optional[RunRecord]: ...
     async def latest_success(self, region: str, since: datetime) -> Optional[RunRecord]: ...
     async def mark_interrupted(self) -> int: ...
+
+
+def _is_replay(record: RunRecord) -> bool:
+    """True for a run of a past `as_of`, which says nothing about current conditions."""
+    as_of = record.request.get("as_of")
+    return as_of is not None and date.fromisoformat(as_of) < record.created_at.astimezone(timezone.utc).date()
 
 
 class InMemoryRunRegistry:
@@ -69,6 +79,7 @@ class InMemoryRunRegistry:
         done = [
             r for r in self._runs.values()
             if r.region == region and r.status in ("succeeded", "partial") and r.finished_at and r.finished_at >= since
+            and r.quality != "unusable" and not _is_replay(r)
         ]
         return max(done, key=lambda r: r.finished_at, default=None)
 
@@ -80,19 +91,19 @@ class InMemoryRunRegistry:
         return len(stuck)
 
 
-_COLUMNS = "id, status, region, request, json_path, error, created_at, finished_at"
+_COLUMNS = "id, status, region, request, json_path, error, created_at, finished_at, quality"
 
 
 def _row_to_record(row) -> RunRecord:
     import json
 
-    rid, status, region, request, json_path, error, created_at, finished_at = row
+    rid, status, region, request, json_path, error, created_at, finished_at, quality = row
     return RunRecord(run_id=rid, status=status, region=region, request=json.loads(request), json_path=json_path,
-                     error=error, created_at=created_at, finished_at=finished_at)
+                     error=error, created_at=created_at, finished_at=finished_at, quality=quality)
 
 
 class PostgresRunRegistry:
-    _UPDATABLE = {"status", "json_path", "error", "finished_at"}
+    _UPDATABLE = {"status", "json_path", "error", "finished_at", "quality"}
 
     def __init__(self, pool):
         self._pool = pool
@@ -102,9 +113,9 @@ class PostgresRunRegistry:
 
         async with self._pool.connection() as conn:
             await conn.execute(
-                f"INSERT INTO market_research_runs ({_COLUMNS}) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                f"INSERT INTO market_research_runs ({_COLUMNS}) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
                 (record.run_id, record.status, record.region, json.dumps(record.request), record.json_path,
-                 record.error, record.created_at, record.finished_at),
+                 record.error, record.created_at, record.finished_at, record.quality),
             )
 
     async def update(self, run_id: str, **fields) -> None:
@@ -129,6 +140,9 @@ class PostgresRunRegistry:
                 f"""
                 SELECT {_COLUMNS} FROM market_research_runs
                 WHERE region = %s AND status IN ('succeeded', 'partial') AND finished_at >= %s
+                  AND quality IS DISTINCT FROM 'unusable'
+                  AND (request::json->>'as_of' IS NULL
+                       OR (request::json->>'as_of')::date >= (created_at AT TIME ZONE 'UTC')::date)
                 ORDER BY finished_at DESC LIMIT 1
                 """,
                 (region, since),
@@ -154,6 +168,8 @@ class MarketResearchRunner:
         self.registry = registry
         self.service = service
         settings = service.settings
+        if not settings.api_token:
+            logger.warning("MARKET_RESEARCH_API_TOKEN is not set: the market researcher API accepts unauthenticated calls.")
         self._max_in_flight = (max_concurrent or settings.max_concurrent_runs) + (
             settings.max_queued_runs if max_queued is None else max_queued)
         self._semaphore = asyncio.Semaphore(max_concurrent or settings.max_concurrent_runs)
@@ -192,16 +208,16 @@ class MarketResearchRunner:
             async with self._semaphore:
                 await self.registry.update(run_id, status="running")
                 try:
-                    result = await self.service.run(request, run_id=run_id)
+                    result = await self.service.run(request, run_id=run_id, origin=RunOrigin(channel="http"))
                 except Exception as e:
-                    print(f"MARKET_RESEARCHER: run {run_id} failed: {type(e).__name__}: {e}")
                     await self.registry.update(run_id, status="failed", error=f"{type(e).__name__}: {e}",
                                                finished_at=datetime.now(timezone.utc))
                     return
                 # Failures confined to planner extras (`planned:`) don't degrade the core output.
                 core_failed = [s for s in result.output.data_quality.failed_sources if not s.startswith("planned:")]
                 status = "partial" if core_failed else "succeeded"
-                await self.registry.update(run_id, status=status, json_path=str(result.json_path),
+                quality = result.output.quality.status if result.output.quality else None
+                await self.registry.update(run_id, status=status, json_path=str(result.json_path), quality=quality,
                                            finished_at=datetime.now(timezone.utc))
         finally:
             self._tasks.pop(run_id, None)

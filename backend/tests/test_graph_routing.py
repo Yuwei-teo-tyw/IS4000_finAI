@@ -86,5 +86,5 @@ def test_route_after_eval_regenerate_with_unknown_agent_ends():
 
 def test_route_after_market_researcher():
     assert route_after_market_researcher({"next_agent": "triage"}) == "triage"
-    assert route_after_market_researcher({"next_agent": None, "skip_eval": False}) == "eval"
-    assert route_after_market_researcher({"next_agent": None, "skip_eval": True}) == END
+    assert route_after_market_researcher({"next_agent": None}) == END
+    assert route_after_market_researcher({"next_agent": None, "skip_eval": False}) == END  # never reviewed by eval

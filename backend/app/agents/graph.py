@@ -8,11 +8,11 @@ Graph shape:
 
     triage    --(route_after_triage)-->    market_researcher | general | END
     general   --(route_after_general)-->   general_tools | triage (handoff) | eval | END
-    market_researcher --(route_after_market_researcher)--> triage (handoff) | eval | END
+    market_researcher --(route_after_market_researcher)--> triage (handoff) | END
     client_profiling --(route_after_client_profiling)--> general (out of scope) | END
     general_tools   --> general     (loop back with tool results)
 
-    eval --(route_after_eval)--> market_researcher | general | triage (regenerate) | END (approved/flagged)
+    eval --(route_after_eval)--> general | triage (regenerate) | END (approved/flagged)
 
 Subagents wrapping the core triage/specialist flow:
 
@@ -21,7 +21,7 @@ Subagents wrapping the core triage/specialist flow:
   Placeholder regex-based implementation - see nodes/pii_guard.py.
 - `context_manager`: compacts conversation history once it grows too large
   (see nodes/context_manager.py).
-- `eval`: reviews every final response before it ships - can approve, flag
+- `eval`: reviews the general and triage responses before they ship - can approve, flag
   with a caveat, or send it back for a regenerate with feedback. Runs an
   additional compliance pass, since both specialists can touch financial
   topics (see nodes/eval_agent.py).
@@ -108,9 +108,7 @@ def route_after_general(state: AgentState) -> str:
 def route_after_market_researcher(state: AgentState) -> str:
     if state.get("next_agent") == "triage":
         return "triage"  # handoff, nothing to eval yet
-    if state.get("skip_eval"):
-        return END
-    return "eval"  # rendered pipeline output - still gets the compliance review
+    return END  # rendered pipeline output, already checked by the pipeline's own quality gate
 
 
 def route_after_client_profiling(state: AgentState) -> str:
@@ -164,7 +162,7 @@ def build_graph(checkpointer: BaseCheckpointSaver):
     )
     workflow.add_conditional_edges(
         "market_researcher", route_after_market_researcher,
-        {"triage": "triage", "eval": "eval", END: END}
+        {"triage": "triage", END: END}
     )
     workflow.add_conditional_edges(
         "client_profiling", route_after_client_profiling, {"general": "general", END: END}

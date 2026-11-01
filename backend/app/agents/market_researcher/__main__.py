@@ -64,7 +64,7 @@ async def _run(args: argparse.Namespace) -> Path:
 def main() -> None:
     load_dotenv(Path(__file__).resolve().parents[4] / ".env")
     args = _parse_args()
-    logging.basicConfig(level=logging.INFO if args.verbose else logging.WARNING, format="%(message)s")
+    logging.basicConfig(level=logging.DEBUG if args.verbose else logging.WARNING, format="%(message)s")
     print(asyncio.run(_run(args)))
 
 

@@ -131,3 +131,19 @@ def test_explained_without_matching_sources_is_inconsistent():
     x.cited_sources = []
     report = assess(make_output(event_explanations=[x]), news_expected=True, screened=[])
     assert not report.checks["consistency"] and "without matching sources" in report.issues[0]
+
+
+@pytest.mark.parametrize("text", [
+    "Long-duration bonds could favor investors now.", "Clients may want to add duration.", "Credit looks attractive here.",
+    "Yields are high. Favor short duration.", "Energy offers an attractive entry point.",
+])
+def test_soft_advice_is_flagged(text):
+    assert advice_problems([text])
+
+
+@pytest.mark.parametrize("text", [
+    "Investors favored energy last month.", "Markets prefer clarity from the Fed.", "Traders avoid long bonds.",
+    "The selloff lacks a catalyst.", "Valuations are not attractive to everyone.",
+])
+def test_descriptive_text_passes_the_advice_screen(text):
+    assert not advice_problems([text])

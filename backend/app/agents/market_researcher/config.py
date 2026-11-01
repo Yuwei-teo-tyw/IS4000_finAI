@@ -20,10 +20,17 @@ Signal = Literal[
     "tightening", "easing", "neutral",
 ]
 
-SCHEMA_VERSION = "1.4"  # 1.1: Indicator.stats_window_years; 1.2: Regime.in_recession_prob, Regime.scores;
+SCHEMA_VERSION = "1.6"  # 1.1: Indicator.stats_window_years; 1.2: Regime.in_recession_prob, Regime.scores;
 # 1.3: plan, planned_indicators, planned_market, event_explanations (all optional);
-# 1.4: quality, EventExplanation.cited_sources (optional)
+# 1.4: quality, EventExplanation.cited_sources (optional);
+# 1.5: llm_model, prompt_versions (optional);
+# 1.6: origin, llm_attempts, CitedSource.snippet / retrieved_at (optional)
 SUPPORTED_REGIONS = ("US",)
+
+# Request limits.
+MAX_QUERY_CHARS = 500
+MAX_FOCUS_TERMS = 8
+MAX_FOCUS_TERM_CHARS = 80
 
 
 @dataclass(frozen=True)
@@ -392,6 +399,22 @@ EXPLAIN_TIMEOUT_S = 20.0
 EXPLAIN_MIN_BUDGET_S = 8.0
 EXPLAIN_SNIPPET_CHARS = 300
 EXPLAIN_MAX_WORDS = 70
+
+# Share of the source timeout each FRED series gets, so a slow series fails on
+# its own before the source timeout discards every series already fetched.
+FRED_SERIES_TIMEOUT_SHARE = 0.9
+# Time the narrative always gets, even when the earlier stages used the whole run budget.
+SYNTHESIS_MIN_BUDGET_S = 20.0
+# Prompts a run can use; their resolved versions are recorded in each output.
+PIPELINE_PROMPT_KEYS: tuple[str, ...] = (
+    "market_researcher.planner_system",
+    "market_researcher.news_tagging_system",
+    "market_researcher.event_explainer_system",
+    "market_researcher.event_explainer_retry_note",
+    "market_researcher.synthesis_system",
+    "market_researcher.synthesis_label_reminder",
+    "market_researcher.synthesis_retry_note",
+)
 
 
 # --- Output quality gate (quality.py) --------------------------------------

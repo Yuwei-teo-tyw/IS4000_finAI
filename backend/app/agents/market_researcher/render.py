@@ -6,6 +6,7 @@ number shown comes straight from the output; nothing here calls an LLM.
 from typing import Optional
 
 from app.agents.market_researcher.schemas import EventExplanation, Indicator, MarketResearchOutput
+from app.agents.market_researcher.synthesis import TEMPLATE_NOTE_PREFIX
 
 # Headline rows shown in chat; the full set stays in the JSON file.
 HEADLINE_INDICATORS = ("DGS10", "DGS2", "T10Y3M", "DFF", "CPILFESL", "UNRATE", "PAYEMS", "BAMLH0A0HYM2", "NFCI")
@@ -18,6 +19,12 @@ _PHASE_LABELS = {
 }
 
 
+_QUALITY_WARNINGS = {
+    "unusable": "**Data warning: this run is unusable. Do not rely on the cycle call or the indicators below.**",
+    "degraded": "_Data warning: some of this run's data is missing, stale or was withheld, so read it with care._",
+}
+
+
 def _fmt(v: float) -> str:
     return f"{v:,.0f}" if abs(v) >= 1000 else f"{v:,.2f}"
 
@@ -27,6 +34,10 @@ def _change(i: Indicator, key: str) -> str:
     if v is None:
         return "-"
     return f"{v:+.2f}%" if i.source != "FRED" else f"{v:+.2f}"
+
+
+def _area_label(area: str) -> str:
+    return area.upper() if len(area) <= 3 else area.replace("_", " ").capitalize()
 
 
 def _explanation_lines(x: Optional[EventExplanation]) -> list[str]:
@@ -46,9 +57,12 @@ def _explanation_lines(x: Optional[EventExplanation]) -> list[str]:
 def render_markdown(output: MarketResearchOutput, disclaimer: str) -> str:
     r = output.regime
     lines = [f"**Market research - {output.region}, as of {output.as_of}**", ""]
+    warning = _QUALITY_WARNINGS.get(output.quality.status) if output.quality else None
+    if warning:
+        lines += [warning, ""]
     if r.phase:
         probs = ", ".join(f"{k.replace('_', ' ')} {v * 100:.0f}%" for k, v in sorted(r.probabilities.items(), key=lambda kv: -kv[1]))
-        lines.append(f"**Cycle phase: {_PHASE_LABELS[r.phase]}** ({r.confidence} confidence; {probs})")
+        lines.append(f"**Cycle phase: {_PHASE_LABELS[r.phase]}** ({r.confidence} confidence; uncalibrated model scores: {probs})")
     else:
         lines.append("**Cycle phase: not classified** (insufficient macro data)")
     if r.recession_prob_12m is not None:
@@ -56,8 +70,17 @@ def render_markdown(output: MarketResearchOutput, disclaimer: str) -> str:
     if r.conflicting_signals:
         lines.append(f"Main conflicting signal: {r.conflicting_signals[0]}")
 
+    templated = any(n.startswith(TEMPLATE_NOTE_PREFIX) for n in output.data_quality.notes)
     if output.narrative:
         lines += ["", output.narrative]
+        if templated:
+            lines += ["", "_This summary is generated from the data alone; the written analysis was unavailable._"]
+    # The template's risks only repeat the conflicting signals shown above.
+    if output.risks and not templated:
+        lines += ["", "**Risks**"] + [f"- {risk}" for risk in output.risks]
+    if output.implications:
+        lines += ["", "**Implications**"]
+        lines += [f"- **{_area_label(area)}:** {text}" for area, text in output.implications.items()]
 
     if output.events:
         lines += ["", "**Notable events**"]
@@ -66,6 +89,13 @@ def render_markdown(output: MarketResearchOutput, disclaimer: str) -> str:
         for e in shown:
             lines.append(f"- {e.description}")
             lines += _explanation_lines(explained.get(e.id))
+
+    planned = output.planned_indicators + output.planned_market
+    if planned:
+        lines += ["", "**Relevant to your question**", "", "| Series | Latest | As of | 1m | 1y |", "|---|---|---|---|---|"]
+        for i in planned:
+            stale = " (stale)" if i.stale else ""
+            lines.append(f"| {i.name} | {_fmt(i.value)} {i.unit}{stale} | {i.observation_date} | {_change(i, '1m')} | {_change(i, '1y')} |")
 
     by_id = {i.id: i for i in output.indicators}
     rows = [by_id[i] for i in HEADLINE_INDICATORS if i in by_id]
